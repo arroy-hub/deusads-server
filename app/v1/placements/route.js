@@ -1,4 +1,4 @@
-import { authenticateGame, json } from "../../../lib/api";
+import { authenticateGame, guarded, json } from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ const MAX_PLACEMENTS = 500;
  *
  * Body: { placements: [ { externalId, label?, scene?, aspectRatio?, widthM?, heightM? } ] }
  */
-export async function POST(request) {
+export const POST = guarded(async function POST(request) {
   const { game, db, error } = await authenticateGame(request);
   if (error) return error;
 
@@ -71,7 +71,7 @@ export async function POST(request) {
   }
 
   return json({ game: game.name, saved: data.length });
-}
+});
 
 function finiteOrNull(value) {
   const number = Number(value);

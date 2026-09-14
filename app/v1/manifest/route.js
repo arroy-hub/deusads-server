@@ -1,4 +1,4 @@
-import { authenticateGame, creativeUrl, json } from "../../../lib/api";
+import { authenticateGame, creativeUrl, guarded, json } from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * Placements with no creative assigned are simply absent: the SDK then keeps the
  * developer's fallback texture, which is the correct behaviour for an unsold slot.
  */
-export async function GET(request) {
+export const GET = guarded(async function GET(request) {
   const { game, db, error } = await authenticateGame(request);
   if (error) return error;
 
@@ -38,4 +38,4 @@ export async function GET(request) {
   }));
 
   return json({ version: 1, placements });
-}
+});

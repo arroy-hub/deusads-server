@@ -1,4 +1,4 @@
-import { authenticateGame, json } from "../../../lib/api";
+import { authenticateGame, guarded, json } from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ const MAX_IMPRESSIONS = 1000;
  * counted twice: an inflated number would be found by the first advertiser who
  * checks, and that is not a mistake worth risking.
  */
-export async function POST(request) {
+export const POST = guarded(async function POST(request) {
   const { game, db, error } = await authenticateGame(request);
   if (error) return error;
 
@@ -104,7 +104,7 @@ export async function POST(request) {
     duplicates: rows.length - accepted,
     unknownPlacements: unknown,
   });
-}
+});
 
 function isUuid(value) {
   return (
