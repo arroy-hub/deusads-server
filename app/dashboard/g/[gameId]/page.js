@@ -31,13 +31,32 @@ export default async function GamePage({ params }) {
       db.from("impressions").select("session_id", { count: "exact" }).eq("game_id", gameId),
     ]);
 
+  if (placementResult.error) {
+    console.error("[DeusADS] dashboard placements query failed:", {
+      gameId,
+      code: placementResult.error.code,
+      message: placementResult.error.message,
+      details: placementResult.error.details,
+      hint: placementResult.error.hint,
+    });
+  }
+
   // Before migration 0002 there is no removed_at column: show everything, as before.
   const { data: placements } =
     placementResult.error && ["42703", "PGRST204"].includes(placementResult.error.code)
       ? await livePlacements(db, gameId, false)
       : placementResult;
 
-  const rows = placements ?? [];
+  // Placements removed by "Send placements" never show, even if the query filter
+  // did not apply; the log says when that happens.
+  const all = placements ?? [];
+  const rows = all.filter((row) => !row.removed_at);
+  if (rows.length !== all.length) {
+    console.warn("[DeusADS] dashboard: removed placements came back from the filtered query", {
+      gameId,
+      hidden: all.length - rows.length,
+    });
+  }
   const sessions = new Set((impressions ?? []).map((row) => row.session_id));
   const assigned = rows.filter((row) => activeAssignment(row)).length;
 
@@ -172,17 +191,20 @@ function Surface({ placement, creatives, gameId, db }) {
 
 /** Placements still in the game; ones removed by the last "Send placements" are hidden. */
 function livePlacements(db, gameId, skipRemoved) {
+  const columns = skipRemoved
+    ? "id, external_id, label, scene, aspect_ratio, width_m, height_m, removed_at,"
+    : "id, external_id, label, scene, aspect_ratio, width_m, height_m,";
+
   let query = db
     .from("placements")
     .select(
-      `id, external_id, label, scene, aspect_ratio, width_m, height_m,
+      `${columns}
        assignments!left ( id, active, creatives ( id, name, storage_path, width_px, height_px ) )`
     )
-    .eq("game_id", gameId)
-    .order("scene", { ascending: true });
+    .eq("game_id", gameId);
 
   if (skipRemoved) query = query.is("removed_at", null);
-  return query;
+  return query.order("scene", { ascending: true });
 }
 
 function activeAssignment(placement) {
