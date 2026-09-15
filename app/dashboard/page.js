@@ -7,10 +7,20 @@ export const dynamic = "force-dynamic";
 export default async function GamesPage() {
   const db = await userClient();
 
-  const { data: games } = await db
-    .from("games")
-    .select("id, name, api_key, created_at, placements(count)")
-    .order("created_at", { ascending: true });
+  // Count only placements still in the game (migration 0002); fall back to all.
+  const listGames = (skipRemoved) => {
+    let query = db
+      .from("games")
+      .select("id, name, api_key, created_at, placements(count)")
+      .order("created_at", { ascending: true });
+    if (skipRemoved) query = query.is("placements.removed_at", null);
+    return query;
+  };
+
+  let { data: games, error } = await listGames(true);
+  if (error && ["42703", "PGRST204", "PGRST100"].includes(error.code)) {
+    ({ data: games } = await listGames(false));
+  }
 
   return (
     <>

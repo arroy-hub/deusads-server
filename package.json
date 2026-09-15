@@ -1,12 +1,13 @@
 {
   "name": "deusads-server",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node test/routes.test.mjs"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +20,8 @@
     "react-dom": "^19.3.0"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
 }

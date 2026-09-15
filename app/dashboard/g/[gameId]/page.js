@@ -23,19 +23,19 @@ export default async function GamePage({ params }) {
 
   if (!game) notFound();
 
-  const [{ data: placements }, { data: creatives }, { data: impressions }] =
+  const [placementResult, { data: creatives }, { data: impressions, count: impressionCount }] =
     await Promise.all([
-      db
-        .from("placements")
-        .select(
-          `id, external_id, label, scene, aspect_ratio, width_m, height_m,
-           assignments!left ( id, active, creatives ( id, name, storage_path, width_px, height_px ) )`
-        )
-        .eq("game_id", gameId)
-        .order("scene", { ascending: true }),
+      livePlacements(db, gameId, true),
       db.from("creatives").select("id, name, width_px, height_px").eq("status", "approved"),
-      db.from("impressions").select("session_id").eq("game_id", gameId),
+      // The count is exact; the rows (capped by the API) only feed the sessions figure.
+      db.from("impressions").select("session_id", { count: "exact" }).eq("game_id", gameId),
     ]);
+
+  // Before migration 0002 there is no removed_at column: show everything, as before.
+  const { data: placements } =
+    placementResult.error && ["42703", "PGRST204"].includes(placementResult.error.code)
+      ? await livePlacements(db, gameId, false)
+      : placementResult;
 
   const rows = placements ?? [];
   const sessions = new Set((impressions ?? []).map((row) => row.session_id));
@@ -48,8 +48,9 @@ export default async function GamePage({ params }) {
         <code className="key">{game.api_key}</code>
       </div>
       <p className="lede">
-        Placements the SDK found in your scenes, drawn at the size and proportions they
-        have in the game. Changing a creative here takes effect the next time a player
+        Placements the SDK found in your scenes and prefabs, drawn at the size and
+        proportions they have in the game. Placements you delete in Unity disappear
+        from here the next time you press Send placements. Changing a creative here takes effect the next time a player
         starts the game — no new build.
       </p>
 
@@ -64,7 +65,7 @@ export default async function GamePage({ params }) {
             <div className="figure-label">Showing a creative</div>
           </div>
           <div>
-            <div className="figure-value">{impressions?.length ?? 0}</div>
+            <div className="figure-value">{impressionCount ?? impressions?.length ?? 0}</div>
             <div className="figure-label">Impressions</div>
           </div>
           <div>
@@ -167,6 +168,21 @@ function Surface({ placement, creatives, gameId, db }) {
       )}
     </div>
   );
+}
+
+/** Placements still in the game; ones removed by the last "Send placements" are hidden. */
+function livePlacements(db, gameId, skipRemoved) {
+  let query = db
+    .from("placements")
+    .select(
+      `id, external_id, label, scene, aspect_ratio, width_m, height_m,
+       assignments!left ( id, active, creatives ( id, name, storage_path, width_px, height_px ) )`
+    )
+    .eq("game_id", gameId)
+    .order("scene", { ascending: true });
+
+  if (skipRemoved) query = query.is("removed_at", null);
+  return query;
 }
 
 function activeAssignment(placement) {

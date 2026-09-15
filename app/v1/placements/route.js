@@ -1,4 +1,11 @@
-import { authenticateGame, guarded, json } from "../../../lib/api";
+import {
+  authenticateGame,
+  guarded,
+  isSchemaOutdated,
+  json,
+  logDbError,
+  warnSchemaOutdated,
+} from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -7,10 +14,20 @@ const MAX_PLACEMENTS = 500;
 /**
  * POST /v1/placements
  * Sent from the Unity editor when the developer presses "Send placements".
- * This is what removes typing from the developer's job: the SDK generates the
- * IDs and reports size and proportions, and the dashboard names them afterwards.
+ * The SDK generates the IDs and reports size and proportions; the dashboard
+ * names them afterwards.
  *
- * Body: { placements: [ { externalId, label?, scene?, aspectRatio?, widthM?, heightM? } ] }
+ * Body: {
+ *   complete?: boolean,
+ *   placements: [ { externalId, label?, scene?, aspectRatio?, widthM?, heightM? } ]
+ * }
+ *
+ * complete: true (SDK 0.4+) means the list is every placement the game has.
+ * Placements of this game that are missing from it are marked removed and
+ * disappear from the dashboard and the manifest; sending one again restores it.
+ * Without the flag (older SDKs, which only report open scenes) nothing is removed.
+ *
+ * Response: { game, saved, removed: [{ externalId, label }], restored: [...] }
  */
 export const POST = guarded(async function POST(request) {
   const { game, db, error } = await authenticateGame(request);
@@ -34,12 +51,21 @@ export const POST = guarded(async function POST(request) {
     );
   }
 
+  const complete = body?.complete === true;
   const now = new Date().toISOString();
   const rows = [];
+  const seen = new Set();
+  const duplicates = new Set();
 
   for (const item of incoming) {
     const externalId = typeof item?.externalId === "string" ? item.externalId.trim() : "";
     if (!externalId) continue;
+
+    if (seen.has(externalId)) {
+      duplicates.add(externalId);
+      continue;
+    }
+    seen.add(externalId);
 
     rows.push({
       game_id: game.id,
@@ -51,27 +77,112 @@ export const POST = guarded(async function POST(request) {
       width_m: finiteOrNull(item.widthM),
       height_m: finiteOrNull(item.heightM),
       last_seen_at: now,
+      removed_at: null,
     });
   }
 
-  if (rows.length === 0) {
+  // Two banners claiming one ID is a bug on the game's side, and saving either
+  // would hide it. Postgres would also reject the batch outright.
+  if (duplicates.size > 0) {
+    return json(
+      {
+        error:
+          "Several placements share the same ID. Update the DeusADS SDK, or open the scenes " +
+          "and prefabs that contain them so the editor gives each its own ID.",
+        duplicates: [...duplicates],
+      },
+      409
+    );
+  }
+
+  if (rows.length === 0 && !complete) {
     return json({ error: "No placements had a usable externalId." }, 400);
   }
 
-  // Re-sending is normal: the developer presses the button after every change.
-  // Existing rows are refreshed rather than duplicated, and last_seen_at lets the
-  // dashboard show which banners are still in the current build.
-  const { data, error: upsertError } = await db
-    .from("placements")
-    .upsert(rows, { onConflict: "game_id,external_id" })
-    .select("external_id");
+  // State before the save, to report what gets removed or restored.
+  let before = [];
+  let schemaCurrent = true;
+  {
+    const { data, error: readError } = await db
+      .from("placements")
+      .select("external_id, label, removed_at")
+      .eq("game_id", game.id);
 
-  if (upsertError) {
-    return json({ error: "Could not save the placements." }, 503);
+    if (readError && isSchemaOutdated(readError)) {
+      schemaCurrent = false;
+      warnSchemaOutdated("POST /v1/placements");
+    } else if (readError) {
+      logDbError("placements read", readError);
+      return json({ error: "Could not read the game's placements." }, 500);
+    } else {
+      before = data ?? [];
+    }
   }
 
-  return json({ game: game.name, saved: data.length });
+  let saved = 0;
+  if (rows.length > 0) {
+    const payload = schemaCurrent ? rows : rows.map(({ removed_at, ...rest }) => rest);
+    const { data, error: upsertError } = await db
+      .from("placements")
+      .upsert(payload, { onConflict: "game_id,external_id" })
+      .select("external_id");
+
+    if (upsertError) {
+      logDbError("placements upsert", upsertError);
+      if (upsertError.code === "21000") {
+        return json({ error: "Several placements share the same ID." }, 409);
+      }
+      return json({ error: "Could not save the placements." }, 500);
+    }
+    saved = data?.length ?? 0;
+  }
+
+  const restored = before
+    .filter((row) => row.removed_at && seen.has(row.external_id))
+    .map(toSummary);
+
+  let removed = [];
+  if (complete && schemaCurrent) {
+    const gone = before.filter((row) => !row.removed_at && !seen.has(row.external_id));
+
+    if (gone.length > 0) {
+      const { error: removeError } = await db
+        .from("placements")
+        .update({ removed_at: now })
+        .eq("game_id", game.id)
+        .in(
+          "external_id",
+          gone.map((row) => row.external_id)
+        );
+
+      if (removeError) {
+        logDbError("placements remove", removeError);
+        return json(
+          {
+            error: "Saved the placements but could not remove the ones no longer in the game.",
+            saved,
+          },
+          500
+        );
+      }
+      removed = gone.map(toSummary);
+    }
+  }
+
+  return json({
+    game: game.name,
+    saved,
+    removed,
+    restored,
+    ...(complete && !schemaCurrent
+      ? { warning: "Removed placements are not synced until the server database is migrated." }
+      : {}),
+  });
 });
+
+function toSummary(row) {
+  return { externalId: row.external_id, label: row.label };
+}
 
 function finiteOrNull(value) {
   const number = Number(value);

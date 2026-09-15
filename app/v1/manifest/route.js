@@ -1,4 +1,12 @@
-import { authenticateGame, creativeUrl, guarded, json } from "../../../lib/api";
+import {
+  authenticateGame,
+  creativeUrl,
+  guarded,
+  isSchemaOutdated,
+  json,
+  logDbError,
+  warnSchemaOutdated,
+} from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +17,35 @@ export const dynamic = "force-dynamic";
  *
  * Placements with no creative assigned are simply absent: the SDK then keeps the
  * developer's fallback texture, which is the correct behaviour for an unsold slot.
+ * So are placements removed from the game (see POST /v1/placements).
  */
 export const GET = guarded(async function GET(request) {
   const { game, db, error } = await authenticateGame(request);
   if (error) return error;
 
-  const { data, error: queryError } = await db
+  let { data, error: queryError } = await activeAssignments(db, game, true);
+
+  if (queryError && isSchemaOutdated(queryError)) {
+    warnSchemaOutdated("GET /v1/manifest");
+    ({ data, error: queryError } = await activeAssignments(db, game, false));
+  }
+
+  if (queryError) {
+    logDbError("manifest", queryError);
+    return json({ error: "Could not build the manifest." }, 500);
+  }
+
+  const placements = (data ?? []).map((row) => ({
+    id: row.placements.external_id,
+    creativeId: row.creatives.id,
+    imageUrl: creativeUrl(db, row.creatives.storage_path),
+  }));
+
+  return json({ version: 1, placements });
+});
+
+function activeAssignments(db, game, skipRemoved) {
+  let query = db
     .from("assignments")
     .select(
       `
@@ -27,15 +58,6 @@ export const GET = guarded(async function GET(request) {
     .eq("placements.game_id", game.id)
     .eq("creatives.status", "approved");
 
-  if (queryError) {
-    return json({ error: "Could not build the manifest." }, 503);
-  }
-
-  const placements = (data ?? []).map((row) => ({
-    id: row.placements.external_id,
-    creativeId: row.creatives.id,
-    imageUrl: creativeUrl(db, row.creatives.storage_path),
-  }));
-
-  return json({ version: 1, placements });
-});
+  if (skipRemoved) query = query.is("placements.removed_at", null);
+  return query;
+}

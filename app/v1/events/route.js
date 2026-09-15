@@ -1,4 +1,11 @@
-import { authenticateGame, guarded, json } from "../../../lib/api";
+import {
+  authenticateGame,
+  guarded,
+  isSchemaOutdated,
+  json,
+  logDbError,
+  warnSchemaOutdated,
+} from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -8,12 +15,14 @@ const MAX_IMPRESSIONS = 1000;
  * POST /v1/events
  * Receives the impression batches the SDK sends during play and on quit.
  *
- * Body: { sessionId, sdkVersion, impressions: [ { placementId, creativeId, timestamp, visibleSeconds } ] }
+ * Body: { sessionId, sdkVersion,
+ *         impressions: [ { eventId?, placementId, creativeId, timestamp, visibleSeconds } ] }
  *
- * The SDK already counts one impression per placement per session, so a repeat
- * arriving here is a retry or a replayed batch. Those are ignored rather than
- * counted twice: an inflated number would be found by the first advertiser who
- * checks, and that is not a mistake worth risking.
+ * Every row is one view of one banner. SDK 0.4+ gives each view its own eventId
+ * and resends the same eventId when an upload is retried, so a replayed batch is
+ * ignored while a second real view counts. Older SDKs send no eventId and count
+ * once per placement per session; for them the id is derived from exactly that,
+ * which keeps their numbers as they were.
  */
 export const POST = guarded(async function POST(request) {
   const { game, db, error } = await authenticateGame(request);
@@ -53,7 +62,8 @@ export const POST = guarded(async function POST(request) {
     .in("external_id", externalIds);
 
   if (lookupError) {
-    return json({ error: "Could not record the impressions." }, 503);
+    logDbError("impressions placement lookup", lookupError);
+    return json({ error: "Could not record the impressions." }, 500);
   }
 
   const byExternalId = new Map((placements ?? []).map((p) => [p.external_id, p.id]));
@@ -68,6 +78,7 @@ export const POST = guarded(async function POST(request) {
     }
 
     rows.push({
+      event_id: eventIdFor(item, sessionId),
       game_id: game.id,
       owner_id: game.owner_id,
       placement_id: placementId,
@@ -85,17 +96,27 @@ export const POST = guarded(async function POST(request) {
     return json({ accepted: 0, duplicates: 0, unknownPlacements: unknown });
   }
 
-  // ignoreDuplicates leans on the impressions_dedupe unique index.
-  const { data, error: insertError } = await db
+  // ignoreDuplicates leans on the impressions_event_unique index (migration 0002).
+  let { data, error: insertError } = await db
     .from("impressions")
-    .upsert(rows, {
-      onConflict: "game_id,session_id,placement_id,creative_id",
-      ignoreDuplicates: true,
-    })
+    .upsert(rows, { onConflict: "game_id,event_id", ignoreDuplicates: true })
     .select("id");
 
+  if (insertError && isSchemaOutdated(insertError)) {
+    // Database not migrated yet: store as before, one row per placement per session.
+    warnSchemaOutdated("POST /v1/events");
+    ({ data, error: insertError } = await db
+      .from("impressions")
+      .upsert(
+        rows.map(({ event_id, ...rest }) => rest),
+        { onConflict: "game_id,session_id,placement_id,creative_id", ignoreDuplicates: true }
+      )
+      .select("id"));
+  }
+
   if (insertError) {
-    return json({ error: "Could not record the impressions." }, 503);
+    logDbError("impressions insert", insertError);
+    return json({ error: "Could not record the impressions." }, 500);
   }
 
   const accepted = data?.length ?? 0;
@@ -105,6 +126,12 @@ export const POST = guarded(async function POST(request) {
     unknownPlacements: unknown,
   });
 });
+
+function eventIdFor(item, sessionId) {
+  const id = typeof item?.eventId === "string" ? item.eventId.trim() : "";
+  if (id && id.length <= 64) return id;
+  return `${sessionId}:${item?.placementId ?? ""}:${item?.creativeId ?? ""}`.slice(0, 200);
+}
 
 function isUuid(value) {
   return (
