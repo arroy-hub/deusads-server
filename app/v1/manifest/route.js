@@ -5,11 +5,15 @@ import {
   isSchemaOutdated,
   json,
   logDbError,
+  preflight,
   warnSchemaOutdated,
 } from "../../../lib/api";
 import { cropFromRow } from "../../../lib/surface-math";
 
 export const dynamic = "force-dynamic";
+
+// WebGL builds send a preflight first: the key header is not a simple header.
+export const OPTIONS = preflight;
 
 /**
  * GET /v1/manifest

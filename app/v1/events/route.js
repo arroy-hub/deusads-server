@@ -4,10 +4,14 @@ import {
   isSchemaOutdated,
   json,
   logDbError,
+  preflight,
   warnSchemaOutdated,
 } from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
+
+// WebGL builds send a preflight first: the key header is not a simple header.
+export const OPTIONS = preflight;
 
 const MAX_IMPRESSIONS = 1000;
 

@@ -203,6 +203,21 @@ db.assignments[0].crop_x = -3;
 r = await getManifest();
 assert.deepEqual(r.body.placements[0].crop, { zoom: 8, x: 0, y: 0.6 });
 
+// --- CORS: WebGL builds call the API from another origin
+for (const handler of [manifest, events]) {
+  const res = await handler.OPTIONS(new Request("https://x/v1", { method: "OPTIONS" }));
+  assert.equal(res.status, 204);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.match(res.headers.get("access-control-allow-headers"), /X-DeusADS-Key/i);
+}
+{
+  const res = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": GAME.api_key } }));
+  assert.equal(res.headers.get("access-control-allow-origin"), "*", "success responses carry CORS");
+  const bad = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": "wrong" } }));
+  assert.equal(bad.status, 401);
+  assert.equal(bad.headers.get("access-control-allow-origin"), "*", "errors stay readable from the browser");
+}
+
 // --- impressions: every view counts, retries do not
 const imp = (eventId, extra = {}) => ({ eventId, placementId: "a", creativeId: "11111111-1111-4111-8111-111111111111", timestamp: 1700000000, visibleSeconds: 1.2, ...extra });
 const sendEvents = async (list, sessionId = "s1") => (await post(events, { sessionId, sdkVersion: "0.4.0", impressions: list })).json();
