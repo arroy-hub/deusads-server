@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { userClient } from "../../../../lib/supabase-server";
-import { assignCreative } from "../../actions";
+import SurfaceCard from "./surface-card";
+import { ratioLabel } from "../../../../lib/surface-math";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,11 @@ export default async function GamePage({ params }) {
   const [placementResult, { data: creatives }, { data: impressions, count: impressionCount }] =
     await Promise.all([
       livePlacements(db, gameId, true),
-      db.from("creatives").select("id, name, width_px, height_px").eq("status", "approved"),
+      db
+        .from("creatives")
+        .select("id, name, storage_path, width_px, height_px")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false }),
       // The count is exact; the rows (capped by the API) only feed the sessions figure.
       db.from("impressions").select("session_id", { count: "exact" }).eq("game_id", gameId),
     ]);
@@ -59,6 +64,15 @@ export default async function GamePage({ params }) {
   }
   const sessions = new Set((impressions ?? []).map((row) => row.session_id));
   const assigned = rows.filter((row) => activeAssignment(row)).length;
+
+  // URLs are built once here, so the cards can swap images without asking the server.
+  const library = (creatives ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    width_px: item.width_px,
+    height_px: item.height_px,
+    url: db.storage.from("creatives").getPublicUrl(item.storage_path).data.publicUrl,
+  }));
 
   return (
     <>
@@ -105,13 +119,7 @@ export default async function GamePage({ params }) {
       ) : (
         <div className="surfaces">
           {rows.map((row) => (
-            <Surface
-              key={row.id}
-              placement={row}
-              creatives={creatives ?? []}
-              gameId={gameId}
-              db={db}
-            />
+            <Surface key={row.id} placement={row} library={library} db={db} />
           ))}
         </div>
       )}
@@ -119,9 +127,9 @@ export default async function GamePage({ params }) {
   );
 }
 
-function Surface({ placement, creatives, gameId, db }) {
+function Surface({ placement, library, db }) {
   const assignment = activeAssignment(placement);
-  const creative = assignment?.creatives ?? null;
+  const current = assignment?.creatives ?? null;
 
   const aspect = Number(placement.aspect_ratio) || 16 / 9;
   const widthM = Number(placement.width_m) || 0;
@@ -129,63 +137,36 @@ function Surface({ placement, creatives, gameId, db }) {
     ? Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, widthM * PX_PER_METRE))
     : 220;
 
-  const imageUrl = creative
-    ? db.storage.from("creatives").getPublicUrl(creative.storage_path).data.publicUrl
-    : null;
+  // An assigned creative that is no longer approved still shows as assigned.
+  const creatives =
+    current && !library.some((item) => item.id === current.id)
+      ? [
+          ...library,
+          {
+            id: current.id,
+            name: current.name,
+            width_px: current.width_px,
+            height_px: current.height_px,
+            url: db.storage.from("creatives").getPublicUrl(current.storage_path).data.publicUrl,
+          },
+        ]
+      : library;
 
-  const crop = creative ? cropPercent(creative, aspect) : 0;
+  const dims =
+    (widthM && placement.height_m
+      ? `${trim(widthM)} × ${trim(placement.height_m)} m · ${ratioLabel(aspect)}`
+      : ratioLabel(aspect)) + (placement.scene ? ` · ${placement.scene}` : "");
 
   return (
-    <div className="surface" style={{ width: `${width}px` }}>
-      <div
-        className="surface-frame"
-        style={{ width: `${width}px`, aspectRatio: String(aspect) }}
-      >
-        {imageUrl ? (
-          <img src={imageUrl} alt={creative.name} />
-        ) : (
-          <div className="surface-empty">Shows your fallback</div>
-        )}
-      </div>
-
-      <div>
-        <div className="surface-label">{placement.label || placement.external_id}</div>
-        <div className="surface-dims">
-          {widthM && placement.height_m
-            ? `${trim(widthM)} × ${trim(placement.height_m)} m · ${ratioLabel(aspect)}`
-            : ratioLabel(aspect)}
-          {placement.scene ? ` · ${placement.scene}` : ""}
-        </div>
-      </div>
-
-      <form action={assignCreative} className="surface-form">
-        <input type="hidden" name="placementId" value={placement.id} />
-        <input type="hidden" name="gameId" value={gameId} />
-        <select
-          className="field"
-          name="creativeId"
-          defaultValue={creative?.id ?? ""}
-          style={{ flex: 1 }}
-        >
-          <option value="">No creative</option>
-          {creatives.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <button className="button button-quiet" type="submit">
-          Save
-        </button>
-      </form>
-
-      {crop >= 5 && (
-        <div className="surface-warn">
-          {crop}% of this creative is cropped to fit. A {ratioLabel(aspect)} file fits
-          exactly.
-        </div>
-      )}
-    </div>
+    <SurfaceCard
+      placementId={placement.id}
+      width={width}
+      aspect={aspect}
+      label={placement.label || placement.external_id}
+      dims={dims}
+      creatives={creatives}
+      savedCreativeId={current?.id ?? ""}
+    />
   );
 }
 
@@ -209,30 +190,6 @@ function livePlacements(db, gameId, skipRemoved) {
 
 function activeAssignment(placement) {
   return (placement.assignments ?? []).find((item) => item.active) ?? null;
-}
-
-/** How much of a creative is lost when cover-fitted to a surface. */
-function cropPercent(creative, surfaceAspect) {
-  if (!creative.width_px || !creative.height_px) return 0;
-  const creativeAspect = creative.width_px / creative.height_px;
-  const visible =
-    creativeAspect > surfaceAspect
-      ? surfaceAspect / creativeAspect
-      : creativeAspect / surfaceAspect;
-  return Math.round((1 - visible) * 100);
-}
-
-function ratioLabel(aspect) {
-  const known = [
-    [16 / 9, "16:9"],
-    [4 / 3, "4:3"],
-    [1, "1:1"],
-    [3 / 4, "3:4"],
-    [9 / 16, "9:16"],
-    [21 / 9, "21:9"],
-  ];
-  const match = known.find(([value]) => Math.abs(value - aspect) / aspect < 0.04);
-  return match ? match[1] : `${aspect.toFixed(2)}:1`;
 }
 
 function trim(value) {

@@ -1,5 +1,5 @@
 import { userClient } from "../../../lib/supabase-server";
-import { uploadCreative } from "../actions";
+import UploadForm from "./upload-form";
 
 export const dynamic = "force-dynamic";
 
@@ -20,19 +20,7 @@ export default async function CreativesPage() {
         placement shows never needs a new build of the game.
       </p>
 
-      <form action={uploadCreative} className="panel stack" style={{ maxWidth: 480 }}>
-        <label>
-          Name
-          <input className="field" name="name" placeholder="Nike — arena 16:9" />
-        </label>
-        <label>
-          Image
-          <input className="field" type="file" name="file" accept="image/png,image/jpeg" required />
-        </label>
-        <div>
-          <button className="button" type="submit">Upload creative</button>
-        </div>
-      </form>
+      <UploadForm />
 
       {creatives?.length ? (
         <div className="panel" style={{ marginTop: "1.5rem", padding: 0 }}>

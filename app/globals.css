@@ -451,3 +451,220 @@ tr:last-child td {
     padding: var(--gap) 1.25rem 3rem;
   }
 }
+
+/* ------------------------------------------------------------ save states
+   A placement answers the click in its own frame: a dashed outline while the
+   choice is only a preview, a veil while it is written, a pink ring and a
+   "Saved" tag once it is live. */
+
+.surface-frame {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.2s ease;
+}
+
+.surface-frame.is-draft {
+  outline: 2px dashed var(--ink-3);
+}
+
+.surface-frame.is-saving {
+  outline: 2px solid var(--ink-3);
+}
+
+.surface-frame.is-saved {
+  outline-color: var(--signal);
+  animation: surface-ring 0.6s ease-out;
+}
+
+@keyframes surface-ring {
+  0% { outline-offset: 8px; outline-color: transparent; }
+  100% { outline-offset: 2px; outline-color: var(--signal); }
+}
+
+.surface-frame img {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.surface-frame img.is-loaded {
+  opacity: 1;
+}
+
+.surface-loading,
+.surface-veil {
+  position: absolute;
+  inset: 0;
+}
+
+.surface-loading {
+  background: linear-gradient(100deg, var(--surface) 30%, #fafbfc 50%, var(--surface) 70%);
+  background-size: 250% 100%;
+  animation: surface-shimmer 1.1s linear infinite;
+}
+
+@keyframes surface-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+
+.surface-veil {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.surface-badge-slot {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+}
+
+.surface-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  animation: badge-in 0.16s ease-out;
+}
+
+@keyframes badge-in {
+  from { transform: translateY(-3px); opacity: 0; }
+}
+
+.surface-badge-draft {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.surface-badge-busy {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.surface-badge-done {
+  background: var(--signal);
+  color: var(--paper);
+}
+
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.surface-save {
+  min-width: 5.2rem;
+}
+
+.button:disabled {
+  cursor: default;
+}
+
+.button:not(.button-quiet):disabled {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+
+.button-quiet:disabled {
+  color: var(--ink-3);
+}
+
+.button-quiet:disabled:hover {
+  background: var(--paper);
+}
+
+.field:disabled {
+  color: var(--ink-3);
+  background: var(--surface);
+}
+
+.surface-note {
+  font-size: 0.75rem;
+}
+
+/* ---------------------------------------------------------------- upload */
+
+.upload-preview {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.upload-preview img {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  transition: opacity 0.2s ease;
+}
+
+.upload-preview.is-uploading img {
+  opacity: 0.55;
+}
+
+.upload-meta {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+
+.upload-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--signal), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: upload-slide 1s ease-in-out infinite;
+}
+
+@keyframes upload-slide {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+.upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.upload-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--step-0);
+  color: var(--ink-2);
+}
+
+.upload-done svg {
+  color: var(--signal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-frame.is-saved,
+  .surface-badge,
+  .surface-loading,
+  .spinner,
+  .upload-bar {
+    animation: none;
+  }
+}
