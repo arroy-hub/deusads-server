@@ -12,6 +12,7 @@ const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let outdated = false;
 let cropMissing = false; // 0002 applied, 0003 not yet
 let nextId = 1;
+let gamesFailures = 0; // transient failures of the API key lookup still to serve
 
 function fail(status, code, message) {
   return new Response(JSON.stringify({ code, message }), {
@@ -55,6 +56,11 @@ globalThis.fetch = async (input, init = {}) => {
     new Response(JSON.stringify(rows), { status, headers: { "content-type": "application/json" } });
 
   if (table === "games") {
+    if (gamesFailures > 0) {
+      gamesFailures -= 1;
+      // 502 is not retried by supabase-js itself (it retries 503/520 and network errors).
+      return fail(502, "", "bad gateway");
+    }
     return ok(url.searchParams.get("api_key") === `eq.${GAME.api_key}` ? [GAME] : []);
   }
 
@@ -217,6 +223,15 @@ for (const handler of [manifest, events]) {
   assert.equal(bad.status, 401);
   assert.equal(bad.headers.get("access-control-allow-origin"), "*", "errors stay readable from the browser");
 }
+
+// --- a transient failure of the key lookup is retried once
+gamesFailures = 1;
+r = await getManifest();
+assert.equal(r.status, 200, "one hiccup is absorbed");
+gamesFailures = 2;
+r = await getManifest();
+assert.equal(r.status, 503, "a real outage is still reported");
+gamesFailures = 0;
 
 // --- impressions: every view counts, retries do not
 const imp = (eventId, extra = {}) => ({ eventId, placementId: "a", creativeId: "11111111-1111-4111-8111-111111111111", timestamp: 1700000000, visibleSeconds: 1.2, ...extra });
