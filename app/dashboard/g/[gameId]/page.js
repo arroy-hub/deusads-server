@@ -1,16 +1,11 @@
 import { notFound } from "next/navigation";
 import { userClient } from "../../../../lib/supabase-server";
+import { isSchemaOutdated } from "../../../../lib/api";
+import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
+import ApiKey from "./api-key";
 import SurfaceCard from "./surface-card";
-import { ratioLabel } from "../../../../lib/surface-math";
 
 export const dynamic = "force-dynamic";
-
-// A placement is drawn at its real aspect ratio, and its width tracks its
-// physical width in the game world. These bounds keep a 30 m stadium banner and
-// a 0.4 m sticker both legible on one screen.
-const PX_PER_METRE = 26;
-const MIN_WIDTH = 140;
-const MAX_WIDTH = 340;
 
 export default async function GamePage({ params }) {
   const { gameId } = await params;
@@ -26,7 +21,7 @@ export default async function GamePage({ params }) {
 
   const [placementResult, { data: creatives }, { data: impressions, count: impressionCount }] =
     await Promise.all([
-      livePlacements(db, gameId, true),
+      livePlacements(db, gameId, { skipRemoved: true, withCrop: true }),
       db
         .from("creatives")
         .select("id, name, storage_path, width_px, height_px")
@@ -46,11 +41,17 @@ export default async function GamePage({ params }) {
     });
   }
 
-  // Before migration 0002 there is no removed_at column: show everything, as before.
-  const { data: placements } =
-    placementResult.error && ["42703", "PGRST204"].includes(placementResult.error.code)
-      ? await livePlacements(db, gameId, false)
-      : placementResult;
+  // A database behind the code still shows its placements: without 0003 there is
+  // no framing (cards say how to enable it), without 0002 nothing is hidden.
+  let cropEnabled = true;
+  let { data: placements, error: placementError } = placementResult;
+  if (isSchemaOutdated(placementError)) {
+    cropEnabled = false;
+    ({ data: placements, error: placementError } = await livePlacements(db, gameId, { skipRemoved: true }));
+  }
+  if (isSchemaOutdated(placementError)) {
+    ({ data: placements } = await livePlacements(db, gameId, {}));
+  }
 
   // Placements removed by "Send placements" never show, even if the query filter
   // did not apply; the log says when that happens.
@@ -78,7 +79,7 @@ export default async function GamePage({ params }) {
     <>
       <div className="main-head">
         <h1>{game.name}</h1>
-        <code className="key">{game.api_key}</code>
+        <ApiKey value={game.api_key} />
       </div>
       <p className="lede">
         Placements the SDK found in your scenes and prefabs, drawn at the size and
@@ -112,14 +113,20 @@ export default async function GamePage({ params }) {
         <div className="empty">
           <p style={{ margin: "0 auto 0.5rem" }}>No placements reported yet.</p>
           <p style={{ margin: "0 auto", fontSize: "0.875rem" }}>
-            In Unity, paste the key above into Tools → DeusADS → Settings, then press
-            Send placements.
+            In Unity, paste the API key above into Tools → DeusADS → Settings, then
+            press Send placements.
           </p>
         </div>
       ) : (
         <div className="surfaces">
           {rows.map((row) => (
-            <Surface key={row.id} placement={row} library={library} db={db} />
+            <Surface
+              key={row.id}
+              placement={row}
+              library={library}
+              db={db}
+              cropEnabled={cropEnabled}
+            />
           ))}
         </div>
       )}
@@ -127,15 +134,12 @@ export default async function GamePage({ params }) {
   );
 }
 
-function Surface({ placement, library, db }) {
+function Surface({ placement, library, db, cropEnabled }) {
   const assignment = activeAssignment(placement);
   const current = assignment?.creatives ?? null;
 
   const aspect = Number(placement.aspect_ratio) || 16 / 9;
   const widthM = Number(placement.width_m) || 0;
-  const width = widthM
-    ? Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, widthM * PX_PER_METRE))
-    : 220;
 
   // An assigned creative that is no longer approved still shows as assigned.
   const creatives =
@@ -160,18 +164,19 @@ function Surface({ placement, library, db }) {
   return (
     <SurfaceCard
       placementId={placement.id}
-      width={width}
       aspect={aspect}
       label={placement.label || placement.external_id}
       dims={dims}
       creatives={creatives}
       savedCreativeId={current?.id ?? ""}
+      savedCrop={cropFromRow(assignment)}
+      cropEnabled={cropEnabled}
     />
   );
 }
 
 /** Placements still in the game; ones removed by the last "Send placements" are hidden. */
-function livePlacements(db, gameId, skipRemoved) {
+function livePlacements(db, gameId, { skipRemoved = false, withCrop = false }) {
   const columns = skipRemoved
     ? "id, external_id, label, scene, aspect_ratio, width_m, height_m, removed_at,"
     : "id, external_id, label, scene, aspect_ratio, width_m, height_m,";
@@ -180,7 +185,8 @@ function livePlacements(db, gameId, skipRemoved) {
     .from("placements")
     .select(
       `${columns}
-       assignments!left ( id, active, creatives ( id, name, storage_path, width_px, height_px ) )`
+       assignments!left ( id, active, ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
+         creatives ( id, name, storage_path, width_px, height_px ) )`
     )
     .eq("game_id", gameId);
 

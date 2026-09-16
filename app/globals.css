@@ -152,6 +152,7 @@ p {
 
 .main-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--gap);
@@ -230,36 +231,91 @@ p {
 
 /* ------------------------------------------------------------ placements
    The distinctive part of this interface: a placement is drawn at its real
-   aspect ratio, and its width tracks its physical width in the game world,
-   so the grid reads as a set of surfaces rather than a table. */
+   aspect ratio, so the grid reads as a set of surfaces rather than a table.
+   Every card takes the same room; the shape sits centred on its own stage. */
 
 .surfaces {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 1.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  align-items: start;
+  gap: 1.25rem;
 }
 
 .surface {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-
-.surface-frame {
-  position: relative;
+  min-width: 0;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  display: block;
 }
 
-.surface-frame img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.surface-stage {
+  --stage-pad: 16px;
+  --stage-height: 184px;
+  height: var(--stage-height);
+  padding: var(--stage-pad);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Fits the placement's shape inside the stage whatever its proportions. */
+.surface-window {
+  position: relative;
+  width: min(100%, calc((var(--stage-height) - 2 * var(--stage-pad)) * var(--aspect)));
+  touch-action: manipulation;
+}
+
+.surface-window.can-adjust {
+  cursor: pointer;
+}
+
+.surface.is-adjusting .surface-window {
+  cursor: grab;
+  touch-action: none;
+}
+
+.surface.is-adjusting .surface-window:active {
+  cursor: grabbing;
+}
+
+.surface-window:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 6px;
+  border-radius: var(--radius);
+}
+
+.surface-frame {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.surface-frame img,
+.surface-ghost {
+  position: absolute;
+  max-width: none;
   display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Adjusting: the part of the image outside the frame stays faintly visible. */
+.surface-ghost {
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.surface-frame.is-adjusting {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 9999px rgba(240, 241, 244, 0.35);
 }
 
 .surface-empty {
@@ -280,9 +336,23 @@ p {
   );
 }
 
+.surface-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+}
+
+.surface-head {
+  min-width: 0;
+}
+
 .surface-label {
   font-size: var(--step-0);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .surface-dims {
@@ -294,11 +364,171 @@ p {
   display: flex;
   gap: 0.4rem;
   align-items: center;
+  justify-content: space-between;
+}
+
+.surface-select {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.surface-framing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.surface-framing.is-on,
+.surface-framing.is-on:hover {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
 }
 
 .surface-warn {
   font-size: 0.75rem;
   color: var(--warn);
+}
+
+.surface-hint {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.surface-adjust {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.surface-adjust input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--ink);
+}
+
+.surface-zoom {
+  width: 2.6rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.icon-button {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.icon-button:disabled {
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.icon-button-small {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 1rem;
+}
+
+.link-button {
+  padding: 0 0.15rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-button:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.link-button:disabled {
+  color: var(--ink-3);
+  text-decoration: none;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ api key */
+
+.api-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.api-key-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.api-key-box {
+  display: flex;
+  align-items: stretch;
+  max-width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.api-key-box code {
+  padding: 0.4rem 0.6rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.8125rem;
+  user-select: all;
+  word-break: break-all;
+  background: var(--surface);
+}
+
+.api-key-copy {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.api-key-copy:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.api-key-copy.is-copied {
+  color: var(--paper);
+  background: var(--signal);
+}
+
+.api-key-note {
+  font-size: 0.7rem;
+  color: var(--ink-3);
 }
 
 /* ---------------------------------------------------------------- controls */
@@ -460,7 +690,7 @@ tr:last-child td {
 .surface-frame {
   outline: 2px solid transparent;
   outline-offset: 2px;
-  transition: outline-color 0.2s ease;
+  transition: outline-color 0.2s ease, border-color 0.2s ease;
 }
 
 .surface-frame.is-draft {

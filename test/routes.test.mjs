@@ -10,6 +10,7 @@ import { pathToFileURL } from "node:url";
 const GAME = { id: "g1", owner_id: "o1", name: "Test Game", api_key: "key-1" };
 const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let outdated = false;
+let cropMissing = false; // 0002 applied, 0003 not yet
 let nextId = 1;
 
 function fail(status, code, message) {
@@ -46,6 +47,9 @@ globalThis.fetch = async (input, init = {}) => {
   if (outdated && /removed_at|event_id/.test(text)) {
     return fail(400, "42703", "column does not exist");
   }
+  if ((outdated || cropMissing) && /crop_/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
 
   const ok = (rows, status = 200) =>
     new Response(JSON.stringify(rows), { status, headers: { "content-type": "application/json" } });
@@ -59,7 +63,10 @@ globalThis.fetch = async (input, init = {}) => {
 
   if (method === "GET") {
     const list = rows.filter((r) => matches(r, params));
-    if (table === "assignments") return ok(list);
+    if (table === "assignments" && !/crop_/.test(url.searchParams.get("select") ?? "")) {
+      // Like PostgREST: columns that were not selected are not returned.
+      return ok(list.map(({ crop_zoom, crop_x, crop_y, ...rest }) => rest));
+    }
     return ok(list);
   }
 
@@ -174,9 +181,27 @@ assert.equal(r.status, 401);
 // so just check the query asks for it and succeeds)
 await send([P("a"), P("b")]);
 const aId = db.placements.find((p) => p.external_id === "a").id;
-db.assignments.push({ placements: { external_id: "a" }, creatives: { id: "c1", storage_path: "x.png", status: "approved" }, owner_id: "o1", active: true });
-r = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": GAME.api_key } }));
+db.assignments.push({ placements: { external_id: "a" }, creatives: { id: "c1", storage_path: "x.png", status: "approved" }, owner_id: "o1", active: true, crop_zoom: 2, crop_x: 0.25, crop_y: 0.6 });
+const getManifest = async () => {
+  const res = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": GAME.api_key } }));
+  return { status: res.status, body: await res.json() };
+};
+r = await getManifest();
 assert.equal(r.status, 200);
+assert.deepEqual(r.body.placements[0].crop, { zoom: 2, x: 0.25, y: 0.6 }, "manifest carries the crop");
+
+// --- crop columns not migrated yet: the default fit, not an error
+cropMissing = true;
+r = await getManifest();
+assert.equal(r.status, 200);
+assert.deepEqual(r.body.placements[0].crop, { zoom: 1, x: 0.5, y: 0.5 });
+cropMissing = false;
+
+// --- a bad value in the row never reaches the SDK
+db.assignments[0].crop_zoom = 40;
+db.assignments[0].crop_x = -3;
+r = await getManifest();
+assert.deepEqual(r.body.placements[0].crop, { zoom: 8, x: 0, y: 0.6 });
 
 // --- impressions: every view counts, retries do not
 const imp = (eventId, extra = {}) => ({ eventId, placementId: "a", creativeId: "11111111-1111-4111-8111-111111111111", timestamp: 1700000000, visibleSeconds: 1.2, ...extra });
@@ -203,7 +228,8 @@ assert.ok(db.placements.find((p) => p.external_id === "z"));
 assert.ok(!db.placements.find((p) => p.external_id === "b").removed_at, "no removal without the column");
 r = await sendEvents([imp("e9")], "s2");
 assert.equal(r.accepted, 1);
-r = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": GAME.api_key } }));
+r = await getManifest();
 assert.equal(r.status, 200);
+assert.deepEqual(r.body.placements[0].crop, { zoom: 1, x: 0.5, y: 0.5 });
 
 console.log("routes: all checks passed");
