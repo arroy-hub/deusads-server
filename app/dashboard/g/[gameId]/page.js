@@ -2,10 +2,15 @@ import { notFound } from "next/navigation";
 import { userClient } from "../../../../lib/supabase-server";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
+import { fillDays, formatCount, placementRows } from "../../../../lib/analytics";
 import ApiKey from "./api-key";
+import DailyChart from "./daily-chart";
+import GameSettings from "./game-settings";
 import SurfaceCard from "./surface-card";
 
 export const dynamic = "force-dynamic";
+
+const ANALYTICS_DAYS = 30;
 
 export default async function GamePage({ params }) {
   const { gameId } = await params;
@@ -19,7 +24,7 @@ export default async function GamePage({ params }) {
 
   if (!game) notFound();
 
-  const [placementResult, { data: creatives }, stats] =
+  const [placementResult, { data: creatives }, stats, analytics] =
     await Promise.all([
       livePlacements(db, gameId, { skipRemoved: true, withCrop: true }),
       db
@@ -28,6 +33,7 @@ export default async function GamePage({ params }) {
         .eq("status", "approved")
         .order("created_at", { ascending: false }),
       gameStats(db, gameId),
+      gameAnalytics(db, gameId, ANALYTICS_DAYS),
     ]);
 
   if (placementResult.error) {
@@ -110,6 +116,52 @@ export default async function GamePage({ params }) {
         </div>
       </div>
 
+      {analytics && (
+        <>
+          <section className="panel analytics" aria-labelledby="daily-title">
+            <div className="analytics-head">
+              <h2 id="daily-title">Impressions per day</h2>
+              <span className="analytics-sub">
+                Last {ANALYTICS_DAYS} days · UTC ·{" "}
+                {formatCount(analytics.days.reduce((sum, day) => sum + day.impressions, 0))} in total
+              </span>
+            </div>
+            <DailyChart days={analytics.days} />
+          </section>
+
+          {rows.length > 0 && (
+            <section className="panel analytics" aria-labelledby="by-placement-title" style={{ padding: 0 }}>
+              <h2 id="by-placement-title" style={{ padding: "1.25rem 1.25rem 0.5rem" }}>
+                By placement
+              </h2>
+              <table className="placement-table">
+                <thead>
+                  <tr>
+                    <th>Placement</th>
+                    <th className="num">Impressions</th>
+                    <th className="num">Sessions</th>
+                    <th className="num">Avg. visible</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {placementRows(rows, analytics.placements).map((row) => (
+                    <tr key={row.id} className={row.removed ? "is-removed" : undefined}>
+                      <td>
+                        {row.label}
+                        {row.scene && <span className="muted">{row.scene}</span>}
+                      </td>
+                      <td className="num">{formatCount(row.impressions)}</td>
+                      <td className="num">{row.sessions == null ? "—" : formatCount(row.sessions)}</td>
+                      <td className="num">{row.avgVisible == null ? "—" : `${row.avgVisible.toFixed(1)} s`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </>
+      )}
+
       {rows.length === 0 ? (
         <div className="empty">
           <p style={{ margin: "0 auto 0.5rem" }}>No placements reported yet.</p>
@@ -131,8 +183,28 @@ export default async function GamePage({ params }) {
           ))}
         </div>
       )}
+
+      <GameSettings gameId={game.id} name={game.name} />
     </>
   );
+}
+
+/**
+ * Impressions per day and per placement for the last `days` days (migration 0007).
+ * Null when the database does not have the functions yet: the page then just
+ * leaves the analytics out rather than failing.
+ */
+async function gameAnalytics(db, gameId, days) {
+  const [daily, perPlacement] = await Promise.all([
+    db.rpc("game_daily", { p_game_id: gameId, p_days: days }),
+    db.rpc("game_placement_stats", { p_game_id: gameId, p_days: days }),
+  ]);
+  const error = daily.error ?? perPlacement.error;
+  if (error) {
+    console.warn("[DeusADS] dashboard: analytics unavailable (run migration 0007):", error.code, error.message);
+    return null;
+  }
+  return { days: fillDays(daily.data, days), placements: perPlacement.data ?? [] };
 }
 
 /**
