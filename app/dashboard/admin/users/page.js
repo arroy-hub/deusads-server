@@ -3,6 +3,7 @@ import { getAdmin } from "../../../../lib/admin";
 import RoleSelect from "./role-select";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "People" };
 
 export default async function UsersPage() {
   const admin = await getAdmin();
@@ -16,7 +17,7 @@ export default async function UsersPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Users</h1>
+        <h1>People</h1>
       </div>
       <p className="lede">
         Everyone who signs up is a developer. Advertiser and admin are given here. You cannot change

@@ -31,6 +31,7 @@ export default function SurfaceCard({
   savedCreativeId,
   savedCrop,
   cropEnabled,
+  children,
 }) {
   const router = useRouter();
   const initial = { id: savedCreativeId ?? "", crop: normalizeCrop(savedCrop) };
@@ -413,6 +414,7 @@ export default function SurfaceCard({
             </div>
           )
         )}
+        {children}
       </div>
     </div>
   );

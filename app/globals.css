@@ -1224,3 +1224,168 @@ td.num {
   color: var(--ink);
   border-bottom-color: var(--signal);
 }
+
+/* ------------------------------------------------- role menu and Home */
+
+.rail-role {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  margin-top: 0.15rem;
+}
+
+.rail-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rail-child {
+  padding-left: 1.4rem;
+  font-size: 0.875rem;
+}
+
+.rail-badge {
+  background: var(--signal);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0 0.5rem;
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+.rail-switch {
+  margin-top: auto;
+}
+
+.steps {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+
+.step {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: var(--paper);
+}
+
+.step-next {
+  border: 2px solid var(--ink);
+}
+
+.step-state {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.step-done .step-state {
+  color: #0b6b3a;
+}
+
+.step-next .step-state {
+  color: var(--signal);
+}
+
+.step-hint {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.todo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.todo > div {
+  flex: 1 1 200px;
+}
+
+.todo-sub {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  margin: 1.25rem 0 1.5rem;
+  overflow-x: auto;
+}
+
+.tab {
+  padding: 0.7rem 1rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  border-bottom: 3px solid transparent;
+}
+
+.tab[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+
+.open-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.stage {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+}
+
+.stage-n {
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.stage-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.pick-shape {
+  flex: 0 0 auto;
+  width: 3.5rem;
+  max-height: 2.5rem;
+  background: var(--surface);
+  border: 1px solid var(--ink-3);
+  border-radius: 3px;
+}

@@ -4,6 +4,7 @@ import { isSchemaOutdated } from "../../../lib/api";
 import ReviewRow from "./review-row";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Creatives" };
 
 const COLUMNS = "id, name, storage_path, width_px, height_px, status, created_at, accounts(email, company)";
 
@@ -56,7 +57,7 @@ export default async function ModerationPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Moderation</h1>
+        <h1>Creatives</h1>
       </div>
       <p className="lede">
         Creatives from advertisers wait here until someone approves them. Only approved creatives

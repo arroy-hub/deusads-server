@@ -54,7 +54,7 @@ export default function GameSettings({ gameId, name }) {
       setDeleteStep("confirm");
       return setDeleteNote({ tone: "error", text: result.error });
     }
-    router.push("/dashboard");
+    router.push("/dashboard/games");
     router.refresh();
   }
 

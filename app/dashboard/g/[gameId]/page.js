@@ -7,13 +7,30 @@ import ApiKey from "./api-key";
 import DailyChart from "./daily-chart";
 import GameSettings from "./game-settings";
 import SurfaceCard from "./surface-card";
+import OpenToggle from "./open-toggle";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 const ANALYTICS_DAYS = 30;
 
-export default async function GamePage({ params }) {
+export async function generateMetadata({ params }) {
   const { gameId } = await params;
+  const db = await userClient();
+  const { data } = await db.from("games").select("name").eq("id", gameId).maybeSingle();
+  return { title: data?.name ?? "Game" };
+}
+
+const TABS = [
+  ["placements", "Placements"],
+  ["performance", "Performance"],
+  ["settings", "Settings"],
+];
+
+export default async function GamePage({ params, searchParams }) {
+  const { gameId } = await params;
+  const { tab: requested } = await searchParams;
+  const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
   const db = await userClient();
 
   const { data: game } = await db
@@ -68,6 +85,13 @@ export default async function GamePage({ params }) {
       hidden: all.length - rows.length,
     });
   }
+  // "Open to advertisers" needs migration 0014; without it the switch is left out.
+  const { data: openRows, error: openError } = await db
+    .from("placements")
+    .select("id, open_to_advertisers")
+    .eq("game_id", gameId);
+  const openOf = openError ? null : new Map((openRows ?? []).map((row) => [row.id, Boolean(row.open_to_advertisers)]));
+  const openCount = openOf ? rows.filter((row) => openOf.get(row.id)).length : null;
   const assigned = rows.filter((row) => activeAssignment(row)).length;
 
   // URLs are built once here, so the cards can swap images without asking the server.
@@ -85,13 +109,26 @@ export default async function GamePage({ params }) {
         <h1>{game.name}</h1>
         <ApiKey value={game.api_key} />
       </div>
-      <p className="lede">
-        Placements the SDK found in your scenes and prefabs, drawn at the size and
-        proportions they have in the game. Placements you delete in Unity disappear
-        from here the next time you press Send placements. Changing a creative here takes effect the next time a player
-        starts the game — no new build.
-      </p>
+      {tab === "placements" && (
+        <p className="lede">
+          Placements the SDK found in your game. Pick a creative for each one; changes reach players the
+          next time they start the game, no new build.
+          {openOf
+            ? ` ${openCount} of ${rows.length} are open to advertisers: switch one on to list it in the advertiser catalog.`
+            : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."}
+        </p>
+      )}
 
+      <nav className="tabs" aria-label="Game sections">
+        {TABS.map(([key, label]) => (
+          <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
+            {label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "performance" && (
+        <>
       <div className="panel" style={{ marginBottom: "2rem" }}>
         <div className="figures">
           <div>
@@ -116,7 +153,11 @@ export default async function GamePage({ params }) {
         </div>
       </div>
 
-      {analytics && (
+
+        </>
+      )}
+
+      {tab === "performance" && analytics && (
         <>
           <section className="panel analytics" aria-labelledby="daily-title">
             <div className="analytics-head">
@@ -162,7 +203,7 @@ export default async function GamePage({ params }) {
         </>
       )}
 
-      {rows.length === 0 ? (
+      {tab === "placements" && (rows.length === 0 ? (
         <div className="empty">
           <p style={{ margin: "0 auto 0.5rem" }}>No placements reported yet.</p>
           <p style={{ margin: "0 auto", fontSize: "0.875rem" }}>
@@ -179,12 +220,14 @@ export default async function GamePage({ params }) {
               library={library}
               db={db}
               cropEnabled={cropEnabled}
-            />
+            >
+              {openOf && <OpenToggle placementId={row.id} initial={openOf.get(row.id) ?? false} />}
+            </Surface>
           ))}
         </div>
-      )}
+      ))}
 
-      <GameSettings gameId={game.id} name={game.name} />
+      {tab === "settings" && <GameSettings gameId={game.id} name={game.name} />}
     </>
   );
 }
@@ -233,7 +276,7 @@ async function gameStats(db, gameId) {
   };
 }
 
-function Surface({ placement, library, db, cropEnabled }) {
+function Surface({ placement, library, db, cropEnabled, children }) {
   const assignment = activeAssignment(placement);
   const current = assignment?.creatives ?? null;
 
@@ -270,7 +313,9 @@ function Surface({ placement, library, db, cropEnabled }) {
       savedCreativeId={current?.id ?? ""}
       savedCrop={cropFromRow(assignment)}
       cropEnabled={cropEnabled}
-    />
+    >
+      {children}
+    </SurfaceCard>
   );
 }
 
