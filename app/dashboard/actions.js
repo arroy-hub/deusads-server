@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { userClient } from "../../lib/supabase-server";
 import { isSchemaOutdated } from "../../lib/api";
@@ -140,6 +141,124 @@ export async function assignCreative({ placementId, creativeId, crop }) {
 
   if (error) return { error: "Could not assign the creative." };
   return { ok: true, creativeId, crop: warning ? DEFAULT_CROP : framing, warning };
+}
+
+// ---------------------------------------------------------------- games
+
+const MAX_NAME = 120;
+
+export async function renameGame({ gameId, name }) {
+  const clean = String(name ?? "").trim().slice(0, MAX_NAME);
+  if (!clean) return { error: "Give the game a name." };
+
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const { data, error } = await db
+    .from("games")
+    .update({ name: clean })
+    .eq("id", String(gameId ?? ""))
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { error: "Could not rename the game." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, name: clean };
+}
+
+/**
+ * Issues a new key and retires the old one at once: games already shipped with
+ * the old key stop receiving creatives and show their fallback textures until
+ * the developer pastes the new key into a new build.
+ */
+export async function rotateApiKey({ gameId }) {
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const apiKey = randomBytes(24).toString("hex");
+  const { data, error } = await db
+    .from("games")
+    .update({ api_key: apiKey })
+    .eq("id", String(gameId ?? ""))
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { error: "Could not issue a new key." };
+
+  revalidatePath(`/dashboard/g/${data.id}`);
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * Deletes a game with its placements, assignments and impressions (they cascade).
+ * The caller must send the game's exact name, so a stray click cannot do this.
+ */
+export async function deleteGame({ gameId, confirmName }) {
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const id = String(gameId ?? "");
+  const { data: game } = await db.from("games").select("id, name").eq("id", id).maybeSingle();
+  if (!game) return { error: "That game no longer exists." };
+  if (String(confirmName ?? "").trim() !== game.name) {
+    return { error: "The name does not match. Nothing was deleted." };
+  }
+
+  const { error } = await db.from("games").delete().eq("id", id);
+  if (error) return { error: "Could not delete the game." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------- creatives
+
+export async function renameCreative({ creativeId, name }) {
+  const clean = String(name ?? "").trim().slice(0, MAX_NAME);
+  if (!clean) return { error: "Give the creative a name." };
+
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const { data, error } = await db
+    .from("creatives")
+    .update({ name: clean })
+    .eq("id", String(creativeId ?? ""))
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { error: "Could not rename the creative." };
+
+  revalidatePath("/dashboard/creatives");
+  return { ok: true, name: clean };
+}
+
+/**
+ * Deletes a creative and its file. Placements showing it lose their assignment
+ * (it cascades) and go back to the game's fallback texture; past impressions keep
+ * their count with the creative cleared.
+ */
+export async function deleteCreative({ creativeId }) {
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const id = String(creativeId ?? "");
+  const { data: creative } = await db
+    .from("creatives")
+    .select("id, storage_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (!creative) return { error: "That creative no longer exists." };
+
+  const { error } = await db.from("creatives").delete().eq("id", id);
+  if (error) return { error: "Could not delete the creative." };
+
+  // The row is gone either way; a file that will not delete is only wasted space.
+  const { error: storageError } = await db.storage.from("creatives").remove([creative.storage_path]);
+  if (storageError) console.warn("[DeusADS] creative file not removed:", creative.storage_path, storageError.message);
+
+  revalidatePath("/dashboard/creatives");
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
 }
 
 const NEEDS_CROP_MIGRATION =
