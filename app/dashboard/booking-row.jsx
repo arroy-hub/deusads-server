@@ -56,7 +56,9 @@ export default function BookingRow({ booking, view }) {
           {booking.creativeName}
           {booking.creativeSize ? ` (${booking.creativeSize})` : ""}
           {booking.scene ? ` · scene ${booking.scene}` : ""} · {booking.campaign} · {booking.created}
+          {booking.dates ? ` · ${booking.dates}` : ""}
         </div>
+        {booking.fit && <div className="muted-line">{booking.fit}</div>}
         {booking.status === "rejected" && booking.note && <div className="muted-line">Reason: {booking.note}</div>}
         {error && (
           <div className="error" role="alert">

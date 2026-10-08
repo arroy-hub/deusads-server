@@ -68,6 +68,8 @@ export default async function NewBookingPage() {
           approved: item.status === "approved",
           status: item.status,
           size: item.width_px && item.height_px ? `${item.width_px} × ${item.height_px}` : "",
+          width: item.width_px ?? null,
+          height: item.height_px ?? null,
         }))}
         campaigns={campaignResult.data ?? []}
         games={[...games.values()]}

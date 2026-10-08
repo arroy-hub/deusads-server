@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBooking } from "../actions";
+import { fitNote } from "../../../../lib/booking-rules";
 
 /** Creative + campaign + a checklist of placements grouped by game. */
 export default function BookingForm({ creatives, campaigns, games }) {
@@ -12,7 +13,11 @@ export default function BookingForm({ creatives, campaigns, games }) {
   const [creativeId, setCreativeId] = useState(usable[0]?.id ?? "");
   const [campaignId, setCampaignId] = useState(""); // "" = a new campaign
   const [campaignName, setCampaignName] = useState("");
+  const [startsOn, setStartsOn] = useState("");
+  const [endsOn, setEndsOn] = useState("");
   const [picked, setPicked] = useState(() => new Set());
+  const chosen = usable.find((item) => item.id === creativeId);
+  const today = new Date().toISOString().slice(0, 10);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -34,6 +39,8 @@ export default function BookingForm({ creatives, campaigns, games }) {
       campaignName,
       creativeId,
       placementIds: [...picked],
+      startsOn,
+      endsOn,
     }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setError(result.error);
@@ -89,6 +96,17 @@ export default function BookingForm({ creatives, campaigns, games }) {
         )}
       </div>
 
+      <div className="settings-title">Dates (optional)</div>
+      <div className="row">
+        <label htmlFor="starts-on">From</label>
+        <input id="starts-on" className="field" type="date" min={today} value={startsOn} onChange={(event) => setStartsOn(event.target.value)} disabled={busy} />
+        <label htmlFor="ends-on">Until (last day shown)</label>
+        <input id="ends-on" className="field" type="date" min={startsOn || today} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} disabled={busy} />
+      </div>
+      <p className="settings-help">
+        Leave empty to start as soon as both sides approve and run until you stop it. Days are UTC.
+      </p>
+
       <div className="settings-title">Placements</div>
       {games.length === 0 ? (
         <p className="settings-help">No placements are available yet.</p>
@@ -111,6 +129,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
                       placement.scene && `scene ${placement.scene}`,
                       placement.aspect && `${placement.aspect.toFixed(2)}:1`,
                       placement.booked && "already booked",
+                      chosen && fitNote({ width: chosen.width, height: chosen.height, aspect: placement.aspect }),
                     ]
                       .filter(Boolean)
                       .join(" · ")}

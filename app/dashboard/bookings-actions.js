@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getMember } from "../../lib/admin";
 import { parseDecision, cleanNote } from "../../lib/admin-rules";
 import { bookingErrorMessage } from "../../lib/booking-rules";
+import { describeBooking } from "../../lib/bookings-data";
+import { notify } from "../../lib/notify";
 
 function refresh() {
   revalidatePath("/dashboard/requests");
@@ -44,6 +46,22 @@ export async function decideBooking({ bookingId, side, decision, note }) {
   });
   if (error) return { error: bookingErrorMessage(error) };
 
+  // The advertiser hears when the booking is settled, not after each half.
+  if (data !== "pending") {
+    const info = await describeBooking(me.service, id);
+    if (info) {
+      const who = side === "admin" ? "DeusADS" : "the developer";
+      await notify(me.service, {
+        accountId: info.advertiserId,
+        text:
+          data === "approved"
+            ? `Your booking on ${info.where} was approved by both sides.`
+            : `Your booking on ${info.where} was rejected by ${who}${cleanNote(note) ? `: ${cleanNote(note)}` : "."}`,
+        link: "/dashboard/advertising",
+      });
+    }
+  }
+
   refresh();
   return { ok: true, status: data };
 }
@@ -59,6 +77,15 @@ export async function stopBooking({ bookingId, note }) {
     p_note: cleanNote(note),
   });
   if (error) return { error: bookingErrorMessage(error) };
+
+  const info = await describeBooking(me.service, String(bookingId ?? ""));
+  if (info) {
+    await notify(me.service, {
+      accountId: info.advertiserId,
+      text: `The developer stopped your booking on ${info.where}${cleanNote(note) ? `: ${cleanNote(note)}` : "."}`,
+      link: "/dashboard/advertising",
+    });
+  }
 
   refresh();
   return { ok: true };

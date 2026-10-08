@@ -4,6 +4,7 @@ import { getMember } from "../../../lib/admin";
 import { bookingsMissing } from "../../../lib/booking-rules";
 import { loadBookings } from "../../../lib/bookings-data";
 import BookingRow from "../booking-row";
+import CampaignHead from "./campaign-head";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,16 @@ export default async function AdvertisingPage() {
 
   const { bookings, error } = await loadBookings(me.service, (query) => query.eq("advertiser_id", me.user.id));
 
-  const campaigns = new Map();
-  for (const booking of bookings) {
-    if (!campaigns.has(booking.campaign)) campaigns.set(booking.campaign, []);
-    campaigns.get(booking.campaign).push(booking);
-  }
+  // Campaigns come from their own table so an empty one still shows (and can be deleted).
+  const { data: campaignRows } = await me.service
+    .from("campaigns")
+    .select("id, name")
+    .eq("advertiser_id", me.user.id)
+    .order("created_at", { ascending: false });
+  const campaigns = (campaignRows ?? []).map((campaign) => ({
+    ...campaign,
+    bookings: bookings.filter((booking) => booking.campaignId === campaign.id),
+  }));
 
   return (
     <>
@@ -44,7 +50,7 @@ export default async function AdvertisingPage() {
         </p>
       )}
 
-      {campaigns.size === 0 && !error ? (
+      {campaigns.length === 0 && !error ? (
         <div className="empty">
           <p style={{ margin: "0 auto" }}>
             No bookings yet. Upload a creative under Library → Creatives, wait for it to be approved, then
@@ -52,18 +58,26 @@ export default async function AdvertisingPage() {
           </p>
         </div>
       ) : (
-        [...campaigns.entries()].map(([name, rows]) => (
-          <section key={name} style={{ marginBottom: "2rem" }}>
-            <h2 style={{ marginBottom: "0.75rem" }}>{name}</h2>
-            <div className="panel" style={{ padding: 0 }}>
-              <table>
-                <tbody>
-                  {rows.map((booking) => (
-                    <BookingRow key={booking.id} booking={booking} view="advertiser" />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        campaigns.map((campaign) => (
+          <section key={campaign.id} style={{ marginBottom: "2rem" }}>
+            <CampaignHead
+              id={campaign.id}
+              name={campaign.name}
+              bookings={campaign.bookings.filter((b) => b.status !== "pending" && b.status !== "approved").length}
+            />
+            {campaign.bookings.length > 0 ? (
+              <div className="panel" style={{ padding: 0 }}>
+                <table>
+                  <tbody>
+                    {campaign.bookings.map((booking) => (
+                      <BookingRow key={booking.id} booking={booking} view="advertiser" />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="settings-help">No bookings in this campaign.</p>
+            )}
           </section>
         ))
       )}
