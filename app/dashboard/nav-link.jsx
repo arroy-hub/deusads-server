@@ -15,6 +15,8 @@ const ICONS = {
   campaigns: "M4 6h16M4 12h16M4 18h10",
   reports: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   inbox: "M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5",
+  modCreatives: "M3 4h18v16H3zM3 9h18M8 14h8",
+  applications: "M9 4a4 4 0 100 8 4 4 0 000-8zM2 21c1-6 14-6 15 0",
   bookings: "M4 6h16M4 12h16M4 18h10",
   users: "M9 4a4 4 0 100 8 4 4 0 000-8zM2 21c1-6 14-6 15 0M17 4a4 4 0 010 8",
   system: "M12 9a3 3 0 100 6 3 3 0 000-6zM12 2v3M12 19v3M2 12h3M19 12h3",

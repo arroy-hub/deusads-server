@@ -1644,3 +1644,45 @@ td {
     padding: 20px 16px 3rem;
   }
 }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.chips a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 99px;
+  border: 1px solid #b7bcc6;
+  background: var(--paper);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.chips a[aria-current="page"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.surface-body .open-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.open-toggle input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--signal);
+}

@@ -69,7 +69,7 @@ export default async function InboxPage({ searchParams }) {
       </div>
       <p className="lede">Everything waiting for a decision from DeusADS, in one place.</p>
 
-      <nav className="subnav" aria-label="Filter inbox">
+      <nav className="chips" aria-label="Filter inbox">
         <Link href="/dashboard/admin/inbox" aria-current={show === "all" ? "page" : undefined}>
           All · {total}
         </Link>
