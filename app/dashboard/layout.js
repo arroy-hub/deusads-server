@@ -45,11 +45,16 @@ export default async function DashboardLayout({ children }) {
   return (
     <div className="shell">
       <nav className="rail" aria-label="Main">
-        <div>
-          <Link href={homeFor(role)} className="rail-mark">
-            Deus<span>ADS</span>
-          </Link>
-          <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>
+        <div className="rail-brand">
+          <div className="rail-logo" aria-hidden="true">
+            D
+          </div>
+          <div>
+            <Link href={homeFor(role)} className="rail-mark">
+              Deus<span>ADS</span>
+            </Link>
+            <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>
+          </div>
         </div>
 
         {groups.map((group, index) => (
