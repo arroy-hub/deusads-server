@@ -61,6 +61,9 @@ export default async function DashboardLayout({ children }) {
             <Link href="/dashboard/advertising/new" className="rail-link">
               New booking
             </Link>
+            <Link href="/dashboard/advertising/reports" className="rail-link">
+              Reports
+            </Link>
           </div>
         )}
 

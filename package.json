@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node test/routes.test.mjs && node test/analytics.test.mjs && node test/admin.test.mjs && node test/booking.test.mjs"
+    "test": "node test/routes.test.mjs && node test/analytics.test.mjs && node test/admin.test.mjs && node test/booking.test.mjs && node test/reports.test.mjs"
   },
   "keywords": [],
   "author": "",

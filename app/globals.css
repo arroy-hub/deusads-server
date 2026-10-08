@@ -1216,3 +1216,11 @@ td.num {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.subnav {
+  flex-wrap: wrap;
+}
+.subnav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
