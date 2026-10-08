@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { userClient } from "../../lib/supabase-server";
-import { createGame } from "./actions";
+import AddGameForm from "./add-game-form";
 
 export const dynamic = "force-dynamic";
 
@@ -56,12 +56,7 @@ export default async function GamesPage() {
         </div>
       )}
 
-      <form action={createGame} className="row" style={{ marginTop: "1.5rem" }}>
-        <input className="field" name="name" placeholder="Game name" required />
-        <button className="button" type="submit">
-          Add game
-        </button>
-      </form>
+      <AddGameForm />
     </>
   );
 }

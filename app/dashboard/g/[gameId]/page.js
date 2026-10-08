@@ -19,7 +19,7 @@ export default async function GamePage({ params }) {
 
   if (!game) notFound();
 
-  const [placementResult, { data: creatives }, { data: impressions, count: impressionCount }] =
+  const [placementResult, { data: creatives }, stats] =
     await Promise.all([
       livePlacements(db, gameId, { skipRemoved: true, withCrop: true }),
       db
@@ -27,8 +27,7 @@ export default async function GamePage({ params }) {
         .select("id, name, storage_path, width_px, height_px")
         .eq("status", "approved")
         .order("created_at", { ascending: false }),
-      // The count is exact; the rows (capped by the API) only feed the sessions figure.
-      db.from("impressions").select("session_id", { count: "exact" }).eq("game_id", gameId),
+      gameStats(db, gameId),
     ]);
 
   if (placementResult.error) {
@@ -63,7 +62,6 @@ export default async function GamePage({ params }) {
       hidden: all.length - rows.length,
     });
   }
-  const sessions = new Set((impressions ?? []).map((row) => row.session_id));
   const assigned = rows.filter((row) => activeAssignment(row)).length;
 
   // URLs are built once here, so the cards can swap images without asking the server.
@@ -99,11 +97,14 @@ export default async function GamePage({ params }) {
             <div className="figure-label">Showing a creative</div>
           </div>
           <div>
-            <div className="figure-value">{impressionCount ?? impressions?.length ?? 0}</div>
+            <div className="figure-value">{stats.impressions}</div>
             <div className="figure-label">Impressions</div>
           </div>
           <div>
-            <div className="figure-value">{sessions.size}</div>
+            <div className="figure-value">
+              {stats.sessions}
+              {stats.sessionsApproximate ? "+" : ""}
+            </div>
             <div className="figure-label">Sessions</div>
           </div>
         </div>
@@ -132,6 +133,32 @@ export default async function GamePage({ params }) {
       )}
     </>
   );
+}
+
+/**
+ * Exact impression and session counts (migration 0006). A database without it
+ * still answers: impressions are counted exactly, but sessions come from the
+ * rows PostgREST returns (at most 1000), so they are marked with a "+" when the
+ * rows were cut short.
+ */
+async function gameStats(db, gameId) {
+  const { data, error } = await db.rpc("game_stats", { p_game_id: gameId }).single();
+  if (!error && data) {
+    return { impressions: Number(data.impressions), sessions: Number(data.sessions), sessionsApproximate: false };
+  }
+  if (error) console.warn("[DeusADS] dashboard: game_stats unavailable, counting from rows:", error.code, error.message);
+
+  const { data: rows, count } = await db
+    .from("impressions")
+    .select("session_id", { count: "exact" })
+    .eq("game_id", gameId);
+
+  const total = count ?? rows?.length ?? 0;
+  return {
+    impressions: total,
+    sessions: new Set((rows ?? []).map((row) => row.session_id)).size,
+    sessionsApproximate: total > (rows?.length ?? 0),
+  };
 }
 
 function Surface({ placement, library, db, cropEnabled }) {

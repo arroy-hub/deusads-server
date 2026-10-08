@@ -250,6 +250,17 @@ assert.equal(r.accepted, 1);
 r = await sendEvents([imp(undefined, { placementId: "nope" })], "old");
 assert.equal(r.unknownPlacements, 1);
 
+// one out-of-range value must not sink the batch (visible_seconds is numeric(6,2))
+r = await sendEvents(
+  [imp("big", { visibleSeconds: 1e9 }), imp("neg", { visibleSeconds: -5 }), imp("frac", { visibleSeconds: 2.3456 })],
+  "clamp"
+);
+assert.equal(r.accepted, 3);
+const secondsOf = (id) => db.impressions.find((i) => i.event_id === id).visible_seconds;
+assert.equal(secondsOf("big"), 9999.99);
+assert.equal(secondsOf("neg"), 0);
+assert.equal(secondsOf("frac"), 2.35);
+
 // --- database not migrated yet: routes keep working the old way
 outdated = true;
 r = await send([P("a"), P("z")]);
