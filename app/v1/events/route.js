@@ -89,9 +89,7 @@ export const POST = guarded(async function POST(request) {
       creative_id: isUuid(item?.creativeId) ? item.creativeId : null,
       session_id: sessionId,
       sdk_version: typeof body.sdkVersion === "string" ? body.sdkVersion : null,
-      visible_seconds: Number.isFinite(Number(item?.visibleSeconds))
-        ? Number(item.visibleSeconds)
-        : null,
+      visible_seconds: visibleSecondsFrom(item?.visibleSeconds),
       occurred_at: unixToIso(item?.timestamp),
     });
   }
@@ -135,6 +133,16 @@ function eventIdFor(item, sessionId) {
   const id = typeof item?.eventId === "string" ? item.eventId.trim() : "";
   if (id && id.length <= 64) return id;
   return `${sessionId}:${item?.placementId ?? ""}:${item?.creativeId ?? ""}`.slice(0, 200);
+}
+
+// The column is numeric(6,2). One out-of-range value from a buggy or hostile
+// client would fail the whole batch with a 500 and lose every other view in it.
+const MAX_VISIBLE_SECONDS = 9999.99;
+
+function visibleSecondsFrom(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return null;
+  return Math.round(Math.min(Math.max(seconds, 0), MAX_VISIBLE_SECONDS) * 100) / 100;
 }
 
 function isUuid(value) {
