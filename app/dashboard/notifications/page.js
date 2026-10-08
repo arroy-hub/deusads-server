@@ -4,6 +4,7 @@ import { bookingsMissing } from "../../../lib/booking-rules";
 import MarkRead from "./mark-read";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
   const db = await userClient();

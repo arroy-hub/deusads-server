@@ -4,6 +4,7 @@ import { bookingsMissing } from "../../../lib/booking-rules";
 import ApplicationForm from "./application-form";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Become an advertiser" };
 
 export default async function BecomeAdvertiserPage() {
   const me = await getMember();

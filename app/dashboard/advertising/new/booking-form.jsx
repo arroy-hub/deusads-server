@@ -55,7 +55,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
           You have no approved creatives yet.{" "}
           {creatives.some((item) => item.status === "pending")
             ? "Yours are waiting for review."
-            : "Upload one under Library → Creatives."}
+            : "Upload one under Creatives."}
         </p>
       </div>
     );
@@ -121,6 +121,11 @@ export default function BookingForm({ creatives, campaigns, games }) {
                   checked={picked.has(placement.id)}
                   onChange={() => toggle(placement.id)}
                   disabled={busy || placement.booked}
+                />
+                <span
+                  className="pick-shape"
+                  aria-hidden="true"
+                  style={{ aspectRatio: placement.aspect ? String(Math.min(4, Math.max(0.5, placement.aspect))) : "16 / 9" }}
                 />
                 <span>
                   {placement.label}

@@ -5,6 +5,7 @@ import { loadBookings } from "../../../../lib/bookings-data";
 import BookingRow from "../../booking-row";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "All bookings" };
 
 export default async function AdminBookingsPage() {
   const admin = await getAdmin();
@@ -17,7 +18,7 @@ export default async function AdminBookingsPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Bookings</h1>
+        <h1>All bookings</h1>
       </div>
       <p className="lede">
         A booking goes live when you and the developer of the game both approve it. Approving here does not

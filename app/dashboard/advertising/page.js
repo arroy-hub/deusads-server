@@ -7,6 +7,7 @@ import BookingRow from "../booking-row";
 import CampaignHead from "./campaign-head";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Campaigns" };
 
 export default async function AdvertisingPage() {
   const me = await getMember();
@@ -28,13 +29,13 @@ export default async function AdvertisingPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Advertising</h1>
+        <h1>Campaigns</h1>
         <div className="row">
           <Link href="/dashboard/advertising/reports" className="button button-quiet">
             Reports
           </Link>
           <Link href="/dashboard/advertising/new" className="button">
-            New booking
+            Find placements
           </Link>
         </div>
       </div>
@@ -53,7 +54,7 @@ export default async function AdvertisingPage() {
       {campaigns.length === 0 && !error ? (
         <div className="empty">
           <p style={{ margin: "0 auto" }}>
-            No bookings yet. Upload a creative under Library → Creatives, wait for it to be approved, then
+            No bookings yet. Upload a creative under Creatives, wait for it to be approved, then
             book placements.
           </p>
         </div>

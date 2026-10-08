@@ -5,8 +5,12 @@ import { serviceClient } from "../../lib/api";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, unreadCount } from "../../lib/counts";
+import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
+import NavLink from "./nav-link";
 
 export const dynamic = "force-dynamic";
+
+export const metadata = { title: { template: "%s · DeusADS", default: "DeusADS" } };
 
 /** Booking requests waiting for this user as a developer; 0 before migration 0009. */
 async function waitingRequests(db, userId) {
@@ -23,10 +27,8 @@ async function waitingRequests(db, userId) {
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
-  const role = await currentRole(db, user?.id);
-  const pendingRequests = await waitingRequests(db, user?.id);
-  // Admins see at a glance when the database is behind the code.
-  const unread = await unreadCount(db, user?.id);
+  const role = (await currentRole(db, user?.id)) ?? "developer";
+  const [requests, notifications] = await Promise.all([waitingRequests(db, user?.id), unreadCount(db, user?.id)]);
   const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
   const { data: games } = await db
@@ -34,84 +36,39 @@ export default async function DashboardLayout({ children }) {
     .select("id, name")
     .order("created_at", { ascending: true });
 
+  const groups = menuFor(
+    role,
+    { requests, notifications, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
+    (games ?? []).map((game) => ({ href: `/dashboard/g/${game.id}`, label: game.name }))
+  );
+
   return (
     <div className="shell">
-      <nav className="rail">
-        <Link href="/dashboard" className="rail-mark">
-          Deus<span>ADS</span>
-        </Link>
-
-        <div className="rail-group">
-          <div className="rail-heading">Games</div>
-          {(games ?? []).map((game) => (
-            <Link key={game.id} href={`/dashboard/g/${game.id}`} className="rail-link">
-              {game.name}
-            </Link>
-          ))}
-          <Link href="/dashboard" className="rail-link">
-            All games
+      <nav className="rail" aria-label="Main">
+        <div>
+          <Link href={homeFor(role)} className="rail-mark">
+            Deus<span>ADS</span>
           </Link>
+          <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>
         </div>
 
-        <div className="rail-group">
-          <div className="rail-heading">Requests</div>
-          <Link href="/dashboard/requests" className="rail-link">
-            Ad requests{pendingRequests > 0 ? ` (${pendingRequests})` : ""}
-          </Link>
-          <Link href="/dashboard/notifications" className="rail-link">
-            Notifications{unread > 0 ? ` (${unread})` : ""}
-          </Link>
+        {groups.map((group, index) => (
+          <div className="rail-group" key={group.heading ?? index}>
+            {group.heading && <div className="rail-heading">{group.heading}</div>}
+            {group.items.map((item) => (
+              <NavLink key={item.key + item.href} item={item} />
+            ))}
+          </div>
+        ))}
+
+        <div className="rail-group rail-switch">
           {role === "developer" && (
             <Link href="/dashboard/become-advertiser" className="rail-link">
-              Advertise in games
+              Advertise your own game
             </Link>
           )}
+          <div className="rail-foot">{user?.email}</div>
         </div>
-
-        {(role === "advertiser" || role === "admin") && (
-          <div className="rail-group">
-            <div className="rail-heading">Advertising</div>
-            <Link href="/dashboard/advertising" className="rail-link">
-              Campaigns
-            </Link>
-            <Link href="/dashboard/advertising/new" className="rail-link">
-              New booking
-            </Link>
-            <Link href="/dashboard/advertising/reports" className="rail-link">
-              Reports
-            </Link>
-          </div>
-        )}
-
-        <div className="rail-group">
-          <div className="rail-heading">Library</div>
-          <Link href="/dashboard/creatives" className="rail-link">
-            Creatives
-          </Link>
-        </div>
-
-        {role === "admin" && (
-          <div className="rail-group">
-            <div className="rail-heading">Admin</div>
-            <Link href="/dashboard/admin" className="rail-link">
-              Moderation{waitingAdmin?.creatives ? ` (${waitingAdmin.creatives})` : ""}
-            </Link>
-            <Link href="/dashboard/admin/bookings" className="rail-link">
-              Bookings{waitingAdmin?.bookings ? ` (${waitingAdmin.bookings})` : ""}
-            </Link>
-            <Link href="/dashboard/admin/applications" className="rail-link">
-              Applications{waitingAdmin?.applications ? ` (${waitingAdmin.applications})` : ""}
-            </Link>
-            <Link href="/dashboard/admin/users" className="rail-link">
-              Users
-            </Link>
-            <Link href="/dashboard/admin/system" className="rail-link">
-              System{schemaBehind ? " (!)" : ""}
-            </Link>
-          </div>
-        )}
-
-        <div className="rail-foot">{user?.email}</div>
       </nav>
 
       <main className="main">{children}</main>

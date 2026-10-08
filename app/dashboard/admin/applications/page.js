@@ -4,6 +4,7 @@ import { bookingsMissing } from "../../../../lib/booking-rules";
 import ApplicationRow from "./application-row";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Applications" };
 
 export default async function ApplicationsPage() {
   const admin = await getAdmin();

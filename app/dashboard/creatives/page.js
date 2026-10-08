@@ -4,6 +4,7 @@ import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Creatives" };
 
 export default async function CreativesPage() {
   const db = await userClient();

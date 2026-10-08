@@ -5,6 +5,7 @@ import { loadBookings } from "../../../lib/bookings-data";
 import BookingRow from "../booking-row";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Ad requests" };
 
 export default async function RequestsPage() {
   const me = await getMember();

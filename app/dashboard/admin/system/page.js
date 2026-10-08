@@ -4,6 +4,7 @@ import { loadAppliedVersions } from "../../../../lib/schema-versions";
 import { migrationStatus, schemaVerdict, unknownVersions } from "../../../../lib/migrations";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "System" };
 
 const LABEL = { applied: "Applied", missing: "Not applied", unknown: "Unknown" };
 

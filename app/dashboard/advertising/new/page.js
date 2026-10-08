@@ -2,16 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMember } from "../../../../lib/admin";
 import { bookingsMissing } from "../../../../lib/booking-rules";
+import { isSchemaOutdated } from "../../../../lib/api";
 import BookingForm from "./booking-form";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Find placements" };
 
 export default async function NewBookingPage() {
   const me = await getMember();
   if (!me || (me.role !== "advertiser" && me.role !== "admin")) notFound();
   const { service, user } = me;
 
-  const [{ data: creatives }, campaignResult, { data: placements }, { data: held }] = await Promise.all([
+  let catalog = null;
+  const [{ data: creatives }, campaignResult, firstCatalog, { data: held }] = await Promise.all([
     service
       .from("creatives")
       .select("id, name, status, width_px, height_px")
@@ -20,14 +23,13 @@ export default async function NewBookingPage() {
     service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     // The catalog: live placements in other people's games. Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
-    service
-      .from("placements")
-      .select("id, label, external_id, scene, aspect_ratio, game_id, games(name)")
-      .neq("owner_id", user.id)
-      .is("removed_at", null)
-      .order("first_seen_at", { ascending: true }),
+    catalogQuery(service, user.id, true),
     service.from("bookings").select("placement_id, creative_id, status").eq("status", "approved"),
   ]);
+
+  // Without migration 0014 there is no switch yet: every live placement is listed, as before.
+  catalog = isSchemaOutdated(firstCatalog.error) ? await catalogQuery(service, user.id, false) : firstCatalog;
+  const placements = catalog.data;
 
   const bookedIds = new Set((held ?? []).map((row) => row.placement_id));
   const games = new Map();
@@ -46,14 +48,14 @@ export default async function NewBookingPage() {
   return (
     <>
       <div className="main-head">
-        <h1>New booking</h1>
+        <h1>Find placements</h1>
         <Link href="/dashboard/advertising" className="button button-quiet">
           Back
         </Link>
       </div>
       <p className="lede">
-        Pick an approved creative and the placements you want. Each one is sent to its developer and to
-        DeusADS for approval.
+        Pick an approved creative and the placements you want. Only placements their developers have opened
+        to advertisers are listed. Each request goes to the developer and to DeusADS for approval.
       </p>
       {bookingsMissing(campaignResult.error) && (
         <p className="notice">
@@ -76,4 +78,15 @@ export default async function NewBookingPage() {
       />
     </>
   );
+}
+
+/** Live placements in other people's games. Advertisers see game and placement names and the slot's shape, nothing about the owner. */
+function catalogQuery(service, userId, onlyOpen) {
+  let query = service
+    .from("placements")
+    .select("id, label, external_id, scene, aspect_ratio, game_id, games(name)")
+    .neq("owner_id", userId)
+    .is("removed_at", null);
+  if (onlyOpen) query = query.eq("open_to_advertisers", true);
+  return query.order("first_seen_at", { ascending: true });
 }

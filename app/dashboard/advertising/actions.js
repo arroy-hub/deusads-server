@@ -42,11 +42,13 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
   if (!creative) return { error: "Pick one of your creatives." };
   if (creative.status !== "approved") return { error: "That creative has not been approved yet." };
 
-  const { data: placements } = await service
-    .from("placements")
-    .select("id, owner_id")
-    .in("id", ids)
-    .is("removed_at", null);
+  const lookup = (columns) => service.from("placements").select(columns).in("id", ids).is("removed_at", null);
+  let { data: placements, error: placementsError } = await lookup("id, owner_id, open_to_advertisers");
+  // Before migration 0014 there is no switch: every live placement can be requested.
+  if (placementsError) ({ data: placements } = await lookup("id, owner_id"));
+  else if ((placements ?? []).some((placement) => !placement.open_to_advertisers)) {
+    return { error: "Some of those placements are not open to advertisers." };
+  }
   if ((placements ?? []).length !== ids.length) return { error: "Some of those placements are no longer available." };
   if (placements.some((placement) => placement.owner_id === user.id)) {
     return { error: "You cannot book a placement in your own game." };

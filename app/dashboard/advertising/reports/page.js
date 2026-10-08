@@ -8,6 +8,7 @@ import { REPORT_RANGES, parseRange } from "../../../../lib/reports";
 import DailyChart from "../../g/[gameId]/daily-chart";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Reports" };
 
 export default async function ReportsPage({ searchParams }) {
   const me = await getMember();

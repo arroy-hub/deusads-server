@@ -30,7 +30,7 @@ export async function createGame(formData) {
 
   if (error) return { error: "Could not create the game." };
 
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
 
@@ -185,7 +185,7 @@ export async function rotateApiKey({ gameId }) {
   if (error || !data) return { error: "Could not issue a new key." };
 
   revalidatePath(`/dashboard/g/${data.id}`);
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
 
@@ -263,3 +263,29 @@ export async function deleteCreative({ creativeId }) {
 
 const NEEDS_CROP_MIGRATION =
   "Framing is not saved yet: run supabase/migrations/0003_assignment_crop.sql in the Supabase SQL editor.";
+
+/** Switches a placement on or off in the advertiser catalog (migration 0014). Owner only, enforced by row-level security. */
+export async function setPlacementOpen({ placementId, open }) {
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+  if (typeof placementId !== "string" || !placementId) return { error: "Unknown placement." };
+
+  const { data, error } = await db
+    .from("placements")
+    .update({ open_to_advertisers: Boolean(open) })
+    .eq("id", placementId)
+    .eq("owner_id", user.id)
+    .select("id");
+
+  if (error) {
+    return {
+      error: isSchemaOutdated(error)
+        ? "Run supabase/migrations/0014_open_to_advertisers.sql to turn this on."
+        : "Could not save. Try again.",
+    };
+  }
+  if (!data?.length) return { error: "Placement not found." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
