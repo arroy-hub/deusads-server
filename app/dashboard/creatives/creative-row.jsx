@@ -8,7 +8,7 @@ import { deleteCreative, renameCreative } from "../actions";
  * One creative in the library: thumbnail, name (renamable), size, status and how
  * many placements show it. Deleting asks first and says what will happen.
  */
-export default function CreativeRow({ id, name, url, size, status, usedBy }) {
+export default function CreativeRow({ id, name, url, size, status, note, usedBy }) {
   const router = useRouter();
   const [mode, setMode] = useState("view"); // view | rename | delete
   const [title, setTitle] = useState(name);
@@ -82,7 +82,11 @@ export default function CreativeRow({ id, name, url, size, status, usedBy }) {
         )}
       </td>
       <td>{size}</td>
-      <td>{status}</td>
+      <td>
+        {status}
+        {status === "rejected" && note && <div className="muted-line">{note}</div>}
+        {status === "pending" && <div className="muted-line">Waiting for review</div>}
+      </td>
       <td>{usedBy > 0 ? `${usedBy} ${usedBy === 1 ? "placement" : "placements"}` : "Not in use"}</td>
       <td className="actions-cell">
         {mode === "delete" ? (

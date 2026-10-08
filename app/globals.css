@@ -1163,3 +1163,30 @@ td.num {
   font-size: var(--step-0);
   color: var(--ink-2);
 }
+
+/* ---------------------------------------------------------------- admin */
+
+.subnav {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--step-0);
+}
+
+.subnav a {
+  padding: 0.4rem 0;
+  color: var(--ink-2);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.subnav a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.muted-line {
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}

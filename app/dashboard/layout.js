@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { userClient, currentUser } from "../../lib/supabase-server";
+import { currentRole } from "../../lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
+  const role = await currentRole(db, user?.id);
   const { data: games } = await db
     .from("games")
     .select("id, name")
@@ -36,6 +38,18 @@ export default async function DashboardLayout({ children }) {
             Creatives
           </Link>
         </div>
+
+        {role === "admin" && (
+          <div className="rail-group">
+            <div className="rail-heading">Admin</div>
+            <Link href="/dashboard/admin" className="rail-link">
+              Moderation
+            </Link>
+            <Link href="/dashboard/admin/users" className="rail-link">
+              Users
+            </Link>
+          </div>
+        )}
 
         <div className="rail-foot">{user?.email}</div>
       </nav>

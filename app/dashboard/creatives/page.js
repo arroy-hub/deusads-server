@@ -1,4 +1,5 @@
 import { userClient } from "../../../lib/supabase-server";
+import { isSchemaOutdated } from "../../../lib/api";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 
@@ -6,10 +7,16 @@ export const dynamic = "force-dynamic";
 
 export default async function CreativesPage() {
   const db = await userClient();
-  const { data: creatives } = await db
-    .from("creatives")
-    .select("id, name, storage_path, width_px, height_px, status, created_at")
-    .order("created_at", { ascending: false });
+  const listCreatives = (columns) =>
+    db.from("creatives").select(columns).order("created_at", { ascending: false });
+
+  // review_note comes with migration 0008; without it the list still shows.
+  let { data: creatives, error } = await listCreatives(
+    "id, name, storage_path, width_px, height_px, status, created_at, review_note"
+  );
+  if (isSchemaOutdated(error)) {
+    ({ data: creatives } = await listCreatives("id, name, storage_path, width_px, height_px, status, created_at"));
+  }
 
   // How many placements show each creative right now.
   const { data: live } = await db.from("assignments").select("creative_id").eq("active", true);
@@ -54,6 +61,7 @@ export default async function CreativesPage() {
                       : "—"
                   }
                   status={creative.status}
+                  note={creative.review_note ?? ""}
                   usedBy={usedBy.get(creative.id) ?? 0}
                 />
               ))}
