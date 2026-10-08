@@ -1389,3 +1389,258 @@ td.num {
   border: 1px solid var(--ink-3);
   border-radius: 3px;
 }
+
+/* ===================================================== visual layer
+   Matches the approved dashboard mockups: Instrument Sans, white menu with a
+   dark current item, 14px cards, 44px controls, pink main action. */
+
+:root {
+  --radius: 10px;
+  --radius-lg: 14px;
+  --step-0: 0.9375rem;
+}
+
+body {
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.shell {
+  grid-template-columns: 260px 1fr;
+}
+
+.rail {
+  padding: 20px 14px;
+  gap: 6px;
+}
+
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 14px;
+}
+
+.rail-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.rail-mark {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  display: block;
+  line-height: 1.2;
+}
+
+.rail-role {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.rail-group {
+  gap: 4px;
+}
+
+.rail-group + .rail-group {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.rail-heading {
+  padding: 0 12px;
+  font-weight: 600;
+}
+
+.rail-link {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #3b404a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rail-link span:first-of-type {
+  flex: 1;
+}
+
+.rail-link:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.rail-link[aria-current="page"],
+.rail-link[aria-current="page"]:hover {
+  background: var(--ink);
+  color: #fff;
+  font-weight: 500;
+}
+
+.rail-child {
+  min-height: 36px;
+  padding-left: 40px;
+  font-size: 0.875rem;
+}
+
+.rail-icon {
+  flex: 0 0 auto;
+}
+
+.rail-switch .rail-link {
+  display: block;
+  min-height: 0;
+  padding: 12px;
+  border: 1px dashed #b7bcc6;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
+.rail-foot {
+  padding: 8px 12px 0;
+  word-break: break-all;
+}
+
+.main {
+  padding: 32px 40px 4rem;
+  max-width: none;
+}
+
+.main-head {
+  align-items: flex-end;
+  margin-bottom: 6px;
+}
+
+h1 {
+  font-size: 2rem;
+  letter-spacing: -0.5px;
+}
+
+.lede {
+  font-size: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.panel {
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 0;
+}
+
+.empty,
+.notice {
+  border-radius: var(--radius-lg);
+}
+
+.button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  font-weight: 600;
+  border-radius: var(--radius);
+}
+
+.main-head .button:not(.button-quiet) {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #fff;
+  padding: 0 20px;
+}
+
+.main-head .button:not(.button-quiet):hover {
+  background: #b0005b;
+  border-color: #b0005b;
+}
+
+.button-quiet {
+  border-color: var(--ink);
+}
+
+.field {
+  min-height: 44px;
+  border-color: #b7bcc6;
+  border-radius: 8px;
+}
+
+th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 10px 12px;
+}
+
+td {
+  padding: 14px 12px;
+}
+
+.step,
+.stage,
+.todo {
+  border-radius: 12px;
+}
+
+.step {
+  padding: 16px;
+}
+
+.step-next {
+  padding: 15px;
+}
+
+.steps {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.home-grid {
+  gap: 28px;
+}
+
+.subnav a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.subnav a[aria-current="page"] {
+  color: var(--ink);
+}
+
+.tab {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px;
+  font-weight: 600;
+}
+
+.panel + .panel,
+.panel + .home-grid {
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 800px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .main {
+    padding: 20px 16px 3rem;
+  }
+}
