@@ -4,10 +4,23 @@ import { currentRole } from "../../lib/admin";
 
 export const dynamic = "force-dynamic";
 
+/** Booking requests waiting for this user as a developer; 0 before migration 0009. */
+async function waitingRequests(db, userId) {
+  if (!userId) return 0;
+  const { count, error } = await db
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("developer_id", userId)
+    .eq("status", "pending")
+    .eq("developer_decision", "pending");
+  return error ? 0 : (count ?? 0);
+}
+
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
   const role = await currentRole(db, user?.id);
+  const pendingRequests = await waitingRequests(db, user?.id);
   const { data: games } = await db
     .from("games")
     .select("id, name")
@@ -31,6 +44,25 @@ export default async function DashboardLayout({ children }) {
             All games
           </Link>
         </div>
+
+        <div className="rail-group">
+          <div className="rail-heading">Requests</div>
+          <Link href="/dashboard/requests" className="rail-link">
+            Ad requests{pendingRequests > 0 ? ` (${pendingRequests})` : ""}
+          </Link>
+        </div>
+
+        {(role === "advertiser" || role === "admin") && (
+          <div className="rail-group">
+            <div className="rail-heading">Advertising</div>
+            <Link href="/dashboard/advertising" className="rail-link">
+              Campaigns
+            </Link>
+            <Link href="/dashboard/advertising/new" className="rail-link">
+              New booking
+            </Link>
+          </div>
+        )}
 
         <div className="rail-group">
           <div className="rail-heading">Library</div>
