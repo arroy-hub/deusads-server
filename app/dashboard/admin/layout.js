@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }) {
     <>
       <nav className="subnav" aria-label="Admin">
         <Link href="/dashboard/admin">Moderation</Link>
+        <Link href="/dashboard/admin/bookings">Bookings</Link>
         <Link href="/dashboard/admin/users">Users</Link>
       </nav>
       {children}

@@ -1190,3 +1190,29 @@ td.num {
   font-size: 0.75rem;
   color: var(--ink-2);
 }
+
+/* ------------------------------------------------------------- booking form */
+.pick-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem 0.75rem;
+  margin: 0;
+}
+.pick-group legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+}
+.pick-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  cursor: pointer;
+}
+.pick-item input {
+  margin-top: 0.25rem;
+}
+.pick-item.is-booked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
