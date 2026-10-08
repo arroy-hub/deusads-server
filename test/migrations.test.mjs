@@ -34,7 +34,8 @@ assert.deepEqual(schemaVerdict(all), { ok: true, text: "Database matches the cod
 const behind = all.filter((row) => row.version !== "0010" && row.version !== "0011");
 assert.deepEqual(migrationStatus(behind).filter((item) => item.state === "missing").map((item) => item.version), ["0010", "0011"]);
 assert.match(schemaVerdict(behind).text, /2 migrations not applied: 0010, 0011/);
-assert.match(schemaVerdict(all.slice(0, 11)).text, /1 migration not applied: 0012/);
+const last = MIGRATIONS.at(-1).version;
+assert.match(schemaVerdict(all.slice(0, -1)).text, new RegExp(`1 migration not applied: ${last}`));
 
 assert.ok(migrationStatus(null).every((item) => item.state === "unknown"));
 assert.equal(schemaVerdict(null).ok, false);

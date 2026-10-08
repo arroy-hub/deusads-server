@@ -4,6 +4,7 @@ import { currentRole } from "../../lib/admin";
 import { serviceClient } from "../../lib/api";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
+import { adminCounts, unreadCount } from "../../lib/counts";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function DashboardLayout({ children }) {
   const role = await currentRole(db, user?.id);
   const pendingRequests = await waitingRequests(db, user?.id);
   // Admins see at a glance when the database is behind the code.
+  const unread = await unreadCount(db, user?.id);
+  const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
   const { data: games } = await db
     .from("games")
@@ -55,6 +58,14 @@ export default async function DashboardLayout({ children }) {
           <Link href="/dashboard/requests" className="rail-link">
             Ad requests{pendingRequests > 0 ? ` (${pendingRequests})` : ""}
           </Link>
+          <Link href="/dashboard/notifications" className="rail-link">
+            Notifications{unread > 0 ? ` (${unread})` : ""}
+          </Link>
+          {role === "developer" && (
+            <Link href="/dashboard/become-advertiser" className="rail-link">
+              Advertise in games
+            </Link>
+          )}
         </div>
 
         {(role === "advertiser" || role === "admin") && (
@@ -83,7 +94,13 @@ export default async function DashboardLayout({ children }) {
           <div className="rail-group">
             <div className="rail-heading">Admin</div>
             <Link href="/dashboard/admin" className="rail-link">
-              Moderation
+              Moderation{waitingAdmin?.creatives ? ` (${waitingAdmin.creatives})` : ""}
+            </Link>
+            <Link href="/dashboard/admin/bookings" className="rail-link">
+              Bookings{waitingAdmin?.bookings ? ` (${waitingAdmin.bookings})` : ""}
+            </Link>
+            <Link href="/dashboard/admin/applications" className="rail-link">
+              Applications{waitingAdmin?.applications ? ` (${waitingAdmin.applications})` : ""}
             </Link>
             <Link href="/dashboard/admin/users" className="rail-link">
               Users

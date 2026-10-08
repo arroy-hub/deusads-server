@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMember } from "../../../../lib/admin";
 import { bookingsMissing } from "../../../../lib/booking-rules";
-import { loadBookings } from "../../../../lib/bookings-data";
-import { fillDays, formatCount } from "../../../../lib/analytics";
-import { REPORT_RANGES, parseRange, reportRows } from "../../../../lib/reports";
+import { loadReport } from "../../../../lib/report-data";
+import { formatCount } from "../../../../lib/analytics";
+import { REPORT_RANGES, parseRange } from "../../../../lib/reports";
 import DailyChart from "../../g/[gameId]/daily-chart";
 
 export const dynamic = "force-dynamic";
@@ -16,27 +16,10 @@ export default async function ReportsPage({ searchParams }) {
 
   const query = await searchParams;
   const days = parseRange(query?.days);
-
-  const { bookings, error } = await loadBookings(service, (rows) => rows.eq("advertiser_id", user.id), {
-    limit: 500,
+  const { error, missing, campaigns, campaignId, totals, series, rows } = await loadReport(service, user.id, {
+    days,
+    campaignParam: query?.campaign,
   });
-
-  // ?campaign= only counts when it is one of the caller's own campaigns
-  const campaigns = [...new Map(bookings.map((b) => [b.campaignId, b.campaign])).entries()];
-  const campaignId = campaigns.some(([id]) => id === query?.campaign) ? query.campaign : null;
-  const scoped = campaignId ? bookings.filter((b) => b.campaignId === campaignId) : bookings;
-
-  const args = { p_advertiser: user.id, p_days: days, p_campaign: campaignId };
-  const [totalsResult, dailyResult, placementResult] = await Promise.all([
-    service.rpc("advertiser_totals", args),
-    service.rpc("advertiser_daily", args),
-    service.rpc("advertiser_placement_stats", args),
-  ]);
-  const missing = [totalsResult, dailyResult, placementResult].some((result) => result.error);
-
-  const totals = totalsResult.data?.[0] ?? { impressions: 0, sessions: 0, avg_visible_seconds: null, placements: 0 };
-  const series = fillDays(dailyResult.data, days);
-  const rows = reportRows(scoped, placementResult.data);
 
   const href = (next) => {
     const params = new URLSearchParams();
@@ -50,9 +33,17 @@ export default async function ReportsPage({ searchParams }) {
     <>
       <div className="main-head">
         <h1>Reports</h1>
-        <Link href="/dashboard/advertising" className="button button-quiet">
-          Campaigns
-        </Link>
+        <div className="row">
+          <a href={`${href({}).replace("/reports?", "/reports/export?")}&kind=placements`} className="button button-quiet" download>
+            Download by placement (CSV)
+          </a>
+          <a href={`${href({}).replace("/reports?", "/reports/export?")}&kind=daily`} className="button button-quiet" download>
+            Download by day (CSV)
+          </a>
+          <Link href="/dashboard/advertising" className="button button-quiet">
+            Campaigns
+          </Link>
+        </div>
       </div>
       <p className="lede">
         How often your creatives were shown, and for how long they stayed in view. A view counts when a

@@ -9,6 +9,7 @@ import {
   warnSchemaOutdated,
 } from "../../../lib/api";
 import { cropFromRow } from "../../../lib/surface-math";
+import { syncBookingSchedule } from "../../../lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,9 @@ export const OPTIONS = preflight;
 export const GET = guarded(async function GET(request) {
   const { game, db, error } = await authenticateGame(request);
   if (error) return error;
+
+  // Bookings that start or end today take effect before the manifest is built.
+  await syncBookingSchedule(db);
 
   // Newest schema first; each step back drops what a missing migration added.
   const attempts = [
