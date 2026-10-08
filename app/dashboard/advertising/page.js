@@ -23,9 +23,14 @@ export default async function AdvertisingPage() {
     <>
       <div className="main-head">
         <h1>Advertising</h1>
-        <Link href="/dashboard/advertising/new" className="button">
-          New booking
-        </Link>
+        <div className="row">
+          <Link href="/dashboard/advertising/reports" className="button button-quiet">
+            Reports
+          </Link>
+          <Link href="/dashboard/advertising/new" className="button">
+            New booking
+          </Link>
+        </div>
       </div>
       <p className="lede">
         Choose where your creative should appear. Each placement is approved by DeusADS and by the
