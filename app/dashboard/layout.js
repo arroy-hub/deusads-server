@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { userClient, currentUser } from "../../lib/supabase-server";
 import { currentRole } from "../../lib/admin";
+import { serviceClient } from "../../lib/api";
+import { loadAppliedVersions } from "../../lib/schema-versions";
+import { schemaVerdict } from "../../lib/migrations";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,8 @@ export default async function DashboardLayout({ children }) {
   const db = await userClient();
   const role = await currentRole(db, user?.id);
   const pendingRequests = await waitingRequests(db, user?.id);
+  // Admins see at a glance when the database is behind the code.
+  const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
   const { data: games } = await db
     .from("games")
     .select("id, name")
@@ -82,6 +87,9 @@ export default async function DashboardLayout({ children }) {
             </Link>
             <Link href="/dashboard/admin/users" className="rail-link">
               Users
+            </Link>
+            <Link href="/dashboard/admin/system" className="rail-link">
+              System{schemaBehind ? " (!)" : ""}
             </Link>
           </div>
         )}
