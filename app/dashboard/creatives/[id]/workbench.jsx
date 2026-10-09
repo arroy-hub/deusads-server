@@ -197,7 +197,10 @@ export default function Workbench({ creative, assets }) {
       <section className="panel stack">
         <h2>Formats</h2>
         <p className="settings-help">
-          Your image is {creative.width} × {creative.height} px ({ratioLabel(aspect)}). Each placement shows the
+          {creative.width && creative.height
+            ? `Your image is ${creative.width} × ${creative.height} px (${ratioLabel(aspect)}).`
+            : "The size of your image is not recorded; 16:9 is assumed."}{" "}
+          Each placement shows the
           picture made for its format, else your main image cropped around the safe zone. Where neither works,
           the creative is simply not shown there; your booking stays.
         </p>

@@ -65,8 +65,8 @@ export default function LoginPage() {
         </h1>
         <p className="lede">
           {mode === "signin"
-            ? "Manage the ad placements in your games."
-            : "One account covers every game you publish."}
+            ? "Manage your games, ads and bookings."
+            : "Choose whether you publish games or advertise in them."}
         </p>
 
         <form onSubmit={submit} className="stack">
