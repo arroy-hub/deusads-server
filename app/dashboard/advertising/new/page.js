@@ -10,11 +10,11 @@ export const metadata = { title: "Find placements" };
 
 export default async function NewBookingPage() {
   const me = await getMember();
-  if (!me || (me.role !== "advertiser" && me.role !== "admin")) notFound();
+  if (!me || me.role !== "advertiser") notFound();
   const { service, user } = me;
 
   let catalog = null;
-  const [{ data: creatives }, campaignResult, firstCatalog, { data: held }] = await Promise.all([
+  const [{ data: creatives }, campaignResult, firstCatalog] = await Promise.all([
     service
       .from("creatives")
       .select("id, name, status, width_px, height_px")
@@ -24,14 +24,12 @@ export default async function NewBookingPage() {
     // The catalog: live placements in other people's games. Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
     catalogQuery(service, user.id, true),
-    service.from("bookings").select("placement_id, creative_id, status").eq("status", "approved"),
   ]);
 
   // Without migration 0014 there is no switch yet: every live placement is listed, as before.
   catalog = isSchemaOutdated(firstCatalog.error) ? await catalogQuery(service, user.id, false) : firstCatalog;
   const placements = catalog.data;
 
-  const bookedIds = new Set((held ?? []).map((row) => row.placement_id));
   const games = new Map();
   for (const placement of placements ?? []) {
     const name = placement.games?.name ?? "Game";
@@ -41,7 +39,6 @@ export default async function NewBookingPage() {
       label: placement.label || placement.external_id,
       scene: placement.scene || "",
       aspect: placement.aspect_ratio ? Number(placement.aspect_ratio) : null,
-      booked: bookedIds.has(placement.id),
     });
   }
 
@@ -54,8 +51,9 @@ export default async function NewBookingPage() {
         </Link>
       </div>
       <p className="lede">
-        Pick an approved creative and the placements you want. Only placements their developers have opened
-        to advertisers are listed. Each request goes to the developer and to DeusADS for approval.
+        Pick a creative and the placements you want. Only placements their developers have opened to
+        advertisers are listed. Bookings start automatically; several advertisers can share a placement and
+        take turns, and a developer can switch an ad off.
       </p>
       {bookingsMissing(campaignResult.error) && (
         <p className="notice">

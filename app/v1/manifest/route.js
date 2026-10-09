@@ -10,6 +10,7 @@ import {
 } from "../../../lib/api";
 import { cropFromRow } from "../../../lib/surface-math";
 import { syncBookingSchedule } from "../../../lib/schedule";
+import { rotate } from "../../../lib/rotation";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,8 @@ export const GET = guarded(async function GET(request) {
 
   // Newest schema first; each step back drops what a missing migration added.
   const attempts = [
-    { skipRemoved: true, withCrop: true },
+    { skipRemoved: true, withCrop: true, withSource: true },
+    { skipRemoved: true, withCrop: true, migration: "0015_open_marketplace.sql" },
     { skipRemoved: true, withCrop: false, migration: "0003_assignment_crop.sql" },
     { skipRemoved: false, withCrop: false, migration: "0002_placement_sync_and_events.sql" },
   ];
@@ -54,7 +56,27 @@ export const GET = guarded(async function GET(request) {
   }
 
   // crop is always present; SDKs before 0.5 ignore it and cover-fit as before.
-  const placements = (data ?? []).map((row) => ({
+  // Several advertisers may rotate on one placement: one creative per placement per
+  // session. Without migration 0015 every row counts as the developer's own.
+  const rows = (data ?? []).map((row) => ({
+    placementId: row.placements.external_id,
+    source: row.source ?? "own",
+    advertiserId: row.creatives.owner_id ?? null,
+    creativeId: row.creatives.id,
+    row,
+  }));
+  // A suspended account's ads stop being served (suspended_at comes with migration 0015).
+  const owners = [...new Set(rows.map((item) => item.advertiserId).filter(Boolean))];
+  let suspended = new Set();
+  if (owners.length) {
+    const { data: off, error: offError } = await db
+      .from("accounts")
+      .select("id")
+      .in("id", owners)
+      .not("suspended_at", "is", null);
+    if (!offError) suspended = new Set((off ?? []).map((account) => account.id));
+  }
+  const placements = rotate(rows.filter((item) => !suspended.has(item.advertiserId))).map(({ row }) => ({
     id: row.placements.external_id,
     creativeId: row.creatives.id,
     imageUrl: creativeUrl(db, row.creatives.storage_path),
@@ -64,14 +86,15 @@ export const GET = guarded(async function GET(request) {
   return json({ version: 1, placements });
 });
 
-function activeAssignments(db, game, { skipRemoved, withCrop }) {
+function activeAssignments(db, game, { skipRemoved, withCrop, withSource }) {
   let query = db
     .from("assignments")
     .select(
       `
       ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
+      ${withSource ? "source," : ""}
       placements!inner ( external_id ),
-      creatives!inner ( id, storage_path, status )
+      creatives!inner ( id, storage_path, status, owner_id )
     `
     )
     .eq("owner_id", game.owner_id)

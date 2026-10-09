@@ -8,7 +8,8 @@ import { fitNote } from "../../../../lib/booking-rules";
 /** Creative + campaign + a checklist of placements grouped by game. */
 export default function BookingForm({ creatives, campaigns, games }) {
   const router = useRouter();
-  const usable = creatives.filter((item) => item.approved);
+  // Creatives still in review can be booked: the booking starts when the creative is approved.
+  const usable = creatives.filter((item) => item.status !== "rejected");
 
   const [creativeId, setCreativeId] = useState(usable[0]?.id ?? "");
   const [campaignId, setCampaignId] = useState(""); // "" = a new campaign
@@ -52,10 +53,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
     return (
       <div className="empty">
         <p style={{ margin: "0 auto" }}>
-          You have no approved creatives yet.{" "}
-          {creatives.some((item) => item.status === "pending")
-            ? "Yours are waiting for review."
-            : "Upload one under Creatives."}
+          You have no usable creatives yet. Upload one under Creatives.
         </p>
       </div>
     );
@@ -69,6 +67,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
           <option key={item.id} value={item.id}>
             {item.name}
             {item.size ? ` (${item.size})` : ""}
+            {item.status === "pending" ? " — in review" : ""}
           </option>
         ))}
       </select>
@@ -104,7 +103,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
         <input id="ends-on" className="field" type="date" min={startsOn || today} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} disabled={busy} />
       </div>
       <p className="settings-help">
-        Leave empty to start as soon as both sides approve and run until you stop it. Days are UTC.
+        Leave empty to start right away and run until you stop it. Days are UTC. If the creative is still in review, the ads start when it is approved.
       </p>
 
       <div className="settings-title">Placements</div>
@@ -115,12 +114,12 @@ export default function BookingForm({ creatives, campaigns, games }) {
           <fieldset key={game.name} className="pick-group">
             <legend>{game.name}</legend>
             {game.placements.map((placement) => (
-              <label key={placement.id} className={`pick-item ${placement.booked ? "is-booked" : ""}`}>
+              <label key={placement.id} className="pick-item">
                 <input
                   type="checkbox"
                   checked={picked.has(placement.id)}
                   onChange={() => toggle(placement.id)}
-                  disabled={busy || placement.booked}
+                  disabled={busy}
                 />
                 <span
                   className="pick-shape"
@@ -133,7 +132,6 @@ export default function BookingForm({ creatives, campaigns, games }) {
                     {[
                       placement.scene && `scene ${placement.scene}`,
                       placement.aspect && `${placement.aspect.toFixed(2)}:1`,
-                      placement.booked && "already booked",
                       chosen && fitNote({ width: chosen.width, height: chosen.height, aspect: placement.aspect }),
                     ]
                       .filter(Boolean)
@@ -153,7 +151,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
       )}
       <div className="row">
         <button className="button" type="submit" disabled={busy || picked.size === 0 || (!campaignId && !campaignName.trim())}>
-          {busy ? "Sending…" : `Request ${picked.size || ""} ${picked.size === 1 ? "placement" : "placements"}`.replace("  ", " ")}
+          {busy ? "Booking…" : `Book ${picked.size || ""} ${picked.size === 1 ? "placement" : "placements"}`.replace("  ", " ")}
         </button>
       </div>
     </form>

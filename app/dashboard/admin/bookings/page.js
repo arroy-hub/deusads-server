@@ -12,17 +12,14 @@ export default async function AdminBookingsPage() {
   if (!admin) notFound();
 
   const { bookings, error } = await loadBookings(admin.service, (query) => query, { limit: 200 });
-  const waiting = bookings.filter((booking) => booking.status === "pending" && booking.admin === "pending");
-  const rest = bookings.filter((booking) => !waiting.includes(booking));
-
   return (
     <>
       <div className="main-head">
         <h1>All bookings</h1>
       </div>
       <p className="lede">
-        A booking goes live when you and the developer of the game both approve it. Approving here does not
-        override the developer.
+        Read-only. Bookings approve themselves and developers decide what shows in their games, so there is
+        nothing to approve here. To switch an account off, use People.
       </p>
 
       {bookingsMissing(error) && (
@@ -32,12 +29,11 @@ export default async function AdminBookingsPage() {
         </p>
       )}
 
-      <h2 style={{ marginBottom: "0.75rem" }}>Waiting for review ({waiting.length})</h2>
-      {waiting.length ? (
+      {bookings.length ? (
         <div className="panel" style={{ padding: 0 }}>
           <table>
             <tbody>
-              {waiting.map((booking) => (
+              {bookings.map((booking) => (
                 <BookingRow key={booking.id} booking={booking} view="admin" />
               ))}
             </tbody>
@@ -45,23 +41,8 @@ export default async function AdminBookingsPage() {
         </div>
       ) : (
         <div className="empty">
-          <p style={{ margin: "0 auto" }}>No bookings are waiting for review.</p>
+          <p style={{ margin: "0 auto" }}>No bookings yet.</p>
         </div>
-      )}
-
-      {rest.length > 0 && (
-        <>
-          <h2 style={{ margin: "2.5rem 0 0.75rem" }}>All other bookings</h2>
-          <div className="panel" style={{ padding: 0 }}>
-            <table>
-              <tbody>
-                {rest.map((booking) => (
-                  <BookingRow key={booking.id} booking={booking} view="admin" />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
       )}
     </>
   );

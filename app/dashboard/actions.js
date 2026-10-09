@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { userClient } from "../../lib/supabase-server";
 import { isSchemaOutdated } from "../../lib/api";
+import { isCategory } from "../../lib/categories";
 import { normalizeCrop, sameCrop, DEFAULT_CROP } from "../../lib/surface-math";
 
 // Every action writes through the user's own client, so row-level security is
@@ -39,7 +40,7 @@ export async function createGame(formData) {
  * The file never passes through this function, so its size is not bound by
  * the Server Action body limit.
  */
-export async function registerCreative({ name, path, type, size, width, height }) {
+export async function registerCreative({ name, path, type, size, width, height, adCategory }) {
   const { db, user } = await session();
   if (!user) return { error: "Your session expired. Sign in again." };
 
@@ -54,20 +55,27 @@ export async function registerCreative({ name, path, type, size, width, height }
     return { error: "Creatives must be under 8 MB." };
   }
 
+  if (!isCategory(adCategory)) return { error: "Choose what the ad is for." };
+
   const cleanName = String(name ?? "").trim().slice(0, 120) || "Untitled creative";
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
 
-  const { data, error } = await db
+  const row = {
+    owner_id: user.id,
+    name: cleanName,
+    storage_path: path,
+    width_px: px(width),
+    height_px: px(height),
+  };
+  let { data, error } = await db
     .from("creatives")
-    .insert({
-      owner_id: user.id,
-      name: cleanName,
-      storage_path: path,
-      width_px: px(width),
-      height_px: px(height),
-    })
+    .insert({ ...row, ad_category: adCategory })
     .select("id, name")
     .single();
+  // Migration 0015 not applied yet: save without the category.
+  if (isSchemaOutdated(error)) {
+    ({ data, error } = await db.from("creatives").insert(row).select("id, name").single());
+  }
 
   if (error) {
     // Do not leave an orphaned file behind.

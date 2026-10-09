@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState("developer");
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +27,11 @@ export default function LoginPage() {
     const { error } =
       mode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { account_type: accountType } },
+          });
 
     setBusy(false);
 
@@ -76,6 +81,30 @@ export default function LoginPage() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
+
+          {mode === "signup" && (
+            <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
+              <legend>I am</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="account_type"
+                  checked={accountType === "developer"}
+                  onChange={() => setAccountType("developer")}
+                />{" "}
+                a developer: I publish games and show ads in them
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="account_type"
+                  checked={accountType === "advertiser"}
+                  onChange={() => setAccountType("advertiser")}
+                />{" "}
+                an advertiser: I want to advertise in games
+              </label>
+            </fieldset>
+          )}
 
           <label>
             Password

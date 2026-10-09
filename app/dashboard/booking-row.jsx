@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { decideBooking, stopBooking } from "./bookings-actions";
+import { blockAds, stopBooking } from "./bookings-actions";
+import { categoryLabel } from "../../lib/categories";
 import { cancelBooking } from "./advertising/actions";
 
 /**
  * One booking. `view` says who is looking: the advertiser can withdraw it, the
- * developer and an admin can approve or reject their side while it is pending.
+ * developer can stop it or block the advertiser / the category, an admin only reads.
  */
 export default function BookingRow({ booking, view }) {
   const router = useRouter();
@@ -16,12 +17,10 @@ export default function BookingRow({ booking, view }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const side = view === "admin" ? "admin" : view === "developer" ? "developer" : null;
-  const mine = side === "admin" ? booking.admin : side === "developer" ? booking.developer : null;
-  const canDecide = side && booking.status === "pending" && mine === "pending";
   const canCancel = view === "advertiser" && (booking.status === "pending" || booking.status === "approved");
 
   const canStop = view === "developer" && booking.status === "approved";
+  const [blocking, setBlocking] = useState(null); // null | "advertiser" | "category"
 
   async function run(action) {
     setBusy(true);
@@ -34,7 +33,8 @@ export default function BookingRow({ booking, view }) {
     router.refresh();
   }
 
-  const decide = (decision) => run(() => decideBooking({ bookingId: booking.id, side, decision, note }));
+  const block = (kind) =>
+    run(() => blockAds({ kind, target: kind === "advertiser" ? booking.advertiserId : booking.category })).then(() => setBlocking(null));
   const stop = () => run(() => stopBooking({ bookingId: booking.id, note }));
   const cancel = () => run(() => cancelBooking({ bookingId: booking.id }));
 
@@ -53,7 +53,7 @@ export default function BookingRow({ booking, view }) {
         <div className="muted-line">
           {view !== "advertiser" && <>{booking.advertiser} · </>}
           {view === "admin" && <>{booking.developerName} · </>}
-          {booking.creativeName}
+          {booking.creativeName} · {categoryLabel(booking.category)}
           {booking.creativeSize ? ` (${booking.creativeSize})` : ""}
           {booking.scene ? ` · scene ${booking.scene}` : ""} · {booking.campaign} · {booking.created}
           {booking.dates ? ` · ${booking.dates}` : ""}
@@ -68,35 +68,6 @@ export default function BookingRow({ booking, view }) {
       </td>
       <td>{booking.label}</td>
       <td className="actions-cell">
-        {canDecide &&
-          (rejecting ? (
-            <div className="confirm-inline">
-              <input
-                className="field"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Reason (shown to the advertiser)"
-                aria-label="Reason for rejecting"
-                maxLength={500}
-                disabled={busy}
-              />
-              <button className="button button-danger" type="button" disabled={busy} onClick={() => decide("rejected")}>
-                {busy ? "Saving…" : "Reject"}
-              </button>
-              <button className="button button-quiet" type="button" disabled={busy} onClick={() => setRejecting(false)}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="confirm-inline">
-              <button className="button" type="button" disabled={busy} onClick={() => decide("approved")}>
-                {busy ? "Saving…" : "Approve"}
-              </button>
-              <button className="button button-quiet" type="button" disabled={busy} onClick={() => setRejecting(true)}>
-                Reject…
-              </button>
-            </div>
-          ))}
         {canStop &&
           (rejecting ? (
             <div className="confirm-inline">
@@ -117,9 +88,30 @@ export default function BookingRow({ booking, view }) {
               </button>
             </div>
           ) : (
-            <button className="button button-quiet" type="button" disabled={busy} onClick={() => setRejecting(true)}>
-              Stop showing…
-            </button>
+            <div className="confirm-inline">
+              <button className="button button-quiet" type="button" disabled={busy} onClick={() => setRejecting(true)}>
+                Stop showing…
+              </button>
+              {blocking ? (
+                <>
+                  <button className="button button-danger" type="button" disabled={busy} onClick={() => block(blocking)}>
+                    {busy ? "Saving…" : `Block ${blocking === "advertiser" ? booking.advertiser : categoryLabel(booking.category)}`}
+                  </button>
+                  <button className="button button-quiet" type="button" disabled={busy} onClick={() => setBlocking(null)}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="button button-quiet" type="button" disabled={busy} onClick={() => setBlocking("advertiser")}>
+                    Block advertiser…
+                  </button>
+                  <button className="button button-quiet" type="button" disabled={busy} onClick={() => setBlocking("category")}>
+                    Block category…
+                  </button>
+                </>
+              )}
+            </div>
           ))}
         {canCancel && (
           <button className="button button-quiet" type="button" disabled={busy} onClick={cancel}>

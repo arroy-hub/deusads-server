@@ -1,5 +1,6 @@
 import { userClient } from "../../../lib/supabase-server";
 import { isSchemaOutdated } from "../../../lib/api";
+import { categoryLabel } from "../../../lib/categories";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 
@@ -12,9 +13,15 @@ export default async function CreativesPage() {
     db.from("creatives").select(columns).order("created_at", { ascending: false });
 
   // review_note comes with migration 0008; without it the list still shows.
+  // ad_category comes with migration 0015.
   let { data: creatives, error } = await listCreatives(
-    "id, name, storage_path, width_px, height_px, status, created_at, review_note"
+    "id, name, storage_path, width_px, height_px, status, created_at, review_note, ad_category"
   );
+  if (isSchemaOutdated(error)) {
+    ({ data: creatives, error } = await listCreatives(
+      "id, name, storage_path, width_px, height_px, status, created_at, review_note"
+    ));
+  }
   if (isSchemaOutdated(error)) {
     ({ data: creatives } = await listCreatives("id, name, storage_path, width_px, height_px, status, created_at"));
   }
@@ -63,6 +70,7 @@ export default async function CreativesPage() {
                   }
                   status={creative.status}
                   note={creative.review_note ?? ""}
+                  category={creative.ad_category ? categoryLabel(creative.ad_category) : ""}
                   usedBy={usedBy.get(creative.id) ?? 0}
                 />
               ))}

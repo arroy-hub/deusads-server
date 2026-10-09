@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { registerCreative } from "../actions";
 import { browserClient } from "../../../lib/supabase-browser";
+import { AD_CATEGORIES } from "../../../lib/categories";
 import { ratioLabel } from "../../../lib/surface-math";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -19,6 +20,7 @@ export default function UploadForm() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null); // { url, width, height }
   const [name, setName] = useState("");
+  const [adCategory, setAdCategory] = useState("");
   const [status, setStatus] = useState("idle"); // idle | uploading | done | error
   const [message, setMessage] = useState("");
 
@@ -76,6 +78,7 @@ export default function UploadForm() {
         size: file.size,
         width: preview.width,
         height: preview.height,
+        adCategory,
       });
       if (result?.error) return fail(result.error);
 
@@ -84,6 +87,7 @@ export default function UploadForm() {
       setFile(null);
       setPreview(null);
       setName("");
+      setAdCategory("");
       formRef.current?.reset();
     } catch {
       fail("Connection lost. Try again.");
@@ -104,6 +108,26 @@ export default function UploadForm() {
           placeholder={file ? file.name.replace(/\.[^.]+$/, "") : "Nike — arena 16:9"}
           disabled={uploading}
         />
+      </label>
+
+      <label>
+        What is advertised
+        <select
+          className="field"
+          value={adCategory}
+          onChange={(event) => setAdCategory(event.target.value)}
+          disabled={uploading}
+          required
+        >
+          <option value="" disabled>
+            Choose a category
+          </option>
+          {AD_CATEGORIES.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.label}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label>

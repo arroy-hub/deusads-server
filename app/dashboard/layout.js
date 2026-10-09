@@ -12,23 +12,24 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: { template: "%s · DeusADS", default: "DeusADS" } };
 
-/** Booking requests waiting for this user as a developer; 0 before migration 0009. */
-async function waitingRequests(db, userId) {
-  if (!userId) return 0;
-  const { count, error } = await db
-    .from("bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("developer_id", userId)
-    .eq("status", "pending")
-    .eq("developer_decision", "pending");
-  return error ? 0 : (count ?? 0);
-}
-
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
   const role = (await currentRole(db, user?.id)) ?? "developer";
-  const [requests, notifications] = await Promise.all([waitingRequests(db, user?.id), unreadCount(db, user?.id)]);
+  // A suspended account sees only this notice (column from migration 0015; absent before it).
+  const { data: standing } = user
+    ? await db.from("accounts").select("suspended_at").eq("id", user.id).maybeSingle()
+    : { data: null };
+  if (standing?.suspended_at) {
+    return (
+      <main className="main">
+        <h1>Account suspended</h1>
+        <p className="lede">This account has been switched off by DeusADS. Contact support if you think this is a mistake.</p>
+      </main>
+    );
+  }
+  const requests = 0; // bookings approve themselves: nothing waits for the developer
+  const notifications = await unreadCount(db, user?.id);
   const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
   const { data: games } = await db
@@ -67,11 +68,6 @@ export default async function DashboardLayout({ children }) {
         ))}
 
         <div className="rail-group rail-switch">
-          {role === "developer" && (
-            <Link href="/dashboard/become-advertiser" className="rail-link">
-              Advertise your own game
-            </Link>
-          )}
           <div className="rail-foot">{user?.email}</div>
         </div>
       </nav>
