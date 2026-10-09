@@ -20,7 +20,7 @@ export default function BookingRow({ booking, view }) {
   const canCancel = view === "advertiser" && (booking.status === "pending" || booking.status === "approved");
 
   const canStop = view === "developer" && booking.status === "approved";
-  const [blocking, setBlocking] = useState(null); // null | "advertiser" | "category"
+  const [blocking, setBlocking] = useState(null); // null | "advertiser" | "category" | "creative"
 
   async function run(action) {
     setBusy(true);
@@ -34,7 +34,7 @@ export default function BookingRow({ booking, view }) {
   }
 
   const block = (kind) =>
-    run(() => blockAds({ kind, target: kind === "advertiser" ? booking.advertiserId : booking.category })).then(() => setBlocking(null));
+    run(() => blockAds({ kind, target: kind === "advertiser" ? booking.advertiserId : kind === "creative" ? booking.creativeId : booking.category })).then(() => setBlocking(null));
   const stop = () => run(() => stopBooking({ bookingId: booking.id, note }));
   const cancel = () => run(() => cancelBooking({ bookingId: booking.id }));
 
@@ -95,7 +95,7 @@ export default function BookingRow({ booking, view }) {
               {blocking ? (
                 <>
                   <button className="button button-danger" type="button" disabled={busy} onClick={() => block(blocking)}>
-                    {busy ? "Saving…" : `Block ${blocking === "advertiser" ? booking.advertiser : categoryLabel(booking.category)}`}
+                    {busy ? "Saving…" : `Block ${blocking === "advertiser" ? booking.advertiser : blocking === "creative" ? "this creative" : categoryLabel(booking.category)}`}
                   </button>
                   <button className="button button-quiet" type="button" disabled={busy} onClick={() => setBlocking(null)}>
                     Cancel
@@ -103,6 +103,9 @@ export default function BookingRow({ booking, view }) {
                 </>
               ) : (
                 <>
+                  <button className="button button-quiet" type="button" disabled={busy} onClick={() => setBlocking("creative")}>
+                    Block creative…
+                  </button>
                   <button className="button button-quiet" type="button" disabled={busy} onClick={() => setBlocking("advertiser")}>
                     Block advertiser…
                   </button>
