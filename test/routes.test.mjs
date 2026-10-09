@@ -7,10 +7,12 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const GAME = { id: "g1", owner_id: "o1", name: "Test Game", api_key: "key-1" };
+const GAME = { id: "g1", owner_id: "o1", name: "Test Game", api_key: "key-1", genres: ["shooter", "social"], platforms: ["quest"], languages: ["en", "ru"] };
 const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let outdated = false;
 let cropMissing = false; // 0002 applied, 0003 not yet
+let targetingMissing = false; // 0017 applied, 0018 not yet
+let profileReads = 0; // how often the game's own description was read
 let nextId = 1;
 let gamesFailures = 0; // transient failures of the API key lookup still to serve
 
@@ -55,13 +57,21 @@ globalThis.fetch = async (input, init = {}) => {
   const ok = (rows, status = 200) =>
     new Response(JSON.stringify(rows), { status, headers: { "content-type": "application/json" } });
 
+  if (targetingMissing && /targeting|genres/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
+
   if (table === "games") {
     if (gamesFailures > 0) {
       gamesFailures -= 1;
       // 502 is not retried by supabase-js itself (it retries 503/520 and network errors).
       return fail(502, "", "bad gateway");
     }
-    return ok(url.searchParams.get("api_key") === `eq.${GAME.api_key}` ? [GAME] : []);
+    // The key lookup (the SDK) and the profile read (by id) both land here.
+    const byKey = url.searchParams.get("api_key") === `eq.${GAME.api_key}`;
+    const byId = url.searchParams.get("id") === `eq.${GAME.id}`;
+    if (byId) profileReads += 1;
+    return ok(byKey || byId ? [GAME] : []);
   }
 
   const rows = db[table];
@@ -69,9 +79,18 @@ globalThis.fetch = async (input, init = {}) => {
 
   if (method === "GET") {
     const list = rows.filter((r) => matches(r, params));
-    if (table === "assignments" && !/crop_/.test(url.searchParams.get("select") ?? "")) {
+    if (table === "assignments") {
       // Like PostgREST: columns that were not selected are not returned.
-      return ok(list.map(({ crop_zoom, crop_x, crop_y, ...rest }) => rest));
+      const select = url.searchParams.get("select") ?? "";
+      return ok(
+        list.map((assignment) => {
+          const { crop_zoom, crop_x, crop_y, ...rest } = assignment;
+          const row = /crop_/.test(select) ? assignment : rest;
+          if (/targeting/.test(select) || !row.creatives) return row;
+          const { targeting, ...creative } = row.creatives;
+          return { ...row, creatives: creative };
+        })
+      );
     }
     return ok(list);
   }
@@ -208,6 +227,104 @@ db.assignments[0].crop_zoom = 40;
 db.assignments[0].crop_x = -3;
 r = await getManifest();
 assert.deepEqual(r.body.placements[0].crop, { zoom: 8, x: 0, y: 0.6 });
+
+// --- targeting (migration 0018): a booked creative shows only in a game that fits it
+{
+  const booked = (creativeId, advertiserId, targeting) => ({
+    placements: { external_id: "a" },
+    creatives: {
+      id: creativeId,
+      storage_path: `${creativeId}.png`,
+      status: "approved",
+      owner_id: advertiserId,
+      ...(targeting === undefined ? {} : { targeting }),
+    },
+    owner_id: "o1",
+    active: true,
+    source: "booking",
+  });
+  const base = db.assignments.length;
+  const shownOnA = async () => (await getManifest()).body.placements.find((p) => p.id === "a")?.creativeId;
+  const only = (...rows) => {
+    db.assignments.length = base;
+    db.assignments.push(...rows);
+  };
+  const GAME_GENRES = GAME.genres;
+
+  // the developer's own creative is the fallback: c1 is on placement "a" already
+  assert.equal(await shownOnA(), "c1");
+
+  // fits: genre shooter is one of the game's
+  only(booked("fits", "adv1", { genres: ["horror", "shooter"] }));
+  assert.equal(await shownOnA(), "fits", "a booking that fits beats the developer's own creative");
+
+  // does not fit: falls back to the developer's creative, the placement is never empty
+  only(booked("miss", "adv1", { genres: ["horror"] }));
+  assert.equal(await shownOnA(), "c1");
+  only(booked("miss", "adv1", { languages: ["de"] }));
+  assert.equal(await shownOnA(), "c1", "one language the game does not have");
+  only(booked("miss", "adv1", { genres: ["shooter"], platforms: ["pico"] }));
+  assert.equal(await shownOnA(), "c1", "between fields: every one must fit");
+  only(booked("both", "adv1", { genres: ["shooter"], platforms: ["quest"], languages: ["ru"] }));
+  assert.equal(await shownOnA(), "both");
+  only(booked("excluded", "adv1", { exclude_genres: ["social"] }));
+  assert.equal(await shownOnA(), "c1", "an excluded genre the game has");
+  only(booked("not-excluded", "adv1", { exclude_genres: ["horror"] }));
+  assert.equal(await shownOnA(), "not-excluded");
+
+  // no audience: shown everywhere
+  only(booked("plain", "adv1"));
+  assert.equal(await shownOnA(), "plain");
+  only(booked("null", "adv1", null));
+  assert.equal(await shownOnA(), "null");
+
+  // the rotation only sees creatives that fit: advertiser B does not fit, so A is always chosen
+  only(booked("a-fits", "advA", { genres: ["shooter"] }), booked("b-miss", "advB", { genres: ["puzzle"] }), booked("b-miss2", "advB", { languages: ["ja"] }));
+  for (let i = 0; i < 30; i++) assert.equal(await shownOnA(), "a-fits");
+
+  // strict: a game that filled in nothing gets no targeted creative, but still gets plain ones
+  GAME.genres = [];
+  only(booked("targeted", "adv1", { genres: ["shooter"] }));
+  assert.equal(await shownOnA(), "c1", "genres not filled in: a creative asking for a genre does not show");
+  only(booked("excluding", "adv1", { exclude_genres: ["horror"] }));
+  assert.equal(await shownOnA(), "c1", "excluding a genre also needs the game's genres");
+  only(booked("targeted", "adv1", { languages: ["en"] }));
+  assert.equal(await shownOnA(), "targeted", "other fields are unaffected by an empty genre list");
+  only(booked("targeted", "adv1", { genres: ["shooter"] }), booked("plain", "adv2"));
+  assert.equal(await shownOnA(), "plain");
+  GAME.genres = GAME_GENRES;
+
+  // the game's description is read only when a booked creative has an audience
+  only(booked("plain", "adv1"), booked("null", "adv2", null));
+  const reads = profileReads;
+  await getManifest();
+  assert.equal(profileReads, reads, "no audience in play: no extra query");
+  only(booked("fits", "adv1", { genres: ["shooter"] }));
+  await getManifest();
+  assert.equal(profileReads, reads + 1);
+
+  // the developer's own creative is never filtered, whatever its audience says
+  only();
+  db.assignments[0].creatives.targeting = { genres: ["horror"] };
+  assert.equal(await shownOnA(), "c1");
+  delete db.assignments[0].creatives.targeting;
+
+  // database without 0018: no audience can exist yet, so nothing is filtered and nothing breaks
+  targetingMissing = true;
+  only(booked("miss", "adv1", { genres: ["horror"] }));
+  r = await getManifest();
+  assert.equal(r.status, 200);
+  assert.equal(r.body.placements.find((p) => p.id === "a")?.creativeId, "miss", "the old behaviour: it is served");
+  targetingMissing = false;
+
+  // the unreadable profile (the audience is there, the game cannot be read): fail closed
+  only(booked("fits", "adv1", { genres: ["shooter"] }));
+  GAME.genres = undefined;
+  assert.equal(await shownOnA(), "c1", "a game without a description gets no targeted creative");
+  GAME.genres = GAME_GENRES;
+
+  db.assignments.length = base;
+}
 
 // --- CORS: WebGL builds call the API from another origin
 for (const handler of [manifest, events]) {

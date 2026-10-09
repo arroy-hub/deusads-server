@@ -4,8 +4,10 @@ import { isSchemaOutdated } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
 import { formatLabel, formatOf } from "../../../../lib/formats";
 import { fillDays, formatCount, placementRows } from "../../../../lib/analytics";
+import { gapWords, profileGaps } from "../../../../lib/targeting";
 import ApiKey from "./api-key";
 import DailyChart from "./daily-chart";
+import GameProfile from "./game-profile";
 import GameSettings from "./game-settings";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
@@ -34,13 +36,13 @@ export default async function GamePage({ params, searchParams }) {
   const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
   const db = await userClient();
 
-  const { data: game } = await db
-    .from("games")
-    .select("id, name, api_key")
-    .eq("id", gameId)
-    .maybeSingle();
+  // What the game is (genres, platforms, languages) comes with migration 0018.
+  const readGame = (columns) => db.from("games").select(columns).eq("id", gameId).maybeSingle();
+  let { data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages");
+  if (isSchemaOutdated(gameError)) ({ data: game } = await readGame("id, name, api_key"));
 
   if (!game) notFound();
+  const gaps = profileGaps(game);
 
   const [placementResult, { data: creatives }, stats, analytics] =
     await Promise.all([
@@ -110,6 +112,13 @@ export default async function GamePage({ params, searchParams }) {
         <h1>{game.name}</h1>
         <ApiKey value={game.api_key} />
       </div>
+      {gaps.known && gaps.missing.length > 0 && (
+        <p className="notice" style={{ marginBottom: "1rem" }}>
+          Tell advertisers what this game is: fill in its {gapWords(gaps.missing)}. Ads aimed at a genre,
+          platform or language only show in games that have said what they are.{" "}
+          {tab !== "settings" && <Link href={`/dashboard/g/${game.id}?tab=settings`}>Fill it in</Link>}
+        </p>
+      )}
       {tab === "placements" && (
         <p className="lede">
           Placements the SDK found in your game. Pick a creative for each one; changes reach players the
@@ -228,6 +237,18 @@ export default async function GamePage({ params, searchParams }) {
         </div>
       ))}
 
+      {tab === "settings" && gaps.known && (
+        <GameProfile
+          gameId={game.id}
+          initial={{ genres: game.genres, platforms: game.platforms, languages: game.languages }}
+        />
+      )}
+      {tab === "settings" && !gaps.known && (
+        <p className="notice">
+          Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to describe your
+          game for advertisers.
+        </p>
+      )}
       {tab === "settings" && <GameSettings gameId={game.id} name={game.name} />}
     </>
   );

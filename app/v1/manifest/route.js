@@ -12,6 +12,7 @@ import { cropFromRow } from "../../../lib/surface-math";
 import { syncBookingSchedule } from "../../../lib/schedule";
 import { rotate } from "../../../lib/rotation";
 import { choosePictures } from "../../../lib/manifest-pick";
+import { eligibleRows } from "../../../lib/targeting";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,8 @@ export const GET = guarded(async function GET(request) {
 
   // Newest schema first; each step back drops what a missing migration added.
   const attempts = [
-    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true },
+    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, withTargeting: true },
+    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, migration: "0018_targeting.sql" },
     { skipRemoved: true, withCrop: true, withSource: true, migration: "0017_ad_formats.sql" },
     { skipRemoved: true, withCrop: true, migration: "0015_open_marketplace.sql" },
     { skipRemoved: true, withCrop: false, migration: "0003_assignment_crop.sql" },
@@ -68,11 +70,19 @@ export const GET = guarded(async function GET(request) {
     row,
   }));
 
+  // A booked creative may ask for a kind of game (migration 0018): genres, platforms, languages.
+  // Those that do not fit this game are dropped before the rotation, so the placement shows
+  // another advertiser or the developer's own creative. The game's own description is read only
+  // when some booked creative has an audience; a game that has not filled in what a creative
+  // asks for does not get it (strict).
+  const targeted = rows.some((item) => item.source === "booking" && item.row.creatives.targeting != null);
+  const eligible = targeted ? eligibleRows(rows, await loadProfile(db, game)) : rows;
+
   // Which picture each booked creative shows on each placement (migration 0017).
   // Where no picture fits the placement's shape the pair is dropped before the
   // rotation, so the placement shows another advertiser or the developer's own creative.
-  const assetsOf = await loadAssets(db, rows);
-  const { servable, shown } = choosePictures(rows, assetsOf, (path) => creativeUrl(db, path));
+  const assetsOf = await loadAssets(db, eligible);
+  const { servable, shown } = choosePictures(eligible, assetsOf, (path) => creativeUrl(db, path));
   // A suspended account's ads stop being served (suspended_at comes with migration 0015).
   const owners = [...new Set(servable.map((item) => item.advertiserId).filter(Boolean))];
   let suspended = new Set();
@@ -93,6 +103,25 @@ export const GET = guarded(async function GET(request) {
 
   return json({ version: 1, placements });
 });
+
+/**
+ * What the developer said about this game: { genres, platforms, languages }. Null when it could
+ * not be read; creatives with an audience then do not show (failing closed is the safe side, and
+ * the manifest is asked again at the next start).
+ */
+async function loadProfile(db, game) {
+  const { data, error } = await db
+    .from("games")
+    .select("genres, platforms, languages")
+    .eq("id", game.id)
+    .maybeSingle();
+  if (error) {
+    if (isSchemaOutdated(error)) warnSchemaOutdated("GET /v1/manifest", "0018_targeting.sql");
+    else logDbError("manifest game profile", error);
+    return null;
+  }
+  return data ?? null;
+}
 
 /** Approved per-format images of the booked creatives, by creative id. Empty before migration 0017. */
 async function loadAssets(db, rows) {
@@ -118,7 +147,7 @@ async function loadAssets(db, rows) {
   return byCreative;
 }
 
-function activeAssignments(db, game, { skipRemoved, withCrop, withSource, withFormats }) {
+function activeAssignments(db, game, { skipRemoved, withCrop, withSource, withFormats, withTargeting }) {
   let query = db
     .from("assignments")
     .select(
@@ -126,7 +155,7 @@ function activeAssignments(db, game, { skipRemoved, withCrop, withSource, withFo
       ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
       ${withSource ? "source," : ""}
       placements!inner ( external_id${withFormats ? ", aspect_ratio" : ""} ),
-      creatives!inner ( id, storage_path, status, owner_id${withFormats ? ", width_px, height_px, safe_x, safe_y, safe_w, safe_h" : ""} )
+      creatives!inner ( id, storage_path, status, owner_id${withFormats ? ", width_px, height_px, safe_x, safe_y, safe_w, safe_h" : ""}${withTargeting ? ", targeting" : ""} )
     `
     )
     .eq("owner_id", game.owner_id)

@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getMember } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
 import { FORMATS, aspectClose, normalizeSafeZone } from "../../../lib/formats";
+import { parseTargeting } from "../../../lib/targeting";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
+const MISSING_TARGETING = "Run migration 0018 in the Supabase SQL editor first.";
 
 // Writes go through the service client after an explicit ownership check: the tables
 // have no write grants for users (migration 0017).
@@ -25,6 +27,31 @@ function refresh(creativeId) {
   revalidatePath(`/dashboard/creatives/${creativeId}`);
   revalidatePath("/dashboard/creatives");
   revalidatePath("/dashboard/admin");
+}
+
+/**
+ * Which games may show a creative (migration 0018): genres, platforms, languages, genres to skip.
+ * null (or nothing picked) means every game. Advertisers only; the audience is validated here
+ * because users have no write grant on the column. A live booking follows the new audience at the
+ * next game start, so nothing needs to be re-booked.
+ */
+export async function saveTargeting({ creativeId, targeting }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (me.role !== "advertiser") return { error: "Not allowed." };
+  const creative = await ownCreative(me, creativeId);
+  if (!creative) return { error: "That creative no longer exists." };
+
+  const parsed = parseTargeting(targeting);
+  if (parsed.error) return { error: parsed.error };
+
+  const { error } = await me.service.from("creatives").update({ targeting: parsed.value }).eq("id", creative.id);
+  if (isSchemaOutdated(error)) return { error: MISSING_TARGETING };
+  if (error) return { error: "Could not save. Try again." };
+
+  refresh(creative.id);
+  revalidatePath("/dashboard/advertising/new");
+  return { ok: true, targeting: parsed.value };
 }
 
 /** Where the part of the main image that must stay visible is (fractions of the image). */

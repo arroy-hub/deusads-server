@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMember } from "../../../../lib/admin";
 import { isSchemaOutdated } from "../../../../lib/api";
+import Audience from "./audience";
 import Workbench from "./workbench";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,37 @@ export default async function CreativeFormatsPage({ params }) {
   const migrated = !isSchemaOutdated(error);
   if (!migrated) ({ data: creative } = await read("id, name, storage_path, width_px, height_px, status"));
   if (!creative) notFound();
+
+  // Which games may show the creative comes with migration 0018. Only advertisers aim creatives; the
+  // catalog is the games that have opened placements, so the page can say how many fit.
+  let audience = null;
+  let audienceMissing = false;
+  let catalog = null;
+  if (me.role === "advertiser") {
+    const targetingRead = await service
+      .from("creatives")
+      .select("targeting")
+      .eq("id", creative.id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    if (targetingRead.error) audienceMissing = isSchemaOutdated(targetingRead.error);
+    else {
+      audience = { targeting: targetingRead.data?.targeting ?? null };
+      const { data: open, error: openError } = await service
+        .from("placements")
+        .select("game_id, games(genres, platforms, languages)")
+        .eq("open_to_advertisers", true)
+        .is("removed_at", null)
+        .neq("owner_id", user.id);
+      if (!openError) {
+        const byGame = new Map();
+        for (const row of open ?? []) {
+          if (row.games && !byGame.has(row.game_id)) byGame.set(row.game_id, row.games);
+        }
+        catalog = [...byGame.values()];
+      }
+    }
+  }
 
   const urlOf = (path) => service.storage.from("creatives").getPublicUrl(path).data.publicUrl;
   let assets = [];
@@ -70,6 +102,13 @@ export default async function CreativeFormatsPage({ params }) {
           }}
           assets={assets}
         />
+      )}
+      {audience && <Audience creativeId={creative.id} initial={audience.targeting} catalog={catalog} />}
+      {audienceMissing && (
+        <p className="notice">
+          Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to choose which
+          games may show this creative.
+        </p>
       )}
     </>
   );

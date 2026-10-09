@@ -6,6 +6,7 @@ import { userClient } from "../../lib/supabase-server";
 import { isSchemaOutdated } from "../../lib/api";
 import { isCategory } from "../../lib/categories";
 import { normalizeCrop, sameCrop, DEFAULT_CROP } from "../../lib/surface-math";
+import { validateProfile } from "../../lib/targeting";
 
 // Every action writes through the user's own client, so row-level security is
 // what actually enforces ownership. The owner_id below is convenience, not the
@@ -24,15 +25,50 @@ export async function createGame(formData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Give the game a name." };
 
+  // What the game is: genres, platforms, languages (migration 0018). Advertisers aim ads at these.
+  const described = validateProfile({
+    genres: formData.getAll("genres"),
+    platforms: formData.getAll("platforms"),
+    languages: formData.getAll("languages"),
+  });
+  if (described.error) return { error: described.error };
+
   const { db, user } = await session();
   if (!user) return { error: "Your session expired. Sign in again." };
 
-  const { error } = await db.from("games").insert({ owner_id: user.id, name });
+  let { error } = await db.from("games").insert({ owner_id: user.id, name, ...described.value });
+  // Migration 0018 not applied yet: the game is created without its description.
+  if (isSchemaOutdated(error)) ({ error } = await db.from("games").insert({ owner_id: user.id, name }));
 
   if (error) return { error: "Could not create the game." };
 
   revalidatePath("/dashboard", "layout");
   return { ok: true };
+}
+
+/**
+ * Saves what the game is: genres, platforms and languages, at least one of each. Ads that ask for
+ * a genre, platform or language only show in games that have said what they are. Owner only,
+ * enforced by row-level security. Changes reach players the next time they start the game.
+ */
+export async function saveGameProfile({ gameId, genres, platforms, languages }) {
+  const described = validateProfile({ genres, platforms, languages });
+  if (described.error) return { error: described.error };
+
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const { data, error } = await db
+    .from("games")
+    .update(described.value)
+    .eq("id", String(gameId ?? ""))
+    .select("id")
+    .maybeSingle();
+  if (isSchemaOutdated(error)) return { error: NEEDS_TARGETING_MIGRATION };
+  if (error || !data) return { error: "Could not save. Try again." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, value: described.value };
 }
 
 /**
@@ -275,6 +311,9 @@ export async function deleteCreative({ creativeId }) {
 
 const NEEDS_CROP_MIGRATION =
   "Framing is not saved yet: run supabase/migrations/0003_assignment_crop.sql in the Supabase SQL editor.";
+
+const NEEDS_TARGETING_MIGRATION =
+  "Run supabase/migrations/0018_targeting.sql in the Supabase SQL editor first.";
 
 /** Switches a placement on or off in the advertiser catalog (migration 0014). Owner only, enforced by row-level security. */
 export async function setPlacementOpen({ placementId, open }) {
