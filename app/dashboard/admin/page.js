@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
+import { formatLabel } from "../../../lib/formats";
 import ReviewRow from "./review-row";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,27 @@ export default async function ModerationPage() {
     reviewed = data ?? [];
   }
 
+  // Extra per-format pictures waiting for review (migration 0017; absent before it).
+  const assetResult = await service
+    .from("creative_assets")
+    .select("id, aspect, storage_path, width_px, height_px, status, created_at, format_id, creatives(name, owner_id, accounts(email, company))")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  const pendingAssets = assetResult.error
+    ? []
+    : (assetResult.data ?? []).map((row) => ({
+        id: row.id,
+        kind: "asset",
+        name: `${row.creatives?.name ?? "Creative"} · ${formatLabel(row.format_id)}`,
+        url: urlOf(row.storage_path),
+        size: row.width_px && row.height_px ? `${row.width_px} × ${row.height_px}` : "—",
+        status: row.status,
+        note: "",
+        owner: row.creatives?.accounts?.company || row.creatives?.accounts?.email || "Unknown",
+        email: row.creatives?.accounts?.email ?? "",
+        created: String(row.created_at).slice(0, 10),
+      }));
+
   return (
     <>
       <div className="main-head">
@@ -86,6 +108,21 @@ export default async function ModerationPage() {
         <div className="empty">
           <p style={{ margin: "0 auto" }}>Nothing is waiting for review.</p>
         </div>
+      )}
+
+      {pendingAssets.length > 0 && (
+        <>
+          <h2 style={{ margin: "2.5rem 0 0.75rem" }}>Format images waiting for review ({pendingAssets.length})</h2>
+          <div className="panel" style={{ padding: 0 }}>
+            <table>
+              <tbody>
+                {pendingAssets.map((item) => (
+                  <ReviewRow key={item.id} creative={item} canNote />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {reviewed.length > 0 && (

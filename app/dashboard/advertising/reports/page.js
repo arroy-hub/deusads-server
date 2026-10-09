@@ -12,7 +12,7 @@ export const metadata = { title: "Reports" };
 
 export default async function ReportsPage({ searchParams }) {
   const me = await getMember();
-  if (!me || (me.role !== "advertiser" && me.role !== "admin")) notFound();
+  if (!me || me.role !== "advertiser") notFound();
   const { service, user } = me;
 
   const query = await searchParams;

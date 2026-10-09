@@ -5,9 +5,9 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 
 const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
 
-assert.deepEqual(labels("developer"), ["Home", "My games", "Ad requests", "Notifications"]);
+assert.deepEqual(labels("developer"), ["Home", "My games", "Now showing", "Notifications"]);
 assert.deepEqual(labels("advertiser"), ["Home", "Creatives", "Find placements", "Campaigns", "Reports", "Notifications"]);
-assert.equal(labels("admin").slice(0, 6).join(), "Inbox,Creatives,Applications,All bookings,People,System");
+assert.equal(labels("admin").slice(0, 5).join(), "Inbox,Creatives,All bookings,People,System");
 assert.ok(labels("admin").includes("My games"), "an admin keeps their own developer and advertiser tools");
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin/inbox");

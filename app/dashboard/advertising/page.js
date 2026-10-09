@@ -11,7 +11,7 @@ export const metadata = { title: "Campaigns" };
 
 export default async function AdvertisingPage() {
   const me = await getMember();
-  if (!me || (me.role !== "advertiser" && me.role !== "admin")) notFound();
+  if (!me || me.role !== "advertiser") notFound();
 
   const { bookings, error } = await loadBookings(me.service, (query) => query.eq("advertiser_id", me.user.id));
 

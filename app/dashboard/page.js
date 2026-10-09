@@ -33,7 +33,8 @@ async function DeveloperHome({ me }) {
     };
   });
   const { bookings } = await loadBookings(service, (query) => query.eq("developer_id", user.id));
-  const waiting = bookings.filter((booking) => booking.status === "pending" && booking.developer === "pending");
+  // Bookings approve themselves; nothing waits for the developer.
+  const waiting = [];
   const approved = bookings.filter((booking) => booking.status === "approved").length;
 
   const steps = developerSteps({
@@ -151,7 +152,7 @@ async function AdvertiserHome({ me }) {
   const stages = [
     ["1 · Creatives", pipeline.creatives, `${pipeline.waitingCreatives} waiting for review`],
     ["2 · Draft campaigns", pipeline.drafts, "No placements chosen"],
-    ["3 · Waiting", pipeline.waiting, "For approval or start date"],
+    ["3 · Waiting", pipeline.waiting, "For creative review or start date"],
     ["4 · Live", pipeline.live, "Showing in games now"],
     ["5 · Finished", pipeline.finished, "See Reports"],
   ];
@@ -186,7 +187,7 @@ async function AdvertiserHome({ me }) {
             <div className="todo">
               <div>
                 <strong>Upload your first creative</strong>
-                <div className="todo-sub">DeusADS reviews it before it can be booked.</div>
+                <div className="todo-sub">You can book it while it is reviewed; ads start once it is approved.</div>
               </div>
               <Link href="/dashboard/creatives" className="button">
                 Upload

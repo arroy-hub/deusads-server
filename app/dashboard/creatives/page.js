@@ -1,5 +1,8 @@
 import { userClient } from "../../../lib/supabase-server";
 import { isSchemaOutdated } from "../../../lib/api";
+import { getMember } from "../../../lib/admin";
+import { categoryLabel } from "../../../lib/categories";
+import { targetingSummary } from "../../../lib/targeting";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 
@@ -12,11 +15,27 @@ export default async function CreativesPage() {
     db.from("creatives").select(columns).order("created_at", { ascending: false });
 
   // review_note comes with migration 0008; without it the list still shows.
+  // ad_category comes with migration 0015.
   let { data: creatives, error } = await listCreatives(
-    "id, name, storage_path, width_px, height_px, status, created_at, review_note"
+    "id, name, storage_path, width_px, height_px, status, created_at, review_note, ad_category"
   );
   if (isSchemaOutdated(error)) {
+    ({ data: creatives, error } = await listCreatives(
+      "id, name, storage_path, width_px, height_px, status, created_at, review_note"
+    ));
+  }
+  if (isSchemaOutdated(error)) {
     ({ data: creatives } = await listCreatives("id, name, storage_path, width_px, height_px, status, created_at"));
+  }
+
+  // An advertiser's creatives may be aimed at some games (migration 0018); the list says which.
+  // Without the migration, or for a developer, the list simply has no audience line.
+  const me = await getMember();
+  const advertiser = me?.role === "advertiser";
+  const audienceOf = new Map();
+  if (advertiser) {
+    const { data: aimed, error: aimedError } = await db.from("creatives").select("id, targeting");
+    if (!aimedError) for (const row of aimed ?? []) audienceOf.set(row.id, targetingSummary(row.targeting));
   }
 
   // How many placements show each creative right now.
@@ -63,7 +82,10 @@ export default async function CreativesPage() {
                   }
                   status={creative.status}
                   note={creative.review_note ?? ""}
+                  category={creative.ad_category ? categoryLabel(creative.ad_category) : ""}
                   usedBy={usedBy.get(creative.id) ?? 0}
+                  audience={audienceOf.get(creative.id) ?? ""}
+                  canAim={advertiser}
                 />
               ))}
             </tbody>

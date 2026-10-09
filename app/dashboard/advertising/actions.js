@@ -14,16 +14,20 @@ import { describeBooking } from "../../../lib/bookings-data";
 import { notify, notifyMany } from "../../../lib/notify";
 
 const MISSING = "Run migration 0009 in the Supabase SQL editor first.";
+const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
 
 /**
- * Ask for a creative on one or more placements. Each placement becomes a booking
- * that waits for DeusADS and for the placement's developer. Advertisers (and
- * admins, who can try the flow) only; every id from the browser is re-checked.
+ * Book a creative on one or more placements. Bookings are approved automatically by
+ * the database function activate_booking (migration 0015): the placement must be open,
+ * the developer must not have blocked the advertiser, the creative or its category, and
+ * restricted categories need the developer's opt-in. A booking whose creative is still
+ * in review waits and starts by itself when the creative is approved. Advertisers only;
+ * every id from the browser is re-checked.
  */
 export async function createBooking({ campaignId, campaignName, creativeId, placementIds, startsOn, endsOn }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser" && me.role !== "admin") return { error: "Not allowed." };
+  if (me.role !== "advertiser") return { error: "Not allowed." };
   const { service, user } = me;
 
   const ids = cleanPlacementIds(placementIds);
@@ -40,7 +44,7 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     .eq("owner_id", user.id)
     .maybeSingle();
   if (!creative) return { error: "Pick one of your creatives." };
-  if (creative.status !== "approved") return { error: "That creative has not been approved yet." };
+  if (creative.status === "rejected") return { error: "That creative was rejected. Upload another one." };
 
   const lookup = (columns) => service.from("placements").select(columns).in("id", ids).is("removed_at", null);
   let { data: placements, error: placementsError } = await lookup("id, owner_id, open_to_advertisers");
@@ -56,20 +60,16 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
 
   const { data: taken, error: takenError } = await service
     .from("bookings")
-    .select("placement_id, creative_id, status")
+    .select("placement_id")
     .in("placement_id", ids)
+    .eq("creative_id", creative.id)
     .in("status", ["pending", "approved"]);
   if (bookingsMissing(takenError)) return { error: MISSING };
   if (takenError) return { error: "Could not save. Try again." };
 
-  if ((taken ?? []).some((row) => row.status === "approved")) {
-    return { error: "Some of those placements are already booked. Refresh the list." };
-  }
-  const requested = new Set(
-    (taken ?? []).filter((row) => row.creative_id === creative.id).map((row) => row.placement_id)
-  );
+  const requested = new Set((taken ?? []).map((row) => row.placement_id));
   const fresh = placements.filter((placement) => !requested.has(placement.id));
-  if (fresh.length === 0) return { error: "You have already requested all of those placements with this creative." };
+  if (fresh.length === 0) return { error: "This creative is already booked on all of those placements." };
 
   let campaign;
   if (campaignId) {
@@ -94,32 +94,53 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     campaign = data;
   }
 
-  const { error } = await service.from("bookings").insert(
-    fresh.map((placement) => ({
-      campaign_id: campaign.id,
-      advertiser_id: user.id,
-      developer_id: placement.owner_id,
-      creative_id: creative.id,
-      placement_id: placement.id,
-      // The date columns come with migration 0013: only sent when dates were chosen.
-      ...(dated ? { starts_on: range.startsOn, ends_on: range.endsOn } : {}),
-    }))
-  );
+  const { data: created, error } = await service
+    .from("bookings")
+    .insert(
+      fresh.map((placement) => ({
+        campaign_id: campaign.id,
+        advertiser_id: user.id,
+        developer_id: placement.owner_id,
+        creative_id: creative.id,
+        placement_id: placement.id,
+        // The date columns come with migration 0013: only sent when dates were chosen.
+        ...(dated ? { starts_on: range.startsOn, ends_on: range.endsOn } : {}),
+      }))
+    )
+    .select("id, developer_id");
   if (isSchemaOutdated(error)) return { error: "Dates need migration 0013 in the Supabase SQL editor first." };
+  if (error?.code === "23505") return { error: "This creative is already booked on one of those placements. Refresh the list." };
   if (error) return { error: "Could not send the requests. Try again." };
 
-  // Each developer hears once, however many of their placements were asked for.
+  // Approve what can be approved now. Each call is independent; one failing does not stop the rest.
+  const outcome = { approved: 0, waiting: 0, rejected: 0 };
+  const goingLive = [];
+  for (const booking of created ?? []) {
+    const { data: status, error: activateError } = await service.rpc("activate_booking", { p_booking: booking.id });
+    if (activateError) {
+      if (["PGRST202", "42883"].includes(activateError.code)) return { error: ACTIVATE_MISSING };
+      outcome.waiting += 1; // stays pending; it is retried when the creative is reviewed
+      continue;
+    }
+    if (status === "approved") {
+      outcome.approved += 1;
+      goingLive.push(booking.developer_id);
+    } else if (status === "rejected" || status === "cancelled") outcome.rejected += 1;
+    else outcome.waiting += 1;
+  }
+
+  // Each developer hears once, however many of their placements were booked.
   await notifyMany(
     service,
-    fresh.map((placement) => placement.owner_id),
-    "New ad request waiting for your decision.",
+    goingLive,
+    "A new ad is showing in your game. You can switch it off in Now showing.",
     "/dashboard/requests"
   );
 
   revalidatePath("/dashboard/advertising");
   revalidatePath("/dashboard/requests");
   revalidatePath("/dashboard/admin/bookings");
-  return { ok: true, count: fresh.length, skipped: placements.length - fresh.length };
+  return { ok: true, count: fresh.length, skipped: placements.length - fresh.length, ...outcome };
 }
 
 /** Withdraw a booking; a live one stops showing at once. Only its advertiser can. */
@@ -150,7 +171,7 @@ export async function cancelBooking({ bookingId }) {
 export async function renameCampaign({ campaignId, name }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser" && me.role !== "admin") return { error: "Not allowed." };
+  if (me.role !== "advertiser") return { error: "Not allowed." };
 
   const title = cleanCampaignName(name);
   if (!title) return { error: "Name the campaign." };
@@ -177,7 +198,7 @@ export async function renameCampaign({ campaignId, name }) {
 export async function deleteCampaign({ campaignId }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser" && me.role !== "admin") return { error: "Not allowed." };
+  if (me.role !== "advertiser") return { error: "Not allowed." };
 
   const id = String(campaignId ?? "");
   const { data: campaign } = await me.service

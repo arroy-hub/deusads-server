@@ -15,7 +15,7 @@ const text = (body, status) => new Response(body, { status, headers: { "content-
 export async function GET(request) {
   const me = await getMember();
   if (!me) return text("Sign in first.", 401);
-  if (me.role !== "advertiser" && me.role !== "admin") return text("Not allowed.", 403);
+  if (me.role !== "advertiser") return text("Not allowed.", 403);
 
   const params = new URL(request.url).searchParams;
   const days = parseRange(params.get("days"));
