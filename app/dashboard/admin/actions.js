@@ -58,6 +58,45 @@ export async function reviewCreative({ creativeId, decision, note }) {
   return { ok: true, status };
 }
 
+/** Approve or reject one extra picture of a creative (migration 0017). Only approved pictures are served. */
+export async function reviewAsset({ assetId, decision, note }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+
+  const status = parseDecision(decision);
+  if (!status) return { error: "Unknown decision." };
+
+  const reviewNote = status === "rejected" ? cleanNote(note) : null;
+  const { data, error } = await admin.service
+    .from("creative_assets")
+    .update({ status, review_note: reviewNote, reviewed_at: new Date().toISOString() })
+    .eq("id", String(assetId ?? ""))
+    .select("id, creative_id, format_id")
+    .maybeSingle();
+  if (isSchemaOutdated(error) || error?.code === "42P01") return { error: "Run migration 0017 in the Supabase SQL editor first." };
+  if (error || !data) return { error: "Could not save the decision." };
+
+  const { data: creative } = await admin.service
+    .from("creatives")
+    .select("name, owner_id")
+    .eq("id", data.creative_id)
+    .maybeSingle();
+  if (creative) {
+    await notify(admin.service, {
+      accountId: creative.owner_id,
+      text:
+        status === "approved"
+          ? `An image for "${creative.name}" was approved.`
+          : `An image for "${creative.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
+      link: `/dashboard/creatives/${data.creative_id}`,
+    });
+  }
+
+  revalidatePath("/dashboard/admin");
+  revalidatePath(`/dashboard/creatives/${data.creative_id}`);
+  return { ok: true, status };
+}
+
 export async function setAccountRole({ accountId, role }) {
   const admin = await getAdmin();
   if (!admin) return { error: "Not allowed." };

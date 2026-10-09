@@ -17,7 +17,7 @@ export default async function NewBookingPage() {
   const [{ data: creatives }, campaignResult, firstCatalog] = await Promise.all([
     service
       .from("creatives")
-      .select("id, name, status, width_px, height_px")
+      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false }),
     service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
@@ -25,6 +25,27 @@ export default async function NewBookingPage() {
     // game and placement names and the shape of the slot, nothing about its owner.
     catalogQuery(service, user.id, true),
   ]);
+
+  // Migration 0017 adds the safe zone and per-format images; without it the plain columns still load.
+  let creativeRows = creatives;
+  if (!creativeRows) {
+    ({ data: creativeRows } = await service
+      .from("creatives")
+      .select("id, name, status, width_px, height_px")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: false }));
+  }
+  const assetsOf = new Map();
+  if (creativeRows?.length) {
+    const { data: assetRows } = await service
+      .from("creative_assets")
+      .select("creative_id, format_id, aspect, status")
+      .in("creative_id", creativeRows.map((item) => item.id));
+    for (const row of assetRows ?? []) {
+      if (!assetsOf.has(row.creative_id)) assetsOf.set(row.creative_id, []);
+      assetsOf.get(row.creative_id).push({ formatId: row.format_id, aspect: Number(row.aspect), status: row.status });
+    }
+  }
 
   // Without migration 0014 there is no switch yet: every live placement is listed, as before.
   catalog = isSchemaOutdated(firstCatalog.error) ? await catalogQuery(service, user.id, false) : firstCatalog;
@@ -62,7 +83,9 @@ export default async function NewBookingPage() {
         </p>
       )}
       <BookingForm
-        creatives={(creatives ?? []).map((item) => ({
+        creatives={(creativeRows ?? []).map((item) => ({
+          safe: item.safe_x == null ? null : { x: item.safe_x, y: item.safe_y, w: item.safe_w, h: item.safe_h },
+          assets: assetsOf.get(item.id) ?? [],
           id: item.id,
           name: item.name,
           approved: item.status === "approved",

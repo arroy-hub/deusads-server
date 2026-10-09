@@ -257,8 +257,12 @@ export async function deleteCreative({ creativeId }) {
     .maybeSingle();
   if (!creative) return { error: "That creative no longer exists." };
 
+  // Pictures made for other formats go with the creative (the rows cascade; the files do not).
+  const { data: extra } = await db.from("creative_assets").select("storage_path").eq("creative_id", id);
+
   const { error } = await db.from("creatives").delete().eq("id", id);
   if (error) return { error: "Could not delete the creative." };
+  if (extra?.length) await db.storage.from("creatives").remove(extra.map((row) => row.storage_path));
 
   // The row is gone either way; a file that will not delete is only wasted space.
   const { error: storageError } = await db.storage.from("creatives").remove([creative.storage_path]);

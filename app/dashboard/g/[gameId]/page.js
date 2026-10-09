@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { userClient } from "../../../../lib/supabase-server";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
+import { formatLabel, formatOf } from "../../../../lib/formats";
 import { fillDays, formatCount, placementRows } from "../../../../lib/analytics";
 import ApiKey from "./api-key";
 import DailyChart from "./daily-chart";
@@ -301,7 +302,9 @@ function Surface({ placement, library, db, cropEnabled, children }) {
   const dims =
     (widthM && placement.height_m
       ? `${trim(widthM)} × ${trim(placement.height_m)} m · ${ratioLabel(aspect)}`
-      : ratioLabel(aspect)) + (placement.scene ? ` · ${placement.scene}` : "");
+      : ratioLabel(aspect)) +
+    (aspect > 0 ? ` · ${formatOf(aspect) ? formatLabel(formatOf(aspect)) : "custom shape"}` : "") +
+    (placement.scene ? ` · ${placement.scene}` : "");
 
   return (
     <SurfaceCard

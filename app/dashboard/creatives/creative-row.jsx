@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { deleteCreative, renameCreative } from "../actions";
 
 /**
@@ -107,6 +108,9 @@ export default function CreativeRow({ id, name, url, size, status, note, usedBy,
         ) : (
           mode === "view" && (
             <div className="row-actions">
+              <Link className="link-button" href={`/dashboard/creatives/${id}`}>
+                Formats
+              </Link>
               <button className="link-button" type="button" onClick={() => setMode("rename")}>
                 Rename
               </button>

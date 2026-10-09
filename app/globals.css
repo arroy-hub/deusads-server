@@ -1686,3 +1686,36 @@ td {
   margin: 0;
   accent-color: var(--signal);
 }
+
+/* Safe-zone editor on a creative's Formats page */
+.safe-stage {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  touch-action: none;
+  user-select: none;
+}
+
+.safe-stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.safe-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  outline: 2px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  cursor: move;
+}
+
+.safe-frame:focus-visible {
+  outline: 3px solid var(--accent, #3b82f6);
+}

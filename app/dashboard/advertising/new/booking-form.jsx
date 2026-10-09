@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBooking } from "../actions";
-import { fitNote } from "../../../../lib/booking-rules";
+import { formatLabel, formatOf, pickImage } from "../../../../lib/formats";
 
 /** Creative + campaign + a checklist of placements grouped by game. */
 export default function BookingForm({ creatives, campaigns, games }) {
@@ -132,7 +132,8 @@ export default function BookingForm({ creatives, campaigns, games }) {
                     {[
                       placement.scene && `scene ${placement.scene}`,
                       placement.aspect && `${placement.aspect.toFixed(2)}:1`,
-                      chosen && fitNote({ width: chosen.width, height: chosen.height, aspect: placement.aspect }),
+                      placement.aspect && formatLabel(formatOf(placement.aspect)),
+                      chosen && coverageNote(chosen, placement.aspect),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -156,4 +157,20 @@ export default function BookingForm({ creatives, campaigns, games }) {
       </div>
     </form>
   );
+}
+
+/** How the chosen creative would appear on a placement of this shape. */
+function coverageNote(creative, aspect) {
+  if (!aspect) return null;
+  const pick = pickImage({
+    creative: {
+      aspect: creative.width && creative.height ? creative.width / creative.height : null,
+      safeZone: creative.safe,
+    },
+    assets: creative.assets ?? [],
+    surfaceAspect: aspect,
+  });
+  if (pick.kind === "asset") return "your image for this format";
+  if (pick.kind === "crop") return "your image, auto-cropped";
+  return "won't be shown here: add an image for this format";
 }
