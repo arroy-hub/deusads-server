@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { userClient } from "../../../lib/supabase-server";
 import { gapWords, profileGaps } from "../../../lib/targeting";
-import AddGameForm from "../add-game-form";
+import AddGameDialog from "../add-game-dialog";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My games" };
@@ -31,6 +31,7 @@ export default async function GamesPage() {
     <>
       <div className="main-head">
         <h1>My games</h1>
+        <AddGameDialog />
       </div>
       <p className="lede">
         Each game gets its own key. Paste it into the DeusADS settings in Unity and the
@@ -66,12 +67,10 @@ export default async function GamesPage() {
       ) : (
         <div className="empty">
           <p style={{ margin: "0 auto 1rem" }}>
-            Add your first game to get a key for the Unity SDK.
+            Add your first game to get a key for the Unity SDK: press “Add game” at the top.
           </p>
         </div>
       )}
-
-      <AddGameForm />
     </>
   );
 }
