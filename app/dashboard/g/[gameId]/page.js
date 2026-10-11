@@ -385,7 +385,7 @@ function livePlacements(db, gameId, { skipRemoved = false, withCrop = false, wit
     .from("placements")
     .select(
       `${columns}
-       assignments!left ( id, active, ${withSource ? "source," : ""} ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
+       assignments!left ( id, active, created_at, ${withSource ? "source," : ""} ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
          creatives ( id, name, storage_path, width_px, height_px ) )`
     )
     .eq("game_id", gameId);
@@ -396,7 +396,11 @@ function livePlacements(db, gameId, { skipRemoved = false, withCrop = false, wit
 
 /** The developer's own pictures on a placement (assignments without a source are all own). */
 function ownAssignments(placement) {
-  return (placement.assignments ?? []).filter((item) => !item.source || item.source === "own");
+  // Always in the order the pictures were added: the database returns a row it has just updated
+  // last, which would move a picture to the end whenever it is switched on or off.
+  return (placement.assignments ?? [])
+    .filter((item) => !item.source || item.source === "own")
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || String(a.id).localeCompare(String(b.id)));
 }
 
 function trim(value) {
