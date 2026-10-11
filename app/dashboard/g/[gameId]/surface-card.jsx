@@ -136,12 +136,9 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
     setDrafts((all) => ({ ...all, [activeId]: normalizeCrop(next) }));
   }
 
+  // Framing opens only from the Framing button, never from a click on the picture.
   function onPointerDown(event) {
-    if (!canAdjust) return;
-    if (!adjusting) {
-      setAdjusting(true);
-      return;
-    }
+    if (!canAdjust || !adjusting) return;
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     const box = event.currentTarget.getBoundingClientRect();
@@ -174,13 +171,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   }
 
   function onKeyDown(event) {
-    if (!adjusting) {
-      if (canAdjust && (event.key === "Enter" || event.key === " ")) {
-        event.preventDefault();
-        setAdjusting(true);
-      }
-      return;
-    }
+    if (!adjusting) return;
     const step = event.shiftKey ? 0.05 : 0.01;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
     if (moves[event.key]) {
@@ -359,23 +350,16 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
       <div className="surface-stage">
         <div
           ref={windowRef}
-          className={`surface-window ${canAdjust ? "can-adjust" : ""}`}
+          className="surface-window"
           style={{ "--aspect": aspect, aspectRatio: String(aspect) }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onKeyDown={onKeyDown}
-          tabIndex={canAdjust ? 0 : -1}
-          role={canAdjust ? "button" : undefined}
-          aria-label={
-            canAdjust
-              ? adjusting
-                ? "Framing: drag or use arrow keys to move, + and − to zoom, Escape to finish"
-                : "Adjust framing"
-              : undefined
-          }
-          title={canAdjust && !adjusting ? "Click to adjust framing" : undefined}
+          tabIndex={adjusting ? 0 : -1}
+          role={adjusting ? "button" : undefined}
+          aria-label={adjusting ? "Framing: drag or use arrow keys to move, + and − to zoom, Escape to finish" : undefined}
         >
           {adjusting && creative && (
             <img className="surface-ghost" src={creative.url} alt="" style={imageStyle} draggable={false} />
@@ -433,15 +417,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
             <CardStatus placementId={placementId} />
           </div>
           <div className="surface-dims">{dims}</div>
-          <CardChips placementId={placementId} />
         </div>
-
-        {items.length > 0 && (
-          <div className="surface-hint">
-            {items.filter((item) => item.enabled).length} of {items.length} pictures in the rotation. They show in turn
-            when no advertiser is booked.
-          </div>
-        )}
 
         <div className="own-tabs">
         <div className="own-strip" role="tablist" aria-label={`Your pictures for ${label}`}>
@@ -598,6 +574,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         )}
         {children}
         <CardSections placementId={placementId} />
+        <CardChips placementId={placementId} />
       </div>
     </div>
   );

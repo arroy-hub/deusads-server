@@ -25,13 +25,14 @@ const CUSTOM = "__custom";
 function useAction() {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
-  function run(promise) {
+  function run(promise, after) {
     setMessage(null);
     startTransition(async () => {
       const result = await promise.catch(() => ({ error: "Connection lost. Try again." }));
       if (result?.error) setMessage({ kind: "error", text: result.error });
       else {
         if (result?.warning) setMessage({ kind: "note", text: result.warning });
+        after?.();
       }
     });
   }
@@ -110,21 +111,7 @@ export function CardName({ placementId, label }) {
   function save(event) {
     event.preventDefault();
     if (!changed) return setEditing(false);
-    run(renamePlacement({ placementId: item.id, label: name.trim() }));
-    setEditing(false);
-  }
-  if (editing) {
-    return (
-      <form className="org-name org-name-edit" onSubmit={save} onKeyDown={(event) => event.key === "Escape" && setEditing(false)}>
-        <input className="field" value={name} maxLength={120} autoFocus onChange={(event) => setName(event.target.value)} aria-label="Placement name" />
-        <button className="button button-small" type="submit" disabled={!changed}>
-          Save
-        </button>
-        <button className="button button-quiet button-small" type="button" onClick={() => setEditing(false)}>
-          Cancel
-        </button>
-      </form>
-    );
+    run(renamePlacement({ placementId: item.id, label: name.trim() }), () => setEditing(false));
   }
   return (
     <div className="org-name">
@@ -136,7 +123,9 @@ export function CardName({ placementId, label }) {
         className="org-rename"
         aria-label="Rename"
         title="Rename"
-        disabled={pending}
+        aria-expanded={editing}
+        style={editing ? { visibility: "hidden" } : undefined}
+        tabIndex={editing ? -1 : 0}
         onClick={() => {
           setName(item.label);
           setEditing(true);
@@ -146,7 +135,32 @@ export function CardName({ placementId, label }) {
           <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
         </svg>
       </button>
-      {message?.kind === "error" && <span className="error">{message.text}</span>}
+      {editing && (
+        <form
+          className="key-field org-rename-field"
+          aria-label="Rename placement"
+          onSubmit={save}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !pending) setEditing(false);
+          }}
+        >
+          <div className="key-field-head">
+            <span className="key-field-title">Rename placement</span>
+            <button type="button" className="button button-quiet key-toggle" onClick={() => setEditing(false)} disabled={pending}>
+              Hide
+            </button>
+          </div>
+          <input className="field" value={name} maxLength={120} autoFocus disabled={pending} onChange={(event) => setName(event.target.value)} aria-label="Placement name" />
+          <div className="row">
+            <button className="button" type="submit" disabled={!changed || pending}>
+              {pending ? "Saving…" : "Save name"}
+            </button>
+          </div>
+          <span role="status" aria-live="polite" className={message?.kind === "error" ? "error" : "settings-help"}>
+            {message?.kind === "error" ? message.text : pending ? "Saving the name…" : ""}
+          </span>
+        </form>
+      )}
     </div>
   );
 }
@@ -160,7 +174,7 @@ export function CardChips({ placementId }) {
   const type = effectiveType(item);
   const why = state === "off" || state === "partly" ? offReason(item, ctx) : "";
   return (
-    <div className="org-chips">
+    <div className="org-chips org-chips-foot">
       {item.shared && places > 1 && (
         <span className="org-chip org-chip-places" title="Copies of one prefab share this placement">
           ×{places} places

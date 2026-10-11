@@ -3582,3 +3582,44 @@ th.num .sort-button {
   background: var(--surface);
   color: var(--ink);
 }
+
+/* names wrap instead of being cut; the rename field floats over the title row, inside the card */
+.org-titlerow {
+  position: relative;
+  align-items: flex-start;
+}
+
+.org-name {
+  align-items: flex-start;
+}
+
+.org-name .surface-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.org-rename {
+  margin-top: 1px;
+}
+
+.org-rename-field {
+  top: -6px;
+  left: 0;
+  right: 0;
+  width: auto;
+}
+
+.org-status {
+  padding-top: 2px;
+}
+
+/* a placement outside folders gets the same room as one inside a folder */
+.org-loose {
+  padding: 0 calc(1rem + 1px);
+}
+
+.org-chips-foot {
+  padding: 0.6rem 1rem 0.9rem;
+}
