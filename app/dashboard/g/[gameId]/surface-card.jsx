@@ -350,7 +350,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
           )}
           {creative && !creative.enabled && !adjusting && (
             <div className="own-off-veil">
-              <span>Not shown. Switched off</span>
+              <span>Not shown</span>
             </div>
           )}
 
@@ -374,16 +374,24 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
           <div className="surface-dims">{dims}</div>
         </div>
 
-        <div className="own-strip" role="list" aria-label={`Your pictures for ${label}`}>
+        {items.length > 0 && (
+          <div className="surface-hint">
+            {items.filter((item) => item.enabled).length} of {items.length} pictures in the rotation. They show in turn
+            when no advertiser is booked.
+          </div>
+        )}
+
+        <div className="own-tabs">
+        <div className="own-strip" role="tablist" aria-label={`Your pictures for ${label}`}>
           {items.map((item, index) => (
             <button
               key={item.assignmentId}
               type="button"
-              role="listitem"
               className={`own-thumb ${item.assignmentId === activeId ? "is-current" : ""} ${item.enabled ? "is-on" : "is-off"}`}
+              role="tab"
               onClick={() => choose(item.assignmentId)}
               disabled={working}
-              aria-pressed={item.assignmentId === activeId}
+              aria-selected={item.assignmentId === activeId}
               aria-label={`Picture ${index + 1}${item.enabled ? ", in the rotation" : ", switched off"}`}
               title={`${item.name}${item.enabled ? "" : " — off"}`}
             >
@@ -411,22 +419,15 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
           )}
         </div>
 
-        {items.length > 0 && (
-          <div className="surface-hint">
-            {items.filter((item) => item.enabled).length} of {items.length} pictures in the rotation. They show in turn
-            when no advertiser is booked.
-          </div>
-        )}
-
         {creative && (
-          <div className="own-panel">
+          <div className={`own-panel ${items[0]?.assignmentId === activeId ? "is-first" : ""}`} role="tabpanel">
             {!adjusting ? (
               <>
                 <div className="own-row">
                   <div className="own-row-text">
                     <div className="own-row-title">Show this picture</div>
                     <div className="own-row-sub">
-                      {creative.enabled ? "In the rotation with your other pictures" : "Switched off. Kept, but not shown"}
+                      {creative.enabled ? "In the rotation with your other pictures" : "Switched off"}
                     </div>
                   </div>
                   <button
@@ -515,6 +516,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
             )}
           </div>
         )}
+        </div>
 
         {note && <div className={note.tone === "error" ? "error surface-note" : "surface-warn"}>{note.text}</div>}
 

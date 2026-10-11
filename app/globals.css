@@ -2780,28 +2780,34 @@ th.num .sort-button {
 }
 
 /* ---- a developer's own pictures on a placement card ---- */
-.own-strip { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.25rem 0 0; padding-right: 6px; }
+.own-tabs { display: flex; flex-direction: column; }
+.own-strip { display: flex; gap: 4px; flex-wrap: wrap; align-items: flex-end; position: relative; z-index: 1; }
 .own-thumb {
-  width: 56px; height: 40px; padding: 0; border-radius: 8px; position: relative; flex: none;
-  border: 2px solid var(--line, #e3dad5); background: none; cursor: pointer;
+  width: 56px; height: 38px; padding: 0; flex: none; position: relative; box-sizing: border-box;
+  border: 1px solid var(--line, #e3dad5); border-bottom-color: #e9c8bc; border-radius: 10px 10px 0 0;
+  background: #fff; margin-bottom: -1px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.own-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 6px; }
-.own-thumb.is-current { border-color: var(--signal, #d94625); }
+.own-thumb img { width: 44px; height: 30px; object-fit: cover; display: block; border-radius: 5px; }
+/* the chosen tab is raised and has the panel's colour, so it runs into the panel below it */
+.own-thumb.is-current { height: 44px; background: var(--signal-soft, #fbe5de); border-color: #e9c8bc; border-bottom-color: var(--signal-soft, #fbe5de); }
 .own-thumb.is-off img { opacity: 0.35; }
 .own-thumb:disabled { cursor: default; }
 .own-dot {
-  position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px; border-radius: 9px;
+  position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 8px;
   border: 2px solid #fff; box-sizing: border-box; color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
 .own-thumb.is-on .own-dot { background: var(--signal, #d94625); }
 .own-thumb.is-off .own-dot { background: #9a8f8a; }
-.own-add { font-size: 1.4rem; line-height: 1; color: var(--signal-ink, #b8381a); border-style: dashed; background: #fff; }
-
+.own-dot svg { width: 8px; height: 8px; }
+.own-add {
+  width: 44px; height: 36px; margin: 0 0 6px 4px; border: 2px dashed #c9bdb7; border-radius: 8px;
+  font-size: 1.3rem; line-height: 1; color: var(--signal-ink, #b8381a); background: #fff;
+}
 .own-pos {
-  position: absolute; left: 10px; top: 10px; z-index: 2; height: 24px; padding: 0 10px; border-radius: 12px;
-  background: rgba(36, 28, 25, 0.72); color: #fff; font-size: 12px; display: flex; align-items: center;
+  position: absolute; left: 10px; top: 10px; z-index: 3; height: 24px; padding: 0 10px; border-radius: 12px;
+  background: rgba(36, 28, 25, 0.85); color: #fff; font-size: 12px; display: flex; align-items: center;
   pointer-events: none;
 }
 .own-off-veil {
@@ -2813,7 +2819,7 @@ th.num .sort-button {
 }
 
 .own-panel {
-  background: var(--signal-soft, #fbe5de); border: 1px solid #f1d9d0; border-radius: 10px;
+  background: var(--signal-soft, #fbe5de); border: 1px solid #e9c8bc; border-radius: 10px;
   padding: 12px; display: flex; flex-direction: column; gap: 12px;
 }
 .own-row { display: flex; align-items: center; gap: 12px; }
@@ -2840,3 +2846,5 @@ th.num .sort-button {
 .own-delete.is-confirm { background: #a12626; color: #fff; }
 .own-actions .own-cancel { margin-left: auto; }
 .own-actions .surface-save { margin-left: 0; }
+.own-panel.is-first { border-top-left-radius: 0; }
+.surface-body .open-toggle { border-top: 1px solid var(--line, #e3dad5); margin-top: 4px; padding-top: 14px; }
