@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { userClient } from "../../lib/supabase-server";
-import { isSchemaOutdated } from "../../lib/api";
+import { isSchemaOutdated, serviceClient } from "../../lib/api";
 import { isCategory } from "../../lib/categories";
 import { normalizeCrop } from "../../lib/surface-math";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_TYPES } from "../../lib/own-creatives";
@@ -218,7 +218,9 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   }
 
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
-  const { data: creative, error } = await db
+  // Users may not set a creative's kind or status themselves (column grants, migration 0004), so the
+  // row is written with the service role. The user and the placement's owner were checked above.
+  const { data: creative, error } = await serviceClient()
     .from("creatives")
     .insert({
       owner_id: user.id,
@@ -232,8 +234,9 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
     .select("id, name")
     .single();
   if (error) {
+    console.error("[DeusADS] own picture not saved:", error.code, error.message);
     await cleanup();
-    return { error: isSchemaOutdated(error) ? NEEDS_OWN_MIGRATION : "Uploaded the picture but could not save it." };
+    return { error: isSchemaOutdated(error) ? NEEDS_OWN_MIGRATION : "Could not save the picture on our side. Nothing was lost: try again in a moment, and if it keeps failing, tell us." };
   }
 
   const { data: assignment, error: assignError } = await db
@@ -242,9 +245,15 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
     .select("id")
     .single();
   if (assignError) {
-    await db.from("creatives").delete().eq("id", creative.id);
+    console.error("[DeusADS] own picture not placed:", assignError.code, assignError.message);
+    await serviceClient().from("creatives").delete().eq("id", creative.id);
     await cleanup();
-    return { error: "Could not put the picture on the placement." };
+    return {
+      error:
+        assignError.code === "23514"
+          ? `A placement holds at most ${MAX_OWN_CREATIVES} pictures. Delete one first.`
+          : "Could not put the picture on the placement. Try again.",
+    };
   }
 
   revalidatePath("/dashboard", "layout");
