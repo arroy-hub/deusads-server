@@ -3791,3 +3791,16 @@ th.num .sort-button {
 .org-rename-field .key-field-title {
   font-size: 0.875rem;
 }
+
+/* adding a tag: a narrow field next to the Add button */
+.org-tag-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+.org-section-body .org-tag-field {
+  width: 9.5rem;
+  min-width: 0;
+}

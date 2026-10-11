@@ -21,6 +21,7 @@ export function useOrg(placementId) {
 }
 
 const CUSTOM = "__custom";
+const NEW_TAG = "__new_tag";
 
 function useAction() {
   const [pending, startTransition] = useTransition();
@@ -413,6 +414,13 @@ function Tags({ org }) {
     setRemoving((current) => current.filter((tag) => item.tags.includes(tag)));
   }, [item.tags]);
   const shown = [...item.tags, ...adding.filter((tag) => !item.tags.includes(tag))];
+  // Nobody in this game has a tag yet: type any name. Otherwise pick one that exists, or choose "New tag…".
+  const known = [...new Set([...org.items.values()].flatMap((entry) => entry.tags))].sort((a, b) => a.localeCompare(b));
+  const typing_only = known.length === 0;
+  const typing = typing_only;
+  const [choice, setChoice] = useState("");
+  const offered = known.filter((tag) => !shown.includes(tag));
+  const tagToAdd = typing_only ? text.trim() : choice === NEW_TAG ? text.trim() : choice;
   const undo = () => {
     setAdding([]);
     setRemoving([]);
@@ -446,20 +454,37 @@ function Tags({ org }) {
         })}
       </div>
       <form
-        className="org-val"
+        className="org-tag-form"
         onSubmit={(event) => {
           event.preventDefault();
-          const tag = text.trim();
-          if (!tag) return;
-          setAdding((current) => [...current, tag]);
-          run(changeTags({ gameId, ids: [item.id], add: [tag] }), undefined, undo);
+          if (!tagToAdd) return;
+          setAdding((current) => [...current, tagToAdd]);
+          run(changeTags({ gameId, ids: [item.id], add: [tagToAdd] }), undefined, undo);
           setText("");
+          setChoice("");
         }}
       >
-        <input className="field" value={text} maxLength={30} placeholder="Add a tag" onChange={(event) => setText(event.target.value)} aria-label="New tag" />
-        <button className="button button-quiet button-small" type="submit" disabled={!text.trim()}>
-          {pending ? <Spinner /> : "Add"}
-        </button>
+        <div className="org-val">
+          {typing ? (
+            <input className="field org-tag-field" value={text} maxLength={30} placeholder="Add a tag" onChange={(event) => setText(event.target.value)} aria-label="New tag" />
+          ) : (
+            <select className="field org-tag-field" value={choice} aria-label="Tag" onChange={(event) => setChoice(event.target.value)}>
+              <option value="">Add a tag…</option>
+              {offered.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+              <option value={NEW_TAG}>New tag…</option>
+            </select>
+          )}
+          <button className="button button-quiet button-small" type="submit" disabled={!tagToAdd}>
+            {pending ? <Spinner /> : "Add"}
+          </button>
+        </div>
+        {!typing_only && choice === NEW_TAG && (
+          <input className="field org-tag-field" value={text} maxLength={30} placeholder="Name of the new tag" autoFocus onChange={(event) => setText(event.target.value)} aria-label="New tag name" />
+        )}
       </form>
       <Message message={message} />
     </>
