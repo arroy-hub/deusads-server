@@ -3757,3 +3757,37 @@ th.num .sort-button {
 .own-off-veil {
   background: rgba(150, 150, 156, 0.35);
 }
+
+/* small touches: green confirmations, grey switch when nothing shows, spinner in tag chips and buttons, tighter rename field */
+.org-ok {
+  font-size: 0.8125rem;
+  color: #0a6b3a;
+}
+
+.own-switch.is-dim[aria-checked="true"] {
+  background: #c9bdb7;
+}
+
+.org-spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line);
+  border-top-color: var(--ink-2);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+.org-chip.is-busy {
+  opacity: 0.75;
+}
+
+.org-rename-field {
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.org-rename-field .key-field-title {
+  font-size: 0.875rem;
+}

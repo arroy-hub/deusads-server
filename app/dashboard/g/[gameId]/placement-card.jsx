@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
 import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } from "../../../../lib/placement-view";
 import { addressOf, locateUrl } from "../../../../lib/unity-link";
@@ -25,11 +25,14 @@ const CUSTOM = "__custom";
 function useAction() {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
-  function run(promise, after) {
+  function run(promise, after, undo) {
     setMessage(null);
     startTransition(async () => {
       const result = await promise.catch(() => ({ error: "Connection lost. Try again." }));
-      if (result?.error) setMessage({ kind: "error", text: result.error });
+      if (result?.error) {
+        undo?.();
+        setMessage({ kind: "error", text: result.error });
+      }
       else {
         if (result?.warning) setMessage({ kind: "note", text: result.warning });
         after?.();
@@ -72,12 +75,13 @@ export function CardStatus({ placementId }) {
   const on = item.enabled !== false;
   const working = busy.has(`p:${item.id}`);
   const status = statusOf(item, state, ctx);
+  const dim = on && (status.key === "folder" || status.key === "empty");
   return (
     <span className="org-status">
       <span className={`org-state is-${status.key}`}>{status.text}</span>
       <button
         type="button"
-        className={`own-switch${working ? " is-busy" : ""}`}
+        className={`own-switch${working ? " is-busy" : ""}${dim ? " is-dim" : ""}`}
         role="switch"
         aria-checked={on}
         aria-busy={working}
@@ -99,6 +103,19 @@ export function CardName({ placementId, label }) {
   const { message, run, pending } = useAction();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(label);
+  const formRef = useRef(null);
+  const pencilRef = useRef(null);
+  // a click anywhere outside the field closes it, like Hide (not while the name is being saved)
+  useEffect(() => {
+    if (!editing) return;
+    function outside(event) {
+      if (pending) return;
+      if (formRef.current?.contains(event.target) || pencilRef.current?.contains(event.target)) return;
+      setEditing(false);
+    }
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [editing, pending]);
   if (!org) {
     return (
       <div className="surface-label" title={label}>
@@ -119,6 +136,7 @@ export function CardName({ placementId, label }) {
         {item.label}
       </div>
       <button
+        ref={pencilRef}
         type="button"
         className="org-rename"
         aria-label="Rename"
@@ -137,6 +155,7 @@ export function CardName({ placementId, label }) {
       </button>
       {editing && (
         <form
+          ref={formRef}
           className="key-field org-rename-field"
           aria-label="Rename placement"
           onSubmit={save}
@@ -146,19 +165,21 @@ export function CardName({ placementId, label }) {
         >
           <div className="key-field-head">
             <span className="key-field-title">Rename placement</span>
-            <button type="button" className="button button-quiet key-toggle" onClick={() => setEditing(false)} disabled={pending}>
+            <button type="button" className="own-small-button" onClick={() => setEditing(false)} disabled={pending}>
               Hide
             </button>
           </div>
           <input className="field" value={name} maxLength={120} autoFocus disabled={pending} onChange={(event) => setName(event.target.value)} aria-label="Placement name" />
           <div className="row">
-            <button className="button" type="submit" disabled={!changed || pending}>
-              {pending ? "Saving…" : "Save name"}
+            <button className="own-small-button is-solid" type="submit" disabled={!changed || pending}>
+              {pending ? "Saving…" : "Save"}
             </button>
           </div>
-          <span role="status" aria-live="polite" className={message?.kind === "error" ? "error" : "settings-help"}>
-            {message?.kind === "error" ? message.text : pending ? "Saving the name…" : ""}
-          </span>
+          {message?.kind === "error" && (
+            <span role="alert" className="error">
+              {message.text}
+            </span>
+          )}
         </form>
       )}
     </div>
@@ -253,7 +274,7 @@ function Details({ org }) {
   async function copyId() {
     try {
       await navigator.clipboard.writeText(item.externalId);
-      setMessage({ kind: "note", text: "ID copied." });
+      setMessage({ kind: "ok", text: "ID copied." });
     } catch {
       setMessage({ kind: "error", text: "Could not copy. Select the ID and copy it by hand." });
     }
@@ -333,7 +354,7 @@ function Places({ org }) {
     try {
       const response = await fetch(locateUrl(item.externalId, place), { signal: controller.signal });
       const body = await response.json().catch(() => ({}));
-      setLink(response.ok ? { kind: "note", text: "Shown in Unity." } : { kind: "error", text: body.error || "Unity could not find it. Open the right scene and try again." });
+      setLink(response.ok ? { kind: "ok", text: "Shown in Unity." } : { kind: "error", text: body.error || "Unity could not find it. Open the right scene and try again." });
     } catch {
       setLink({
         kind: "error",
@@ -347,7 +368,7 @@ function Places({ org }) {
   async function copyAddress(place) {
     try {
       await navigator.clipboard.writeText(addressOf(place));
-      setLink({ kind: "note", text: "Address copied." });
+      setLink({ kind: "ok", text: "Address copied." });
     } catch {
       setLink({ kind: "error", text: "Could not copy. Select the text and copy it by hand." });
     }
@@ -377,35 +398,67 @@ function Places({ org }) {
   );
 }
 
+function Spinner() {
+  return <span className="org-spin" aria-hidden="true" />;
+}
+
 function Tags({ org }) {
   const { item, gameId } = org;
-  const { message, run } = useAction();
+  const { message, run, pending } = useAction();
   const [text, setText] = useState("");
+  const [adding, setAdding] = useState([]); // tags just typed, shown at once until the server's list has them
+  const [removing, setRemoving] = useState([]);
+  useEffect(() => {
+    setAdding((current) => current.filter((tag) => !item.tags.includes(tag)));
+    setRemoving((current) => current.filter((tag) => item.tags.includes(tag)));
+  }, [item.tags]);
+  const shown = [...item.tags, ...adding.filter((tag) => !item.tags.includes(tag))];
+  const undo = () => {
+    setAdding([]);
+    setRemoving([]);
+  };
   return (
     <>
       <div className="org-chips">
-        {item.tags.length === 0 && <span className="muted-line">No tags.</span>}
-        {item.tags.map((tag) => (
-          <span className="org-chip org-chip-tag" key={tag}>
-            {tag}
-            <button type="button" className="org-x" aria-label={`Remove tag ${tag}`} onClick={() => run(changeTags({ gameId, ids: [item.id], remove: [tag] }))}>
-              ×
-            </button>
-          </span>
-        ))}
+        {shown.length === 0 && <span className="muted-line">No tags.</span>}
+        {shown.map((tag) => {
+          const busy = adding.includes(tag) || removing.includes(tag);
+          return (
+            <span className={`org-chip org-chip-tag${busy ? " is-busy" : ""}`} key={tag}>
+              {tag}
+              {busy ? (
+                <Spinner />
+              ) : (
+                <button
+                  type="button"
+                  className="org-x"
+                  aria-label={`Remove tag ${tag}`}
+                  onClick={() => {
+                    setRemoving((current) => [...current, tag]);
+                    run(changeTags({ gameId, ids: [item.id], remove: [tag] }), undefined, undo);
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          );
+        })}
       </div>
       <form
         className="org-val"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!text.trim()) return;
-          run(changeTags({ gameId, ids: [item.id], add: [text] }));
+          const tag = text.trim();
+          if (!tag) return;
+          setAdding((current) => [...current, tag]);
+          run(changeTags({ gameId, ids: [item.id], add: [tag] }), undefined, undo);
           setText("");
         }}
       >
         <input className="field" value={text} maxLength={30} placeholder="Add a tag" onChange={(event) => setText(event.target.value)} aria-label="New tag" />
         <button className="button button-quiet button-small" type="submit" disabled={!text.trim()}>
-          Add
+          {pending ? <Spinner /> : "Add"}
         </button>
       </form>
       <Message message={message} />
@@ -416,7 +469,7 @@ function Tags({ org }) {
 function Message({ message }) {
   if (!message) return null;
   return (
-    <div className={message.kind === "error" ? "error" : "muted-line"} role={message.kind === "error" ? "alert" : "status"}>
+    <div className={message.kind === "error" ? "error" : message.kind === "ok" ? "org-ok" : "muted-line"} role={message.kind === "error" ? "alert" : "status"}>
       {message.text}
     </div>
   );
