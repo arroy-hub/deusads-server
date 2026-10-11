@@ -201,6 +201,12 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
     router.refresh(); // figures at the top; does not block the card
   }
 
+  function cancelFraming() {
+    setDrafts(({ [activeId]: _discard, ...rest }) => rest);
+    setAdjusting(false);
+    setStatus("idle");
+  }
+
   async function toggle() {
     if (!creative || working) return;
     setBusy("toggling");
@@ -325,7 +331,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
                 alt={creative.name}
                 decoding="async"
                 draggable={false}
-                className={`${loaded ? "is-loaded" : ""} ${creative.enabled ? "" : "is-off"}`}
+                className={loaded ? "is-loaded" : ""}
                 style={imageStyle}
                 onLoad={(event) => markLoaded(creative.id, event.currentTarget)}
               />
@@ -336,6 +342,17 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
             {creative && !loaded && <div className="surface-loading" aria-hidden="true" />}
             {saving && <div className="surface-veil" aria-hidden="true" />}
           </div>
+
+          {creative && items.length > 0 && (
+            <span className="own-pos">
+              Picture {items.findIndex((item) => item.assignmentId === activeId) + 1} of {items.length}
+            </span>
+          )}
+          {creative && !creative.enabled && !adjusting && (
+            <div className="own-off-veil">
+              <span>Not shown. Switched off</span>
+            </div>
+          )}
 
           <div className="surface-badge-slot" role="status" aria-live="polite">
             {badge && (
@@ -363,15 +380,18 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
               key={item.assignmentId}
               type="button"
               role="listitem"
-              className={`own-thumb ${item.assignmentId === activeId ? "is-current" : ""} ${item.enabled ? "" : "is-off"}`}
+              className={`own-thumb ${item.assignmentId === activeId ? "is-current" : ""} ${item.enabled ? "is-on" : "is-off"}`}
               onClick={() => choose(item.assignmentId)}
               disabled={working}
               aria-pressed={item.assignmentId === activeId}
-              aria-label={`${item.name || `Picture ${index + 1}`}${item.enabled ? "" : " (off)"}`}
+              aria-label={`Picture ${index + 1}${item.enabled ? ", in the rotation" : ", switched off"}`}
               title={`${item.name}${item.enabled ? "" : " — off"}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={item.url} alt="" draggable={false} />
+              <span className="own-dot" aria-hidden="true">
+                {item.enabled ? <TickIcon /> : <DashIcon />}
+              </span>
             </button>
           ))}
           {items.length < MAX_OWN_CREATIVES && (
@@ -391,102 +411,114 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
           )}
         </div>
 
-        {creative && (
-          <div className="surface-form">
-            <button
-              type="button"
-              className={`button button-quiet surface-framing ${adjusting ? "is-on" : ""}`}
-              onClick={() => setAdjusting((on) => !on)}
-              disabled={!canAdjust}
-              aria-pressed={adjusting}
-              title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
-            >
-              <CropIcon />
-              Framing
-            </button>
-            <button
-              type="button"
-              className="button button-quiet own-switch"
-              onClick={toggle}
-              disabled={working}
-              role="switch"
-              aria-checked={creative.enabled}
-              title={creative.enabled ? "Shown in turn with your other pictures. Click to switch off" : "Not shown. Click to switch on"}
-            >
-              {creative.enabled ? "On" : "Off"}
-            </button>
-            <button
-              type="button"
-              className={`button button-quiet own-delete ${confirmDelete ? "is-confirm" : ""}`}
-              onClick={remove}
-              onBlur={() => setConfirmDelete(false)}
-              disabled={working}
-              aria-label={confirmDelete ? "Confirm: delete this picture" : "Delete this picture"}
-              title={confirmDelete ? "Click again to delete" : "Delete this picture"}
-            >
-              {confirmDelete ? "Delete?" : <TrashIcon />}
-            </button>
-            <button
-              type="button"
-              className={`button surface-save ${dirty || saving ? "" : "button-quiet"}`}
-              onClick={save}
-              disabled={!dirty || working}
-              aria-busy={saving}
-            >
-              {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
-            </button>
+        {items.length > 0 && (
+          <div className="surface-hint">
+            {items.filter((item) => item.enabled).length} of {items.length} pictures in the rotation. They show in turn
+            when no advertiser is booked.
           </div>
         )}
 
-        {adjusting && (
-          <div className="surface-adjust">
-            <button
-              type="button"
-              className="icon-button icon-button-small"
-              onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom / 1.15) })}
-              disabled={crop.zoom <= 1}
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <input
-              type="range"
-              min="1"
-              max={MAX_ZOOM}
-              step="0.01"
-              value={crop.zoom}
-              onChange={(event) => setCrop({ ...crop, zoom: Number(event.target.value) })}
-              aria-label="Zoom"
-            />
-            <button
-              type="button"
-              className="icon-button icon-button-small"
-              onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom * 1.15) })}
-              disabled={crop.zoom >= MAX_ZOOM}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setCrop(DEFAULT_CROP)}
-              disabled={!framed}
-            >
-              Reset
-            </button>
-            <button type="button" className="link-button" onClick={() => setAdjusting(false)}>
-              Done
-            </button>
+        {creative && (
+          <div className="own-panel">
+            {!adjusting ? (
+              <>
+                <div className="own-row">
+                  <div className="own-row-text">
+                    <div className="own-row-title">Show this picture</div>
+                    <div className="own-row-sub">
+                      {creative.enabled ? "In the rotation with your other pictures" : "Switched off. Kept, but not shown"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="own-switch"
+                    role="switch"
+                    aria-checked={creative.enabled}
+                    aria-label="Show this picture"
+                    onClick={toggle}
+                    disabled={working}
+                  >
+                    <span className="own-knob" />
+                  </button>
+                </div>
+                <div className="own-actions">
+                  <button
+                    type="button"
+                    className="button button-quiet surface-framing"
+                    onClick={() => setAdjusting(true)}
+                    disabled={!canAdjust}
+                    title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
+                  >
+                    <CropIcon />
+                    Framing
+                  </button>
+                  <button
+                    type="button"
+                    className={`own-delete ${confirmDelete ? "is-confirm" : ""}`}
+                    onClick={remove}
+                    onBlur={() => setConfirmDelete(false)}
+                    disabled={working}
+                    title={confirmDelete ? "Click again to delete" : "Delete this picture"}
+                  >
+                    <TrashIcon />
+                    {confirmDelete ? "Delete for good?" : "Delete"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="own-row-title">
+                  Framing <span className="own-row-sub">· drag the picture, zoom with the slider</span>
+                </div>
+                <div className="surface-adjust">
+                  <button
+                    type="button"
+                    className="icon-button icon-button-small"
+                    onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom / 1.15) })}
+                    disabled={crop.zoom <= 1}
+                    aria-label="Zoom out"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="range"
+                    min="1"
+                    max={MAX_ZOOM}
+                    step="0.01"
+                    value={crop.zoom}
+                    onChange={(event) => setCrop({ ...crop, zoom: Number(event.target.value) })}
+                    aria-label="Zoom"
+                  />
+                  <button
+                    type="button"
+                    className="icon-button icon-button-small"
+                    onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom * 1.15) })}
+                    disabled={crop.zoom >= MAX_ZOOM}
+                    aria-label="Zoom in"
+                  >
+                    +
+                  </button>
+                  <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
+                </div>
+                <div className="own-actions">
+                  <button type="button" className="link-button" onClick={() => setCrop(DEFAULT_CROP)} disabled={!framed}>
+                    Reset
+                  </button>
+                  <button type="button" className="button button-quiet own-cancel" onClick={cancelFraming} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button type="button" className="button surface-save" onClick={save} disabled={!dirty || working} aria-busy={saving}>
+                    {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {note && <div className={note.tone === "error" ? "error surface-note" : "surface-warn"}>{note.text}</div>}
 
-        {adjusting ? (
-          <div className="surface-hint">Drag to move · scroll or slider to zoom</div>
-        ) : (
+        {!adjusting && (
           hidden >= 5 &&
           !framed && (
             <div className="surface-warn">
@@ -521,6 +553,22 @@ function measure(file) {
     };
     img.src = url;
   });
+}
+
+function TickIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  );
+}
+
+function DashIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+      <path d="M6 12h12" />
+    </svg>
+  );
 }
 
 function TrashIcon() {
