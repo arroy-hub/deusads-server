@@ -21,7 +21,7 @@ const sameLists = (a, b) => PROFILE_KEYS.every((key) => [...a[key]].sort().join(
 /**
  * Everything about one game that its owner can change, with a single Save for the settings:
  * the icon, the name and what the game is (genres, platforms, languages). Save can always be pressed;
- * when something is still empty it says what. The two actions that cannot be taken back (a new API
+ * when something is still empty it says what, next to the button. The two actions that cannot be taken back (a new API
  * key, deleting the game) are not part of Save; each asks first.
  * `profile` is null when the database does not know these lists yet (migration 0018).
  */
@@ -35,7 +35,6 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   const [icon, setIcon] = useState({ blob: null, preview: "", removed: false }); // a change waiting for Save
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null); // { tone, text }
-  const [askToFill, setAskToFill] = useState(false); // the pop-up that names what is still missing
 
   useEffect(() => () => icon.preview && URL.revokeObjectURL(icon.preview), [icon.preview]);
 
@@ -70,7 +69,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   async function save(event) {
     event.preventDefault();
     if (busy) return;
-    if (!valid) return setAskToFill(true);
+    if (!valid) return setNote({ tone: "error", text: `Fill in the game description: ${missing.join(", ")}.` });
     if (!changed) return setNote({ tone: "done", text: "Nothing to save: no changes." });
     setBusy(true);
     setNote(null);
@@ -195,24 +194,6 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
         </span>
         <DeleteGame gameId={gameId} name={name} />
       </div>
-
-      <Modal
-        open={askToFill}
-        onClose={() => setAskToFill(false)}
-        title="Fill in the game description"
-        footer={
-          <button type="button" className="button" onClick={() => setAskToFill(false)}>
-            Fill in
-          </button>
-        }
-      >
-        <p>Ads can only show in your game once these are filled in:</p>
-        <ul className="missing-list">
-          {missing.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </Modal>
     </form>
   );
 }
@@ -245,8 +226,10 @@ async function storeIcon(gameId, icon) {
 }
 
 /**
- * The API key sits behind one button in the corner of the tab. The pop-up shows it on request, copies
+ * The API key sits behind one button in the corner of the tab. The button opens a field in its place
+ * (it floats over what is below, so nothing on the page moves) that shows the key on request, copies
  * it, and can issue a new one (that takes effect at once, without Save, and is asked for twice).
+ * "Hide" folds it back under the button.
  */
 function KeyButton({ gameId, apiKey }) {
   const router = useRouter();
@@ -257,6 +240,7 @@ function KeyButton({ gameId, apiKey }) {
   const [note, setNote] = useState(null);
   const codeRef = useRef(null);
   const timer = useRef(null);
+  const buttonRef = useRef(null);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -266,6 +250,7 @@ function KeyButton({ gameId, apiKey }) {
     setCopied(false);
     setStep("idle");
     setNote(null);
+    buttonRef.current?.focus();
   }
 
   async function copy() {
@@ -303,50 +288,77 @@ function KeyButton({ gameId, apiKey }) {
   }
 
   return (
-    <>
-      <button type="button" className="button button-quiet key-corner" onClick={() => setOpen(true)}>
+    <div className="key-corner">
+      {/* the button keeps its place (and its room) while the field is open */}
+      <button
+        ref={buttonRef}
+        type="button"
+        className="button button-quiet key-corner-button"
+        onClick={() => setOpen(true)}
+        aria-expanded={open}
+        aria-controls="key-field"
+        tabIndex={open ? -1 : 0}
+        style={open ? { visibility: "hidden" } : undefined}
+      >
         <KeyIcon /> API key
       </button>
-      <Modal open={open} onClose={close} title="API key" busy={step === "working"}>
-        <p className="settings-help">Paste it into Tools → DeusADS → Settings in Unity.</p>
-        <div className="key-open">
-          <code ref={codeRef} className="key">
-            {shown ? apiKey : "•".repeat(24)}
-          </code>
-          <button type="button" className="button button-quiet key-toggle" onClick={() => setShown(!shown)} aria-pressed={shown}>
-            {shown ? "Hide" : "Show"}
-          </button>
-          <button type="button" className="button button-quiet key-toggle" onClick={copy}>
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <div className="key-rotate">
-          {step === "idle" ? (
-            <button type="button" className="button button-quiet" onClick={() => setStep("confirm")}>
-              Issue a new key…
+      {open && (
+        <section
+          id="key-field"
+          className="key-field"
+          aria-label="API key"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && step !== "working") close();
+          }}
+        >
+          <div className="key-field-head">
+            <span className="key-field-title">
+              <KeyIcon /> API key
+            </span>
+            <button type="button" className="button button-quiet key-toggle" onClick={close} disabled={step === "working"} autoFocus>
+              Hide
             </button>
-          ) : (
-            <>
-              <p className="settings-help">
-                The old key stops working at once, without Save: builds already shipped with it stop receiving creatives
-                and show their fallback textures until you paste the new key into the SDK settings and release again.
-              </p>
-              <div className="row">
-                <button type="button" className="button button-danger" onClick={rotate} disabled={step === "working"}>
-                  {step === "working" ? "Issuing…" : "Replace the key"}
-                </button>
-                <button type="button" className="button button-quiet" onClick={() => setStep("idle")} disabled={step === "working"}>
-                  Cancel
-                </button>
-              </div>
-            </>
-          )}
-          <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "upload-done"}>
-            {note?.text ?? ""}
-          </span>
-        </div>
-      </Modal>
-    </>
+          </div>
+          <p className="settings-help">Paste it into Tools → DeusADS → Settings in Unity.</p>
+          <div className="key-open">
+            <code ref={codeRef} className="key">
+              {shown ? apiKey : "•".repeat(24)}
+            </code>
+            <button type="button" className="button button-quiet key-toggle" onClick={() => setShown(!shown)} aria-pressed={shown}>
+              {shown ? "Hide key" : "Show"}
+            </button>
+            <button type="button" className="button button-quiet key-toggle" onClick={copy}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <div className="key-rotate">
+            {step === "idle" ? (
+              <button type="button" className="button button-quiet" onClick={() => setStep("confirm")}>
+                Issue a new key…
+              </button>
+            ) : (
+              <>
+                <p className="settings-help">
+                  The old key stops working at once, without Save: builds already shipped with it stop receiving creatives
+                  and show their fallback textures until you paste the new key into the SDK settings and release again.
+                </p>
+                <div className="row">
+                  <button type="button" className="button button-danger" onClick={rotate} disabled={step === "working"}>
+                    {step === "working" ? "Issuing…" : "Replace the key"}
+                  </button>
+                  <button type="button" className="button button-quiet" onClick={() => setStep("idle")} disabled={step === "working"}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+            <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "upload-done"}>
+              {note?.text ?? ""}
+            </span>
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
 

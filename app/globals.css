@@ -2495,9 +2495,49 @@ th.num .sort-button {
 }
 
 .key-corner {
+  position: relative;
   margin-left: auto;
+  flex: none;
+}
+
+.key-corner-button {
   gap: 8px;
   white-space: nowrap;
+}
+
+/* floats over what is below, anchored to the button's corner, so nothing on the page moves */
+.key-field {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  width: min(440px, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: 0 10px 30px rgba(20, 22, 27, 0.14);
+}
+
+.key-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.key-field-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.key-field .key-open {
+  justify-content: flex-start;
 }
 
 .icon-edit {
@@ -2623,21 +2663,11 @@ th.num .sort-button {
   background: #fdeeee;
 }
 
-.missing-list {
-  margin: 0;
-  padding-left: 1.25rem;
-  font-weight: 600;
-}
-
 .key-rotate {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   align-items: flex-start;
-}
-
-.modal .key-open {
-  justify-content: flex-start;
 }
 
 @media (max-width: 800px) {
