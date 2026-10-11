@@ -5,7 +5,6 @@ import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
 import { formatLabel, formatOf } from "../../../../lib/formats";
 import { fillDays, formatCount, parsePlacementFilter, placementRows } from "../../../../lib/analytics";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
-import ApiKey from "./api-key";
 import DailyChart from "./daily-chart";
 import GameIcon from "../../game-icon";
 import SettingsTab from "./settings-tab";
@@ -119,7 +118,6 @@ export default async function GamePage({ params, searchParams }) {
           <GameIcon name={game.name} url={iconUrl} size="sm" />
           <h1>{game.name}</h1>
         </div>
-        <ApiKey value={game.api_key} />
       </div>
       {gaps.known && gaps.missing.length > 0 && (
         <p className="notice" style={{ marginBottom: "1rem" }}>
@@ -146,8 +144,8 @@ export default async function GamePage({ params, searchParams }) {
       )}
       {tab === "settings" && (
         <p className="lede">
-          The game&apos;s icon, name and API key, and what it is for advertisers. Everything here is saved with the
-          one Save button at the bottom; a new API key and deleting the game are separate actions that ask first.
+          Icon, name and what the game is for advertisers; Save applies them together. The API key and deleting the game
+          are separate and ask first.
         </p>
       )}
 
@@ -250,6 +248,7 @@ export default async function GamePage({ params, searchParams }) {
         <SettingsTab
           gameId={game.id}
           name={game.name}
+          apiKey={game.api_key}
           iconUrl={iconUrl}
           iconsReady={iconsReady}
           profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
