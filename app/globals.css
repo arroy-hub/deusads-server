@@ -2850,4 +2850,5 @@ th.num .sort-button {
 .own-actions .own-cancel { margin-left: auto; }
 .own-actions .surface-save { margin-left: 0; }
 .own-panel.is-first { border-top-left-radius: 0; }
+.own-panel.is-last { border-top-right-radius: 0; }
 .surface-body .open-toggle { border-top: 1px solid var(--line, #e3dad5); margin-top: 4px; padding-top: 14px; }

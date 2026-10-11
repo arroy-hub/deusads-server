@@ -30,7 +30,12 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   const router = useRouter();
   // On/off flips on screen at once; the server catches up in the background (and the flip is undone on a failure).
   const [flags, setFlags] = useState({}); // assignmentId -> enabled, until the page brings the same value
-  const items = serverItems.map((item) => (item.assignmentId in flags ? { ...item, enabled: flags[item.assignmentId] } : item));
+  // A picture just added shows from the local file at once; the page's own copy replaces it when it arrives.
+  const [pending, setPending] = useState([]);
+  const items = [
+    ...serverItems.map((item) => (item.assignmentId in flags ? { ...item, enabled: flags[item.assignmentId] } : item)),
+    ...pending.filter((item) => !serverItems.some((own) => own.assignmentId === item.assignmentId)),
+  ];
   const fileRef = useRef(null);
   const [selectedId, setSelectedId] = useState(serverItems[0]?.assignmentId ?? "");
   const [savedCrops, setSavedCrops] = useState(() => cropsOf(serverItems));
@@ -67,6 +72,11 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   useEffect(() => {
     setSavedCrops(cropsOf(serverItems));
     setFlags({});
+    setPending((all) => {
+      const arrived = all.filter((item) => serverItems.some((own) => own.assignmentId === item.assignmentId));
+      arrived.forEach((item) => URL.revokeObjectURL(item.url));
+      return all.filter((item) => !arrived.includes(item));
+    });
     setSelectedId((current) => (serverItems.some((item) => item.assignmentId === current) ? current : serverItems[0]?.assignmentId ?? ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming]);
@@ -249,8 +259,26 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
     setBusy("adding");
     setNote(null);
     setAdjusting(false);
+    setConfirmDelete(false);
+    const tempId = `pending-${crypto.randomUUID()}`;
+    const localUrl = URL.createObjectURL(file);
     try {
       const size = await measure(file);
+      // The picture is on the card straight away, from the file on this computer.
+      setPending((all) => [
+        ...all,
+        {
+          assignmentId: tempId,
+          id: tempId,
+          name: file.name.replace(/\.[^.]+$/, ""),
+          url: localUrl,
+          width_px: size.width,
+          height_px: size.height,
+          enabled: true,
+          crop: DEFAULT_CROP,
+        },
+      ]);
+      setSelectedId(tempId);
       const db = browserClient();
       const { data } = await db.auth.getSession();
       const userId = data?.session?.user?.id;
@@ -270,9 +298,13 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         height: size.height,
       });
       if (result?.error) throw new Error(result.error);
+      // Same picture, now with its real id. The save has already refreshed the page data.
+      setPending((all) => all.map((item) => (item.assignmentId === tempId ? { ...item, assignmentId: result.assignmentId, id: result.creativeId ?? item.id } : item)));
       setSelectedId(result.assignmentId);
-      router.refresh();
     } catch (error) {
+      setPending((all) => all.filter((item) => item.assignmentId !== tempId));
+      URL.revokeObjectURL(localUrl);
+      setSelectedId((current) => (current === tempId ? serverItems[0]?.assignmentId ?? "" : current));
       setNote({ tone: "error", text: error?.message || "Could not add the picture. Try again." });
     } finally {
       setBusy("");
@@ -280,7 +312,8 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   }
 
   let badge = null;
-  if (saving) badge = { tone: "busy", text: "Saving…" };
+  if (busy === "adding") badge = { tone: "busy", text: "Adding…" };
+  else if (saving) badge = { tone: "busy", text: "Saving…" };
   else if (justSaved) badge = { tone: "done", text: "Saved" };
   else if (dirty) badge = { tone: "draft", text: "Not saved" };
 
@@ -428,7 +461,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         </div>
 
         {creative && (
-          <div className={`own-panel ${items[0]?.assignmentId === activeId ? "is-first" : ""}`} role="tabpanel">
+          <div className={`own-panel ${items[0]?.assignmentId === activeId ? "is-first" : ""} ${items.findIndex((item) => item.assignmentId === activeId) === MAX_OWN_CREATIVES - 1 ? "is-last" : ""}`} role="tabpanel">
             {!adjusting ? (
               <>
                 <div className="own-row">
