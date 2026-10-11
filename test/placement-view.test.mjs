@@ -104,12 +104,12 @@ assert.equal(f.hasUndetermined, true);
 // --- saved views
 assert.equal(cleanView({ name: "  " }), null);
 assert.deepEqual(cleanView({ name: "Empty ones", groupBy: "nonsense", sortBy: "x", filters: { status: "empty", bogus: "y", q: 5 } }), {
-  name: "Empty ones", groupBy: "scene", sortBy: "name", filters: { status: "empty" },
+  name: "Empty ones", groupBy: "folder", sortBy: "name", filters: { status: "empty" },
 });
 let views = withView([], { name: "A", groupBy: "tag" });
 views = withView(views, { name: "B" });
 views = withView(views, { name: "a", groupBy: "format" });
-assert.deepEqual(views.map((v) => [v.name, v.groupBy]), [["B", "scene"], ["a", "format"]], "same name replaces, case-insensitive");
+assert.deepEqual(views.map((v) => [v.name, v.groupBy]), [["B", "folder"], ["a", "format"]], "same name replaces, case-insensitive");
 let many = [];
 for (let i = 0; i < 30; i += 1) many = withView(many, { name: `v${i}` });
 assert.equal(many.length, 20, "at most 20 saved views");

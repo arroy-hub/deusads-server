@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addOwnCreative, deleteOwnCreative, saveOwnCreative } from "../../actions";
 import { browserClient } from "../../../../lib/supabase-browser";
+import { CardChips, CardOverlay, CardSections, CardStatus, useOrg } from "./placement-card";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_MAX_BYTES, OWN_PICTURE_TYPES } from "../../../../lib/own-creatives";
 import {
   DEFAULT_CROP,
@@ -28,6 +29,7 @@ const SAVED_FOR_MS = 2400;
  */
 export default function SurfaceCard({ placementId, aspect, label, dims, items: serverItems, cropEnabled, children }) {
   const router = useRouter();
+  const org = useOrg(placementId); // set only on the Placements tab of a game that has the organiser
   // On/off flips on screen at once; the server catches up in the background (and the flip is undone on a failure).
   const [flags, setFlags] = useState({}); // assignmentId -> enabled, until the page brings the same value
   // A picture just added shows from the local file at once; the page's own copy replaces it when it arrives.
@@ -353,7 +355,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   const framed = !sameCrop(crop, DEFAULT_CROP);
 
   return (
-    <div className={`surface ${adjusting ? "is-adjusting" : ""}`}>
+    <div className={`surface ${adjusting ? "is-adjusting" : ""}${org?.state === "off" ? " is-switched-off" : ""}`}>
       <div className="surface-stage">
         <div
           ref={windowRef}
@@ -402,7 +404,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
 
           {creative && items.length > 0 && (
             <span className="own-pos">
-              Picture {items.findIndex((item) => item.assignmentId === activeId) + 1} of {items.length}
+              {items.findIndex((item) => item.assignmentId === activeId) + 1} of {items.length}
             </span>
           )}
           {creative && !creative.enabled && !adjusting && (
@@ -421,14 +423,19 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
             )}
           </div>
         </div>
+        <CardOverlay placementId={placementId} />
       </div>
 
       <div className="surface-body">
         <div className="surface-head">
-          <div className="surface-label" title={label}>
-            {label}
+          <div className="org-titlerow">
+            <div className="surface-label" title={label}>
+              {label}
+            </div>
+            <CardStatus placementId={placementId} />
           </div>
           <div className="surface-dims">{dims}</div>
+          <CardChips placementId={placementId} />
         </div>
 
         {items.length > 0 && (
@@ -592,6 +599,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
           )
         )}
         {children}
+        <CardSections placementId={placementId} />
       </div>
     </div>
   );
