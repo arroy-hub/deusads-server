@@ -2822,7 +2822,7 @@ th.num .sort-button {
 }
 
 .own-panel {
-  background: var(--signal-soft, #fbe5de); border: 1px solid #e9c8bc; border-radius: 10px;
+  background: var(--signal-soft, #fbe5de); border: 1px solid #e9c8bc; border-radius: 0 0 10px 10px; /* square on top: the tab row sits flush on it, at both ends too */
   padding: 12px; display: flex; flex-direction: column; gap: 12px;
 }
 .own-row { display: flex; align-items: center; gap: 12px; }
@@ -2849,8 +2849,6 @@ th.num .sort-button {
 .own-delete.is-confirm { background: #a12626; color: #fff; }
 .own-actions .own-cancel { margin-left: auto; }
 .own-actions .surface-save { margin-left: 0; }
-.own-panel.is-first { border-top-left-radius: 0; }
-.own-panel.is-last { border-top-right-radius: 0; }
 .surface-body .open-toggle { border-top: 1px solid var(--line, #e3dad5); margin-top: 4px; padding-top: 14px; }
 .own-uploading {
   position: absolute; inset: 3px 5px 3px 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.6);
