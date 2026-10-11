@@ -363,9 +363,19 @@ p {
 
 .surface-form {
   display: flex;
+  flex-wrap: wrap; /* a button that does not fit moves to the next line, never out of the card */
   gap: 0.4rem;
   align-items: center;
-  justify-content: space-between;
+}
+
+.surface-form > * {
+  flex: 0 0 auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.surface-form > .surface-save {
+  margin-left: auto;
 }
 
 .surface-select {
@@ -399,13 +409,14 @@ p {
 
 .surface-adjust {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }
 
 .surface-adjust input[type="range"] {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 5rem;
+  min-width: 5rem;
   accent-color: var(--ink);
 }
 
