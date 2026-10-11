@@ -3486,3 +3486,99 @@ th.num .sort-button {
     justify-content: flex-end;
   }
 }
+
+/* smaller switches in the Placements tab, and a ring over a switch that waits for the server */
+.org-status .own-switch,
+.org-group-switch .own-switch {
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+}
+
+.org-status .own-knob,
+.org-group-switch .own-knob {
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+}
+
+.org-status .own-switch[aria-checked="true"] .own-knob,
+.org-group-switch .own-switch[aria-checked="true"] .own-knob {
+  left: 16px;
+}
+
+.own-switch.is-busy {
+  opacity: 1;
+  cursor: progress;
+}
+
+.own-switch.is-busy .own-knob {
+  opacity: 0.35;
+}
+
+.own-spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.org-caret-button {
+  border: 0;
+  background: none;
+  padding: 0.3rem 0.4rem;
+  margin: -0.3rem -0.2rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.org-name {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.org-name .surface-label {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.org-name-edit {
+  gap: 0.4rem;
+}
+
+.org-name-edit .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.org-rename {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.org-rename:hover {
+  background: var(--surface);
+  color: var(--ink);
+}

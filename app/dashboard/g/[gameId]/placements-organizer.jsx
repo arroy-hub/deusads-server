@@ -78,6 +78,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const [viewsOpen, setViewsOpen] = useState(false);
   const [viewName, setViewName] = useState("");
   const [notice, setNotice] = useState(null);
+  const [busy, setBusy] = useState(() => new Set()); // switches waiting for the server: p:<placement>, f:<folder>, s:<scene>
   const [newFolder, setNewFolder] = useState(null); // null: closed, string: being typed
   const [editFolder, setEditFolder] = useState(null); // { id, name }
   const [bulkTag, setBulkTag] = useState("");
@@ -143,10 +144,12 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   }, [itemById]);
 
   // The action revalidates the page on the server, so the fresh data comes back with its answer.
-  function run(promise, after, undo) {
+  function run(promise, after, undo, keys = []) {
     setNotice(null);
+    if (keys.length) setBusy((current) => new Set([...current, ...keys]));
     startTransition(async () => {
       const result = await promise.catch(() => ({ error: "Connection lost. Try again." }));
+      if (keys.length) setBusy((current) => new Set([...current].filter((key) => !keys.includes(key))));
       if (result?.error) {
         undo?.();
         return setNotice({ kind: "error", text: result.error });
@@ -158,7 +161,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const forget = () => setShownNow({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
   function switchPlacements(ids, enabled) {
     setShownNow((current) => ({ ...current, enabled: new Map([...current.enabled, ...ids.map((id) => [id, enabled])]) }));
-    run(setPlacementsEnabled({ gameId, ids, enabled }), undefined, forget);
+    run(setPlacementsEnabled({ gameId, ids, enabled }), undefined, forget, ids.map((id) => `p:${id}`));
   }
 
   const chosen = [...selected];
@@ -250,11 +253,11 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   function groupSwitch(group, enabled) {
     if (group.kind === "scene" && group.sceneSwitch) {
       setShownNow((current) => ({ ...current, scenes: new Map([...current.scenes, [group.scene, !enabled]]) }));
-      return run(setSceneEnabled({ gameId, scene: group.scene, enabled }), undefined, forget);
+      return run(setSceneEnabled({ gameId, scene: group.scene, enabled }), undefined, forget, [`s:${group.scene}`]);
     }
     if (group.kind === "folder") {
       setShownNow((current) => ({ ...current, folderEnabled: new Map([...current.folderEnabled, [group.folderId, enabled]]) }));
-      return run(setFolderEnabled({ folderId: group.folderId, enabled }), undefined, forget);
+      return run(setFolderEnabled({ folderId: group.folderId, enabled }), undefined, forget, [`f:${group.folderId}`]);
     }
     return switchPlacements(group.items.map((item) => item.id), enabled);
   }
@@ -280,9 +283,9 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   }
 
   const orgValue = useMemo(
-    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements }),
+    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gameId, itemById, ctx, editing, selected]
+    [gameId, itemById, ctx, editing, selected, busy]
   );
 
   const folderGroups = groups.filter((group) => group.kind === "folder").length;
@@ -562,10 +565,19 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
           const on = groupIsOn(group);
           const folderEditing = editFolder && editFolder.id === group.folderId;
           const counts = countStates(group.items, ctx);
+          const switching = group.kind === "folder" ? busy.has(`f:${group.folderId}`) : group.kind === "scene" ? busy.has(`s:${group.scene}`) : ids.some((id) => busy.has(`p:${id}`));
           return (
             <div className={`org-group${on ? "" : " is-off"}${open ? " is-open" : ""}`} key={key}>
               <div className="org-group-head">
-                <span className="org-caret" aria-hidden="true">{open ? "▾" : "▸"}</span>
+                <button
+                  type="button"
+                  className="org-caret org-caret-button"
+                  aria-label={open ? `Collapse ${group.label}` : `Expand ${group.label}`}
+                  aria-expanded={open}
+                  onClick={() => setGroupOpen((current) => new Map(current).set(key, !open))}
+                >
+                  {open ? "▾" : "▸"}
+                </button>
                 {editing && (
                   <label className="org-check">
                     <input
@@ -620,14 +632,16 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
                       <span className="org-group-switch-label">{on ? "On" : "Off"}</span>
                       <button
                         type="button"
-                        className="own-switch"
+                        className={`own-switch${switching ? " is-busy" : ""}`}
                         role="switch"
                         aria-checked={on}
+                        aria-busy={switching}
                         aria-label={`${on ? "Switch off" : "Switch on"} ${group.label}`}
-                        disabled={pending}
+                        disabled={switching}
                         onClick={() => groupSwitch(group, !on)}
                       >
                         <span className="own-knob" />
+                        {switching && <span className="own-spin" aria-hidden="true" />}
                       </button>
                     </span>
                   )}

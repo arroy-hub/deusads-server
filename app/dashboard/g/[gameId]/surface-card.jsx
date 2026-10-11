@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addOwnCreative, deleteOwnCreative, saveOwnCreative } from "../../actions";
 import { browserClient } from "../../../../lib/supabase-browser";
-import { CardChips, CardOverlay, CardSections, CardStatus, useOrg } from "./placement-card";
+import { CardChips, CardName, CardOverlay, CardSections, CardStatus, useOrg } from "./placement-card";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_MAX_BYTES, OWN_PICTURE_TYPES } from "../../../../lib/own-creatives";
 import {
   DEFAULT_CROP,
@@ -355,7 +355,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   const framed = !sameCrop(crop, DEFAULT_CROP);
 
   return (
-    <div className={`surface ${adjusting ? "is-adjusting" : ""}${org?.state === "off" ? " is-switched-off" : ""}`}>
+    <div className={`surface ${adjusting ? "is-adjusting" : ""}${org?.item.enabled === false ? " is-switched-off" : ""}`}>
       <div className="surface-stage">
         <div
           ref={windowRef}
@@ -429,9 +429,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
       <div className="surface-body">
         <div className="surface-head">
           <div className="org-titlerow">
-            <div className="surface-label" title={label}>
-              {label}
-            </div>
+            <CardName placementId={placementId} label={label} />
             <CardStatus placementId={placementId} />
           </div>
           <div className="surface-dims">{dims}</div>

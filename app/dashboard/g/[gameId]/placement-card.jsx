@@ -42,10 +42,9 @@ function useAction() {
 export function CardOverlay({ placementId }) {
   const org = useOrg(placementId);
   if (!org) return null;
-  const { item, state, editing, selected, onSelect } = org;
+  const { item, editing, selected, onSelect } = org;
   return (
     <>
-      {state === "off" && <span className="org-offbadge">Off: shows nothing in the game</span>}
       {editing && (
         <label className="org-pick">
           <input type="checkbox" checked={selected.has(item.id)} onChange={() => onSelect(item.id)} />
@@ -56,27 +55,99 @@ export function CardOverlay({ placementId }) {
   );
 }
 
+/** What the placement is doing now, in one phrase: its own switch first, then its folder, then what is on it. */
+function statusOf(item, state, ctx) {
+  if (item.enabled === false) return { key: "off", text: "Switched off" };
+  const folder = item.folderId ? (ctx.folders ?? []).find((entry) => entry.id === item.folderId) : null;
+  if (folder && folder.enabled === false) return { key: "folder", text: "Folder is off" };
+  return { key: state, text: STATUS_LABELS[state] };
+}
+
 /** Next to the name: how the placement stands, and its switch. */
 export function CardStatus({ placementId }) {
   const org = useOrg(placementId);
   if (!org) return null;
-  const { item, state } = org;
+  const { item, state, ctx, busy } = org;
   const on = item.enabled !== false;
+  const working = busy.has(`p:${item.id}`);
+  const status = statusOf(item, state, ctx);
   return (
     <span className="org-status">
-      <span className={`org-state is-${state}`}>{STATUS_LABELS[state]}</span>
+      <span className={`org-state is-${status.key}`}>{status.text}</span>
       <button
         type="button"
-        className="own-switch"
+        className={`own-switch${working ? " is-busy" : ""}`}
         role="switch"
         aria-checked={on}
+        aria-busy={working}
         aria-label={`${on ? "Switch off" : "Switch on"} ${item.label}`}
         title="Show ads on this placement"
+        disabled={working}
         onClick={() => org.switchPlacements([item.id], !on)}
       >
         <span className="own-knob" />
+        {working && <span className="own-spin" aria-hidden="true" />}
       </button>
     </span>
+  );
+}
+
+/** The name under the picture, with a tiny pencil to rename it in place. */
+export function CardName({ placementId, label }) {
+  const org = useOrg(placementId);
+  const { message, run, pending } = useAction();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(label);
+  if (!org) {
+    return (
+      <div className="surface-label" title={label}>
+        {label}
+      </div>
+    );
+  }
+  const { item } = org;
+  const changed = name.trim() !== "" && name.trim() !== item.label;
+  function save(event) {
+    event.preventDefault();
+    if (!changed) return setEditing(false);
+    run(renamePlacement({ placementId: item.id, label: name.trim() }));
+    setEditing(false);
+  }
+  if (editing) {
+    return (
+      <form className="org-name org-name-edit" onSubmit={save} onKeyDown={(event) => event.key === "Escape" && setEditing(false)}>
+        <input className="field" value={name} maxLength={120} autoFocus onChange={(event) => setName(event.target.value)} aria-label="Placement name" />
+        <button className="button button-small" type="submit" disabled={!changed}>
+          Save
+        </button>
+        <button className="button button-quiet button-small" type="button" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </form>
+    );
+  }
+  return (
+    <div className="org-name">
+      <div className="surface-label" title={item.label}>
+        {item.label}
+      </div>
+      <button
+        type="button"
+        className="org-rename"
+        aria-label="Rename"
+        title="Rename"
+        disabled={pending}
+        onClick={() => {
+          setName(item.label);
+          setEditing(true);
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+        </svg>
+      </button>
+      {message?.kind === "error" && <span className="error">{message.text}</span>}
+    </div>
   );
 }
 
@@ -107,7 +178,7 @@ export function CardChips({ placementId }) {
         {type ? typeLabel(type) : "Type not determined"}
         {typeIsSuggested(item) ? " (auto)" : ""}
       </span>
-      {why && why !== "Switched off" && <span className="org-chip org-chip-off">{why}</span>}
+      {why && why !== "Switched off" && !/^(Folder|Its folder)/.test(why) && <span className="org-chip org-chip-off">{why}</span>}
     </div>
   );
 }
@@ -150,7 +221,6 @@ function Section({ title, count, open, onToggle, children }) {
 function Details({ org }) {
   const { item, gameId, ctx } = org;
   const { message, setMessage, run, pending } = useAction();
-  const [name, setName] = useState(item.label);
   const [folderId, setFolderId] = useState(item.folderId ?? "");
   const folderChanged = folderId !== (item.folderId ?? "");
   const known = (id) => PLACE_TYPES.some((entry) => entry.id === id);
@@ -173,8 +243,6 @@ function Details({ org }) {
       setMessage({ kind: "error", text: "Could not copy. Select the ID and copy it by hand." });
     }
   }
-
-  const renamed = name.trim() !== "" && name.trim() !== item.label;
 
   return (
     <>
@@ -233,21 +301,6 @@ function Details({ org }) {
           )}
         </div>
 
-        <span className="org-key">Name</span>
-        <form
-          className="org-val"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (renamed) run(renamePlacement({ placementId: item.id, label: name.trim() }));
-          }}
-        >
-          <input className="field" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} aria-label="Placement name" />
-          {renamed && (
-            <button className="button button-quiet button-small" type="submit">
-              Save
-            </button>
-          )}
-        </form>
       </div>
       <Message message={message} />
     </>
