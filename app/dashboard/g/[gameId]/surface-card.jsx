@@ -347,6 +347,11 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
 
   return (
     <div className={`surface ${adjusting ? "is-adjusting" : ""}${org?.item.enabled === false ? " is-switched-off" : ""}`}>
+      {org && (
+        <div className="org-namerow">
+          <CardName placementId={placementId} label={label} />
+        </div>
+      )}
       <div className="surface-stage">
         <div
           ref={windowRef}
@@ -411,13 +416,19 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
       </div>
 
       <div className="surface-body">
-        <div className="surface-head">
-          <div className="org-titlerow">
-            <CardName placementId={placementId} label={label} />
+        {org ? (
+          <div className="org-meta">
+            <div className="surface-dims">{dims}</div>
             <CardStatus placementId={placementId} />
           </div>
-          <div className="surface-dims">{dims}</div>
-        </div>
+        ) : (
+          <div className="surface-head">
+            <div className="surface-label" title={label}>
+              {label}
+            </div>
+            <div className="surface-dims">{dims}</div>
+          </div>
+        )}
 
         <div className="own-tabs">
         <div className="own-strip" role="tablist" aria-label={`Your pictures for ${label}`}>
@@ -465,59 +476,51 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         {creative && (
           <div className={`own-panel ${items[0]?.assignmentId === activeId ? "is-first" : ""} ${items.findIndex((item) => item.assignmentId === activeId) === MAX_OWN_CREATIVES - 1 ? "is-last" : ""}`} role="tabpanel">
             {!adjusting ? (
-              <>
-                <div className="own-row">
-                  <div className="own-row-text">
-                    <div className="own-row-title">Show this picture</div>
-                    <div className="own-row-sub">
-                      {creative.enabled ? "In the rotation with your other pictures" : "Switched off"}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="own-switch"
-                    role="switch"
-                    aria-checked={creative.enabled}
-                    aria-label="Show this picture"
-                    onClick={toggle}
-                    disabled={working}
-                  >
-                    <span className="own-knob" />
-                  </button>
-                </div>
-                <div className="own-actions">
-                  <button
-                    type="button"
-                    className="button button-quiet surface-framing"
-                    onClick={() => setAdjusting(true)}
-                    disabled={!canAdjust}
-                    title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
-                  >
-                    <CropIcon />
-                    Framing
-                  </button>
-                  <button
-                    type="button"
-                    className={`own-delete ${confirmDelete ? "is-confirm" : ""}`}
-                    onClick={remove}
-                    onBlur={() => setConfirmDelete(false)}
-                    disabled={working}
-                    title={confirmDelete ? "Click again to delete" : "Delete this picture"}
-                  >
-                    <TrashIcon />
-                    {confirmDelete ? "Delete for good?" : "Delete"}
-                  </button>
-                </div>
-              </>
+              <div className="own-bar">
+                <button
+                  type="button"
+                  className="own-switch own-switch-small"
+                  role="switch"
+                  aria-checked={creative.enabled}
+                  aria-label="Show this picture"
+                  onClick={toggle}
+                  disabled={working}
+                >
+                  <span className="own-knob" />
+                </button>
+                <span className={`own-bar-label${creative.enabled ? "" : " is-off"}`}>
+                  {creative.enabled ? "In rotation" : "Off, not in the rotation"}
+                </span>
+                <span className="own-bar-gap" />
+                <button
+                  type="button"
+                  className="own-small-button"
+                  onClick={() => setAdjusting(true)}
+                  disabled={!canAdjust}
+                  title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
+                >
+                  <CropIcon />
+                  Framing
+                </button>
+                <button
+                  type="button"
+                  className={`own-trash ${confirmDelete ? "is-confirm" : ""}`}
+                  onClick={remove}
+                  onBlur={() => setConfirmDelete(false)}
+                  disabled={working}
+                  aria-label={confirmDelete ? "Click again to delete this picture" : "Delete this picture"}
+                  title={confirmDelete ? "Click again to delete" : "Delete this picture"}
+                >
+                  <TrashIcon />
+                  {confirmDelete && <span>Delete?</span>}
+                </button>
+              </div>
             ) : (
               <>
-                <div className="own-row-title">
-                  Framing <span className="own-row-sub">· drag the picture, zoom with the slider</span>
-                </div>
-                <div className="surface-adjust">
+                <div className="own-bar">
                   <button
                     type="button"
-                    className="icon-button icon-button-small"
+                    className="own-zoom-button"
                     onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom / 1.15) })}
                     disabled={crop.zoom <= 1}
                     aria-label="Zoom out"
@@ -526,6 +529,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   </button>
                   <input
                     type="range"
+                    className="own-range"
                     min="1"
                     max={MAX_ZOOM}
                     step="0.01"
@@ -535,7 +539,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   />
                   <button
                     type="button"
-                    className="icon-button icon-button-small"
+                    className="own-zoom-button"
                     onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom * 1.15) })}
                     disabled={crop.zoom >= MAX_ZOOM}
                     aria-label="Zoom in"
@@ -544,14 +548,15 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   </button>
                   <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
                 </div>
-                <div className="own-actions">
+                <div className="own-bar">
                   <button type="button" className="link-button" onClick={() => setCrop(DEFAULT_CROP)} disabled={!framed}>
                     Reset
                   </button>
-                  <button type="button" className="button button-quiet own-cancel" onClick={cancelFraming} disabled={saving}>
+                  <span className="own-bar-gap" />
+                  <button type="button" className="own-small-button" onClick={cancelFraming} disabled={saving}>
                     Cancel
                   </button>
-                  <button type="button" className="button surface-save" onClick={save} disabled={!dirty || working} aria-busy={saving}>
+                  <button type="button" className="own-small-button is-solid" onClick={save} disabled={!dirty || working} aria-busy={saving}>
                     {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
                   </button>
                 </div>

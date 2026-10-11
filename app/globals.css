@@ -3584,36 +3584,23 @@ th.num .sort-button {
 }
 
 /* names wrap instead of being cut; the rename field floats over the title row, inside the card */
-.org-titlerow {
-  position: relative;
-  align-items: flex-start;
-}
-
 .org-name {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .org-name .surface-label {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  overflow-wrap: anywhere;
-}
-
-.org-rename {
-  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .org-rename-field {
-  top: -6px;
+  top: 6px;
   left: 0;
   right: 0;
   width: auto;
 }
 
-.org-status {
-  padding-top: 2px;
-}
 
 /* a placement outside folders gets the same room as one inside a folder */
 .org-loose {
@@ -3623,3 +3610,79 @@ th.num .sort-button {
 .org-chips-foot {
   padding: 0.6rem 1rem 0.9rem;
 }
+
+/* the name is a line of its own at the top of the card; dims and status sit under the picture */
+.org-namerow {
+  position: relative;
+  display: flex;
+  padding: 0.7rem 0.75rem 0.55rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.org-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.org-name .surface-label {
+  flex: 0 1 auto;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.org-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.org-meta .surface-dims {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* pictures: only the one being edited is a tab, joined to the panel under it; the others are bare thumbnails */
+.own-strip { align-items: end; }
+.own-thumb {
+  height: 36px; border-color: transparent; border-bottom-color: transparent; background: transparent;
+  margin-bottom: 4px;
+}
+.own-thumb.is-current {
+  height: 42px; margin-bottom: -1px; background: var(--paper); border-color: var(--line); border-bottom-color: var(--paper);
+}
+.own-thumb img { max-height: 28px; }
+.own-thumb.is-on .own-dot { background: var(--ink-2); }
+.own-thumb.is-off .own-dot { background: #9a8f8a; }
+.own-add { height: 32px; margin: 0 0 5px; border-color: #c3c8d3; background: transparent; color: var(--ink-2); }
+.own-panel { background: var(--paper); border-color: var(--line); padding: 8px 10px; gap: 8px; }
+
+.own-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.own-bar-gap { flex: 1; }
+.own-bar-label { font-size: 0.8125rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.own-bar-label.is-off { color: var(--ink-3); }
+.own-switch-small { width: 34px; height: 20px; border-radius: 10px; }
+.own-switch-small .own-knob { top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 8px; }
+.own-switch-small[aria-checked="true"] .own-knob { left: 16px; }
+.own-small-button {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; height: 30px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink-2);
+  font: inherit; font-size: 0.78rem; font-weight: 500; cursor: pointer;
+}
+.own-small-button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+.own-small-button:disabled { opacity: 0.5; cursor: default; }
+.own-small-button.is-solid { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+.own-trash {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; min-width: 30px; height: 30px; padding: 0 6px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: #a12626;
+  font: inherit; font-size: 0.78rem; cursor: pointer;
+}
+.own-trash.is-confirm { background: #a12626; border-color: #a12626; color: #fff; padding: 0 10px; }
+.own-zoom-button {
+  flex: none; width: 26px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--paper); color: var(--ink-2); font-size: 1rem; line-height: 1; cursor: pointer;
+}
+.own-zoom-button:disabled { opacity: 0.45; cursor: default; }
+.own-range { flex: 1; min-width: 4rem; accent-color: var(--ink); }
