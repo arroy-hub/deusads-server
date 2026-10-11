@@ -9,6 +9,9 @@ import { pathToFileURL } from "node:url";
 
 const GAME = { id: "g1", owner_id: "o1", name: "Test Game", api_key: "key-1", genres: ["shooter", "social"], platforms: ["quest"], languages: ["en", "ru"] };
 const db = { placements: [], impressions: [], assignments: [], creatives: [] };
+// Tables from migration 0021 exist only while `organizationApplied` is true (else the stub answers PGRST205).
+let organizationApplied = false;
+const organization = { placement_places: [], placement_folders: [], placement_scene_off: [] };
 let outdated = false;
 let cropMissing = false; // 0002 applied, 0003 not yet
 let targetingMissing = false; // 0017 applied, 0018 not yet
@@ -25,7 +28,7 @@ function fail(status, code, message) {
 
 function matches(row, params) {
   for (const [key, raw] of params) {
-    if (["select", "on_conflict", "order", "columns", "limit"].includes(key)) continue;
+    if (["select", "on_conflict", "order", "columns", "limit", "or"].includes(key)) continue;
     if (key.includes(".")) continue; // filters on embedded resources are ignored here
     const value = row[key];
     if (raw.startsWith("eq.")) { if (String(value) !== raw.slice(3)) return false; }
@@ -74,7 +77,7 @@ globalThis.fetch = async (input, init = {}) => {
     return ok(byKey || byId ? [GAME] : []);
   }
 
-  const rows = db[table];
+  const rows = db[table] ?? (organizationApplied ? organization[table] : undefined);
   if (!rows) return fail(404, "PGRST205", "no table " + table);
 
   if (method === "GET") {
@@ -386,6 +389,106 @@ assert.equal(r.accepted, 2);
 assert.equal(db.impressions.find((i) => i.event_id === "o1").own, true);
 assert.equal(db.impressions.find((i) => i.event_id === "o2").own, false);
 db.creatives.length = 0;
+
+// --- placement organisation (migration 0021): places, switches, views per place
+{
+  const baseline = live().map((id) => P(id));
+  const shared = (places) => ({ ...P("s1"), shared: true, places });
+  const unique = { ...P("u1"), shared: false, places: [{ scene: "MainMenu", path: "Banner" }] };
+
+  // before the tables exist: the placements are saved, the places are skipped, nothing fails
+  r = await send([...baseline, shared([{ scene: "Level_3", path: "Wall/A" }]), unique], false);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.places, undefined, "no places reported while the database is behind");
+  assert.ok(db.placements.find((p) => p.external_id === "s1"));
+
+  organizationApplied = true;
+  const twoCopies = [{ scene: "Level_3", path: "Wall/A" }, { scene: "Level_5", path: "Wall/B" }];
+  r = await send([...baseline, shared(twoCopies), unique], false);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.places, 3, "two copies of the shared placement and the unique one");
+  assert.equal(organization.placement_places.length, 3);
+  assert.equal(db.placements.find((p) => p.external_id === "s1").shared, true);
+  assert.equal(db.placements.find((p) => p.external_id === "u1").shared, false);
+  assert.equal(db.placements.find((p) => p.external_id === "u1").place_type_suggested, "menu");
+  assert.equal(db.placements.find((p) => p.external_id === "s1").place_type_suggested, "gameplay");
+  assert.equal(db.placements.find((p) => p.external_id === "s1").scene, "Level_3", "the old single-scene field stays filled");
+
+  // sending the same list again changes nothing
+  r = await send([...baseline, shared(twoCopies), unique], false);
+  assert.equal(organization.placement_places.length, 3);
+
+  // switches: nothing is off to begin with
+  db.assignments.push({ placements: { external_id: "u1" }, creatives: { id: "c2", storage_path: "y.png", status: "approved" }, owner_id: "o1", active: true });
+  r = await getManifest();
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.disabled, []);
+  assert.deepEqual(r.body.disabledScenes, []);
+  assert.ok(r.body.placements.find((p) => p.id === "u1"));
+
+  // a placement switched off: no creative, and the SDK is told to hide it
+  db.placements.find((p) => p.external_id === "u1").enabled = false;
+  r = await getManifest();
+  assert.deepEqual(r.body.disabled, ["u1"]);
+  assert.ok(!r.body.placements.find((p) => p.id === "u1"), "an off placement gets no creative");
+  assert.ok(r.body.placements.find((p) => p.id === "a"), "the others are untouched");
+
+  // a folder switched off covers what is in it, including placements put there later
+  organization.placement_folders.push({ id: "f1", game_id: GAME.id, enabled: false });
+  db.placements.find((p) => p.external_id === "s1").folder_id = "f1";
+  r = await getManifest();
+  assert.deepEqual(r.body.disabled, ["s1", "u1"]);
+
+  // switching the folder back on does not bring back what is off by itself
+  organization.placement_folders[0].enabled = true;
+  r = await getManifest();
+  assert.deepEqual(r.body.disabled, ["u1"]);
+
+  // a scene switched off is sent by name
+  organization.placement_scene_off.push({ game_id: GAME.id, scene: "Level_3" });
+  r = await getManifest();
+  assert.deepEqual(r.body.disabledScenes, ["Level_3"]);
+  organization.placement_scene_off.length = 0;
+  db.placements.find((p) => p.external_id === "u1").enabled = true;
+  db.assignments.pop();
+
+  // views come with the place they were seen at
+  const placeOf = (scene, path) =>
+    organization.placement_places.find((x) => x.scene === scene && x.path === path).id;
+  r = await sendEvents([
+    imp("pl1", { placementId: "s1", scene: "Level_5", path: "Wall/B" }),
+    imp("pl2", { placementId: "s1", scene: "Level_3", path: "Wall/A" }),
+    imp("pl3", { placementId: "s1", scene: "Elsewhere", path: "Nowhere" }),
+    imp("pl4", { placementId: "s1" }),
+  ], "places");
+  assert.equal(r.accepted, 4, "a view at an unknown place still counts");
+  const viewOf = (eventId) => db.impressions.find((i) => i.event_id === eventId);
+  assert.equal(viewOf("pl1").place_id, placeOf("Level_5", "Wall/B"));
+  assert.equal(viewOf("pl2").place_id, placeOf("Level_3", "Wall/A"));
+  assert.equal(viewOf("pl3").place_id ?? null, null);
+  assert.equal(viewOf("pl4").place_id ?? null, null);
+
+  // a complete list removes the copies that are gone from a placement that reported places
+  r = await send([...baseline, shared([{ scene: "Level_3", path: "Wall/A" }]), unique], true);
+  assert.equal(r.status, 200);
+  const removedAt = (scene, path) => organization.placement_places.find((x) => x.scene === scene && x.path === path).removed_at;
+  assert.ok(removedAt("Level_5", "Wall/B"), "the copy that is gone is marked removed");
+  assert.equal(removedAt("Level_3", "Wall/A"), null);
+  assert.equal(removedAt("MainMenu", "Banner"), null);
+
+  // a copy that comes back is restored
+  r = await send([...baseline, shared(twoCopies), unique], true);
+  assert.equal(removedAt("Level_5", "Wall/B"), null);
+
+  // a placement that is gone takes its places with it; one that reports no places keeps its own
+  r = await send([...baseline, shared(twoCopies)], true);
+  assert.ok(removedAt("MainMenu", "Banner"), "places of a removed placement are removed");
+  assert.equal(removedAt("Level_3", "Wall/A"), null);
+  r = await send([...baseline, P("s1"), unique], true);
+  assert.equal(removedAt("Level_3", "Wall/A"), null, "an old SDK that sends no places does not wipe them");
+
+  organizationApplied = false;
+}
 
 // --- database not migrated yet: routes keep working the old way
 outdated = true;

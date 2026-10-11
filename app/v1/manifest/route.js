@@ -13,6 +13,7 @@ import { syncBookingSchedule } from "../../../lib/schedule";
 import { rotate } from "../../../lib/rotation";
 import { choosePictures } from "../../../lib/manifest-pick";
 import { eligibleRows } from "../../../lib/targeting";
+import { switchedOff } from "../../../lib/placement-organization";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,11 @@ export const OPTIONS = preflight;
  * Placements with no creative assigned are simply absent: the SDK then keeps the
  * developer's fallback texture, which is the correct behaviour for an unsold slot.
  * So are placements removed from the game (see POST /v1/placements).
+ *
+ * What the developer switched off (migration 0021) is listed too, so the SDK can hide it entirely
+ * (no creative, no fallback texture): `disabled` holds placement ids that show nothing anywhere
+ * (the placement itself or its folder is off), `disabledScenes` holds scene names in which every
+ * placement shows nothing. SDKs before 0.6 ignore both and keep their fallback texture there.
  */
 export const GET = guarded(async function GET(request) {
   const { game, db, error } = await authenticateGame(request);
@@ -94,15 +100,69 @@ export const GET = guarded(async function GET(request) {
       .not("suspended_at", "is", null);
     if (!offError) suspended = new Set((off ?? []).map((account) => account.id));
   }
-  const placements = rotate(servable.filter((item) => !suspended.has(item.advertiserId))).map(({ row }) => ({
+  // What the developer switched off shows nothing: dropped before the rotation, and named in the reply.
+  const off = await loadSwitches(db, game);
+  const disabled = new Set(off.disabled);
+
+  const placements = rotate(
+    servable.filter((item) => !suspended.has(item.advertiserId) && !disabled.has(item.placementId))
+  ).map(({ row }) => ({
     id: row.placements.external_id,
     creativeId: row.creatives.id,
     imageUrl: shown.get(row).imageUrl,
     crop: shown.get(row).crop,
   }));
 
-  return json({ version: 1, placements });
+  return json({ version: 1, placements, disabled: off.disabled, disabledScenes: off.disabledScenes });
 });
+
+/**
+ * The developer's on/off switches for this game: { disabled, disabledScenes } (see
+ * lib/placement-organization.js). Empty before migration 0021, and when they cannot be read:
+ * a read failure must not hide a developer's ads, and the manifest is asked again at the next start.
+ */
+async function loadSwitches(db, game) {
+  const none = { disabled: [], disabledScenes: [] };
+
+  // Only placements that can matter: switched off themselves, or in a folder.
+  const { data: placements, error: placementsError } = await db
+    .from("placements")
+    .select("external_id, enabled, folder_id, removed_at")
+    .eq("game_id", game.id)
+    .or("enabled.eq.false,folder_id.not.is.null");
+  if (placementsError) {
+    if (isSchemaOutdated(placementsError)) warnSchemaOutdated("GET /v1/manifest", "0021_placement_organization.sql");
+    else logDbError("manifest switches", placementsError);
+    return none;
+  }
+
+  const inFolders = (placements ?? []).some((placement) => placement.folder_id);
+  let folders = [];
+  if (inFolders) {
+    const { data, error: foldersError } = await db
+      .from("placement_folders")
+      .select("id, enabled, parent_id")
+      .eq("game_id", game.id);
+    if (foldersError) {
+      if (isSchemaOutdated(foldersError)) warnSchemaOutdated("GET /v1/manifest", "0021_placement_organization.sql");
+      else logDbError("manifest folders", foldersError);
+      return none;
+    }
+    folders = data ?? [];
+  }
+
+  const { data: offScenes, error: scenesError } = await db
+    .from("placement_scene_off")
+    .select("scene")
+    .eq("game_id", game.id);
+  if (scenesError) {
+    if (isSchemaOutdated(scenesError)) warnSchemaOutdated("GET /v1/manifest", "0021_placement_organization.sql");
+    else logDbError("manifest scenes", scenesError);
+    return none;
+  }
+
+  return switchedOff({ placements: placements ?? [], folders, offScenes: offScenes ?? [] });
+}
 
 /**
  * What the developer said about this game: { genres, platforms, languages }. Null when it could

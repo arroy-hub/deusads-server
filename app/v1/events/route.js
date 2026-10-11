@@ -71,6 +71,7 @@ export const POST = guarded(async function POST(request) {
   }
 
   const byExternalId = new Map((placements ?? []).map((p) => [p.external_id, p.id]));
+  const placeIds = await loadPlaceIds(db, game, [...byExternalId.values()], incoming);
   const rows = [];
   let unknown = 0;
 
@@ -81,7 +82,7 @@ export const POST = guarded(async function POST(request) {
       continue;
     }
 
-    rows.push({
+    const row = {
       event_id: eventIdFor(item, sessionId),
       game_id: game.id,
       owner_id: game.owner_id,
@@ -91,7 +92,12 @@ export const POST = guarded(async function POST(request) {
       sdk_version: typeof body.sdkVersion === "string" ? body.sdkVersion : null,
       visible_seconds: visibleSecondsFrom(item?.visibleSeconds),
       occurred_at: unixToIso(item?.timestamp),
-    });
+    };
+    // Only set when the place is known, which needs migration 0021: a database without the
+    // column must not make the whole batch fall back to the old way of storing views.
+    const placeId = placeIds.get(placeKey(placementId, item?.scene, item?.path));
+    if (placeId) row.place_id = placeId;
+    rows.push(row);
   }
 
   if (rows.length === 0) {
@@ -129,7 +135,7 @@ export const POST = guarded(async function POST(request) {
     ({ data, error: insertError } = await db
       .from("impressions")
       .upsert(
-        rows.map(({ event_id, own, ...rest }) => rest),
+        rows.map(({ event_id, own, place_id, ...rest }) => rest),
         { onConflict: "game_id,session_id,placement_id,creative_id", ignoreDuplicates: true }
       )
       .select("id"));
@@ -147,6 +153,35 @@ export const POST = guarded(async function POST(request) {
     unknownPlacements: unknown,
   });
 });
+
+function placeKey(placementId, scene, path) {
+  return `${placementId}\u0000${typeof scene === "string" ? scene : ""}\u0000${typeof path === "string" ? path : ""}`;
+}
+
+/**
+ * Which place each impression came from (migration 0021): the SDK 0.6+ sends the scene and the
+ * path of the copy that was seen. Returns a map of placeKey -> place id. Empty when no impression
+ * names a place, or before the migration: the views are then counted per placement only.
+ */
+async function loadPlaceIds(db, game, placementIds, incoming) {
+  const named = incoming.some((item) => typeof item?.scene === "string" || typeof item?.path === "string");
+  const byKey = new Map();
+  if (!named || placementIds.length === 0) return byKey;
+
+  const { data, error } = await db
+    .from("placement_places")
+    .select("id, placement_id, scene, path")
+    .eq("game_id", game.id)
+    .in("placement_id", placementIds);
+
+  if (error) {
+    if (isSchemaOutdated(error)) warnSchemaOutdated("POST /v1/events", "0021_placement_organization.sql");
+    else logDbError("impressions place lookup", error);
+    return byKey;
+  }
+  for (const place of data ?? []) byKey.set(placeKey(place.placement_id, place.scene, place.path), place.id);
+  return byKey;
+}
 
 function eventIdFor(item, sessionId) {
   const id = typeof item?.eventId === "string" ? item.eventId.trim() : "";
