@@ -5,13 +5,14 @@ import { bookingsMissing } from "../../../lib/booking-rules";
 import { loadBookings } from "../../../lib/bookings-data";
 import BookingRow from "../booking-row";
 import CampaignHead from "./campaign-head";
+import { canAdvertise } from "../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaigns" };
 
 export default async function AdvertisingPage() {
   const me = await getMember();
-  if (!me || me.role !== "advertiser") notFound();
+  if (!me || !canAdvertise(me.role)) notFound();
 
   const { bookings, error } = await loadBookings(me.service, (query) => query.eq("advertiser_id", me.user.id));
 

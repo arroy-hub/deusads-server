@@ -5,6 +5,7 @@ import { getMember } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
 import { FORMATS, aspectClose, normalizeSafeZone } from "../../../lib/formats";
 import { parseTargeting } from "../../../lib/targeting";
+import { canAdvertise } from "../../../lib/admin-rules";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
@@ -38,7 +39,7 @@ function refresh(creativeId) {
 export async function saveTargeting({ creativeId, targeting }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser") return { error: "Not allowed." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
   const creative = await ownCreative(me, creativeId);
   if (!creative) return { error: "That creative no longer exists." };
 

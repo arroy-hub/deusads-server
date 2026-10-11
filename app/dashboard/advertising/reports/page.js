@@ -6,13 +6,14 @@ import { loadReport } from "../../../../lib/report-data";
 import { formatCount } from "../../../../lib/analytics";
 import { REPORT_RANGES, parseRange } from "../../../../lib/reports";
 import DailyChart from "../../g/[gameId]/daily-chart";
+import { canAdvertise } from "../../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Reports" };
 
 export default async function ReportsPage({ searchParams }) {
   const me = await getMember();
-  if (!me || me.role !== "advertiser") notFound();
+  if (!me || !canAdvertise(me.role)) notFound();
   const { service, user } = me;
 
   const query = await searchParams;

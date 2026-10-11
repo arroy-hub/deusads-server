@@ -1,6 +1,6 @@
 // Rules for the admin screens (lib/admin-rules.js). Run: node test/admin.test.mjs
 import assert from "node:assert/strict";
-import { DECISIONS, ROLES, cleanNote, parseDecision, roleChangeProblem } from "../lib/admin-rules.js";
+import { canAdvertise, DECISIONS, ROLES, cleanNote, parseDecision, roleChangeProblem } from "../lib/admin-rules.js";
 
 assert.deepEqual(ROLES, ["developer", "advertiser", "admin"]);
 assert.deepEqual(DECISIONS, ["approved", "rejected"]);
@@ -30,3 +30,7 @@ assert.match(roleChangeProblem({ actorId: "a", targetId: "b", role: undefined })
 assert.match(roleChangeProblem({ actorId: "a", targetId: "", role: "admin" }), /Unknown account/);
 
 console.log("admin: all checks passed");
+
+// who may use the advertiser tools: advertisers, and admins so one account can try both sides
+assert.ok(canAdvertise("advertiser") && canAdvertise("admin") && !canAdvertise("developer") && !canAdvertise(undefined));
+console.log("advertiser access ok");

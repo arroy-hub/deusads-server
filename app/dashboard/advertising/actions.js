@@ -12,6 +12,7 @@ import {
 } from "../../../lib/booking-rules";
 import { describeBooking } from "../../../lib/bookings-data";
 import { notify, notifyMany } from "../../../lib/notify";
+import { canAdvertise } from "../../../lib/admin-rules";
 
 const MISSING = "Run migration 0009 in the Supabase SQL editor first.";
 const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
@@ -27,7 +28,7 @@ const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
 export async function createBooking({ campaignId, campaignName, creativeId, placementIds, startsOn, endsOn }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser") return { error: "Not allowed." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
   const { service, user } = me;
 
   const ids = cleanPlacementIds(placementIds);
@@ -54,7 +55,8 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     return { error: "Some of those placements are not open to advertisers." };
   }
   if ((placements ?? []).length !== ids.length) return { error: "Some of those placements are no longer available." };
-  if (placements.some((placement) => placement.owner_id === user.id)) {
+  // An admin may book in their own games, to try both sides of the platform with one account.
+  if (me.role !== "admin" && placements.some((placement) => placement.owner_id === user.id)) {
     return { error: "You cannot book a placement in your own game." };
   }
 
@@ -171,7 +173,7 @@ export async function cancelBooking({ bookingId }) {
 export async function renameCampaign({ campaignId, name }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser") return { error: "Not allowed." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
 
   const title = cleanCampaignName(name);
   if (!title) return { error: "Name the campaign." };
@@ -198,7 +200,7 @@ export async function renameCampaign({ campaignId, name }) {
 export async function deleteCampaign({ campaignId }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
-  if (me.role !== "advertiser") return { error: "Not allowed." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
 
   const id = String(campaignId ?? "");
   const { data: campaign } = await me.service

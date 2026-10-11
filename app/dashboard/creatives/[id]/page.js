@@ -4,6 +4,7 @@ import { getMember } from "../../../../lib/admin";
 import { isSchemaOutdated } from "../../../../lib/api";
 import Audience from "./audience";
 import Workbench from "./workbench";
+import { canAdvertise } from "../../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creative" };
@@ -27,7 +28,7 @@ export default async function CreativeFormatsPage({ params }) {
   let audience = null;
   let audienceMissing = false;
   let catalog = null;
-  if (me.role === "advertiser") {
+  if (canAdvertise(me.role)) {
     const targetingRead = await service
       .from("creatives")
       .select("targeting")
@@ -37,12 +38,13 @@ export default async function CreativeFormatsPage({ params }) {
     if (targetingRead.error) audienceMissing = isSchemaOutdated(targetingRead.error);
     else {
       audience = { targeting: targetingRead.data?.targeting ?? null };
-      const { data: open, error: openError } = await service
+      let openQuery = service
         .from("placements")
         .select("game_id, games(genres, platforms, languages)")
         .eq("open_to_advertisers", true)
-        .is("removed_at", null)
-        .neq("owner_id", user.id);
+        .is("removed_at", null);
+      if (me.role !== "admin") openQuery = openQuery.neq("owner_id", user.id); // an admin's own games count too
+      const { data: open, error: openError } = await openQuery;
       if (!openError) {
         const byGame = new Map();
         for (const row of open ?? []) {

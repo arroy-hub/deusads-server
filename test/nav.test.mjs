@@ -11,8 +11,13 @@ assert.equal(labels("admin").slice(0, 4).join(), "Review creatives,All bookings,
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
 assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
 // an admin's own library is not confused with the review page
-assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives,My creatives");
+assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives,Creatives");
 assert.ok(labels("admin").includes("My games"), "an admin keeps their own developer and advertiser tools");
+// an admin has the whole advertiser menu and the whole developer menu, in two labelled sections
+const adminGroups = menuFor("admin");
+const section = (heading) => adminGroups.find((group) => group.heading === heading)?.items.map((item) => item.label).join();
+assert.equal(section("As an advertiser"), labels("advertiser").filter((label) => label !== "Home").join());
+assert.equal(section("As a developer"), labels("developer").filter((label) => label !== "Home").join());
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard");

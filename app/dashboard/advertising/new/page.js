@@ -4,13 +4,14 @@ import { getMember } from "../../../../lib/admin";
 import { bookingsMissing } from "../../../../lib/booking-rules";
 import { isSchemaOutdated } from "../../../../lib/api";
 import BookingForm from "./booking-form";
+import { canAdvertise } from "../../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Find placements" };
 
 export default async function NewBookingPage() {
   const me = await getMember();
-  if (!me || me.role !== "advertiser") notFound();
+  if (!me || !canAdvertise(me.role)) notFound();
   const { service, user } = me;
 
   let catalog = null;
@@ -23,7 +24,7 @@ export default async function NewBookingPage() {
     service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     // The catalog: live placements in other people's games. Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
-    catalogQuery(service, user.id, { onlyOpen: true, withProfile: true }),
+    catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo: me.role === "admin" }),
   ]);
 
   // Migration 0017 adds the safe zone and per-format images; without it the plain columns still load.
@@ -53,9 +54,9 @@ export default async function NewBookingPage() {
   let profiled = true;
   if (isSchemaOutdated(catalog.error)) {
     profiled = false;
-    catalog = await catalogQuery(service, user.id, { onlyOpen: true, withProfile: false });
+    catalog = await catalogQuery(service, user.id, { onlyOpen: true, withProfile: false, ownToo: me.role === "admin" });
   }
-  if (isSchemaOutdated(catalog.error)) catalog = await catalogQuery(service, user.id, { onlyOpen: false, withProfile: false });
+  if (isSchemaOutdated(catalog.error)) catalog = await catalogQuery(service, user.id, { onlyOpen: false, withProfile: false, ownToo: me.role === "admin" });
   const placements = catalog.data;
 
   // The audience of each creative (migration 0018); without it nothing is aimed.
@@ -134,13 +135,14 @@ export default async function NewBookingPage() {
   );
 }
 
-/** Live placements in other people's games. Advertisers see game and placement names and the slot's shape, nothing about the owner. */
-function catalogQuery(service, userId, { onlyOpen, withProfile }) {
+/** Live placements in other people's games (an admin's own too). Advertisers see game and placement names and the slot's shape, nothing about the owner. */
+function catalogQuery(service, userId, { onlyOpen, withProfile, ownToo = false }) {
   let query = service
     .from("placements")
     .select(`id, label, external_id, scene, aspect_ratio, game_id, games(name${withProfile ? ", genres, platforms, languages" : ""})`)
-    .neq("owner_id", userId)
     .is("removed_at", null);
+  // Everyone else's placements; an admin also sees their own, to try both sides with one account.
+  if (!ownToo) query = query.neq("owner_id", userId);
   if (onlyOpen) query = query.eq("open_to_advertisers", true);
   return query.order("first_seen_at", { ascending: true });
 }

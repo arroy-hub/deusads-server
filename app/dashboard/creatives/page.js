@@ -5,6 +5,7 @@ import { categoryLabel } from "../../../lib/categories";
 import { targetingSummary } from "../../../lib/targeting";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
+import { canAdvertise } from "../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creatives" };
@@ -31,7 +32,7 @@ export default async function CreativesPage() {
   // An advertiser's creatives may be aimed at some games (migration 0018); the list says which.
   // Without the migration, or for a developer, the list simply has no audience line.
   const me = await getMember();
-  const advertiser = me?.role === "advertiser";
+  const advertiser = canAdvertise(me?.role);
   const audienceOf = new Map();
   if (advertiser) {
     const { data: aimed, error: aimedError } = await db.from("creatives").select("id, targeting");
