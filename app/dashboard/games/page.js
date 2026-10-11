@@ -2,6 +2,8 @@ import Link from "next/link";
 import { userClient } from "../../../lib/supabase-server";
 import { gapWords, profileGaps } from "../../../lib/targeting";
 import AddGameDialog from "../add-game-dialog";
+import GameIcon from "../game-icon";
+import GameKey from "../game-key";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My games" };
@@ -10,20 +12,29 @@ export default async function GamesPage() {
   const db = await userClient();
 
   // Count only placements still in the game (migration 0002); fall back to all.
-  // What each game is (genres, platforms, languages) comes with migration 0018.
-  const listGames = (skipRemoved, withProfile) => {
+  // What each game is (genres, platforms, languages) comes with migration 0018, its icon with 0019.
+  const listGames = (skipRemoved, withProfile, withIcon) => {
     let query = db
       .from("games")
-      .select(`id, name, api_key, created_at${withProfile ? ", genres, platforms, languages" : ""}, placements(count)`)
+      .select(
+        `id, name, api_key, created_at${withProfile ? ", genres, platforms, languages" : ""}${withIcon ? ", icon_path" : ""}, placements(count)`
+      )
       .order("created_at", { ascending: true });
     if (skipRemoved) query = query.is("placements.removed_at", null);
     return query;
   };
 
   let games;
-  for (const [skipRemoved, withProfile] of [[true, true], [true, false], [false, false]]) {
+  let iconsKnown = false;
+  for (const [skipRemoved, withProfile, withIcon] of [
+    [true, true, true],
+    [true, true, false],
+    [true, false, false],
+    [false, false, false],
+  ]) {
     let error;
-    ({ data: games, error } = await listGames(skipRemoved, withProfile));
+    ({ data: games, error } = await listGames(skipRemoved, withProfile, withIcon));
+    iconsKnown = withIcon;
     if (!(error && ["42703", "PGRST204", "PGRST100"].includes(error.code))) break;
   }
 
@@ -44,7 +55,13 @@ export default async function GamesPage() {
             const gaps = profileGaps(game);
             return (
               <li key={game.id} className="game-item">
-                <div>
+                <GameIcon
+                  gameId={game.id}
+                  name={game.name}
+                  url={game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : ""}
+                  editable={iconsKnown}
+                />
+                <div className="game-main">
                   <Link href={`/dashboard/g/${game.id}`} className="game-name">
                     {game.name}
                   </Link>
@@ -59,7 +76,7 @@ export default async function GamesPage() {
                     </div>
                   )}
                 </div>
-                <code className="key">{game.api_key}</code>
+                <GameKey value={game.api_key} />
               </li>
             );
           })}

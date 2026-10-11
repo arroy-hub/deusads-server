@@ -72,6 +72,42 @@ export async function saveGameProfile({ gameId, genres, platforms, languages }) 
 }
 
 /**
+ * Sets (or, with no path, clears) a game's icon. The browser has already put a small square picture
+ * in Storage inside the user's own folder; this records where it is and deletes the previous one.
+ * Owner only, enforced by row-level security (migration 0019 adds the column).
+ */
+export async function setGameIcon({ gameId, path }) {
+  const id = String(gameId ?? "");
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  const next = path == null || path === "" ? null : String(path);
+  if (next !== null && (!next.startsWith(`${user.id}/`) || next.includes("..") || next.length > 300)) {
+    return { error: "Upload failed. Try again." };
+  }
+
+  const { data: before, error: readError } = await db.from("games").select("id, icon_path").eq("id", id).maybeSingle();
+  if (isSchemaOutdated(readError)) return { error: "Game icons need the database update (migration 0019) first." };
+  if (!before) {
+    if (next) await db.storage.from("creatives").remove([next]);
+    return { error: "That game no longer exists." };
+  }
+
+  const { error } = await db.from("games").update({ icon_path: next }).eq("id", id);
+  if (error) {
+    if (next) await db.storage.from("creatives").remove([next]);
+    return { error: "Could not save the icon. Try again." };
+  }
+  if (before.icon_path && before.icon_path !== next && before.icon_path.startsWith(`${user.id}/`)) {
+    const { error: removeError } = await db.storage.from("creatives").remove([before.icon_path]);
+    if (removeError) console.warn("[DeusADS] old game icon not removed:", before.icon_path, removeError.message);
+  }
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+/**
  * Records a creative whose file the browser has already put in Storage.
  * The file never passes through this function, so its size is not bound by
  * the Server Action body limit.
@@ -247,9 +283,12 @@ export async function deleteGame({ gameId, confirmName }) {
   if (String(confirmName ?? "").trim() !== game.name) {
     return { error: "The name does not match. Nothing was deleted." };
   }
+  // The icon file goes with the game (the column exists from migration 0019; without it: no icon).
+  const { data: withIcon } = await db.from("games").select("icon_path").eq("id", id).maybeSingle();
 
   const { error } = await db.from("games").delete().eq("id", id);
   if (error) return { error: "Could not delete the game." };
+  if (withIcon?.icon_path?.startsWith(`${user.id}/`)) await db.storage.from("creatives").remove([withIcon.icon_path]);
 
   revalidatePath("/dashboard", "layout");
   return { ok: true };

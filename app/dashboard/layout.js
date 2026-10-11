@@ -7,6 +7,7 @@ import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, unreadCount } from "../../lib/counts";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import NavLink from "./nav-link";
+import NotificationsBell from "./notifications-bell";
 
 export const dynamic = "force-dynamic";
 
@@ -29,18 +30,32 @@ export default async function DashboardLayout({ children }) {
     );
   }
   const requests = 0; // bookings approve themselves: nothing waits for the developer
-  const notifications = await unreadCount(db, user?.id);
+  const unread = await unreadCount(db, user?.id);
+  // The latest notifications for the bell (the table comes with migration 0013; without it: none).
+  const { data: latest } = user
+    ? await db
+        .from("notifications")
+        .select("id, text, link, created_at, read_at")
+        .order("created_at", { ascending: false })
+        .limit(15)
+    : { data: null };
   const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
-  const { data: games } = await db
+  // The icon of a game (migration 0019) shows in the menu; without it the plain list still loads.
+  let { data: games, error: gamesError } = await db
     .from("games")
-    .select("id, name")
+    .select("id, name, icon_path")
     .order("created_at", { ascending: true });
+  if (gamesError) ({ data: games } = await db.from("games").select("id, name").order("created_at", { ascending: true }));
 
   const groups = menuFor(
     role,
-    { requests, notifications, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
-    (games ?? []).map((game) => ({ href: `/dashboard/g/${game.id}`, label: game.name }))
+    { requests, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
+    (games ?? []).map((game) => ({
+      href: `/dashboard/g/${game.id}`,
+      label: game.name,
+      icon: game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : null,
+    }))
   );
 
   return (
@@ -72,7 +87,12 @@ export default async function DashboardLayout({ children }) {
         </div>
       </nav>
 
-      <main className="main">{children}</main>
+      <div className="content">
+        <header className="topbar">
+          <NotificationsBell items={latest ?? []} unread={unread} />
+        </header>
+        <main className="main">{children}</main>
+      </div>
     </div>
   );
 }

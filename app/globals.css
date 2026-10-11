@@ -1951,3 +1951,353 @@ body:has(dialog.modal[open]) {
     padding: 12px 16px;
   }
 }
+
+/* ---------------------------------------------------------------- menu: games under My games */
+
+.rail-link[data-open="true"] {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.rail-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 6px 21px;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+}
+
+.rail-sub .rail-child {
+  min-height: 36px;
+  padding: 0 10px;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.rail-sub .rail-child span:last-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-sub .rail-link .rail-game-icon {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.rail-game-icon.is-empty {
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.rail-child[aria-current="page"] .rail-game-icon.is-empty {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- top bar and the bell */
+
+.content {
+  min-width: 0;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 40px 0;
+  pointer-events: none;
+}
+
+.topbar > * {
+  pointer-events: auto;
+}
+
+.topbar + .main {
+  padding-top: 12px;
+}
+
+.bell {
+  position: relative;
+}
+
+.bell-button {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bell-button:hover,
+.bell-button[aria-expanded="true"] {
+  border-color: var(--ink);
+}
+
+.bell-button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--signal);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(30rem, calc(100vh - 6rem));
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(20, 22, 27, 0.18);
+  overflow: hidden;
+}
+
+.bell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--step-0);
+}
+
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bell-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--step-0);
+  color: var(--ink-2);
+}
+
+.bell-list li:last-child {
+  border-bottom: 0;
+}
+
+.bell-list li.is-unread {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--signal-soft);
+}
+
+.bell-list a:hover {
+  text-decoration: underline;
+}
+
+.bell-empty {
+  margin: 0;
+  padding: 20px 16px;
+  font-size: var(--step-0);
+  color: var(--ink-2);
+}
+
+@media (max-width: 800px) {
+  .topbar {
+    padding: 10px 16px 0;
+  }
+
+  .topbar + .main {
+    padding-top: 8px;
+  }
+}
+
+/* ---------------------------------------------------------------- game cards: icon, key on demand */
+
+.game-item {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.game-icon-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 92px;
+}
+
+.game-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.game-icon.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.game-icon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 10px;
+  font-size: 0.75rem;
+}
+
+.game-icon-error {
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.game-main {
+  min-width: 0;
+}
+
+.key-toggle {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.key-open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 800px) {
+  .game-item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .game-item > :last-child {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* ---------------------------------------------------------------- performance: placements table */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.placement-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 1.25rem 1.25rem 0.5rem;
+}
+
+.placement-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: var(--step-0);
+}
+
+.pick-col {
+  width: 44px;
+  text-align: center;
+}
+
+.pick-col input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--signal);
+  cursor: pointer;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sort-button:hover {
+  color: var(--ink);
+}
+
+.sort-button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.sort-arrow {
+  display: inline-block;
+  min-width: 0.75em;
+  font-size: 0.625rem;
+  color: var(--signal);
+}
+
+th.num .sort-button {
+  flex-direction: row-reverse;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}

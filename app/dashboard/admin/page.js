@@ -5,7 +5,7 @@ import { formatLabel } from "../../../lib/formats";
 import ReviewRow from "./review-row";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Creatives" };
+export const metadata = { title: "Review creatives" };
 
 const COLUMNS = "id, name, storage_path, width_px, height_px, status, created_at, accounts(email, company)";
 
@@ -79,11 +79,12 @@ export default async function ModerationPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Creatives</h1>
+        <h1>Review creatives</h1>
       </div>
       <p className="lede">
-        Creatives from advertisers wait here until someone approves them. Only approved creatives
-        reach the SDK; rejecting one that is already showing takes it off its placements at once.
+        Everything that waits for an admin is here: new creatives, extra images for other formats, and what
+        was reviewed lately. Only approved creatives reach the SDK; rejecting one that is already showing
+        takes it off its placements at once. Bookings approve themselves.
       </p>
 
       {!migrated && (

@@ -19,7 +19,7 @@ export default async function AdminBookingsPage() {
       </div>
       <p className="lede">
         Read-only. Bookings approve themselves and developers decide what shows in their games, so there is
-        nothing to approve here. To switch an account off, use People.
+        nothing to approve here. To switch an account off, use Users.
       </p>
 
       {bookingsMissing(error) && (

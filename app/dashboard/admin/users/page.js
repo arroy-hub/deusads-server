@@ -5,7 +5,7 @@ import RoleSelect from "./role-select";
 import SuspendButton from "./suspend-button";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "People" };
+export const metadata = { title: "Users" };
 
 export default async function UsersPage() {
   const admin = await getAdmin();
@@ -19,10 +19,10 @@ export default async function UsersPage() {
   return (
     <>
       <div className="main-head">
-        <h1>People</h1>
+        <h1>Users</h1>
       </div>
       <p className="lede">
-        People choose developer or advertiser when they sign up. Admin is given here. You cannot change
+        Users choose developer or advertiser when they sign up. Admin is given here. You cannot change
         your own role. Suspending an account signs it out of the dashboard and stops its ads.
       </p>
 

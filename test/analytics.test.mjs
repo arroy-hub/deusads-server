@@ -1,6 +1,6 @@
 // Pure-function checks for lib/analytics.js. Run: node test/analytics.test.mjs
 import assert from "node:assert/strict";
-import { fillDays, formatDay, lastDays, niceMax, placementRows } from "../lib/analytics.js";
+import { parsePlacementFilter, fillDays, formatDay, lastDays, niceMax, placementRows } from "../lib/analytics.js";
 
 const now = new Date("2026-10-09T00:30:00+04:00"); // 2026-10-08 20:30 UTC
 
@@ -67,3 +67,11 @@ assert.equal(placementRows(live, []).length, 3, "no folded row when nothing was 
 assert.equal(placementRows([], null).length, 0);
 
 console.log("analytics: all checks passed");
+
+// placements picked in the address
+assert.deepEqual(parsePlacementFilter("a,b", ["a", "b", "c"]), ["a", "b"]);
+assert.deepEqual(parsePlacementFilter("a,x, a", ["a", "b", "c"]), ["a"], "unknown ids and repeats are dropped");
+assert.deepEqual(parsePlacementFilter("a,b,c", ["a", "b", "c"]), [], "everything picked means the whole game");
+assert.deepEqual(parsePlacementFilter("", ["a"]), []);
+assert.deepEqual(parsePlacementFilter(undefined, ["a"]), []);
+console.log("placement filter ok");
