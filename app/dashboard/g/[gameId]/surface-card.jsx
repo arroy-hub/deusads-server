@@ -26,11 +26,14 @@ const SAVED_FOR_MS = 2400;
  * with +, and for the chosen one switch it on or off, frame it (drag and zoom; Save writes the
  * framing) or delete it. `items` are { assignmentId, id, name, url, width_px, height_px, enabled, crop }.
  */
-export default function SurfaceCard({ placementId, aspect, label, dims, items, cropEnabled, children }) {
+export default function SurfaceCard({ placementId, aspect, label, dims, items: serverItems, cropEnabled, children }) {
   const router = useRouter();
+  // On/off flips on screen at once; the server catches up in the background (and the flip is undone on a failure).
+  const [flags, setFlags] = useState({}); // assignmentId -> enabled, until the page brings the same value
+  const items = serverItems.map((item) => (item.assignmentId in flags ? { ...item, enabled: flags[item.assignmentId] } : item));
   const fileRef = useRef(null);
-  const [selectedId, setSelectedId] = useState(items[0]?.assignmentId ?? "");
-  const [savedCrops, setSavedCrops] = useState(() => cropsOf(items));
+  const [selectedId, setSelectedId] = useState(serverItems[0]?.assignmentId ?? "");
+  const [savedCrops, setSavedCrops] = useState(() => cropsOf(serverItems));
   const [drafts, setDrafts] = useState({}); // assignmentId -> crop not saved yet
   const [adjusting, setAdjusting] = useState(false);
   const [status, setStatus] = useState("idle"); // idle | saving | saved | error
@@ -60,10 +63,11 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
   const canAdjust = cropEnabled && !!creative && !working;
 
   // A refresh may bring newer pictures or framing: take them, keeping edits that are still open.
-  const incoming = items.map((item) => `${item.assignmentId}:${item.enabled}:${item.crop.zoom}:${item.crop.x}:${item.crop.y}`).join("|");
+  const incoming = serverItems.map((item) => `${item.assignmentId}:${item.enabled}:${item.crop.zoom}:${item.crop.x}:${item.crop.y}`).join("|");
   useEffect(() => {
-    setSavedCrops(cropsOf(items));
-    setSelectedId((current) => (items.some((item) => item.assignmentId === current) ? current : items[0]?.assignmentId ?? ""));
+    setSavedCrops(cropsOf(serverItems));
+    setFlags({});
+    setSelectedId((current) => (serverItems.some((item) => item.assignmentId === current) ? current : serverItems[0]?.assignmentId ?? ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming]);
 
@@ -208,13 +212,17 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items, c
   }
 
   async function toggle() {
-    if (!creative || working) return;
-    setBusy("toggling");
+    if (!creative) return;
+    const id = activeId;
+    const next = !creative.enabled;
     setNote(null);
-    const result = await saveOwnCreative({ assignmentId: activeId, enabled: !creative.enabled }).catch(() => ({ error: "Connection lost. Try again." }));
-    setBusy("");
-    if (result?.error) return setNote({ tone: "error", text: result.error });
-    router.refresh();
+    setFlags((all) => ({ ...all, [id]: next })); // shown at once
+    const result = await saveOwnCreative({ assignmentId: id, enabled: next }).catch(() => ({ error: "Connection lost. Try again." }));
+    if (result?.error) {
+      setFlags((all) => ({ ...all, [id]: !next })); // undo
+      setNote({ tone: "error", text: result.error });
+    }
+    // The save already refreshed the page data; nothing more to wait for here.
   }
 
   async function remove() {
