@@ -20,6 +20,7 @@ export default async function NewBookingPage() {
       .from("creatives")
       .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h")
       .eq("owner_id", user.id)
+      .neq("kind", "own")
       .order("created_at", { ascending: false }),
     service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     // The catalog: live placements in other people's games. Advertisers see the

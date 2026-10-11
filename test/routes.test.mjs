@@ -378,6 +378,15 @@ assert.equal(secondsOf("big"), 9999.99);
 assert.equal(secondsOf("neg"), 0);
 assert.equal(secondsOf("frac"), 2.35);
 
+// views of the developer's own creatives are marked; the rest are not
+const OWN = "22222222-2222-4222-8222-222222222222";
+db.creatives.push({ id: OWN, kind: "own" }, { id: "11111111-1111-4111-8111-111111111111", kind: "campaign" });
+r = await sendEvents([imp("o1", { creativeId: OWN }), imp("o2")], "own1");
+assert.equal(r.accepted, 2);
+assert.equal(db.impressions.find((i) => i.event_id === "o1").own, true);
+assert.equal(db.impressions.find((i) => i.event_id === "o2").own, false);
+db.creatives.length = 0;
+
 // --- database not migrated yet: routes keep working the old way
 outdated = true;
 r = await send([P("a"), P("z")]);

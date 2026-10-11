@@ -12,6 +12,15 @@ const b1 = { placementId: "p1", source: "booking", advertiserId: "B", creativeId
 // fallback: no bookings -> the developer's own creative
 assert.equal(pickForPlacement([own]).creativeId, "own1");
 assert.equal(pickForPlacement([]), null);
+// several own creatives take turns when nobody is booked, with equal chance
+const own2 = { ...own, creativeId: "own2" };
+const own3 = { ...own, creativeId: "own3" };
+assert.equal(pickForPlacement([own, own2, own3], () => 0).creativeId, "own1");
+assert.equal(pickForPlacement([own, own2, own3], () => 0.4).creativeId, "own2");
+assert.equal(pickForPlacement([own, own2, own3], () => 0.99).creativeId, "own3");
+// ...and never when a booking is live
+assert.equal(pickForPlacement([own, own2, a1], () => 0.9).creativeId, "a1");
+
 // bookings win over own
 assert.equal(pickForPlacement([own, a1], () => 0).creativeId, "a1");
 

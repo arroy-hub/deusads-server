@@ -51,6 +51,14 @@ export default async function NowShowingPage({ searchParams }) {
     ? { data: null }
     : await me.service.from("accounts").select("allow_restricted").eq("id", me.user.id).maybeSingle();
 
+  // Views of the developer's own pictures, kept apart from the bookings above (migration 0020).
+  const ownResult = await me.service
+    .from("impressions")
+    .select("id", { count: "exact", head: true })
+    .eq("own", true)
+    .eq("owner_id", me.user.id);
+  const ownViews = ownResult.error ? null : (ownResult.count ?? 0);
+
   const query = (next) => {
     const merged = { category, advertiser, status, sort, ...next };
     const search = new URLSearchParams(Object.entries(merged).filter(([, value]) => value && value !== "newest"));
@@ -66,6 +74,7 @@ export default async function NowShowingPage({ searchParams }) {
         Which ads are on your placements, and the control over them. Advertisers book the placements you opened and go
         live at once; several can share one placement and take turns, and your own creative shows when none is
         booked. Stop an ad here, or block an advertiser or a whole category.
+        {ownViews != null && ` Your own pictures were shown ${ownViews.toLocaleString("en-US")} times; those views are not counted in the ads below.`}
       </p>
 
       {bookingsMissing(error) && (

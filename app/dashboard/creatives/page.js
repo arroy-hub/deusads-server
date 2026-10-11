@@ -12,8 +12,12 @@ export const metadata = { title: "Creatives" };
 
 export default async function CreativesPage() {
   const db = await userClient();
-  const listCreatives = (columns) =>
-    db.from("creatives").select(columns).order("created_at", { ascending: false });
+  // Pictures a developer put on their own placements (kind 'own', migration 0020) are not library creatives.
+  const listCreatives = async (columns) => {
+    const result = await db.from("creatives").select(columns).neq("kind", "own").order("created_at", { ascending: false });
+    if (!isSchemaOutdated(result.error)) return result;
+    return db.from("creatives").select(columns).order("created_at", { ascending: false });
+  };
 
   // review_note comes with migration 0008; without it the list still shows.
   // ad_category comes with migration 0015.

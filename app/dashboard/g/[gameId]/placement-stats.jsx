@@ -7,6 +7,7 @@ import { formatCount } from "../../../../lib/analytics";
 const COLUMNS = [
   ["label", "Placement", false],
   ["impressions", "Impressions", true],
+  ["own", "Own pictures", true],
   ["sessions", "Sessions", true],
   ["avgVisible", "Avg. visible", true],
 ];
@@ -16,7 +17,7 @@ const COLUMNS = [
  * placements are the ones the chart above counts (kept in the address, so a reload or a shared link
  * shows the same view); nothing ticked means the whole game.
  */
-export default function PlacementStats({ gameId, rows, selected }) {
+export default function PlacementStats({ gameId, rows, selected, combined = false }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [picked, setPicked] = useState(() => new Set(selected));
@@ -41,6 +42,7 @@ export default function PlacementStats({ gameId, rows, selected }) {
     const ids = choosable.map((row) => row.id).filter((id) => next.has(id));
     const query = new URLSearchParams({ tab: "performance" });
     if (ids.length > 0 && ids.length < choosable.length) query.set("p", ids.join(","));
+    if (combined) query.set("all", "1");
     startTransition(() => router.replace(`/dashboard/g/${gameId}?${query}`, { scroll: false }));
   }
 
@@ -56,6 +58,7 @@ export default function PlacementStats({ gameId, rows, selected }) {
       current.key === key ? { key, dir: current.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "label" ? "asc" : "desc" }
     );
 
+  const showOwn = !combined && rows.some((row) => row.own != null);
   const count = choosable.filter((row) => picked.has(row.id)).length;
   const chosenTotal = choosable.filter((row) => picked.has(row.id)).reduce((sum, row) => sum + row.impressions, 0);
 
@@ -88,7 +91,7 @@ export default function PlacementStats({ gameId, rows, selected }) {
             <th className="pick-col">
               <span className="sr-only">Count in the chart</span>
             </th>
-            {COLUMNS.map(([key, label, numeric]) => (
+            {COLUMNS.filter(([key]) => key !== "own" || showOwn).map(([key, label, numeric]) => (
               <th
                 key={key}
                 className={numeric ? "num" : undefined}
@@ -122,6 +125,7 @@ export default function PlacementStats({ gameId, rows, selected }) {
                 {row.scene && <span className="muted">{row.scene}</span>}
               </td>
               <td className="num">{formatCount(row.impressions)}</td>
+              {showOwn && <td className="num">{row.own == null ? "—" : formatCount(row.own)}</td>}
               <td className="num">{row.sessions == null ? "—" : formatCount(row.sessions)}</td>
               <td className="num">{row.avgVisible == null ? "—" : `${row.avgVisible.toFixed(1)} s`}</td>
             </tr>

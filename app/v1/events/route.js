@@ -98,6 +98,25 @@ export const POST = guarded(async function POST(request) {
     return json({ accepted: 0, duplicates: 0, unknownPlacements: unknown });
   }
 
+  // Views of the developer's own creatives are marked, so the dashboard can count them apart
+  // from advertisers' views (migration 0020). Before it, nothing is marked.
+  const creativeIds = [...new Set(rows.map((row) => row.creative_id).filter(Boolean))];
+  if (creativeIds.length > 0) {
+    const { data: ownRows, error: ownError } = await db
+      .from("creatives")
+      .select("id")
+      .in("id", creativeIds)
+      .eq("kind", "own");
+    if (!ownError) {
+      const ownIds = new Set((ownRows ?? []).map((row) => row.id));
+      for (const row of rows) row.own = ownIds.has(row.creative_id);
+    } else if (isSchemaOutdated(ownError)) {
+      warnSchemaOutdated("POST /v1/events", "0020_own_creatives.sql");
+    } else {
+      logDbError("impressions own lookup", ownError);
+    }
+  }
+
   // ignoreDuplicates leans on the impressions_event_unique index (migration 0002).
   let { data, error: insertError } = await db
     .from("impressions")
@@ -110,7 +129,7 @@ export const POST = guarded(async function POST(request) {
     ({ data, error: insertError } = await db
       .from("impressions")
       .upsert(
-        rows.map(({ event_id, ...rest }) => rest),
+        rows.map(({ event_id, own, ...rest }) => rest),
         { onConflict: "game_id,session_id,placement_id,creative_id", ignoreDuplicates: true }
       )
       .select("id"));

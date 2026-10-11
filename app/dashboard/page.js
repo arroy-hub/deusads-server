@@ -144,7 +144,11 @@ async function DeveloperHome({ me }) {
 async function AdvertiserHome({ me }) {
   const { service, user } = me;
   const [{ data: creatives }, { data: campaigns }, { bookings }] = await Promise.all([
-    service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id),
+    service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id).neq("kind", "own").then((result) =>
+      isSchemaOutdated(result.error)
+        ? service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id)
+        : result
+    ),
     service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     loadBookings(service, (query) => query.eq("advertiser_id", user.id)),
   ]);
