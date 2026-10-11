@@ -3804,3 +3804,10 @@ th.num .sort-button {
   width: 9.5rem;
   min-width: 0;
 }
+
+.org-icon-small {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  line-height: 1;
+}

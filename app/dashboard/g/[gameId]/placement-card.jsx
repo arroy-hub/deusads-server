@@ -417,8 +417,8 @@ function Tags({ org }) {
   // Nobody in this game has a tag yet: type any name. Otherwise pick one that exists, or choose "New tag…".
   const known = [...new Set([...org.items.values()].flatMap((entry) => entry.tags))].sort((a, b) => a.localeCompare(b));
   const typing_only = known.length === 0;
-  const typing = typing_only;
   const [choice, setChoice] = useState("");
+  const typing = typing_only || choice === NEW_TAG;
   const offered = known.filter((tag) => !shown.includes(tag));
   const tagToAdd = typing_only ? text.trim() : choice === NEW_TAG ? text.trim() : choice;
   const undo = () => {
@@ -466,10 +466,26 @@ function Tags({ org }) {
       >
         <div className="org-val">
           {typing ? (
-            <input className="field org-tag-field" value={text} maxLength={30} placeholder="Add a tag" onChange={(event) => setText(event.target.value)} aria-label="New tag" />
+            <input
+              className="field org-tag-field"
+              value={text}
+              maxLength={30}
+              placeholder={choice === NEW_TAG ? "Name of the new tag" : "Add a tag"}
+              autoFocus={choice === NEW_TAG}
+              onChange={(event) => setText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && !typing_only) {
+                  setChoice("");
+                  setText("");
+                }
+              }}
+              aria-label="New tag"
+            />
           ) : (
             <select className="field org-tag-field" value={choice} aria-label="Tag" onChange={(event) => setChoice(event.target.value)}>
-              <option value="">Add a tag…</option>
+              <option value="" disabled hidden>
+                Add a tag…
+              </option>
               {offered.map((tag) => (
                 <option key={tag} value={tag}>
                   {tag}
@@ -478,13 +494,24 @@ function Tags({ org }) {
               <option value={NEW_TAG}>New tag…</option>
             </select>
           )}
+          {!typing_only && choice === NEW_TAG && (
+            <button
+              type="button"
+              className="org-icon-button org-icon-small"
+              aria-label="Back to the list of tags"
+              title="Back to the list"
+              onClick={() => {
+                setChoice("");
+                setText("");
+              }}
+            >
+              ×
+            </button>
+          )}
           <button className="button button-quiet button-small" type="submit" disabled={!tagToAdd}>
             {pending ? <Spinner /> : "Add"}
           </button>
         </div>
-        {!typing_only && choice === NEW_TAG && (
-          <input className="field org-tag-field" value={text} maxLength={30} placeholder="Name of the new tag" autoFocus onChange={(event) => setText(event.target.value)} aria-label="New tag name" />
-        )}
       </form>
       <Message message={message} />
     </>
