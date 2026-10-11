@@ -5,12 +5,21 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 
 const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
 
-assert.deepEqual(labels("developer"), ["Home", "My games", "Ad requests", "Notifications"]);
-assert.deepEqual(labels("advertiser"), ["Home", "Creatives", "Find placements", "Campaigns", "Reports", "Notifications"]);
-assert.equal(labels("admin").slice(0, 6).join(), "Inbox,Creatives,Applications,All bookings,People,System");
+assert.deepEqual(labels("developer"), ["Home", "My games", "Now showing"]);
+assert.deepEqual(labels("advertiser"), ["Home", "Creatives", "Find placements", "Campaigns", "Reports"]);
+assert.equal(labels("admin").slice(0, 4).join(), "Review creatives,All bookings,Users,System");
+assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
+assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
+// an admin's own library is not confused with the review page
+assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives,Creatives");
 assert.ok(labels("admin").includes("My games"), "an admin keeps their own developer and advertiser tools");
+// an admin has the whole advertiser menu and the whole developer menu, in two labelled sections
+const adminGroups = menuFor("admin");
+const section = (heading) => adminGroups.find((group) => group.heading === heading)?.items.map((item) => item.label).join();
+assert.equal(section("As an advertiser"), labels("advertiser").filter((label) => label !== "Home").join());
+assert.equal(section("As a developer"), labels("developer").filter((label) => label !== "Home").join());
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
-assert.equal(homeFor("admin"), "/dashboard/admin/inbox");
+assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard");
 
 // badges
@@ -22,6 +31,14 @@ const home = { href: "/dashboard", exact: true };
 const games = { href: "/dashboard/games" };
 assert.ok(isActive(home, "/dashboard") && !isActive(home, "/dashboard/games"));
 assert.ok(isActive(games, "/dashboard/games") && !isActive(games, "/dashboard/gamesx"));
+
+// the waiting count shows on the review page; a game's own pages stay inside "My games"
+const review = menuFor("admin", { inbox: 4 }).flatMap((group) => group.items).find((item) => item.key === "modCreatives");
+assert.equal(review.badge, 4);
+const myGames = menuFor("developer", {}, [{ href: "/dashboard/g/1", label: "A" }])[0].items.find((item) => item.key === "games");
+assert.ok(isActive(myGames, "/dashboard/g/1") && isActive(myGames, "/dashboard/g/1/anything") && isActive(myGames, "/dashboard/games"));
+assert.ok(!isActive(myGames, "/dashboard/gx") && !isActive(myGames, "/dashboard"));
+assert.equal(myGames.children.length, 1);
 
 // developer steps: one "next", in order
 const states = (counts) => developerSteps(counts).map((step) => step.state).join();

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reviewCreative } from "./actions";
+import { reviewAsset, reviewCreative } from "./actions";
 
 /** One creative in the moderation lists: preview, owner, and the decision buttons. */
 export default function ReviewRow({ creative, canNote }) {
@@ -15,7 +15,8 @@ export default function ReviewRow({ creative, canNote }) {
   async function decide(decision) {
     setBusy(true);
     setError("");
-    const result = await reviewCreative({ creativeId: creative.id, decision, note }).catch(() => ({
+    const act = creative.kind === "asset" ? () => reviewAsset({ assetId: creative.id, decision, note }) : () => reviewCreative({ creativeId: creative.id, decision, note });
+    const result = await act().catch(() => ({
       error: "Connection lost. Try again.",
     }));
     setBusy(false);

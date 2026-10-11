@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
+import { formatLabel } from "../../../lib/formats";
 import ReviewRow from "./review-row";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Creatives" };
+export const metadata = { title: "Review creatives" };
 
 const COLUMNS = "id, name, storage_path, width_px, height_px, status, created_at, accounts(email, company)";
 
@@ -54,14 +55,36 @@ export default async function ModerationPage() {
     reviewed = data ?? [];
   }
 
+  // Extra per-format pictures waiting for review (migration 0017; absent before it).
+  const assetResult = await service
+    .from("creative_assets")
+    .select("id, aspect, storage_path, width_px, height_px, status, created_at, format_id, creatives(name, owner_id, accounts(email, company))")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  const pendingAssets = assetResult.error
+    ? []
+    : (assetResult.data ?? []).map((row) => ({
+        id: row.id,
+        kind: "asset",
+        name: `${row.creatives?.name ?? "Creative"} · ${formatLabel(row.format_id)}`,
+        url: urlOf(row.storage_path),
+        size: row.width_px && row.height_px ? `${row.width_px} × ${row.height_px}` : "—",
+        status: row.status,
+        note: "",
+        owner: row.creatives?.accounts?.company || row.creatives?.accounts?.email || "Unknown",
+        email: row.creatives?.accounts?.email ?? "",
+        created: String(row.created_at).slice(0, 10),
+      }));
+
   return (
     <>
       <div className="main-head">
-        <h1>Creatives</h1>
+        <h1>Review creatives</h1>
       </div>
       <p className="lede">
-        Creatives from advertisers wait here until someone approves them. Only approved creatives
-        reach the SDK; rejecting one that is already showing takes it off its placements at once.
+        Everything that waits for an admin is here: new creatives, extra images for other formats, and what
+        was reviewed lately. Only approved creatives reach the SDK; rejecting one that is already showing
+        takes it off its placements at once. Bookings approve themselves.
       </p>
 
       {!migrated && (
@@ -86,6 +109,21 @@ export default async function ModerationPage() {
         <div className="empty">
           <p style={{ margin: "0 auto" }}>Nothing is waiting for review.</p>
         </div>
+      )}
+
+      {pendingAssets.length > 0 && (
+        <>
+          <h2 style={{ margin: "2.5rem 0 0.75rem" }}>Format images waiting for review ({pendingAssets.length})</h2>
+          <div className="panel" style={{ padding: 0 }}>
+            <table>
+              <tbody>
+                {pendingAssets.map((item) => (
+                  <ReviewRow key={item.id} creative={item} canNote />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {reviewed.length > 0 && (

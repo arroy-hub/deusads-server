@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createBooking } from "../actions";
-import { fitNote } from "../../../../lib/booking-rules";
+import MultiPick from "../../multi-pick";
+import { formatLabel, formatOf, pickImage } from "../../../../lib/formats";
+import { FIELDS, PROFILE_KEYS, countFitting, evaluate, hasTargeting, targetingSummary, whyNot } from "../../../../lib/targeting";
 
-/** Creative + campaign + a checklist of placements grouped by game. */
-export default function BookingForm({ creatives, campaigns, games }) {
+/**
+ * Creative + campaign + a checklist of placements grouped by game.
+ * `aimable`: the database knows what each game is (migration 0018), so the list can say which games
+ * fit the creative's audience and can be filtered. A booking is accepted for any game: the audience
+ * only decides where the ad appears.
+ */
+export default function BookingForm({ creatives, campaigns, games, aimable = false }) {
   const router = useRouter();
-  const usable = creatives.filter((item) => item.approved);
+  // Creatives still in review can be booked: the booking starts when the creative is approved.
+  const usable = creatives.filter((item) => item.status !== "rejected");
 
   const [creativeId, setCreativeId] = useState(usable[0]?.id ?? "");
   const [campaignId, setCampaignId] = useState(""); // "" = a new campaign
@@ -16,10 +25,27 @@ export default function BookingForm({ creatives, campaigns, games }) {
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
   const [picked, setPicked] = useState(() => new Set());
+  const [filters, setFilters] = useState({ genres: [], platforms: [], languages: [] });
+  const [fitOnly, setFitOnly] = useState(false);
   const chosen = usable.find((item) => item.id === creativeId);
   const today = new Date().toISOString().slice(0, 10);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // Which games the chosen creative's audience allows, and which the filters leave in the list.
+  const targeting = chosen?.targeting ?? null;
+  const aimed = aimable && hasTargeting(targeting);
+  const filtering = aimable && PROFILE_KEYS.some((key) => filters[key].length > 0);
+  const fitOf = (game) => evaluate(game.profile, targeting);
+  const fitting = aimed ? countFitting(games.map((game) => game.profile), targeting) : games.length;
+  const shownGames = games.filter((game) => {
+    if (aimed && fitOnly && !fitOf(game).fits) return false;
+    if (filtering && !evaluate(game.profile, filters).fits) return false;
+    return true;
+  });
+  // A placement hidden by a filter is not booked, even if it was ticked before.
+  const visibleIds = new Set(shownGames.flatMap((game) => game.placements.map((placement) => placement.id)));
+  const chosenIds = [...picked].filter((id) => visibleIds.has(id));
 
   const toggle = (id) =>
     setPicked((current) => {
@@ -38,7 +64,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
       campaignId: campaignId || undefined,
       campaignName,
       creativeId,
-      placementIds: [...picked],
+      placementIds: chosenIds,
       startsOn,
       endsOn,
     }).catch(() => ({ error: "Connection lost. Try again." }));
@@ -52,10 +78,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
     return (
       <div className="empty">
         <p style={{ margin: "0 auto" }}>
-          You have no approved creatives yet.{" "}
-          {creatives.some((item) => item.status === "pending")
-            ? "Yours are waiting for review."
-            : "Upload one under Creatives."}
+          You have no usable creatives yet. Upload one under Creatives.
         </p>
       </div>
     );
@@ -69,6 +92,7 @@ export default function BookingForm({ creatives, campaigns, games }) {
           <option key={item.id} value={item.id}>
             {item.name}
             {item.size ? ` (${item.size})` : ""}
+            {item.status === "pending" ? " — in review" : ""}
           </option>
         ))}
       </select>
@@ -104,23 +128,86 @@ export default function BookingForm({ creatives, campaigns, games }) {
         <input id="ends-on" className="field" type="date" min={startsOn || today} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} disabled={busy} />
       </div>
       <p className="settings-help">
-        Leave empty to start as soon as both sides approve and run until you stop it. Days are UTC.
+        Leave empty to start right away and run until you stop it. Days are UTC. If the creative is still in review, the ads start when it is approved.
       </p>
 
       <div className="settings-title">Placements</div>
+      {aimable && games.length > 0 && chosen && (
+        <div className="audience-box">
+          {aimed ? (
+            <>
+              <p className="audience-line">
+                This creative's audience: {targetingSummary(targeting)}.{" "}
+                <span className="muted-line">
+                  {fitting} of {games.length} {games.length === 1 ? "game" : "games"} in the catalog fit{fitting === 1 ? "s" : ""}.
+                </span>{" "}
+                <Link href={`/dashboard/creatives/${chosen.id}`}>Change the audience</Link>
+              </p>
+              {fitting === 0 && (
+                <p className="notice">
+                  No game fits this audience yet. You can still book: the booking is accepted and the creative
+                  starts showing as soon as a matching game opens a placement.
+                </p>
+              )}
+              <label className="pick-item">
+                <input type="checkbox" checked={fitOnly} onChange={(event) => setFitOnly(event.target.checked)} disabled={busy} />
+                <span>Show only games that fit</span>
+              </label>
+            </>
+          ) : (
+            <p className="settings-help">
+              No audience set: this creative can show in every game.{" "}
+              <Link href={`/dashboard/creatives/${chosen.id}`}>Aim it at certain games</Link>
+            </p>
+          )}
+          <details className="filter-box" open={filtering || undefined}>
+            <summary>Filter the games{filtering ? " (on)" : ""}</summary>
+            <div className="stack">
+              {PROFILE_KEYS.map((key) => (
+                <MultiPick
+                  key={key}
+                  label={FIELDS[key].label}
+                  options={FIELDS[key].options}
+                  value={filters[key]}
+                  onChange={(next) => setFilters({ ...filters, [key]: next })}
+                  searchable={key === "languages"}
+                  disabled={busy}
+                />
+              ))}
+              {filtering && (
+                <div className="row">
+                  <button type="button" className="button button-quiet" onClick={() => setFilters({ genres: [], platforms: [], languages: [] })}>
+                    Clear filters
+                  </button>
+                  <span className="muted-line">Games that have not filled in a list you filter by are hidden.</span>
+                </div>
+              )}
+            </div>
+          </details>
+        </div>
+      )}
       {games.length === 0 ? (
         <p className="settings-help">No placements are available yet.</p>
+      ) : shownGames.length === 0 ? (
+        <p className="settings-help">No game matches. Change or clear the filters.</p>
       ) : (
-        games.map((game) => (
-          <fieldset key={game.name} className="pick-group">
-            <legend>{game.name}</legend>
+        shownGames.map((game) => (
+          <fieldset key={game.id ?? game.name} className="pick-group">
+            <legend>
+              {game.name}
+              {aimed && (
+                <span className={`fit-badge ${fitOf(game).fits ? "is-fit" : "is-miss"}`}>
+                  {fitOf(game).fits ? "fits the audience" : `won't show here: ${whyNot(fitOf(game).problems)}`}
+                </span>
+              )}
+            </legend>
             {game.placements.map((placement) => (
-              <label key={placement.id} className={`pick-item ${placement.booked ? "is-booked" : ""}`}>
+              <label key={placement.id} className="pick-item">
                 <input
                   type="checkbox"
                   checked={picked.has(placement.id)}
                   onChange={() => toggle(placement.id)}
-                  disabled={busy || placement.booked}
+                  disabled={busy}
                 />
                 <span
                   className="pick-shape"
@@ -133,8 +220,8 @@ export default function BookingForm({ creatives, campaigns, games }) {
                     {[
                       placement.scene && `scene ${placement.scene}`,
                       placement.aspect && `${placement.aspect.toFixed(2)}:1`,
-                      placement.booked && "already booked",
-                      chosen && fitNote({ width: chosen.width, height: chosen.height, aspect: placement.aspect }),
+                      placement.aspect && formatLabel(formatOf(placement.aspect)),
+                      chosen && coverageNote(chosen, placement.aspect),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -152,10 +239,26 @@ export default function BookingForm({ creatives, campaigns, games }) {
         </div>
       )}
       <div className="row">
-        <button className="button" type="submit" disabled={busy || picked.size === 0 || (!campaignId && !campaignName.trim())}>
-          {busy ? "Sending…" : `Request ${picked.size || ""} ${picked.size === 1 ? "placement" : "placements"}`.replace("  ", " ")}
+        <button className="button" type="submit" disabled={busy || chosenIds.length === 0 || (!campaignId && !campaignName.trim())}>
+          {busy ? "Booking…" : `Book ${chosenIds.length || ""} ${chosenIds.length === 1 ? "placement" : "placements"}`.replace("  ", " ")}
         </button>
       </div>
     </form>
   );
+}
+
+/** How the chosen creative would appear on a placement of this shape. */
+function coverageNote(creative, aspect) {
+  if (!aspect) return null;
+  const pick = pickImage({
+    creative: {
+      aspect: creative.width && creative.height ? creative.width / creative.height : null,
+      safeZone: creative.safe,
+    },
+    assets: creative.assets ?? [],
+    surfaceAspect: aspect,
+  });
+  if (pick.kind === "asset") return "your image for this format";
+  if (pick.kind === "crop") return "your image, auto-cropped";
+  return "won't be shown here: add an image for this format";
 }

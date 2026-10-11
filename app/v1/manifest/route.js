@@ -10,6 +10,9 @@ import {
 } from "../../../lib/api";
 import { cropFromRow } from "../../../lib/surface-math";
 import { syncBookingSchedule } from "../../../lib/schedule";
+import { rotate } from "../../../lib/rotation";
+import { choosePictures } from "../../../lib/manifest-pick";
+import { eligibleRows } from "../../../lib/targeting";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +38,10 @@ export const GET = guarded(async function GET(request) {
 
   // Newest schema first; each step back drops what a missing migration added.
   const attempts = [
-    { skipRemoved: true, withCrop: true },
+    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, withTargeting: true },
+    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, migration: "0018_targeting.sql" },
+    { skipRemoved: true, withCrop: true, withSource: true, migration: "0017_ad_formats.sql" },
+    { skipRemoved: true, withCrop: true, migration: "0015_open_marketplace.sql" },
     { skipRemoved: true, withCrop: false, migration: "0003_assignment_crop.sql" },
     { skipRemoved: false, withCrop: false, migration: "0002_placement_sync_and_events.sql" },
   ];
@@ -54,24 +60,102 @@ export const GET = guarded(async function GET(request) {
   }
 
   // crop is always present; SDKs before 0.5 ignore it and cover-fit as before.
-  const placements = (data ?? []).map((row) => ({
+  // Several advertisers may rotate on one placement: one creative per placement per
+  // session. Without migration 0015 every row counts as the developer's own.
+  const rows = (data ?? []).map((row) => ({
+    placementId: row.placements.external_id,
+    source: row.source ?? "own",
+    advertiserId: row.creatives.owner_id ?? null,
+    creativeId: row.creatives.id,
+    row,
+  }));
+
+  // A booked creative may ask for a kind of game (migration 0018): genres, platforms, languages.
+  // Those that do not fit this game are dropped before the rotation, so the placement shows
+  // another advertiser or the developer's own creative. The game's own description is read only
+  // when some booked creative has an audience; a game that has not filled in what a creative
+  // asks for does not get it (strict).
+  const targeted = rows.some((item) => item.source === "booking" && item.row.creatives.targeting != null);
+  const eligible = targeted ? eligibleRows(rows, await loadProfile(db, game)) : rows;
+
+  // Which picture each booked creative shows on each placement (migration 0017).
+  // Where no picture fits the placement's shape the pair is dropped before the
+  // rotation, so the placement shows another advertiser or the developer's own creative.
+  const assetsOf = await loadAssets(db, eligible);
+  const { servable, shown } = choosePictures(eligible, assetsOf, (path) => creativeUrl(db, path));
+  // A suspended account's ads stop being served (suspended_at comes with migration 0015).
+  const owners = [...new Set(servable.map((item) => item.advertiserId).filter(Boolean))];
+  let suspended = new Set();
+  if (owners.length) {
+    const { data: off, error: offError } = await db
+      .from("accounts")
+      .select("id")
+      .in("id", owners)
+      .not("suspended_at", "is", null);
+    if (!offError) suspended = new Set((off ?? []).map((account) => account.id));
+  }
+  const placements = rotate(servable.filter((item) => !suspended.has(item.advertiserId))).map(({ row }) => ({
     id: row.placements.external_id,
     creativeId: row.creatives.id,
-    imageUrl: creativeUrl(db, row.creatives.storage_path),
-    crop: cropFromRow(row),
+    imageUrl: shown.get(row).imageUrl,
+    crop: shown.get(row).crop,
   }));
 
   return json({ version: 1, placements });
 });
 
-function activeAssignments(db, game, { skipRemoved, withCrop }) {
+/**
+ * What the developer said about this game: { genres, platforms, languages }. Null when it could
+ * not be read; creatives with an audience then do not show (failing closed is the safe side, and
+ * the manifest is asked again at the next start).
+ */
+async function loadProfile(db, game) {
+  const { data, error } = await db
+    .from("games")
+    .select("genres, platforms, languages")
+    .eq("id", game.id)
+    .maybeSingle();
+  if (error) {
+    if (isSchemaOutdated(error)) warnSchemaOutdated("GET /v1/manifest", "0018_targeting.sql");
+    else logDbError("manifest game profile", error);
+    return null;
+  }
+  return data ?? null;
+}
+
+/** Approved per-format images of the booked creatives, by creative id. Empty before migration 0017. */
+async function loadAssets(db, rows) {
+  const ids = [...new Set(rows.filter((item) => item.source === "booking").map((item) => item.creativeId))];
+  const byCreative = new Map();
+  if (!ids.length) return byCreative;
+  const { data, error } = await db
+    .from("creative_assets")
+    .select("id, creative_id, format_id, aspect, storage_path, status")
+    .in("creative_id", ids)
+    .eq("status", "approved");
+  if (error) return byCreative;
+  for (const asset of data ?? []) {
+    if (!byCreative.has(asset.creative_id)) byCreative.set(asset.creative_id, []);
+    byCreative.get(asset.creative_id).push({
+      id: asset.id,
+      formatId: asset.format_id,
+      aspect: Number(asset.aspect),
+      status: asset.status,
+      storagePath: asset.storage_path,
+    });
+  }
+  return byCreative;
+}
+
+function activeAssignments(db, game, { skipRemoved, withCrop, withSource, withFormats, withTargeting }) {
   let query = db
     .from("assignments")
     .select(
       `
       ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
-      placements!inner ( external_id ),
-      creatives!inner ( id, storage_path, status )
+      ${withSource ? "source," : ""}
+      placements!inner ( external_id${withFormats ? ", aspect_ratio" : ""} ),
+      creatives!inner ( id, storage_path, status, owner_id${withFormats ? ", width_px, height_px, safe_x, safe_y, safe_w, safe_h" : ""}${withTargeting ? ", targeting" : ""} )
     `
     )
     .eq("owner_id", game.owner_id)

@@ -24,9 +24,7 @@ const row = (status, admin_decision, developer_decision) => ({ status, admin_dec
 assert.equal(bookingLabel(row("approved", "approved", "approved")), "Live");
 assert.equal(bookingLabel(row("rejected", "approved", "rejected")), "Rejected");
 assert.equal(bookingLabel(row("cancelled", "pending", "pending")), "Cancelled");
-assert.equal(bookingLabel(row("pending", "approved", "pending")), "Waiting for the developer");
-assert.equal(bookingLabel(row("pending", "pending", "approved")), "Waiting for DeusADS review");
-assert.equal(bookingLabel(row("pending", "pending", "pending")), "Waiting for DeusADS review and the developer");
+assert.equal(bookingLabel(row("pending", "pending", "pending")), "Waiting for the creative to be approved");
 
 // campaign names
 assert.equal(cleanCampaignName("  Autumn push  "), "Autumn push");

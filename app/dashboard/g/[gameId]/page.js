@@ -2,12 +2,15 @@ import { notFound } from "next/navigation";
 import { userClient } from "../../../../lib/supabase-server";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
-import { fillDays, formatCount, placementRows } from "../../../../lib/analytics";
-import ApiKey from "./api-key";
+import { formatLabel, formatOf } from "../../../../lib/formats";
+import { fillDays, formatCount, parsePlacementFilter, placementRows, splitOwnDays } from "../../../../lib/analytics";
+import { gapWords, profileGaps } from "../../../../lib/targeting";
 import DailyChart from "./daily-chart";
-import GameSettings from "./game-settings";
+import GameIcon from "../../game-icon";
+import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
+import PlacementStats from "./placement-stats";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -29,28 +32,27 @@ const TABS = [
 
 export default async function GamePage({ params, searchParams }) {
   const { gameId } = await params;
-  const { tab: requested } = await searchParams;
+  const { tab: requested, p: pickedParam, all: allParam } = await searchParams;
+  // Performance counts the developer's own pictures apart; ?all=1 folds them into one figure.
+  const combined = allParam === "1";
   const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
   const db = await userClient();
 
-  const { data: game } = await db
-    .from("games")
-    .select("id, name, api_key")
-    .eq("id", gameId)
-    .maybeSingle();
+  // What the game is (genres, platforms, languages) comes with migration 0018, its icon with 0019.
+  const readGame = (columns) => db.from("games").select(columns).eq("id", gameId).maybeSingle();
+  let { data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages, icon_path");
+  const iconsReady = !isSchemaOutdated(gameError);
+  if (!iconsReady) ({ data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages"));
+  if (isSchemaOutdated(gameError)) ({ data: game } = await readGame("id, name, api_key"));
 
   if (!game) notFound();
+  const gaps = profileGaps(game);
+  const iconUrl = game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : "";
 
-  const [placementResult, { data: creatives }, stats, analytics] =
+  const [placementResult, stats] =
     await Promise.all([
-      livePlacements(db, gameId, { skipRemoved: true, withCrop: true }),
-      db
-        .from("creatives")
-        .select("id, name, storage_path, width_px, height_px")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false }),
+      livePlacements(db, gameId, { skipRemoved: true, withCrop: true, withSource: true }),
       gameStats(db, gameId),
-      gameAnalytics(db, gameId, ANALYTICS_DAYS),
     ]);
 
   if (placementResult.error) {
@@ -67,6 +69,10 @@ export default async function GamePage({ params, searchParams }) {
   // no framing (cards say how to enable it), without 0002 nothing is hidden.
   let cropEnabled = true;
   let { data: placements, error: placementError } = placementResult;
+  // Without migration 0015 assignments have no source: they are all the developer's own.
+  if (isSchemaOutdated(placementError)) {
+    ({ data: placements, error: placementError } = await livePlacements(db, gameId, { skipRemoved: true, withCrop: true }));
+  }
   if (isSchemaOutdated(placementError)) {
     cropEnabled = false;
     ({ data: placements, error: placementError } = await livePlacements(db, gameId, { skipRemoved: true }));
@@ -85,6 +91,9 @@ export default async function GamePage({ params, searchParams }) {
       hidden: all.length - rows.length,
     });
   }
+  // Which placements the Performance chart counts: those ticked in the table (all when none).
+  const onlyPlacements = parsePlacementFilter(pickedParam, rows.map((row) => row.id));
+  const analytics = tab === "performance" ? await gameAnalytics(db, gameId, ANALYTICS_DAYS, onlyPlacements, combined) : null;
   // "Open to advertisers" needs migration 0014; without it the switch is left out.
   const { data: openRows, error: openError } = await db
     .from("placements")
@@ -92,30 +101,43 @@ export default async function GamePage({ params, searchParams }) {
     .eq("game_id", gameId);
   const openOf = openError ? null : new Map((openRows ?? []).map((row) => [row.id, Boolean(row.open_to_advertisers)]));
   const openCount = openOf ? rows.filter((row) => openOf.get(row.id)).length : null;
-  const assigned = rows.filter((row) => activeAssignment(row)).length;
-
-  // URLs are built once here, so the cards can swap images without asking the server.
-  const library = (creatives ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    width_px: item.width_px,
-    height_px: item.height_px,
-    url: db.storage.from("creatives").getPublicUrl(item.storage_path).data.publicUrl,
-  }));
+  const withPictures = rows.filter((row) => ownAssignments(row).length > 0).length;
 
   return (
     <>
       <div className="main-head">
-        <h1>{game.name}</h1>
-        <ApiKey value={game.api_key} />
+        <div className="game-title">
+          <GameIcon name={game.name} url={iconUrl} size="sm" />
+          <h1>{game.name}</h1>
+        </div>
       </div>
+      {gaps.known && gaps.missing.length > 0 && (
+        <p className="notice" style={{ marginBottom: "1rem" }}>
+          Tell advertisers what this game is: fill in its {gapWords(gaps.missing)}. Ads aimed at a genre,
+          platform or language only show in games that have said what they are.{" "}
+          {tab !== "settings" && <Link href={`/dashboard/g/${game.id}?tab=settings`}>Fill it in</Link>}
+        </p>
+      )}
       {tab === "placements" && (
         <p className="lede">
-          Placements the SDK found in your game. Pick a creative for each one; changes reach players the
-          next time they start the game, no new build.
+          The ad spaces the SDK found in your game. Add your own pictures to each one (up to 5): they show in
+          turn whenever no advertiser is booked. Switch a placement on to open it to advertisers and list it in their catalog.
           {openOf
-            ? ` ${openCount} of ${rows.length} are open to advertisers: switch one on to list it in the advertiser catalog.`
-            : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."}
+            ? ` ${openCount} of ${rows.length} are open.`
+            : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."}{" "}
+          Changes reach players the next time they start the game, no new build needed.
+        </p>
+      )}
+      {tab === "performance" && (
+        <p className="lede">
+          How often ads were shown in this game, by day and by placement. A view counts when a player had the
+          placement on screen. Tick placements in the table to count only them in the chart.
+        </p>
+      )}
+      {tab === "settings" && (
+        <p className="lede">
+          Icon, name and what the game is for advertisers; Save applies them together. The API key and deleting the game
+          are separate and ask first.
         </p>
       )}
 
@@ -136,13 +158,21 @@ export default async function GamePage({ params, searchParams }) {
             <div className="figure-label">Placements</div>
           </div>
           <div>
-            <div className="figure-value">{assigned}</div>
-            <div className="figure-label">Showing a creative</div>
+            <div className="figure-value">{withPictures}</div>
+            <div className="figure-label">With own pictures</div>
           </div>
           <div>
-            <div className="figure-value">{stats.impressions}</div>
-            <div className="figure-label">Impressions</div>
+            <div className="figure-value">
+              {formatCount(stats.own != null && !combined ? Math.max(0, stats.impressions - stats.own) : stats.impressions)}
+            </div>
+            <div className="figure-label">{combined ? "Impressions, all" : "Impressions"}</div>
           </div>
+          {stats.own != null && !combined && (
+            <div>
+              <div className="figure-value">{formatCount(stats.own)}</div>
+              <div className="figure-label">Own pictures</div>
+            </div>
+          )}
           <div>
             <div className="figure-value">
               {stats.sessions}
@@ -151,6 +181,16 @@ export default async function GamePage({ params, searchParams }) {
             <div className="figure-label">Sessions</div>
           </div>
         </div>
+        {stats.own != null && (
+          <p className="muted-line" style={{ margin: "0.75rem 0 0" }}>
+            {combined
+              ? "Views of your own pictures are counted together with advertisers' views."
+              : "Views of your own pictures are counted apart from advertisers' views."}{" "}
+            <Link href={`/dashboard/g/${game.id}?${new URLSearchParams({ tab: "performance", ...(pickedParam ? { p: pickedParam } : {}), ...(combined ? {} : { all: "1" }) })}`}>
+              {combined ? "Count them apart" : "Combine into one figure"}
+            </Link>
+          </p>
+        )}
       </div>
 
 
@@ -164,41 +204,29 @@ export default async function GamePage({ params, searchParams }) {
               <h2 id="daily-title">Impressions per day</h2>
               <span className="analytics-sub">
                 Last {ANALYTICS_DAYS} days · UTC ·{" "}
-                {formatCount(analytics.days.reduce((sum, day) => sum + day.impressions, 0))} in total
+                {analytics.filtered
+                  ? `${onlyPlacements.length} of ${rows.length} placements`
+                  : "all placements"}{" "}
+                · {formatCount(analytics.days.reduce((sum, day) => sum + day.impressions, 0))} in total
               </span>
             </div>
             <DailyChart days={analytics.days} />
           </section>
 
+          {onlyPlacements.length > 0 && !analytics.filtered && (
+            <p className="notice">
+              Run <code>supabase/migrations/0019_game_icon_and_placement_stats.sql</code> in the Supabase SQL editor
+              to count the chart for chosen placements only.
+            </p>
+          )}
+
           {rows.length > 0 && (
-            <section className="panel analytics" aria-labelledby="by-placement-title" style={{ padding: 0 }}>
-              <h2 id="by-placement-title" style={{ padding: "1.25rem 1.25rem 0.5rem" }}>
-                By placement
-              </h2>
-              <table className="placement-table">
-                <thead>
-                  <tr>
-                    <th>Placement</th>
-                    <th className="num">Impressions</th>
-                    <th className="num">Sessions</th>
-                    <th className="num">Avg. visible</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {placementRows(rows, analytics.placements).map((row) => (
-                    <tr key={row.id} className={row.removed ? "is-removed" : undefined}>
-                      <td>
-                        {row.label}
-                        {row.scene && <span className="muted">{row.scene}</span>}
-                      </td>
-                      <td className="num">{formatCount(row.impressions)}</td>
-                      <td className="num">{row.sessions == null ? "—" : formatCount(row.sessions)}</td>
-                      <td className="num">{row.avgVisible == null ? "—" : `${row.avgVisible.toFixed(1)} s`}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+            <PlacementStats
+              gameId={game.id}
+              rows={placementRows(rows, analytics.placements, analytics.ownPlacements, combined)}
+              combined={combined}
+              selected={onlyPlacements}
+            />
           )}
         </>
       )}
@@ -217,7 +245,6 @@ export default async function GamePage({ params, searchParams }) {
             <Surface
               key={row.id}
               placement={row}
-              library={library}
               db={db}
               cropEnabled={cropEnabled}
             >
@@ -227,7 +254,16 @@ export default async function GamePage({ params, searchParams }) {
         </div>
       ))}
 
-      {tab === "settings" && <GameSettings gameId={game.id} name={game.name} />}
+      {tab === "settings" && (
+        <SettingsTab
+          gameId={game.id}
+          name={game.name}
+          apiKey={game.api_key}
+          iconUrl={iconUrl}
+          iconsReady={iconsReady}
+          profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
+        />
+      )}
     </>
   );
 }
@@ -237,17 +273,38 @@ export default async function GamePage({ params, searchParams }) {
  * Null when the database does not have the functions yet: the page then just
  * leaves the analytics out rather than failing.
  */
-async function gameAnalytics(db, gameId, days) {
-  const [daily, perPlacement] = await Promise.all([
-    db.rpc("game_daily", { p_game_id: gameId, p_days: days }),
+async function gameAnalytics(db, gameId, days, onlyPlacements = [], combined = false) {
+  // With placements picked, the per-day figures count only them (migration 0019); the table
+  // always lists every placement. Without that function the chart keeps showing the whole game.
+  const wholeGame = () => db.rpc("game_daily", { p_game_id: gameId, p_days: days });
+  const chosen =
+    onlyPlacements.length > 0
+      ? await db.rpc("game_daily_by_placement", { p_game_id: gameId, p_days: days, p_placement_ids: onlyPlacements })
+      : null;
+  const filtered = Boolean(chosen && !chosen.error);
+  const [daily, perPlacement, ownDaily, ownPlacements] = await Promise.all([
+    filtered ? chosen : wholeGame(),
     db.rpc("game_placement_stats", { p_game_id: gameId, p_days: days }),
+    // Views of the developer's own pictures (migration 0020); absent before it.
+    db.rpc("game_own_daily", {
+      p_game_id: gameId,
+      p_days: days,
+      p_placement_ids: filtered ? onlyPlacements : null,
+    }),
+    db.rpc("game_own_placement_stats", { p_game_id: gameId, p_days: days }),
   ]);
+  const ownReady = !ownDaily.error && !ownPlacements.error;
   const error = daily.error ?? perPlacement.error;
   if (error) {
     console.warn("[DeusADS] dashboard: analytics unavailable (run migration 0007):", error.code, error.message);
     return null;
   }
-  return { days: fillDays(daily.data, days), placements: perPlacement.data ?? [] };
+  return {
+    days: splitOwnDays(fillDays(daily.data, days), ownReady ? ownDaily.data ?? [] : null, combined),
+    placements: perPlacement.data ?? [],
+    ownPlacements: ownReady ? ownPlacements.data ?? [] : null,
+    filtered,
+  };
 }
 
 /**
@@ -259,7 +316,10 @@ async function gameAnalytics(db, gameId, days) {
 async function gameStats(db, gameId) {
   const { data, error } = await db.rpc("game_stats", { p_game_id: gameId }).single();
   if (!error && data) {
-    return { impressions: Number(data.impressions), sessions: Number(data.sessions), sessionsApproximate: false };
+    // Own-picture views (migration 0020); null while it is not applied.
+    const ownResult = await db.rpc("game_own_stats", { p_game_id: gameId }).single();
+    const own = ownResult.error || !ownResult.data ? null : Number(ownResult.data.impressions);
+    return { impressions: Number(data.impressions), sessions: Number(data.sessions), sessionsApproximate: false, own };
   }
   if (error) console.warn("[DeusADS] dashboard: game_stats unavailable, counting from rows:", error.code, error.message);
 
@@ -273,35 +333,33 @@ async function gameStats(db, gameId) {
     impressions: total,
     sessions: new Set((rows ?? []).map((row) => row.session_id)).size,
     sessionsApproximate: total > (rows?.length ?? 0),
+    own: null,
   };
 }
 
-function Surface({ placement, library, db, cropEnabled, children }) {
-  const assignment = activeAssignment(placement);
-  const current = assignment?.creatives ?? null;
-
+function Surface({ placement, db, cropEnabled, children }) {
   const aspect = Number(placement.aspect_ratio) || 16 / 9;
   const widthM = Number(placement.width_m) || 0;
 
-  // An assigned creative that is no longer approved still shows as assigned.
-  const creatives =
-    current && !library.some((item) => item.id === current.id)
-      ? [
-          ...library,
-          {
-            id: current.id,
-            name: current.name,
-            width_px: current.width_px,
-            height_px: current.height_px,
-            url: db.storage.from("creatives").getPublicUrl(current.storage_path).data.publicUrl,
-          },
-        ]
-      : library;
+  const items = ownAssignments(placement)
+    .filter((assignment) => assignment.creatives)
+    .map((assignment) => ({
+      assignmentId: assignment.id,
+      id: assignment.creatives.id,
+      name: assignment.creatives.name,
+      url: db.storage.from("creatives").getPublicUrl(assignment.creatives.storage_path).data.publicUrl,
+      width_px: assignment.creatives.width_px,
+      height_px: assignment.creatives.height_px,
+      enabled: Boolean(assignment.active),
+      crop: cropFromRow(assignment),
+    }));
 
   const dims =
     (widthM && placement.height_m
       ? `${trim(widthM)} × ${trim(placement.height_m)} m · ${ratioLabel(aspect)}`
-      : ratioLabel(aspect)) + (placement.scene ? ` · ${placement.scene}` : "");
+      : ratioLabel(aspect)) +
+    (aspect > 0 ? ` · ${formatOf(aspect) ? formatLabel(formatOf(aspect)) : "custom shape"}` : "") +
+    (placement.scene ? ` · ${placement.scene}` : "");
 
   return (
     <SurfaceCard
@@ -309,9 +367,7 @@ function Surface({ placement, library, db, cropEnabled, children }) {
       aspect={aspect}
       label={placement.label || placement.external_id}
       dims={dims}
-      creatives={creatives}
-      savedCreativeId={current?.id ?? ""}
-      savedCrop={cropFromRow(assignment)}
+      items={items}
       cropEnabled={cropEnabled}
     >
       {children}
@@ -320,7 +376,7 @@ function Surface({ placement, library, db, cropEnabled, children }) {
 }
 
 /** Placements still in the game; ones removed by the last "Send placements" are hidden. */
-function livePlacements(db, gameId, { skipRemoved = false, withCrop = false }) {
+function livePlacements(db, gameId, { skipRemoved = false, withCrop = false, withSource = false }) {
   const columns = skipRemoved
     ? "id, external_id, label, scene, aspect_ratio, width_m, height_m, removed_at,"
     : "id, external_id, label, scene, aspect_ratio, width_m, height_m,";
@@ -329,7 +385,7 @@ function livePlacements(db, gameId, { skipRemoved = false, withCrop = false }) {
     .from("placements")
     .select(
       `${columns}
-       assignments!left ( id, active, ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
+       assignments!left ( id, active, created_at, ${withSource ? "source," : ""} ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
          creatives ( id, name, storage_path, width_px, height_px ) )`
     )
     .eq("game_id", gameId);
@@ -338,8 +394,13 @@ function livePlacements(db, gameId, { skipRemoved = false, withCrop = false }) {
   return query.order("scene", { ascending: true });
 }
 
-function activeAssignment(placement) {
-  return (placement.assignments ?? []).find((item) => item.active) ?? null;
+/** The developer's own pictures on a placement (assignments without a source are all own). */
+function ownAssignments(placement) {
+  // Always in the order the pictures were added: the database returns a row it has just updated
+  // last, which would move a picture to the end whenever it is switched on or off.
+  return (placement.assignments ?? [])
+    .filter((item) => !item.source || item.source === "own")
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || String(a.id).localeCompare(String(b.id)));
 }
 
 function trim(value) {

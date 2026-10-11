@@ -1,6 +1,6 @@
 // Pure-function checks for lib/analytics.js. Run: node test/analytics.test.mjs
 import assert from "node:assert/strict";
-import { fillDays, formatDay, lastDays, niceMax, placementRows } from "../lib/analytics.js";
+import { parsePlacementFilter, fillDays, formatDay, lastDays, niceMax, placementRows } from "../lib/analytics.js";
 
 const now = new Date("2026-10-09T00:30:00+04:00"); // 2026-10-08 20:30 UTC
 
@@ -67,3 +67,28 @@ assert.equal(placementRows(live, []).length, 3, "no folded row when nothing was 
 assert.equal(placementRows([], null).length, 0);
 
 console.log("analytics: all checks passed");
+
+// placements picked in the address
+assert.deepEqual(parsePlacementFilter("a,b", ["a", "b", "c"]), ["a", "b"]);
+assert.deepEqual(parsePlacementFilter("a,x, a", ["a", "b", "c"]), ["a"], "unknown ids and repeats are dropped");
+assert.deepEqual(parsePlacementFilter("a,b,c", ["a", "b", "c"]), [], "everything picked means the whole game");
+assert.deepEqual(parsePlacementFilter("", ["a"]), []);
+assert.deepEqual(parsePlacementFilter(undefined, ["a"]), []);
+console.log("placement filter ok");
+
+{
+  const { splitOwnDays, placementRows } = await import("../lib/analytics.js");
+  const days = [{ date: "2026-10-01", impressions: 10, sessions: 2 }];
+  const own = [{ day: "2026-10-01", impressions: 4 }];
+  assert.equal(splitOwnDays(days, own)[0].impressions, 6);
+  assert.equal(splitOwnDays(days, own)[0].own, 4);
+  assert.equal(splitOwnDays(days, own, true)[0].impressions, 10);
+  assert.equal(splitOwnDays(days, null)[0].impressions, 10);
+  const live = [{ id: "p1", label: "A" }];
+  const stats = [{ placement_id: "p1", impressions: 10, sessions: 2 }];
+  const ownStats = [{ placement_id: "p1", impressions: 3 }];
+  assert.equal(placementRows(live, stats, ownStats)[0].impressions, 7);
+  assert.equal(placementRows(live, stats, ownStats, true)[0].impressions, 10);
+  assert.equal(placementRows(live, stats, null)[0].impressions, 10);
+  console.log("own split ok");
+}

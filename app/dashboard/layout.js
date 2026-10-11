@@ -7,39 +7,55 @@ import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, unreadCount } from "../../lib/counts";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import NavLink from "./nav-link";
+import NotificationsBell from "./notifications-bell";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: { template: "%s · DeusADS", default: "DeusADS" } };
 
-/** Booking requests waiting for this user as a developer; 0 before migration 0009. */
-async function waitingRequests(db, userId) {
-  if (!userId) return 0;
-  const { count, error } = await db
-    .from("bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("developer_id", userId)
-    .eq("status", "pending")
-    .eq("developer_decision", "pending");
-  return error ? 0 : (count ?? 0);
-}
-
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
   const role = (await currentRole(db, user?.id)) ?? "developer";
-  const [requests, notifications] = await Promise.all([waitingRequests(db, user?.id), unreadCount(db, user?.id)]);
+  // A suspended account sees only this notice (column from migration 0015; absent before it).
+  const { data: standing } = user
+    ? await db.from("accounts").select("suspended_at").eq("id", user.id).maybeSingle()
+    : { data: null };
+  if (standing?.suspended_at) {
+    return (
+      <main className="main">
+        <h1>Account suspended</h1>
+        <p className="lede">This account has been switched off by DeusADS. Contact support if you think this is a mistake.</p>
+      </main>
+    );
+  }
+  const requests = 0; // bookings approve themselves: nothing waits for the developer
+  const unread = await unreadCount(db, user?.id);
+  // The latest notifications for the bell (the table comes with migration 0013; without it: none).
+  const { data: latest } = user
+    ? await db
+        .from("notifications")
+        .select("id, text, link, created_at, read_at")
+        .order("created_at", { ascending: false })
+        .limit(15)
+    : { data: null };
   const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
-  const { data: games } = await db
+  // The icon of a game (migration 0019) shows in the menu; without it the plain list still loads.
+  let { data: games, error: gamesError } = await db
     .from("games")
-    .select("id, name")
+    .select("id, name, icon_path")
     .order("created_at", { ascending: true });
+  if (gamesError) ({ data: games } = await db.from("games").select("id, name").order("created_at", { ascending: true }));
 
   const groups = menuFor(
     role,
-    { requests, notifications, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
-    (games ?? []).map((game) => ({ href: `/dashboard/g/${game.id}`, label: game.name }))
+    { requests, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
+    (games ?? []).map((game) => ({
+      href: `/dashboard/g/${game.id}`,
+      label: game.name,
+      icon: game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : null,
+    }))
   );
 
   return (
@@ -67,16 +83,16 @@ export default async function DashboardLayout({ children }) {
         ))}
 
         <div className="rail-group rail-switch">
-          {role === "developer" && (
-            <Link href="/dashboard/become-advertiser" className="rail-link">
-              Advertise your own game
-            </Link>
-          )}
           <div className="rail-foot">{user?.email}</div>
         </div>
       </nav>
 
-      <main className="main">{children}</main>
+      <div className="content">
+        <header className="topbar">
+          <NotificationsBell items={latest ?? []} unread={unread} />
+        </header>
+        <main className="main">{children}</main>
+      </div>
     </div>
   );
 }

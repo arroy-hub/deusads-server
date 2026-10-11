@@ -33,7 +33,8 @@ async function DeveloperHome({ me }) {
     };
   });
   const { bookings } = await loadBookings(service, (query) => query.eq("developer_id", user.id));
-  const waiting = bookings.filter((booking) => booking.status === "pending" && booking.developer === "pending");
+  // Bookings approve themselves; nothing waits for the developer.
+  const waiting = [];
   const approved = bookings.filter((booking) => booking.status === "approved").length;
 
   const steps = developerSteps({
@@ -52,7 +53,10 @@ async function DeveloperHome({ me }) {
           {rows.length ? "My games" : "Add a game"}
         </Link>
       </div>
-      <p className="lede">Your path from a new game to ads running in it.</p>
+      <p className="lede">
+        Your starting point: the next step to get ads running in your games, what needs your attention, and a
+        summary of each game.
+      </p>
 
       <section className="panel" aria-labelledby="steps-title">
         <h2 id="steps-title">Get a game earning</h2>
@@ -140,7 +144,11 @@ async function DeveloperHome({ me }) {
 async function AdvertiserHome({ me }) {
   const { service, user } = me;
   const [{ data: creatives }, { data: campaigns }, { bookings }] = await Promise.all([
-    service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id),
+    service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id).neq("kind", "own").then((result) =>
+      isSchemaOutdated(result.error)
+        ? service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id)
+        : result
+    ),
     service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     loadBookings(service, (query) => query.eq("advertiser_id", user.id)),
   ]);
@@ -151,7 +159,7 @@ async function AdvertiserHome({ me }) {
   const stages = [
     ["1 · Creatives", pipeline.creatives, `${pipeline.waitingCreatives} waiting for review`],
     ["2 · Draft campaigns", pipeline.drafts, "No placements chosen"],
-    ["3 · Waiting", pipeline.waiting, "For approval or start date"],
+    ["3 · Waiting", pipeline.waiting, "For creative review or start date"],
     ["4 · Live", pipeline.live, "Showing in games now"],
     ["5 · Finished", pipeline.finished, "See Reports"],
   ];
@@ -164,7 +172,10 @@ async function AdvertiserHome({ me }) {
           Find placements
         </Link>
       </div>
-      <p className="lede">From a creative to an ad running in a game.</p>
+      <p className="lede">
+        Your starting point: where your creatives and bookings stand, from upload to running in a game, and what to
+        do next.
+      </p>
 
       <section className="panel" aria-labelledby="pipeline-title">
         <h2 id="pipeline-title">Where your ads are</h2>
@@ -186,7 +197,7 @@ async function AdvertiserHome({ me }) {
             <div className="todo">
               <div>
                 <strong>Upload your first creative</strong>
-                <div className="todo-sub">DeusADS reviews it before it can be booked.</div>
+                <div className="todo-sub">You can book it while it is reviewed; ads start once it is approved.</div>
               </div>
               <Link href="/dashboard/creatives" className="button">
                 Upload

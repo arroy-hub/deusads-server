@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { assignCreative } from "../../actions";
+import { addOwnCreative, deleteOwnCreative, saveOwnCreative } from "../../actions";
+import { browserClient } from "../../../../lib/supabase-browser";
+import { MAX_OWN_CREATIVES, OWN_PICTURE_MAX_BYTES, OWN_PICTURE_TYPES } from "../../../../lib/own-creatives";
 import {
   DEFAULT_CROP,
   MAX_ZOOM,
@@ -18,57 +20,72 @@ import {
 const SAVED_FOR_MS = 2400;
 
 /**
- * One placement. Every card takes the same room; the placement is drawn inside
- * it at its real proportions. Picking a creative shows it at once; "Framing"
- * lets the user drag and zoom it inside the frame; Save writes both.
+ * One placement. Every card takes the same room; the placement is drawn inside it at its real
+ * proportions. The developer's own pictures (up to MAX_OWN_CREATIVES) sit in a row under it: they
+ * show here in turn whenever no advertiser is booked. Choose one to see it in the frame, add more
+ * with +, and for the chosen one switch it on or off, frame it (drag and zoom; Save writes the
+ * framing) or delete it. `items` are { assignmentId, id, name, url, width_px, height_px, enabled, crop }.
  */
-export default function SurfaceCard({
-  placementId,
-  aspect,
-  label,
-  dims,
-  creatives,
-  savedCreativeId,
-  savedCrop,
-  cropEnabled,
-  children,
-}) {
+export default function SurfaceCard({ placementId, aspect, label, dims, items: serverItems, cropEnabled, children }) {
   const router = useRouter();
-  const initial = { id: savedCreativeId ?? "", crop: normalizeCrop(savedCrop) };
-  const [saved, setSaved] = useState(initial);
-  const [draft, setDraft] = useState(initial);
+  // On/off flips on screen at once; the server catches up in the background (and the flip is undone on a failure).
+  const [flags, setFlags] = useState({}); // assignmentId -> enabled, until the page brings the same value
+  // A picture just added shows from the local file at once; the page's own copy replaces it when it arrives.
+  const [pending, setPending] = useState([]);
+  const [gone, setGone] = useState([]); // assignment ids deleted on screen, until the page drops them too
+  const pendingRef = useRef([]);
+  pendingRef.current = pending;
+  const items = [
+    ...serverItems.filter((item) => !gone.includes(item.assignmentId)).map((item) => (item.assignmentId in flags ? { ...item, enabled: flags[item.assignmentId] } : item)),
+    ...pending.filter((item) => !serverItems.some((own) => own.assignmentId === item.assignmentId)),
+  ];
+  const fileRef = useRef(null);
+  const [selectedId, setSelectedId] = useState(serverItems[0]?.assignmentId ?? "");
+  const [savedCrops, setSavedCrops] = useState(() => cropsOf(serverItems));
+  const [drafts, setDrafts] = useState({}); // assignmentId -> crop not saved yet
   const [adjusting, setAdjusting] = useState(false);
   const [status, setStatus] = useState("idle"); // idle | saving | saved | error
+  const [busy, setBusy] = useState(""); // "" | "adding" | "deleting" | "toggling"
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState(null); // { tone: "error" | "warn", text }
-  const [sizes, setSizes] = useState({}); // creative id -> natural aspect, once loaded
+  const [sizes, setSizes] = useState({}); // picture id -> natural aspect, once loaded
   const windowRef = useRef(null);
   const dragRef = useRef(null);
   const timer = useRef(null);
-  const preloaded = useRef(false);
 
-  const creative = creatives.find((item) => item.id === draft.id) ?? null;
+  const creative = items.find((item) => item.assignmentId === selectedId) ?? items[0] ?? null;
+  const activeId = creative?.assignmentId ?? "";
   const saving = status === "saving";
+  const working = saving || busy !== "";
   const loaded = creative ? sizes[creative.id] !== undefined : true;
   const imageAspect = creative
     ? sizes[creative.id] ??
       (creative.width_px && creative.height_px ? creative.width_px / creative.height_px : aspect)
     : aspect;
-  const crop = clampCrop(draft.crop, imageAspect, aspect);
+  const savedCrop = savedCrops[activeId] ?? DEFAULT_CROP;
+  const crop = clampCrop(drafts[activeId] ?? savedCrop, imageAspect, aspect);
   // Compared after clamping, so zooming in and back out is not a change.
-  const dirty =
-    draft.id !== saved.id || !sameCrop(crop, clampCrop(saved.crop, imageAspect, aspect));
+  const dirty = !!creative && !sameCrop(crop, clampCrop(savedCrop, imageAspect, aspect));
   const justSaved = status === "saved" && !dirty;
   const place = imagePlacement(imageAspect, aspect, crop);
-  const canAdjust = cropEnabled && !!creative && !saving;
+  const canAdjust = cropEnabled && !!creative && !working;
 
-  // A background refresh may bring newer values; take them unless mid-edit.
-  const incoming = `${savedCreativeId ?? ""}|${savedCrop?.zoom}|${savedCrop?.x}|${savedCrop?.y}`;
+  // A refresh may bring newer pictures or framing: take them, keeping edits that are still open.
+  const incoming = serverItems.map((item) => `${item.assignmentId}:${item.enabled}:${item.crop.zoom}:${item.crop.x}:${item.crop.y}`).join("|");
   useEffect(() => {
-    if (saving) return;
-    const next = { id: savedCreativeId ?? "", crop: normalizeCrop(savedCrop) };
-    if (next.id === saved.id && sameCrop(next.crop, saved.crop)) return;
-    if (!dirty) setDraft(next);
-    setSaved(next);
+    setSavedCrops(cropsOf(serverItems));
+    setFlags({});
+    setGone((all) => all.filter((id) => serverItems.some((own) => own.assignmentId === id)));
+    setPending((all) => {
+      const arrived = all.filter((item) => serverItems.some((own) => own.assignmentId === item.assignmentId));
+      arrived.forEach((item) => URL.revokeObjectURL(item.url));
+      return all.filter((item) => !arrived.includes(item));
+    });
+    setSelectedId((current) =>
+      serverItems.some((item) => item.assignmentId === current) || pendingRef.current.some((item) => item.assignmentId === current)
+        ? current
+        : serverItems[0]?.assignmentId ?? ""
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming]);
 
@@ -82,7 +99,7 @@ export default function SurfaceCard({
     const onWheel = (event) => {
       event.preventDefault();
       const factor = Math.exp(-event.deltaY * 0.0015);
-      setDraft((d) => ({ ...d, crop: { ...d.crop, zoom: clampZoom(d.crop.zoom * factor) } }));
+      setDrafts((all) => ({ ...all, [activeId]: { ...(all[activeId] ?? savedCrops[activeId] ?? DEFAULT_CROP), zoom: clampZoom((all[activeId] ?? savedCrops[activeId] ?? DEFAULT_CROP).zoom * factor) } }));
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
@@ -104,28 +121,17 @@ export default function SurfaceCard({
     setSizes((all) => (all[id] === ratio ? all : { ...all, [id]: ratio }));
   }
 
-  // Warm the cache once the user reaches for the list, so switching is instant.
-  function preload() {
-    if (preloaded.current) return;
-    preloaded.current = true;
-    for (const item of creatives) {
-      if (!item.url) continue;
-      const img = new Image();
-      img.decoding = "async";
-      img.src = item.url;
-    }
-  }
-
-  function pick(event) {
+  function choose(assignmentId) {
+    if (working || assignmentId === activeId) return;
     touch();
-    const id = event.target.value;
-    // The saved framing belongs to the saved creative; a new one starts centred.
-    setDraft({ id, crop: id === saved.id ? saved.crop : DEFAULT_CROP });
+    setAdjusting(false);
+    setConfirmDelete(false);
+    setSelectedId(assignmentId);
   }
 
   function setCrop(next) {
     touch();
-    setDraft((d) => ({ ...d, crop: normalizeCrop(next) }));
+    setDrafts((all) => ({ ...all, [activeId]: normalizeCrop(next) }));
   }
 
   function onPointerDown(event) {
@@ -158,7 +164,7 @@ export default function SurfaceCard({
       x: drag.crop.x - (event.clientX - drag.startX) / drag.imageWidth,
       y: drag.crop.y - (event.clientY - drag.startY) / drag.imageHeight,
     };
-    setDraft((d) => ({ ...d, crop: clampCrop(next, imageAspect, aspect) }));
+    setDrafts((all) => ({ ...all, [activeId]: clampCrop(next, imageAspect, aspect) }));
   }
 
   function onPointerUp(event) {
@@ -189,16 +195,16 @@ export default function SurfaceCard({
   }
 
   async function save() {
-    if (!dirty || saving) return;
+    if (!dirty || working) return;
     clearTimeout(timer.current);
     setStatus("saving");
     setNote(null);
     setAdjusting(false);
 
-    const sent = { id: draft.id, crop: clampCrop(draft.crop, imageAspect, aspect) };
+    const sent = clampCrop(drafts[activeId] ?? savedCrop, imageAspect, aspect);
     let result;
     try {
-      result = await assignCreative({ placementId, creativeId: sent.id, crop: sent.crop });
+      result = await saveOwnCreative({ assignmentId: activeId, crop: sent });
     } catch {
       result = { error: "Connection lost. Try again." };
     }
@@ -209,17 +215,121 @@ export default function SurfaceCard({
       return;
     }
 
-    const stored = { id: sent.id, crop: normalizeCrop(result.crop ?? sent.crop) };
-    setSaved(stored);
-    setDraft(stored);
+    const stored = normalizeCrop(result.crop ?? sent);
+    setSavedCrops((all) => ({ ...all, [activeId]: stored }));
+    setDrafts(({ [activeId]: _done, ...rest }) => rest);
     setStatus("saved");
-    if (result.warning) setNote({ tone: "warn", text: result.warning });
     timer.current = setTimeout(() => setStatus("idle"), SAVED_FOR_MS);
     router.refresh(); // figures at the top; does not block the card
   }
 
+  function cancelFraming() {
+    setDrafts(({ [activeId]: _discard, ...rest }) => rest);
+    setAdjusting(false);
+    setStatus("idle");
+  }
+
+  async function toggle() {
+    if (!creative) return;
+    const id = activeId;
+    const next = !creative.enabled;
+    setNote(null);
+    setFlags((all) => ({ ...all, [id]: next })); // shown at once
+    const result = await saveOwnCreative({ assignmentId: id, enabled: next }).catch(() => ({ error: "Connection lost. Try again." }));
+    if (result?.error) {
+      setFlags((all) => ({ ...all, [id]: !next })); // undo
+      setNote({ tone: "error", text: result.error });
+    }
+    // The save already refreshed the page data; nothing more to wait for here.
+  }
+
+  async function remove() {
+    if (!creative || working) return;
+    if (!confirmDelete) return setConfirmDelete(true);
+    const id = activeId;
+    const at = items.findIndex((item) => item.assignmentId === id);
+    const neighbour = items[at + 1] ?? items[at - 1] ?? null;
+    setNote(null);
+    setAdjusting(false);
+    setConfirmDelete(false);
+    // Gone from the card at once; the server catches up in the background (and the picture comes back on a failure).
+    setGone((all) => [...all, id]);
+    setSelectedId(neighbour?.assignmentId ?? "");
+    setDrafts(({ [id]: _gone, ...rest }) => rest);
+    const result = await deleteOwnCreative({ assignmentId: id }).catch(() => ({ error: "Connection lost. Try again." }));
+    if (result?.error) {
+      setGone((all) => all.filter((goneId) => goneId !== id));
+      setSelectedId(id);
+      setNote({ tone: "error", text: result.error });
+    }
+  }
+
+  async function addPicture(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || working) return;
+    if (!OWN_PICTURE_TYPES[file.type]) return setNote({ tone: "error", text: "Pictures must be PNG or JPG." });
+    if (file.size > OWN_PICTURE_MAX_BYTES) return setNote({ tone: "error", text: "Pictures must be under 8 MB." });
+
+    setBusy("adding");
+    setNote(null);
+    setAdjusting(false);
+    setConfirmDelete(false);
+    const tempId = `pending-${crypto.randomUUID()}`;
+    const localUrl = URL.createObjectURL(file);
+    try {
+      const size = await measure(file);
+      // The picture is on the card straight away, from the file on this computer.
+      setPending((all) => [
+        ...all,
+        {
+          assignmentId: tempId,
+          id: tempId,
+          name: file.name.replace(/\.[^.]+$/, ""),
+          url: localUrl,
+          width_px: size.width,
+          height_px: size.height,
+          enabled: true,
+          crop: DEFAULT_CROP,
+          uploading: true,
+        },
+      ]);
+      setSelectedId(tempId);
+      const db = browserClient();
+      const { data } = await db.auth.getSession();
+      const userId = data?.session?.user?.id;
+      if (!userId) throw new Error("Your session expired. Sign in again.");
+      const path = `${userId}/${crypto.randomUUID()}.${OWN_PICTURE_TYPES[file.type]}`;
+      const { error: uploadError } = await db.storage
+        .from("creatives")
+        .upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false });
+      if (uploadError) throw new Error("Upload failed. Try again.");
+      const result = await addOwnCreative({
+        placementId,
+        path,
+        name: file.name.replace(/\.[^.]+$/, ""),
+        type: file.type,
+        size: file.size,
+        width: size.width,
+        height: size.height,
+      });
+      if (result?.error) throw new Error(result.error);
+      // Same picture, now with its real id. The save has already refreshed the page data.
+      setPending((all) => all.map((item) => (item.assignmentId === tempId ? { ...item, assignmentId: result.assignmentId, id: result.creativeId ?? item.id, uploading: false } : item)));
+      setSelectedId(result.assignmentId);
+    } catch (error) {
+      setPending((all) => all.filter((item) => item.assignmentId !== tempId));
+      URL.revokeObjectURL(localUrl);
+      setSelectedId((current) => (current === tempId ? serverItems[0]?.assignmentId ?? "" : current));
+      setNote({ tone: "error", text: error?.message || "Could not add the picture. Try again." });
+    } finally {
+      setBusy("");
+    }
+  }
+
   let badge = null;
-  if (saving) badge = { tone: "busy", text: "Saving…" };
+  if (busy === "adding") badge = { tone: "busy", text: "Adding…" };
+  else if (saving) badge = { tone: "busy", text: "Saving…" };
   else if (justSaved) badge = { tone: "done", text: "Saved" };
   else if (dirty) badge = { tone: "draft", text: "Not saved" };
 
@@ -283,12 +393,23 @@ export default function SurfaceCard({
                 onLoad={(event) => markLoaded(creative.id, event.currentTarget)}
               />
             ) : (
-              <div className="surface-empty">Shows your fallback</div>
+              <div className="surface-empty">No pictures of your own yet</div>
             )}
 
             {creative && !loaded && <div className="surface-loading" aria-hidden="true" />}
             {saving && <div className="surface-veil" aria-hidden="true" />}
           </div>
+
+          {creative && items.length > 0 && (
+            <span className="own-pos">
+              Picture {items.findIndex((item) => item.assignmentId === activeId) + 1} of {items.length}
+            </span>
+          )}
+          {creative && !creative.enabled && !adjusting && (
+            <div className="own-off-veil">
+              <span>Not shown</span>
+            </div>
+          )}
 
           <div className="surface-badge-slot" role="status" aria-live="polite">
             {badge && (
@@ -310,102 +431,158 @@ export default function SurfaceCard({
           <div className="surface-dims">{dims}</div>
         </div>
 
-        <select
-          className="field surface-select"
-          value={draft.id}
-          onChange={pick}
-          onPointerEnter={preload}
-          onFocus={preload}
-          disabled={saving}
-          aria-label={`Creative for ${label}`}
-          title={creative?.name}
-        >
-          <option value="">No creative</option>
-          {creatives.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-
-        <div className="surface-form">
-          <button
-            type="button"
-            className={`button button-quiet surface-framing ${adjusting ? "is-on" : ""}`}
-            onClick={() => setAdjusting((on) => !on)}
-            disabled={!canAdjust}
-            aria-pressed={adjusting}
-            title={
-              cropEnabled
-                ? creative
-                  ? "Drag and zoom the creative inside the frame"
-                  : "Pick a creative first"
-                : "Framing needs migration 0003"
-            }
-          >
-            <CropIcon />
-            Framing
-          </button>
-          <button
-            type="button"
-            className={`button surface-save ${dirty || saving ? "" : "button-quiet"}`}
-            onClick={save}
-            disabled={!dirty || saving}
-            aria-busy={saving}
-          >
-            {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
-          </button>
-        </div>
-
-        {adjusting && (
-          <div className="surface-adjust">
-            <button
-              type="button"
-              className="icon-button icon-button-small"
-              onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom / 1.15) })}
-              disabled={crop.zoom <= 1}
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <input
-              type="range"
-              min="1"
-              max={MAX_ZOOM}
-              step="0.01"
-              value={crop.zoom}
-              onChange={(event) => setCrop({ ...crop, zoom: Number(event.target.value) })}
-              aria-label="Zoom"
-            />
-            <button
-              type="button"
-              className="icon-button icon-button-small"
-              onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom * 1.15) })}
-              disabled={crop.zoom >= MAX_ZOOM}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setCrop(DEFAULT_CROP)}
-              disabled={!framed}
-            >
-              Reset
-            </button>
-            <button type="button" className="link-button" onClick={() => setAdjusting(false)}>
-              Done
-            </button>
+        {items.length > 0 && (
+          <div className="surface-hint">
+            {items.filter((item) => item.enabled).length} of {items.length} pictures in the rotation. They show in turn
+            when no advertiser is booked.
           </div>
         )}
 
+        <div className="own-tabs">
+        <div className="own-strip" role="tablist" aria-label={`Your pictures for ${label}`}>
+          {items.map((item, index) => (
+            <button
+              key={item.assignmentId}
+              type="button"
+              className={`own-thumb ${item.assignmentId === activeId ? "is-current" : ""} ${item.enabled ? "is-on" : "is-off"}`}
+              role="tab"
+              onClick={() => choose(item.assignmentId)}
+              disabled={working}
+              aria-selected={item.assignmentId === activeId}
+              aria-label={`Picture ${index + 1}${item.enabled ? ", in the rotation" : ", switched off"}`}
+              title={`${item.name}${item.enabled ? "" : " — off"}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.url} alt="" draggable={false} />
+              {item.uploading && (
+                <span className="own-uploading" aria-hidden="true">
+                  <span className="spinner" />
+                </span>
+              )}
+              <span className="own-dot" aria-hidden="true">
+                {item.enabled ? <TickIcon /> : <DashIcon />}
+              </span>
+            </button>
+          ))}
+          {items.length < MAX_OWN_CREATIVES && (
+            <>
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg" hidden onChange={addPicture} />
+              <button
+                type="button"
+                className="own-thumb own-add"
+                onClick={() => fileRef.current?.click()}
+                disabled={working}
+                aria-label="Add a picture of your own"
+                title={items.length === 0 ? "Add a picture of your own" : `Add a picture (${items.length} of ${MAX_OWN_CREATIVES})`}
+              >
+                +
+              </button>
+            </>
+          )}
+        </div>
+
+        {creative && (
+          <div className={`own-panel ${items[0]?.assignmentId === activeId ? "is-first" : ""} ${items.findIndex((item) => item.assignmentId === activeId) === MAX_OWN_CREATIVES - 1 ? "is-last" : ""}`} role="tabpanel">
+            {!adjusting ? (
+              <>
+                <div className="own-row">
+                  <div className="own-row-text">
+                    <div className="own-row-title">Show this picture</div>
+                    <div className="own-row-sub">
+                      {creative.enabled ? "In the rotation with your other pictures" : "Switched off"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="own-switch"
+                    role="switch"
+                    aria-checked={creative.enabled}
+                    aria-label="Show this picture"
+                    onClick={toggle}
+                    disabled={working}
+                  >
+                    <span className="own-knob" />
+                  </button>
+                </div>
+                <div className="own-actions">
+                  <button
+                    type="button"
+                    className="button button-quiet surface-framing"
+                    onClick={() => setAdjusting(true)}
+                    disabled={!canAdjust}
+                    title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
+                  >
+                    <CropIcon />
+                    Framing
+                  </button>
+                  <button
+                    type="button"
+                    className={`own-delete ${confirmDelete ? "is-confirm" : ""}`}
+                    onClick={remove}
+                    onBlur={() => setConfirmDelete(false)}
+                    disabled={working}
+                    title={confirmDelete ? "Click again to delete" : "Delete this picture"}
+                  >
+                    <TrashIcon />
+                    {confirmDelete ? "Delete for good?" : "Delete"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="own-row-title">
+                  Framing <span className="own-row-sub">· drag the picture, zoom with the slider</span>
+                </div>
+                <div className="surface-adjust">
+                  <button
+                    type="button"
+                    className="icon-button icon-button-small"
+                    onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom / 1.15) })}
+                    disabled={crop.zoom <= 1}
+                    aria-label="Zoom out"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="range"
+                    min="1"
+                    max={MAX_ZOOM}
+                    step="0.01"
+                    value={crop.zoom}
+                    onChange={(event) => setCrop({ ...crop, zoom: Number(event.target.value) })}
+                    aria-label="Zoom"
+                  />
+                  <button
+                    type="button"
+                    className="icon-button icon-button-small"
+                    onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom * 1.15) })}
+                    disabled={crop.zoom >= MAX_ZOOM}
+                    aria-label="Zoom in"
+                  >
+                    +
+                  </button>
+                  <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
+                </div>
+                <div className="own-actions">
+                  <button type="button" className="link-button" onClick={() => setCrop(DEFAULT_CROP)} disabled={!framed}>
+                    Reset
+                  </button>
+                  <button type="button" className="button button-quiet own-cancel" onClick={cancelFraming} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button type="button" className="button surface-save" onClick={save} disabled={!dirty || working} aria-busy={saving}>
+                    {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        </div>
+
         {note && <div className={note.tone === "error" ? "error surface-note" : "surface-warn"}>{note.text}</div>}
 
-        {adjusting ? (
-          <div className="surface-hint">Drag to move · scroll or slider to zoom</div>
-        ) : (
+        {!adjusting && (
           hidden >= 5 &&
           !framed && (
             <div className="surface-warn">
@@ -417,6 +594,52 @@ export default function SurfaceCard({
         {children}
       </div>
     </div>
+  );
+}
+
+/** The saved framing of every picture, by assignment id. */
+function cropsOf(items) {
+  return Object.fromEntries(items.map((item) => [item.assignmentId, normalizeCrop(item.crop)]));
+}
+
+/** Natural size of a picture file, read in the browser before it is uploaded. */
+function measure(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("This file does not open as an image."));
+    };
+    img.src = url;
+  });
+}
+
+function TickIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  );
+}
+
+function DashIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+      <path d="M6 12h12" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+    </svg>
   );
 }
 

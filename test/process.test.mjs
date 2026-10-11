@@ -36,7 +36,7 @@ assert.equal(bookingLabel(row({ status: "approved", ends_on: "2026-10-08" }), to
 assert.equal(bookingLabel(row({ status: "approved", ends_on: "2026-10-09" }), today), "Live until 9 Oct");
 assert.equal(bookingLabel(row({ status: "ended" }), today), "Ended");
 assert.equal(bookingLabel(row({ status: "rejected" }), today), "Rejected");
-assert.equal(bookingLabel(row({ admin_decision: "approved" }), today), "Waiting for the developer");
+assert.equal(bookingLabel(row({}), today), "Waiting for the creative to be approved");
 assert.equal(bookingLabel(row({ status: "approved", startsOn: "2026-10-12" }), today), "Scheduled from 12 Oct"); // camelCase rows too
 assert.equal(dateRangeText("2026-10-12", "2026-10-20"), "12 Oct – 20 Oct");
 assert.equal(dateRangeText("2026-10-12", null), "from 12 Oct");

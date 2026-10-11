@@ -9,7 +9,6 @@ const ICONS = {
   home: "M3 11l9-8 9 8M5 10v10h14V10",
   games: "M3 7h18v11H3zM8 11v3M6.5 12.5h3",
   requests: "M4 4h16v12H8l-4 4z",
-  notifications: "M6 8a6 6 0 0112 0c0 7 3 7 3 9H3c0-2 3-2 3-9M10 21h4",
   creatives: "M3 4h18v16H3zM3 9h18M8 14h8",
   find: "M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-4-4",
   campaigns: "M4 6h16M4 12h16M4 18h10",
@@ -25,9 +24,16 @@ const ICONS = {
 export default function NavLink({ item }) {
   const pathname = usePathname();
   const active = isActive(item, pathname);
+  // On a child's page the child is the current page; its parent only stays open around it.
+  const insideChild = item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`));
   return (
     <>
-      <Link href={item.href} className="rail-link" aria-current={active ? "page" : undefined}>
+      <Link
+        href={item.href}
+        className="rail-link"
+        aria-current={active && !insideChild ? "page" : undefined}
+        data-open={active && insideChild ? "true" : undefined}
+      >
         {ICONS[item.key] && (
           <svg className="rail-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d={ICONS[item.key]} />
@@ -36,12 +42,23 @@ export default function NavLink({ item }) {
         <span>{item.label}</span>
         {item.badge ? <span className="rail-badge">{item.badge}</span> : null}
       </Link>
-      {active &&
-        item.children?.map((child) => (
-          <Link key={child.href} href={child.href} className="rail-link rail-child" aria-current={pathname === child.href ? "page" : undefined}>
-            {child.label}
-          </Link>
-        ))}
+      {active && item.children?.length > 0 && (
+        <div className="rail-sub" role="group" aria-label={item.label}>
+          {item.children.map((child) => (
+            <Link key={child.href} href={child.href} className="rail-link rail-child" aria-current={pathname === child.href || pathname.startsWith(`${child.href}/`) ? "page" : undefined}>
+              {child.icon ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="rail-game-icon" src={child.icon} alt="" width="20" height="20" />
+              ) : (
+                <span className="rail-game-icon is-empty" aria-hidden="true">
+                  {child.label.trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span>{child.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </>
   );
 }
