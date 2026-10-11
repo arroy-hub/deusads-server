@@ -11,6 +11,7 @@ import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
 import PlacementStats from "./placement-stats";
+import PlacementsOrganizer from "./placements-organizer";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ const TABS = [
 
 export default async function GamePage({ params, searchParams }) {
   const { gameId } = await params;
-  const { tab: requested, p: pickedParam, all: allParam } = await searchParams;
+  const { tab: requested, p: pickedParam, all: allParam, placement: focusParam } = await searchParams;
   // Performance counts the developer's own pictures apart; ?all=1 folds them into one figure.
   const combined = allParam === "1";
   const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
@@ -102,6 +103,9 @@ export default async function GamePage({ params, searchParams }) {
   const openOf = openError ? null : new Map((openRows ?? []).map((row) => [row.id, Boolean(row.open_to_advertisers)]));
   const openCount = openOf ? rows.filter((row) => openOf.get(row.id)).length : null;
   const withPictures = rows.filter((row) => ownAssignments(row).length > 0).length;
+
+  // Folders, tags, switches, places (migration 0021). Null before it: the tab then lists placements as it always did.
+  const organization = tab === "placements" && rows.length > 0 ? await loadOrganization(db, gameId, rows) : null;
 
   return (
     <>
@@ -239,6 +243,21 @@ export default async function GamePage({ params, searchParams }) {
             press Send placements.
           </p>
         </div>
+      ) : organization ? (
+        <PlacementsOrganizer
+          gameId={game.id}
+          folders={organization.folders}
+          offScenes={organization.offScenes}
+          focus={focusParam ? String(focusParam) : ""}
+          items={rows.map((row) => ({
+            ...organization.items.get(row.id),
+            card: (
+              <Surface placement={row} db={db} cropEnabled={cropEnabled}>
+                {openOf && <OpenToggle placementId={row.id} initial={openOf.get(row.id) ?? false} />}
+              </Surface>
+            ),
+          }))}
+        />
       ) : (
         <div className="surfaces">
           {rows.map((row) => (
@@ -266,6 +285,72 @@ export default async function GamePage({ params, searchParams }) {
       )}
     </>
   );
+}
+
+/**
+ * What the Placements tab needs to organise many placements (migration 0021): each placement's folder, tags,
+ * type and switch, where it stands, its views in the last days, and the game's folders and scenes switched off.
+ * Null when the database does not have the migration yet, or a read fails: the tab then falls back to the plain list.
+ */
+async function loadOrganization(db, gameId, rows) {
+  const [meta, folders, off, places, placeViews, placementViews] = await Promise.all([
+    db
+      .from("placements")
+      .select("id, shared, enabled, folder_id, tags, place_type, place_type_suggested, first_seen_at")
+      .eq("game_id", gameId)
+      .is("removed_at", null),
+    db.from("placement_folders").select("id, name, enabled, parent_id").eq("game_id", gameId).order("name"),
+    db.from("placement_scene_off").select("scene").eq("game_id", gameId),
+    db.from("placement_places").select("id, placement_id, scene, path").eq("game_id", gameId).is("removed_at", null),
+    db.rpc("game_place_stats", { p_game_id: gameId, p_days: ANALYTICS_DAYS }),
+    db.rpc("game_placement_stats", { p_game_id: gameId, p_days: ANALYTICS_DAYS }),
+  ]);
+
+  const failure = meta.error ?? folders.error ?? off.error ?? places.error;
+  if (failure) {
+    if (!isSchemaOutdated(failure)) console.error("[DeusADS] dashboard organisation query failed:", failure.code, failure.message);
+    return null;
+  }
+
+  const metaOf = new Map((meta.data ?? []).map((row) => [row.id, row]));
+  const viewsOfPlace = new Map((placeViews.error ? [] : placeViews.data ?? []).map((row) => [row.place_id, Number(row.impressions)]));
+  const viewsOfPlacement = new Map((placementViews.error ? [] : placementViews.data ?? []).map((row) => [row.placement_id, Number(row.impressions)]));
+  const placesOf = new Map();
+  for (const place of places.data ?? []) {
+    if (!placesOf.has(place.placement_id)) placesOf.set(place.placement_id, []);
+    placesOf.get(place.placement_id).push({ id: place.id, scene: place.scene, path: place.path, views: viewsOfPlace.get(place.id) ?? null });
+  }
+
+  const items = new Map();
+  for (const row of rows) {
+    const m = metaOf.get(row.id) ?? {};
+    const aspect = Number(row.aspect_ratio) || 0;
+    const known = formatOf(aspect);
+    // A placement reported before places existed has no place rows: its single scene stands in for one.
+    const where = placesOf.get(row.id) ?? (row.scene ? [{ id: null, scene: row.scene, path: "", views: null }] : []);
+    items.set(row.id, {
+      id: row.id,
+      externalId: row.external_id,
+      label: row.label || row.external_id,
+      shared: m.shared !== false,
+      enabled: m.enabled !== false,
+      folderId: m.folder_id ?? null,
+      tags: m.tags ?? [],
+      placeType: m.place_type ?? null,
+      suggestedType: m.place_type_suggested ?? null,
+      format: known ? formatLabel(known) : null,
+      firstSeenAt: m.first_seen_at ?? null,
+      places: where.sort((a, b) => `${a.scene}/${a.path}`.localeCompare(`${b.scene}/${b.path}`)),
+      hasAds: (row.assignments ?? []).some((assignment) => assignment.active),
+      views: viewsOfPlacement.get(row.id) ?? 0,
+    });
+  }
+
+  return {
+    items,
+    folders: (folders.data ?? []).map((folder) => ({ id: folder.id, name: folder.name, enabled: folder.enabled !== false, parentId: folder.parent_id ?? null })),
+    offScenes: (off.data ?? []).map((entry) => entry.scene),
+  };
 }
 
 /**
