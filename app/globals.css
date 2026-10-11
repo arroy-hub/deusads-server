@@ -2421,3 +2421,52 @@ th.num .sort-button {
     align-items: stretch;
   }
 }
+
+/* ---------------------------------------------------------------- users table */
+
+.button-small {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+
+.users-table th,
+.users-table td {
+  vertical-align: middle;
+}
+
+.users-table .actions-col {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.suspend-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.status-tag.is-active {
+  background: #e3f5ea;
+  color: #0a6b3a;
+}
+
+.status-tag.is-inactive {
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.status-suspended {
+  color: var(--warn);
+  margin-top: 2px;
+}

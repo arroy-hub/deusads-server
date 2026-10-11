@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setSuspended } from "../actions";
 
-export default function SuspendButton({ accountId, suspended, disabled }) {
+export default function SuspendButton({ accountId, suspended, disabled, small = false }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -19,8 +19,8 @@ export default function SuspendButton({ accountId, suspended, disabled }) {
   }
 
   return (
-    <div>
-      <button className={suspended ? "button" : "button button-quiet"} type="button" disabled={disabled || busy} onClick={toggle}>
+    <div className="suspend-cell">
+      <button className={`${suspended ? "button" : "button button-quiet"}${small ? " button-small" : ""}`} type="button" disabled={disabled || busy} onClick={toggle}>
         {busy ? "Saving…" : suspended ? "Reinstate" : "Suspend"}
       </button>
       {error && (

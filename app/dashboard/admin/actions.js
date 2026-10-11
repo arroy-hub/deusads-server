@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
-import { cleanNote, parseDecision, roleChangeProblem } from "../../../lib/admin-rules";
+import { cleanCompany, cleanNote, newUserProblem, parseDecision, roleChangeProblem } from "../../../lib/admin-rules";
 import { notify } from "../../../lib/notify";
 
 // Every action here re-checks that the caller is an admin: a server action is a
@@ -142,4 +142,39 @@ export async function setSuspended({ accountId, suspended }) {
 
   revalidatePath("/dashboard/admin/users");
   return { ok: true, suspended: Boolean(suspended) };
+}
+
+/**
+ * Creates an account from the admin screen: the person can sign in at once with the email and the
+ * password the admin chose (no confirmation email). The sign-up trigger makes the accounts row (a
+ * developer, or an advertiser when asked); the role and company are then set here with the service
+ * role, since users cannot edit those. Admin only.
+ */
+export async function createUser({ email, password, company, role }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+
+  const address = String(email ?? "").trim().toLowerCase();
+  const problem = newUserProblem({ email: address, password, role });
+  if (problem) return { error: problem };
+
+  const { data, error } = await admin.service.auth.admin.createUser({
+    email: address,
+    password: String(password),
+    email_confirm: true,
+    user_metadata: { account_type: role === "advertiser" ? "advertiser" : "developer" },
+  });
+  if (error || !data?.user) {
+    if (/already|registered|exists/i.test(error?.message ?? "")) return { error: "A user with this email already exists." };
+    return { error: "Could not create the user. Try again." };
+  }
+
+  const patch = { role, ...(cleanCompany(company) ? { company: cleanCompany(company) } : {}) };
+  const { error: patchError } = await admin.service.from("accounts").update(patch).eq("id", data.user.id);
+  if (patchError) {
+    return { error: "The user was created, but their role and company could not be set. Set them in the list." };
+  }
+
+  revalidatePath("/dashboard/admin/users");
+  return { ok: true };
 }
