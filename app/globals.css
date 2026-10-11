@@ -3713,3 +3713,42 @@ th.num .sort-button {
 .org-name .surface-label {
   flex: 1 1 auto;
 }
+
+/* the plus sits dead centre; framing controls share the delete button's terracotta */
+.own-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
+  color: #a12626;
+  border-color: #c9a39b;
+}
+
+.own-add svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.own-small-button,
+.own-zoom-button,
+.own-terra,
+.surface-zoom {
+  color: #a12626;
+}
+
+.own-small-button.is-solid {
+  background: #a12626;
+  border-color: #a12626;
+  color: #fff;
+}
+
+.own-small-button:hover:not(:disabled),
+.own-zoom-button:hover:not(:disabled) {
+  color: #7d1c1c;
+}
+
+.own-range {
+  accent-color: #a12626;
+}

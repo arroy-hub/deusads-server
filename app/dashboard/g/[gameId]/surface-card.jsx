@@ -467,7 +467,9 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                 aria-label="Add a picture of your own"
                 title={items.length === 0 ? "Add a picture of your own" : `Add a picture (${items.length} of ${MAX_OWN_CREATIVES})`}
               >
-                +
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
             </>
           )}
@@ -549,7 +551,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
                 </div>
                 <div className="own-bar">
-                  <button type="button" className="link-button" onClick={() => setCrop(DEFAULT_CROP)} disabled={!framed}>
+                  <button type="button" className="link-button own-terra" onClick={() => setCrop(DEFAULT_CROP)} disabled={!framed}>
                     Reset
                   </button>
                   <span className="own-bar-gap" />
