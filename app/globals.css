@@ -3676,3 +3676,40 @@ th.num .sort-button {
 .own-zoom-button:disabled { opacity: 0.45; cursor: default; }
 .own-range { flex: 1; min-width: 4rem; accent-color: var(--ink); }
 .own-icon-only { width: 30px; padding: 0; justify-content: center; }
+
+/* "Open to advertisers" in the size of the section headers; pictures' + button in the size of the tabs */
+.surface-body .open-toggle {
+  min-height: 2.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 8px;
+}
+
+.surface-body .open-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.own-add {
+  height: 30px;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  border-width: 1.5px;
+}
+
+.org-meta {
+  align-items: flex-start;
+}
+
+.org-meta .surface-dims {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  padding-top: 3px;
+}
+
+.org-name .surface-label {
+  flex: 1 1 auto;
+}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addOwnCreative, deleteOwnCreative, saveOwnCreative } from "../../actions";
 import { browserClient } from "../../../../lib/supabase-browser";
-import { CardChips, CardName, CardOverlay, CardSections, CardStatus, useOrg } from "./placement-card";
+import { CardName, CardOverlay, CardSections, CardStatus, useOrg } from "./placement-card";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_MAX_BYTES, OWN_PICTURE_TYPES } from "../../../../lib/own-creatives";
 import {
   DEFAULT_CROP,
@@ -579,7 +579,6 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         )}
         {children}
         <CardSections placementId={placementId} />
-        <CardChips placementId={placementId} />
       </div>
     </div>
   );

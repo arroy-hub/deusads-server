@@ -174,7 +174,7 @@ export function CardChips({ placementId }) {
   const type = effectiveType(item);
   const why = state === "off" || state === "partly" ? offReason(item, ctx) : "";
   return (
-    <div className="org-chips org-chips-foot">
+    <div className="org-chips">
       {item.shared && places > 1 && (
         <span className="org-chip org-chip-places" title="Copies of one prefab share this placement">
           ×{places} places
@@ -213,6 +213,7 @@ export function CardSections({ placementId }) {
         <Places org={org} />
       </Section>
       <Section title="Tags" count={item.tags.length} open={open.tags} onToggle={() => toggle("tags")}>
+        <CardChips placementId={placementId} />
         <Tags org={org} />
       </Section>
     </div>
