@@ -2536,8 +2536,47 @@ th.num .sort-button {
   font-weight: 600;
 }
 
-.key-field .key-open {
-  justify-content: flex-start;
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.key-line {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 12px;
+  line-height: 38px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+.key-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #b7bcc6;
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.key-icon:hover {
+  border-color: var(--signal);
+  color: var(--signal-ink);
+}
+
+.key-icon:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
 }
 
 .icon-edit {

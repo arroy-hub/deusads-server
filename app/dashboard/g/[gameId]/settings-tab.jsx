@@ -320,15 +320,23 @@ function KeyButton({ gameId, apiKey }) {
             </button>
           </div>
           <p className="settings-help">Paste it into Tools → DeusADS → Settings in Unity.</p>
-          <div className="key-open">
-            <code ref={codeRef} className="key">
-              {shown ? apiKey : "•".repeat(24)}
+          {/* one fixed-size line: hidden or shown, what does not fit is cut off, so nothing moves */}
+          <div className="key-row">
+            <code ref={codeRef} className="key key-line">
+              {shown ? apiKey : "•".repeat(48)}
             </code>
-            <button type="button" className="button button-quiet key-toggle" onClick={() => setShown(!shown)} aria-pressed={shown}>
-              {shown ? "Hide key" : "Show"}
+            <button
+              type="button"
+              className="key-icon"
+              onClick={() => setShown(!shown)}
+              aria-pressed={shown}
+              aria-label={shown ? "Hide key" : "Show key"}
+              title={shown ? "Hide key" : "Show key"}
+            >
+              <EyeIcon open={shown} />
             </button>
-            <button type="button" className="button button-quiet key-toggle" onClick={copy}>
-              {copied ? "Copied" : "Copy"}
+            <button type="button" className="key-icon" onClick={copy} aria-label="Copy key" title={copied ? "Copied" : "Copy"}>
+              {copied ? <CheckIcon /> : <CopyIcon />}
             </button>
           </div>
           <div className="key-rotate">
@@ -359,6 +367,32 @@ function KeyButton({ gameId, apiKey }) {
         </section>
       )}
     </div>
+  );
+}
+
+function EyeIcon({ open }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z" />
+      {!open && <path d="M3 3l18 18" />}
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+      <path d="M10.5 3.2V3A1.5 1.5 0 009 1.5H4A1.5 1.5 0 002.5 3v5A1.5 1.5 0 004 9.5h.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3.5 8.3 6.6 11.3 12.5 4.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
