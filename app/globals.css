@@ -755,8 +755,9 @@ tr:last-child td {
 
 .surface-badge-slot {
   position: absolute;
-  left: 6px;
+  right: 6px; /* the opposite corner from "Picture N of M", and above everything on the stage */
   top: 6px;
+  z-index: 4;
 }
 
 .surface-badge {
@@ -2781,14 +2782,14 @@ th.num .sort-button {
 
 /* ---- a developer's own pictures on a placement card ---- */
 .own-tabs { display: flex; flex-direction: column; }
-.own-strip { display: flex; gap: 4px; flex-wrap: wrap; align-items: flex-end; position: relative; z-index: 1; }
+.own-strip { display: flex; gap: 4px; flex-wrap: nowrap; align-items: flex-end; position: relative; z-index: 1; }
 .own-thumb {
-  width: 56px; height: 38px; padding: 0; flex: none; position: relative; box-sizing: border-box;
+  flex: 1 1 0; min-width: 0; max-width: 56px; height: 38px; padding: 0; position: relative; box-sizing: border-box;
   border: 1px solid var(--line, #e3dad5); border-bottom-color: #e9c8bc; border-radius: 10px 10px 0 0;
   background: #fff; margin-bottom: -1px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.own-thumb img { width: 44px; height: 30px; object-fit: cover; display: block; border-radius: 5px; }
+.own-thumb img { width: calc(100% - 12px); max-width: 44px; height: 30px; object-fit: cover; display: block; border-radius: 5px; }
 /* the chosen tab is raised and has the panel's colour, so it runs into the panel below it */
 .own-thumb.is-current { height: 44px; background: var(--signal-soft, #fbe5de); border-color: #e9c8bc; border-bottom-color: var(--signal-soft, #fbe5de); }
 .own-thumb.is-off img { opacity: 0.35; }
@@ -2802,7 +2803,7 @@ th.num .sort-button {
 .own-thumb.is-off .own-dot { background: #9a8f8a; }
 .own-dot svg { width: 8px; height: 8px; }
 .own-add {
-  width: 44px; height: 36px; margin: 0 0 6px 4px; border: 2px dashed #c9bdb7; border-radius: 8px;
+  flex: none; width: 36px; max-width: 36px; height: 36px; margin: 0 0 6px 4px; border: 2px dashed #c9bdb7; border-radius: 8px;
   font-size: 1.3rem; line-height: 1; color: var(--signal-ink, #b8381a); background: #fff;
 }
 .own-pos {
