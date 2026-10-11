@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import {
   GROUP_BY,
@@ -43,9 +42,30 @@ const FEW = 12; // with this many placements or fewer, every group starts open
  * items: [{ id, externalId, label, shared, enabled, folderId, tags, placeType, suggestedType, format,
  *           firstSeenAt, places, hasAds, views, card }]   (card: the picture editor, rendered on the server)
  */
-export default function PlacementsOrganizer({ gameId, items, folders, offScenes, focus }) {
-  const router = useRouter();
+export default function PlacementsOrganizer({ gameId, items: serverItems, folders: serverFolders, offScenes: serverOffScenes, focus }) {
   const [pending, startTransition] = useTransition();
+  // What the person just did, shown at once while the server catches up. Dropped when fresh data arrives or an action fails.
+  const [shownNow, setShownNow] = useState({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
+  useEffect(() => {
+    setShownNow({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
+  }, [serverItems, serverFolders, serverOffScenes]);
+  const items = useMemo(
+    () => (shownNow.enabled.size ? serverItems.map((item) => (shownNow.enabled.has(item.id) ? { ...item, enabled: shownNow.enabled.get(item.id) } : item)) : serverItems),
+    [serverItems, shownNow.enabled]
+  );
+  const folders = useMemo(() => {
+    const base = shownNow.folderEnabled.size ? serverFolders.map((folder) => (shownNow.folderEnabled.has(folder.id) ? { ...folder, enabled: shownNow.folderEnabled.get(folder.id) } : folder)) : serverFolders;
+    return shownNow.folders.length ? [...base, ...shownNow.folders.filter((added) => !base.some((folder) => folder.name === added.name))].sort((a, b) => a.name.localeCompare(b.name)) : base;
+  }, [serverFolders, shownNow.folderEnabled, shownNow.folders]);
+  const offScenes = useMemo(() => {
+    if (!shownNow.scenes.size) return serverOffScenes;
+    const next = new Set(serverOffScenes);
+    for (const [scene, off] of shownNow.scenes) {
+      if (off) next.add(scene);
+      else next.delete(scene);
+    }
+    return [...next];
+  }, [serverOffScenes, shownNow.scenes]);
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState({});
   const [groupBy, setGroupBy] = useState("folder");
@@ -122,15 +142,23 @@ export default function PlacementsOrganizer({ gameId, items, folders, offScenes,
     });
   }, [itemById]);
 
-  function run(promise, after) {
+  // The action revalidates the page on the server, so the fresh data comes back with its answer.
+  function run(promise, after, undo) {
     setNotice(null);
     startTransition(async () => {
       const result = await promise.catch(() => ({ error: "Connection lost. Try again." }));
-      if (result?.error) return setNotice({ kind: "error", text: result.error });
+      if (result?.error) {
+        undo?.();
+        return setNotice({ kind: "error", text: result.error });
+      }
       if (result?.warning) setNotice({ kind: "note", text: result.warning });
       after?.(result);
-      router.refresh();
     });
+  }
+  const forget = () => setShownNow({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
+  function switchPlacements(ids, enabled) {
+    setShownNow((current) => ({ ...current, enabled: new Map([...current.enabled, ...ids.map((id) => [id, enabled])]) }));
+    run(setPlacementsEnabled({ gameId, ids, enabled }), undefined, forget);
   }
 
   const chosen = [...selected];
@@ -220,9 +248,15 @@ export default function PlacementsOrganizer({ gameId, items, folders, offScenes,
   }
 
   function groupSwitch(group, enabled) {
-    if (group.kind === "scene" && group.sceneSwitch) return run(setSceneEnabled({ gameId, scene: group.scene, enabled }));
-    if (group.kind === "folder") return run(setFolderEnabled({ folderId: group.folderId, enabled }));
-    return run(setPlacementsEnabled({ gameId, ids: group.items.map((item) => item.id), enabled }));
+    if (group.kind === "scene" && group.sceneSwitch) {
+      setShownNow((current) => ({ ...current, scenes: new Map([...current.scenes, [group.scene, !enabled]]) }));
+      return run(setSceneEnabled({ gameId, scene: group.scene, enabled }), undefined, forget);
+    }
+    if (group.kind === "folder") {
+      setShownNow((current) => ({ ...current, folderEnabled: new Map([...current.folderEnabled, [group.folderId, enabled]]) }));
+      return run(setFolderEnabled({ folderId: group.folderId, enabled }), undefined, forget);
+    }
+    return switchPlacements(group.items.map((item) => item.id), enabled);
   }
 
   const groupIsOn = (group) => {
@@ -235,7 +269,8 @@ export default function PlacementsOrganizer({ gameId, items, folders, offScenes,
     event.preventDefault();
     const name = (newFolder ?? "").trim();
     if (!name) return;
-    run(createFolder({ gameId, name }), () => setNewFolder(null));
+    setShownNow((current) => ({ ...current, folders: [...current.folders, { id: `new-${name}`, name, enabled: true, parentId: null }] }));
+    run(createFolder({ gameId, name }), () => setNewFolder(null), forget);
   }
 
   function submitRenameFolder(event) {
@@ -245,7 +280,7 @@ export default function PlacementsOrganizer({ gameId, items, folders, offScenes,
   }
 
   const orgValue = useMemo(
-    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx) }),
+    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [gameId, itemById, ctx, editing, selected]
   );
@@ -356,35 +391,62 @@ export default function PlacementsOrganizer({ gameId, items, folders, offScenes,
               : `${groups.length} group${groups.length === 1 ? "" : "s"}`}
             {visible.length !== items.length ? ` · ${visible.length} of ${items.length} match` : ""}
           </span>
-          <button type="button" className="button button-quiet" onClick={() => setNewFolder(newFolder === null ? "" : null)}>
-            <FolderPlusIcon />
-            New folder
-          </button>
+          {/* like the API key button in Settings: the button keeps its place, the field floats over what is below */}
+          <div className="key-corner org-newfolder">
+            <button
+              type="button"
+              className="button button-quiet key-corner-button"
+              onClick={() => setNewFolder("")}
+              aria-expanded={newFolder !== null}
+              tabIndex={newFolder !== null ? -1 : 0}
+              style={newFolder !== null ? { visibility: "hidden" } : undefined}
+            >
+              <FolderPlusIcon />
+              New folder
+            </button>
+            {newFolder !== null && (
+              <form
+                className="key-field"
+                aria-label="New folder"
+                onSubmit={submitNewFolder}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && !pending) setNewFolder(null);
+                }}
+              >
+                <div className="key-field-head">
+                  <span className="key-field-title">
+                    <FolderPlusIcon /> New folder
+                  </span>
+                  <button type="button" className="button button-quiet key-toggle" onClick={() => setNewFolder(null)} disabled={pending}>
+                    Hide
+                  </button>
+                </div>
+                <input className="field" value={newFolder} maxLength={80} autoFocus placeholder="Folder name" disabled={pending} onChange={(event) => setNewFolder(event.target.value)} aria-label="New folder name" />
+                <div className="row">
+                  <button className="button" type="submit" disabled={!newFolder.trim() || pending}>
+                    {pending ? "Creating…" : "Create folder"}
+                  </button>
+                </div>
+                <span role="status" aria-live="polite" className="settings-help">
+                  {pending ? "Saving the folder…" : ""}
+                </span>
+              </form>
+            )}
+          </div>
           <button type="button" className="button org-edit" onClick={toggleEditing} aria-pressed={editing}>
             <PencilIcon />
             {editing ? "Done" : "Edit"}
           </button>
         </div>
 
-        {newFolder !== null && (
-          <form className="org-bar" onSubmit={submitNewFolder}>
-            <input className="field" value={newFolder} maxLength={80} autoFocus placeholder="Folder name" onChange={(event) => setNewFolder(event.target.value)} aria-label="New folder name" />
-            <button className="button button-small" type="submit" disabled={!newFolder.trim() || pending}>
-              Create folder
-            </button>
-            <button className="button button-quiet button-small" type="button" onClick={() => setNewFolder(null)}>
-              Cancel
-            </button>
-          </form>
-        )}
 
         {editing && (
           <div className="org-selection" role="region" aria-label="Actions for the ticked placements">
             <strong>{chosen.length} selected</strong>
-            <button className="button button-small" type="button" disabled={pending || chosen.length === 0} onClick={() => run(setPlacementsEnabled({ gameId, ids: chosen, enabled: true }))}>
+            <button className="button button-small" type="button" disabled={pending || chosen.length === 0} onClick={() => switchPlacements(chosen, true)}>
               Switch on
             </button>
-            <button className="button button-quiet button-small" type="button" disabled={pending || chosen.length === 0} onClick={() => run(setPlacementsEnabled({ gameId, ids: chosen, enabled: false }))}>
+            <button className="button button-quiet button-small" type="button" disabled={pending || chosen.length === 0} onClick={() => switchPlacements(chosen, false)}>
               Switch off
             </button>
             <select

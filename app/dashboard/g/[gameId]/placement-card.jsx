@@ -1,11 +1,10 @@
 "use client";
 
 import { createContext, useContext, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } from "../../../../lib/placement-view";
 import { addressOf, locateUrl } from "../../../../lib/unity-link";
-import { changeTags, movePlacements, renamePlacement, setPlaceType, setPlacementsEnabled } from "../../placement-actions";
+import { changeTags, movePlacements, renamePlacement, setPlaceType } from "../../placement-actions";
 
 // What the Placements tab adds to a placement's own card (the picture editor): a tick box while editing,
 // the on/off switch, chips, and the Details, Where it stands and Tags sections. The organizer provides the
@@ -24,8 +23,7 @@ export function useOrg(placementId) {
 const CUSTOM = "__custom";
 
 function useAction() {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
   function run(promise) {
     setMessage(null);
@@ -34,11 +32,10 @@ function useAction() {
       if (result?.error) setMessage({ kind: "error", text: result.error });
       else {
         if (result?.warning) setMessage({ kind: "note", text: result.warning });
-        router.refresh();
       }
     });
   }
-  return { message, setMessage, run };
+  return { message, setMessage, run, pending };
 }
 
 /** Over the picture: the tick box while editing, and a badge when the placement is switched off. */
@@ -62,9 +59,8 @@ export function CardOverlay({ placementId }) {
 /** Next to the name: how the placement stands, and its switch. */
 export function CardStatus({ placementId }) {
   const org = useOrg(placementId);
-  const { run } = useAction();
   if (!org) return null;
-  const { item, state, gameId } = org;
+  const { item, state } = org;
   const on = item.enabled !== false;
   return (
     <span className="org-status">
@@ -76,7 +72,7 @@ export function CardStatus({ placementId }) {
         aria-checked={on}
         aria-label={`${on ? "Switch off" : "Switch on"} ${item.label}`}
         title="Show ads on this placement"
-        onClick={() => run(setPlacementsEnabled({ gameId, ids: [item.id], enabled: !on }))}
+        onClick={() => org.switchPlacements([item.id], !on)}
       >
         <span className="own-knob" />
       </button>
@@ -153,8 +149,10 @@ function Section({ title, count, open, onToggle, children }) {
 
 function Details({ org }) {
   const { item, gameId, ctx } = org;
-  const { message, setMessage, run } = useAction();
+  const { message, setMessage, run, pending } = useAction();
   const [name, setName] = useState(item.label);
+  const [folderId, setFolderId] = useState(item.folderId ?? "");
+  const folderChanged = folderId !== (item.folderId ?? "");
   const known = (id) => PLACE_TYPES.some((entry) => entry.id === id);
   const [customOpen, setCustomOpen] = useState(false);
   const [customType, setCustomType] = useState(item.placeType && !known(item.placeType) ? item.placeType : "");
@@ -190,20 +188,22 @@ function Details({ org }) {
         </div>
 
         <span className="org-key">Folder</span>
-        <select
-          className="field"
-          value={item.folderId ?? ""}
-          aria-label="Folder"
-          onChange={(event) => run(movePlacements({ gameId, ids: [item.id], folderId: event.target.value || null }))}
-        >
-          <option value="">No folder</option>
-          {ctx.folders.map((folder) => (
-            <option key={folder.id} value={folder.id}>
-              {folder.name}
-              {folder.enabled === false ? " (off)" : ""}
-            </option>
-          ))}
-        </select>
+        <div className="org-val">
+          <select className="field" value={folderId} aria-label="Folder" onChange={(event) => setFolderId(event.target.value)}>
+            <option value="">No folder</option>
+            {ctx.folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.name}
+                {folder.enabled === false ? " (off)" : ""}
+              </option>
+            ))}
+          </select>
+          {folderChanged && (
+            <button className="button button-quiet button-small" type="button" disabled={pending} onClick={() => run(movePlacements({ gameId, ids: [item.id], folderId: folderId || null }))}>
+              {pending ? "Saving…" : "Save"}
+            </button>
+          )}
+        </div>
 
         <span className="org-key">Place type</span>
         <div className="org-val org-val-stack">

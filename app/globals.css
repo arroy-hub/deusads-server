@@ -272,7 +272,7 @@ p {
 }
 
 .surface-window.can-adjust {
-  cursor: pointer;
+  cursor: default;
 }
 
 .surface.is-adjusting .surface-window {
