@@ -2852,3 +2852,8 @@ th.num .sort-button {
 .own-panel.is-first { border-top-left-radius: 0; }
 .own-panel.is-last { border-top-right-radius: 0; }
 .surface-body .open-toggle { border-top: 1px solid var(--line, #e3dad5); margin-top: 4px; padding-top: 14px; }
+.own-uploading {
+  position: absolute; inset: 3px 5px 3px 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.6);
+  display: flex; align-items: center; justify-content: center; color: var(--signal, #d94625);
+}
+.own-uploading .spinner { width: 16px; height: 16px; border-width: 2px; }

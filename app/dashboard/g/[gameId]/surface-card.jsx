@@ -32,8 +32,11 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   const [flags, setFlags] = useState({}); // assignmentId -> enabled, until the page brings the same value
   // A picture just added shows from the local file at once; the page's own copy replaces it when it arrives.
   const [pending, setPending] = useState([]);
+  const [gone, setGone] = useState([]); // assignment ids deleted on screen, until the page drops them too
+  const pendingRef = useRef([]);
+  pendingRef.current = pending;
   const items = [
-    ...serverItems.map((item) => (item.assignmentId in flags ? { ...item, enabled: flags[item.assignmentId] } : item)),
+    ...serverItems.filter((item) => !gone.includes(item.assignmentId)).map((item) => (item.assignmentId in flags ? { ...item, enabled: flags[item.assignmentId] } : item)),
     ...pending.filter((item) => !serverItems.some((own) => own.assignmentId === item.assignmentId)),
   ];
   const fileRef = useRef(null);
@@ -72,12 +75,17 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   useEffect(() => {
     setSavedCrops(cropsOf(serverItems));
     setFlags({});
+    setGone((all) => all.filter((id) => serverItems.some((own) => own.assignmentId === id)));
     setPending((all) => {
       const arrived = all.filter((item) => serverItems.some((own) => own.assignmentId === item.assignmentId));
       arrived.forEach((item) => URL.revokeObjectURL(item.url));
       return all.filter((item) => !arrived.includes(item));
     });
-    setSelectedId((current) => (serverItems.some((item) => item.assignmentId === current) ? current : serverItems[0]?.assignmentId ?? ""));
+    setSelectedId((current) =>
+      serverItems.some((item) => item.assignmentId === current) || pendingRef.current.some((item) => item.assignmentId === current)
+        ? current
+        : serverItems[0]?.assignmentId ?? ""
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming]);
 
@@ -238,15 +246,22 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   async function remove() {
     if (!creative || working) return;
     if (!confirmDelete) return setConfirmDelete(true);
-    setBusy("deleting");
+    const id = activeId;
+    const at = items.findIndex((item) => item.assignmentId === id);
+    const neighbour = items[at + 1] ?? items[at - 1] ?? null;
     setNote(null);
     setAdjusting(false);
-    const result = await deleteOwnCreative({ assignmentId: activeId }).catch(() => ({ error: "Connection lost. Try again." }));
-    setBusy("");
     setConfirmDelete(false);
-    if (result?.error) return setNote({ tone: "error", text: result.error });
-    setDrafts(({ [activeId]: _gone, ...rest }) => rest);
-    router.refresh();
+    // Gone from the card at once; the server catches up in the background (and the picture comes back on a failure).
+    setGone((all) => [...all, id]);
+    setSelectedId(neighbour?.assignmentId ?? "");
+    setDrafts(({ [id]: _gone, ...rest }) => rest);
+    const result = await deleteOwnCreative({ assignmentId: id }).catch(() => ({ error: "Connection lost. Try again." }));
+    if (result?.error) {
+      setGone((all) => all.filter((goneId) => goneId !== id));
+      setSelectedId(id);
+      setNote({ tone: "error", text: result.error });
+    }
   }
 
   async function addPicture(event) {
@@ -276,6 +291,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
           height_px: size.height,
           enabled: true,
           crop: DEFAULT_CROP,
+          uploading: true,
         },
       ]);
       setSelectedId(tempId);
@@ -299,7 +315,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
       });
       if (result?.error) throw new Error(result.error);
       // Same picture, now with its real id. The save has already refreshed the page data.
-      setPending((all) => all.map((item) => (item.assignmentId === tempId ? { ...item, assignmentId: result.assignmentId, id: result.creativeId ?? item.id } : item)));
+      setPending((all) => all.map((item) => (item.assignmentId === tempId ? { ...item, assignmentId: result.assignmentId, id: result.creativeId ?? item.id, uploading: false } : item)));
       setSelectedId(result.assignmentId);
     } catch (error) {
       setPending((all) => all.filter((item) => item.assignmentId !== tempId));
@@ -438,6 +454,11 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={item.url} alt="" draggable={false} />
+              {item.uploading && (
+                <span className="own-uploading" aria-hidden="true">
+                  <span className="spinner" />
+                </span>
+              )}
               <span className="own-dot" aria-hidden="true">
                 {item.enabled ? <TickIcon /> : <DashIcon />}
               </span>
@@ -454,7 +475,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                 aria-label="Add a picture of your own"
                 title={items.length === 0 ? "Add a picture of your own" : `Add a picture (${items.length} of ${MAX_OWN_CREATIVES})`}
               >
-                {busy === "adding" ? <span className="spinner" aria-hidden="true" /> : "+"}
+                +
               </button>
             </>
           )}
