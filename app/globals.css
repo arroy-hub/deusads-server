@@ -10,8 +10,9 @@
   --paper: #ffffff;
   --surface: #f0f1f4;
   --line: #dbdee4;
-  --signal: #d4006e;
-  --signal-soft: #ffe8f3;
+  --signal: #d94625;
+  --signal-ink: #b8381a; /* the same terracotta, darker, for small text on white */
+  --signal-soft: #fbe5de;
   --warn: #8a5a00;
 
   --step-0: 0.875rem;
@@ -106,7 +107,7 @@ p {
 }
 
 .rail-mark span {
-  color: var(--signal);
+  color: var(--signal-ink);
 }
 
 .rail-group {
@@ -684,7 +685,7 @@ tr:last-child td {
 
 /* ------------------------------------------------------------ save states
    A placement answers the click in its own frame: a dashed outline while the
-   choice is only a preview, a veil while it is written, a pink ring and a
+   choice is only a preview, a veil while it is written, a terracotta ring and a
    "Saved" tag once it is live. */
 
 .surface-frame {
@@ -702,13 +703,13 @@ tr:last-child td {
 }
 
 .surface-frame.is-saved {
-  outline-color: var(--signal);
+  outline-color: var(--signal-ink);
   animation: surface-ring 0.6s ease-out;
 }
 
 @keyframes surface-ring {
   0% { outline-offset: 8px; outline-color: transparent; }
-  100% { outline-offset: 2px; outline-color: var(--signal); }
+  100% { outline-offset: 2px; outline-color: var(--signal-ink); }
 }
 
 .surface-frame img {
@@ -886,7 +887,7 @@ tr:last-child td {
 }
 
 .upload-done svg {
-  color: var(--signal);
+  color: var(--signal-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1222,7 +1223,7 @@ td.num {
 }
 .subnav a[aria-current="page"] {
   color: var(--ink);
-  border-bottom-color: var(--signal);
+  border-bottom-color: var(--signal-ink);
 }
 
 /* ------------------------------------------------- role menu and Home */
@@ -1294,7 +1295,7 @@ td.num {
 }
 
 .step-next .step-state {
-  color: var(--signal);
+  color: var(--signal-ink);
 }
 
 .step-hint {
@@ -1347,7 +1348,7 @@ td.num {
 
 .tab[aria-current="page"] {
   color: var(--ink);
-  border-bottom-color: var(--signal);
+  border-bottom-color: var(--signal-ink);
 }
 
 .open-toggle {
@@ -1392,7 +1393,7 @@ td.num {
 
 /* ===================================================== visual layer
    Matches the approved dashboard mockups: Instrument Sans, white menu with a
-   dark current item, 14px cards, 44px controls, pink main action. */
+   dark current item, 14px cards, 44px controls, terracotta main action. */
 
 :root {
   --radius: 10px;
@@ -1560,7 +1561,7 @@ h2 {
 
 .main-head .button:not(.button-quiet) {
   background: var(--signal);
-  border-color: var(--signal);
+  border-color: var(--signal-ink);
   color: #fff;
   padding: 0 20px;
 }
@@ -1684,7 +1685,7 @@ td {
   width: 20px;
   height: 20px;
   margin: 0;
-  accent-color: var(--signal);
+  accent-color: var(--signal-ink);
 }
 
 /* Safe-zone editor on a creative's Formats page */
@@ -2240,7 +2241,7 @@ body:has(dialog.modal[open]) {
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--signal);
+  accent-color: var(--signal-ink);
   cursor: pointer;
 }
 
@@ -2270,7 +2271,7 @@ body:has(dialog.modal[open]) {
   display: inline-block;
   min-width: 0.75em;
   font-size: 0.625rem;
-  color: var(--signal);
+  color: var(--signal-ink);
 }
 
 th.num .sort-button {
@@ -2592,8 +2593,8 @@ th.num .sort-button {
 }
 
 .pick-row-add:hover:not(:disabled) {
-  border-color: var(--signal);
-  color: var(--signal);
+  border-color: var(--signal-ink);
+  color: var(--signal-ink);
 }
 
 .pick-row-add:focus-visible,
