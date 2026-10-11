@@ -397,9 +397,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
             </span>
           )}
           {creative && !creative.enabled && !adjusting && (
-            <div className="own-off-veil">
-              <span>Not shown</span>
-            </div>
+            <div className="own-off-veil" aria-hidden="true" />
           )}
 
           <div className="surface-badge-slot" role="status" aria-live="polite">

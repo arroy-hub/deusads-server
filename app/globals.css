@@ -3752,3 +3752,8 @@ th.num .sort-button {
 .own-range {
   accent-color: #a12626;
 }
+
+/* a picture that is out of the rotation: a light grey film, the picture stays easy to see */
+.own-off-veil {
+  background: rgba(150, 150, 156, 0.35);
+}
