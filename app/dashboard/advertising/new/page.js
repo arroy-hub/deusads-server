@@ -103,9 +103,9 @@ export default async function NewBookingPage() {
         </Link>
       </div>
       <p className="lede">
-        Pick a creative and the placements you want. Only placements their developers have opened to
-        advertisers are listed. Bookings start automatically; several advertisers can share a placement and
-        take turns, and a developer can switch an ad off.
+        The catalog of placements developers have opened to advertisers. Pick a creative and a campaign, tick the
+        placements you want and book. A booking starts at once, or on the date you set; several advertisers can
+        share a placement and take turns, and a developer can switch an ad off.
       </p>
       {bookingsMissing(campaignResult.error) && (
         <p className="notice">

@@ -47,8 +47,8 @@ export default async function ReportsPage({ searchParams }) {
         </div>
       </div>
       <p className="lede">
-        How often your creatives were shown, and for how long they stayed in view. A view counts when a
-        player had the placement on screen.
+        How often your creatives were shown in games, and for how long they stayed in view, by day and by
+        placement. A view counts when a player had the placement on screen. You can download the numbers as CSV.
       </p>
 
       {(bookingsMissing(error) || missing) && (

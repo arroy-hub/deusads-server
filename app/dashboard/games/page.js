@@ -25,7 +25,6 @@ export default async function GamesPage() {
   };
 
   let games;
-  let iconsKnown = false;
   for (const [skipRemoved, withProfile, withIcon] of [
     [true, true, true],
     [true, true, false],
@@ -34,7 +33,6 @@ export default async function GamesPage() {
   ]) {
     let error;
     ({ data: games, error } = await listGames(skipRemoved, withProfile, withIcon));
-    iconsKnown = withIcon;
     if (!(error && ["42703", "PGRST204", "PGRST100"].includes(error.code))) break;
   }
 
@@ -45,8 +43,9 @@ export default async function GamesPage() {
         <AddGameDialog />
       </div>
       <p className="lede">
-        Each game gets its own key. Paste it into the DeusADS settings in Unity and the
-        SDK will report its placements here.
+        All your games. Open one to manage its placements, see how its ads perform and edit its settings. Each game
+        has its own API key: show it here and paste it into the DeusADS settings in Unity so the SDK can report the
+        game&apos;s placements.
       </p>
 
       {games?.length ? (
@@ -56,10 +55,8 @@ export default async function GamesPage() {
             return (
               <li key={game.id} className="game-item">
                 <GameIcon
-                  gameId={game.id}
                   name={game.name}
                   url={game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : ""}
-                  editable={iconsKnown}
                 />
                 <div className="game-main">
                   <Link href={`/dashboard/g/${game.id}`} className="game-name">

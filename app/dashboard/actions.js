@@ -47,12 +47,18 @@ export async function createGame(formData) {
 }
 
 /**
- * Saves what the game is: genres, platforms and languages, at least one of each. Ads that ask for
- * a genre, platform or language only show in games that have said what they are. Owner only,
- * enforced by row-level security. Changes reach players the next time they start the game.
+ * Saves the game's settings tab in one go: its name and, when the database knows them (migration
+ * 0018), what the game is: genres, platforms and languages, at least one of each. Ads that ask for a
+ * genre, platform or language only show in games that have said what they are. Owner only, enforced
+ * by row-level security. Changes reach players the next time they start the game. Without `genres`
+ * (an older database) only the name is saved.
  */
-export async function saveGameProfile({ gameId, genres, platforms, languages }) {
-  const described = validateProfile({ genres, platforms, languages });
+export async function saveGame({ gameId, name, genres, platforms, languages }) {
+  const clean = String(name ?? "").trim().slice(0, MAX_NAME);
+  if (!clean) return { error: "Give the game a name." };
+
+  const withProfile = genres !== undefined;
+  const described = withProfile ? validateProfile({ genres, platforms, languages }) : { value: {} };
   if (described.error) return { error: described.error };
 
   const { db, user } = await session();
@@ -60,7 +66,7 @@ export async function saveGameProfile({ gameId, genres, platforms, languages }) 
 
   const { data, error } = await db
     .from("games")
-    .update(described.value)
+    .update({ name: clean, ...described.value })
     .eq("id", String(gameId ?? ""))
     .select("id")
     .maybeSingle();
@@ -68,7 +74,7 @@ export async function saveGameProfile({ gameId, genres, platforms, languages }) 
   if (error || !data) return { error: "Could not save. Try again." };
 
   revalidatePath("/dashboard", "layout");
-  return { ok: true, value: described.value };
+  return { ok: true, name: clean, value: withProfile ? described.value : null };
 }
 
 /**
@@ -226,25 +232,6 @@ export async function assignCreative({ placementId, creativeId, crop }) {
 // ---------------------------------------------------------------- games
 
 const MAX_NAME = 120;
-
-export async function renameGame({ gameId, name }) {
-  const clean = String(name ?? "").trim().slice(0, MAX_NAME);
-  if (!clean) return { error: "Give the game a name." };
-
-  const { db, user } = await session();
-  if (!user) return { error: "Your session expired. Sign in again." };
-
-  const { data, error } = await db
-    .from("games")
-    .update({ name: clean })
-    .eq("id", String(gameId ?? ""))
-    .select("id")
-    .maybeSingle();
-  if (error || !data) return { error: "Could not rename the game." };
-
-  revalidatePath("/dashboard", "layout");
-  return { ok: true, name: clean };
-}
 
 /**
  * Issues a new key and retires the old one at once: games already shipped with

@@ -49,8 +49,9 @@ export default async function CreativesPage() {
         <h1>Creatives</h1>
       </div>
       <p className="lede">
-        Images you can put on any placement. PNG or JPG, under 8 MB. Replacing what a
-        placement shows never needs a new build of the game.
+        {advertiser
+          ? "Your image library for advertising. Upload a PNG or JPG under 8 MB; once DeusADS approves it, book it on placements under Find placements. Open a creative to set how it is cropped and which games may show it."
+          : "Your image library. Upload a PNG or JPG under 8 MB, then pick it as your own creative on any of your placements. Changing what a placement shows never needs a new build of the game."}
       </p>
 
       <UploadForm />

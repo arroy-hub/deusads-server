@@ -6,7 +6,7 @@ import Audience from "./audience";
 import Workbench from "./workbench";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Formats" };
+export const metadata = { title: "Creative" };
 
 export default async function CreativeFormatsPage({ params }) {
   const { id } = await params;
@@ -82,8 +82,8 @@ export default async function CreativeFormatsPage({ params }) {
         </Link>
       </div>
       <p className="lede">
-        Make sure this creative looks right on every shape of placement: mark what must stay visible and add
-        pictures made for specific formats.
+        Settings of this one creative: how it looks on placements of every shape (mark what must stay visible, add
+        pictures made for specific formats){audience ? ", and which games may show it" : ""}.
       </p>
       {!migrated && (
         <p className="notice">

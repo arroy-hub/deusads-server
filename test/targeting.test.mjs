@@ -31,6 +31,8 @@ for (const [name, options] of [["genres", GENRES], ["platforms", PLATFORMS], ["l
 }
 assert.equal(GENRES.length, 13);
 assert.equal(PLATFORMS.length, 7);
+assert.deepEqual(LANGUAGES.map((l) => l.label), [...LANGUAGES.map((l) => l.label)].sort((a, b) => a.localeCompare(b, "en")), "languages are alphabetical");
+assert.equal(LANGUAGES[0].label, "Albanian");
 assert.ok(LANGUAGES.some((language) => language.id === "ru") && LANGUAGES.some((language) => language.id === "en"));
 
 // --- cleaning

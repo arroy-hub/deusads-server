@@ -7,8 +7,8 @@ import { fillDays, formatCount, parsePlacementFilter, placementRows } from "../.
 import { gapWords, profileGaps } from "../../../../lib/targeting";
 import ApiKey from "./api-key";
 import DailyChart from "./daily-chart";
-import GameProfile from "./game-profile";
-import GameSettings from "./game-settings";
+import GameIcon from "../../game-icon";
+import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
 import PlacementStats from "./placement-stats";
@@ -37,13 +37,16 @@ export default async function GamePage({ params, searchParams }) {
   const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
   const db = await userClient();
 
-  // What the game is (genres, platforms, languages) comes with migration 0018.
+  // What the game is (genres, platforms, languages) comes with migration 0018, its icon with 0019.
   const readGame = (columns) => db.from("games").select(columns).eq("id", gameId).maybeSingle();
-  let { data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages");
+  let { data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages, icon_path");
+  const iconsReady = !isSchemaOutdated(gameError);
+  if (!iconsReady) ({ data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages"));
   if (isSchemaOutdated(gameError)) ({ data: game } = await readGame("id, name, api_key"));
 
   if (!game) notFound();
   const gaps = profileGaps(game);
+  const iconUrl = game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : "";
 
   const [placementResult, { data: creatives }, stats] =
     await Promise.all([
@@ -112,7 +115,10 @@ export default async function GamePage({ params, searchParams }) {
   return (
     <>
       <div className="main-head">
-        <h1>{game.name}</h1>
+        <div className="game-title">
+          <GameIcon name={game.name} url={iconUrl} size="sm" />
+          <h1>{game.name}</h1>
+        </div>
         <ApiKey value={game.api_key} />
       </div>
       {gaps.known && gaps.missing.length > 0 && (
@@ -124,11 +130,24 @@ export default async function GamePage({ params, searchParams }) {
       )}
       {tab === "placements" && (
         <p className="lede">
-          Placements the SDK found in your game. Pick a creative for each one; changes reach players the
-          next time they start the game, no new build.
+          The ad spaces the SDK found in your game. For each one, pick your own creative: it shows whenever no
+          advertiser is booked. Switch a placement on to open it to advertisers and list it in their catalog.
           {openOf
-            ? ` ${openCount} of ${rows.length} are open to advertisers: switch one on to list it in the advertiser catalog.`
-            : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."}
+            ? ` ${openCount} of ${rows.length} are open.`
+            : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."}{" "}
+          Changes reach players the next time they start the game, no new build needed.
+        </p>
+      )}
+      {tab === "performance" && (
+        <p className="lede">
+          How often ads were shown in this game, by day and by placement. A view counts when a player had the
+          placement on screen. Tick placements in the table to count only them in the chart.
+        </p>
+      )}
+      {tab === "settings" && (
+        <p className="lede">
+          The game&apos;s icon, name and API key, and what it is for advertisers. Everything here is saved with the
+          one Save button at the bottom; a new API key and deleting the game are separate actions that ask first.
         </p>
       )}
 
@@ -227,19 +246,15 @@ export default async function GamePage({ params, searchParams }) {
         </div>
       ))}
 
-      {tab === "settings" && gaps.known && (
-        <GameProfile
+      {tab === "settings" && (
+        <SettingsTab
           gameId={game.id}
-          initial={{ genres: game.genres, platforms: game.platforms, languages: game.languages }}
+          name={game.name}
+          iconUrl={iconUrl}
+          iconsReady={iconsReady}
+          profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
         />
       )}
-      {tab === "settings" && !gaps.known && (
-        <p className="notice">
-          Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to describe your
-          game for advertisers.
-        </p>
-      )}
-      {tab === "settings" && <GameSettings gameId={game.id} name={game.name} />}
     </>
   );
 }

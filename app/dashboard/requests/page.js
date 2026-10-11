@@ -63,9 +63,9 @@ export default async function NowShowingPage({ searchParams }) {
         <h1>Now showing</h1>
       </div>
       <p className="lede">
-        Advertisers book your open placements and go live right away; several can share one placement and take
-        turns, and your own creative shows when none is booked. You decide what stays: stop one ad, or block an
-        advertiser or a whole category.
+        Which ads are on your placements, and the control over them. Advertisers book the placements you opened and go
+        live at once; several can share one placement and take turns, and your own creative shows when none is
+        booked. Stop an ad here, or block an advertiser or a whole category.
       </p>
 
       {bookingsMissing(error) && (

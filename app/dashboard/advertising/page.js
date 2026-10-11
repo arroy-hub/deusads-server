@@ -40,8 +40,9 @@ export default async function AdvertisingPage() {
         </div>
       </div>
       <p className="lede">
-        Choose where your creative should appear. Each placement is approved by DeusADS and by the
-        developer of the game; once both agree, the creative goes live without a new build of the game.
+        Your campaigns and the placements each one is booked on, with their status. Bookings go live by themselves
+        (from the start date, once the creative is approved); a developer can stop an ad in their game. Add more
+        placements under Find placements.
       </p>
 
       {bookingsMissing(error) && (

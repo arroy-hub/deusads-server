@@ -53,7 +53,10 @@ async function DeveloperHome({ me }) {
           {rows.length ? "My games" : "Add a game"}
         </Link>
       </div>
-      <p className="lede">Your path from a new game to ads running in it.</p>
+      <p className="lede">
+        Your starting point: the next step to get ads running in your games, what needs your attention, and a
+        summary of each game.
+      </p>
 
       <section className="panel" aria-labelledby="steps-title">
         <h2 id="steps-title">Get a game earning</h2>
@@ -165,7 +168,10 @@ async function AdvertiserHome({ me }) {
           Find placements
         </Link>
       </div>
-      <p className="lede">From a creative to an ad running in a game.</p>
+      <p className="lede">
+        Your starting point: where your creatives and bookings stand, from upload to running in a game, and what to
+        do next.
+      </p>
 
       <section className="panel" aria-labelledby="pipeline-title">
         <h2 id="pipeline-title">Where your ads are</h2>

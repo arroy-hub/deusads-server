@@ -22,8 +22,8 @@ export default async function UsersPage() {
         <h1>Users</h1>
       </div>
       <p className="lede">
-        Users choose developer or advertiser when they sign up. Admin is given here. You cannot change
-        your own role. Suspending an account signs it out of the dashboard and stops its ads.
+        Every account on the platform. People choose developer or advertiser when they sign up; here you can give
+        the admin role (not to yourself) or suspend an account, which signs it out of the dashboard and stops its ads.
       </p>
 
       <div className="panel" style={{ padding: 0 }}>
