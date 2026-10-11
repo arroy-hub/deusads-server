@@ -494,13 +494,13 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                 <span className="own-bar-gap" />
                 <button
                   type="button"
-                  className="own-small-button"
+                  className="own-small-button own-icon-only"
                   onClick={() => setAdjusting(true)}
                   disabled={!canAdjust}
+                  aria-label="Framing"
                   title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
                 >
                   <CropIcon />
-                  Framing
                 </button>
                 <button
                   type="button"

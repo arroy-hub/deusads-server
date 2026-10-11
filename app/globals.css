@@ -3644,20 +3644,9 @@ th.num .sort-button {
   text-overflow: ellipsis;
 }
 
-/* pictures: only the one being edited is a tab, joined to the panel under it; the others are bare thumbnails */
-.own-strip { align-items: end; }
-.own-thumb {
-  height: 36px; border-color: transparent; border-bottom-color: transparent; background: transparent;
-  margin-bottom: 4px;
-}
-.own-thumb.is-current {
-  height: 42px; margin-bottom: -1px; background: var(--paper); border-color: var(--line); border-bottom-color: var(--paper);
-}
+/* pictures: tabs as before, the chosen one in the panel's colour; the panel itself is compact */
 .own-thumb img { max-height: 28px; }
-.own-thumb.is-on .own-dot { background: var(--ink-2); }
-.own-thumb.is-off .own-dot { background: #9a8f8a; }
-.own-add { height: 32px; margin: 0 0 5px; border-color: #c3c8d3; background: transparent; color: var(--ink-2); }
-.own-panel { background: var(--paper); border-color: var(--line); padding: 8px 10px; gap: 8px; }
+.own-panel { padding: 8px 10px; gap: 8px; }
 
 .own-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; }
 .own-bar-gap { flex: 1; }
@@ -3671,7 +3660,7 @@ th.num .sort-button {
   border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); color: var(--ink-2);
   font: inherit; font-size: 0.78rem; font-weight: 500; cursor: pointer;
 }
-.own-small-button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+.own-small-button:hover:not(:disabled) { background: #fff; color: var(--ink); }
 .own-small-button:disabled { opacity: 0.5; cursor: default; }
 .own-small-button.is-solid { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
 .own-trash {
@@ -3686,3 +3675,4 @@ th.num .sort-button {
 }
 .own-zoom-button:disabled { opacity: 0.45; cursor: default; }
 .own-range { flex: 1; min-width: 4rem; accent-color: var(--ink); }
+.own-icon-only { width: 30px; padding: 0; justify-content: center; }
