@@ -118,18 +118,22 @@ alter table public.placement_folders  enable row level security;
 alter table public.placement_places   enable row level security;
 alter table public.placement_scene_off enable row level security;
 
-drop policy if exists placement_folders_owner on public.placement_folders;
-create policy placement_folders_owner on public.placement_folders
-    for all using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
-
--- places are written by the SDK through the service role; the dashboard only reads them
-drop policy if exists placement_places_owner_read on public.placement_places;
-create policy placement_places_owner_read on public.placement_places
-    for select using (owner_id = (select auth.uid()));
-
-drop policy if exists placement_scene_off_owner on public.placement_scene_off;
-create policy placement_scene_off_owner on public.placement_scene_off
-    for all using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
+do $$
+begin
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'placement_folders' and policyname = 'placement_folders_owner') then
+        create policy placement_folders_owner on public.placement_folders
+            for all using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
+    end if;
+    -- places are written by the SDK through the service role; the dashboard only reads them
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'placement_places' and policyname = 'placement_places_owner_read') then
+        create policy placement_places_owner_read on public.placement_places
+            for select using (owner_id = (select auth.uid()));
+    end if;
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'placement_scene_off' and policyname = 'placement_scene_off_owner') then
+        create policy placement_scene_off_owner on public.placement_scene_off
+            for all using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
+    end if;
+end $$;
 
 revoke all on public.placement_folders, public.placement_places, public.placement_scene_off from anon;
 revoke insert, update, delete, truncate on public.placement_places from authenticated;
