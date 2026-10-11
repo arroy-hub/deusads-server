@@ -646,7 +646,7 @@ tr:last-child td {
 }
 
 .error {
-  color: #a30040;
+  color: #a12626;
   font-size: var(--step-0);
 }
 
@@ -1082,14 +1082,14 @@ td.num {
 /* ---------------------------------------------------------------- management */
 
 .button-danger {
-  background: #a30040;
-  border-color: #a30040;
+  background: #a12626;
+  border-color: #a12626;
   color: var(--paper);
 }
 
 .button-danger:hover:not(:disabled) {
-  background: #7d0031;
-  border-color: #7d0031;
+  background: #7f1c1c;
+  border-color: #7f1c1c;
 }
 
 .settings {
@@ -1567,8 +1567,8 @@ h2 {
 }
 
 .main-head .button:not(.button-quiet):hover {
-  background: #b0005b;
-  border-color: #b0005b;
+  background: #c23e1e;
+  border-color: #c23e1e;
 }
 
 .button-quiet {
@@ -2734,4 +2734,36 @@ th.num .sort-button {
     grid-row: 2;
     padding: 0 0 6px;
   }
+}
+
+/* ---------------------------------------------------------------- terracotta main actions and game icons */
+
+.button:not(.button-quiet):not(.button-danger) {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #fff;
+  font-weight: 700;
+}
+
+.button:not(.button-quiet):not(.button-danger):hover:not(:disabled) {
+  background: #c23e1e;
+  border-color: #c23e1e;
+}
+
+.game-icon.is-empty,
+.rail-game-icon.is-empty {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #fff;
+}
+
+.rail-child[aria-current="page"] .rail-game-icon.is-empty {
+  background: var(--signal);
+  border-color: #fff;
+}
+
+.button:not(.button-quiet):not(.button-danger):disabled {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+  opacity: 0.55;
 }
