@@ -112,6 +112,15 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     return items.length <= FEW || index === 0;
   };
 
+  // Collapse all / Expand all: every folder-like group (not the loose cards) opens or closes together.
+  const framed = groups.filter((group) => !loose(group));
+  const allOpen = framed.length > 0 && framed.every((group) => isOpen(group, groups.indexOf(group)));
+  const setAllOpen = (open) => setGroupOpen((current) => {
+    const next = new Map(current);
+    for (const group of framed) next.set(keyOf(group), open);
+    return next;
+  });
+
   // Saved views live in this browser: a convenience, not shared with other devices.
   useEffect(() => {
     try {
@@ -394,18 +403,24 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               : `${groups.length} group${groups.length === 1 ? "" : "s"}`}
             {visible.length !== items.length ? ` · ${visible.length} of ${items.length} match` : ""}
           </span>
+          {framed.length > 0 && (
+            <button type="button" className="org-iconbtn" title={allOpen ? "Collapse all" : "Expand all"} aria-label={allOpen ? "Collapse all" : "Expand all"} onClick={() => setAllOpen(!allOpen)}>
+              <CollapseIcon open={allOpen} />
+            </button>
+          )}
           {/* like the API key button in Settings: the button keeps its place, the field floats over what is below */}
           <div className="key-corner org-newfolder">
             <button
               type="button"
-              className="button button-quiet key-corner-button"
+              className="org-iconbtn key-corner-button"
+              title="New folder"
+              aria-label="New folder"
               onClick={() => setNewFolder("")}
               aria-expanded={newFolder !== null}
               tabIndex={newFolder !== null ? -1 : 0}
               style={newFolder !== null ? { visibility: "hidden" } : undefined}
             >
-              <FolderPlusIcon />
-              New folder
+              <FolderPlusIcon big />
             </button>
             {newFolder !== null && (
               <form
@@ -436,7 +451,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               </form>
             )}
           </div>
-          <button type="button" className="button org-edit" onClick={toggleEditing} aria-pressed={editing}>
+          <button type="button" className="org-iconbtn org-edit" onClick={toggleEditing} aria-pressed={editing}>
             <PencilIcon />
             {editing ? "Done" : "Edit"}
           </button>
@@ -749,9 +764,17 @@ function FolderIcon({ open, off }) {
   );
 }
 
-function FolderPlusIcon() {
+function CollapseIcon({ open }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={open ? "M8 4l4 4 4-4M8 20l4-4 4 4M4 12h16" : "M8 8l4-4 4 4M8 16l4 4 4-4M4 12h16"} />
+    </svg>
+  );
+}
+
+function FolderPlusIcon({ big }) {
+  return (
+    <svg width={big ? 20 : 16} height={big ? 20 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={big ? 2.3 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <path d="M12 11v5M9.5 13.5h5" />
     </svg>

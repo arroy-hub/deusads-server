@@ -5871,3 +5871,39 @@ th.num .sort-button {
 .cp-dlg .fl { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
 .cp-dlg .foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .cp-dlg .cp-sel { width: 100%; }
+
+/* ---------------------------------------------------------------- Placements: folders as framed panels, icon buttons */
+.org-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.org-iconbtn:hover { background: var(--surface); }
+.org-iconbtn.org-edit { padding: 0 16px; background: var(--signal); border-color: var(--signal); color: #fff; }
+.org-iconbtn.org-edit:hover { background: #c9401f; }
+.org-group {
+  background: #f3ede8;
+  border: 1px solid #e0d3c9;
+  border-left: 4px solid var(--signal);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(20, 22, 27, 0.06), 0 6px 16px rgba(20, 22, 27, 0.07);
+}
+.org-group .org-group-head { background: #fff; border-radius: 0; min-height: 54px; padding: 14px 18px; }
+.org-group.is-open .org-group-head { border-bottom: 1px solid #e0d3c9; border-radius: 0; }
+.org-group .org-group-body { background: transparent; border-radius: 0; padding: 16px 16px 18px; }
+.org-group .org-folder-icon, .org-group .org-folder-icon.is-open { color: var(--signal); }
+.org-group.is-off { background: #f6f7f9; border-color: #e8eaee; border-left-color: #c5c9d1; box-shadow: none; }
+.org-group.is-off .org-group-head { background: #f6f7f9; }
