@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteGame, rotateApiKey, saveGame, setGameIcon } from "../../actions";
 import GameIcon from "../../game-icon";
 import Modal from "../../modal";
-import PickField from "../../pick-field";
+import MultiPick from "../../multi-pick";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
 import { FIELDS, PROFILE_KEYS } from "../../../../lib/targeting";
@@ -17,39 +17,51 @@ const FIELD_TEXT = {
 };
 
 const sameLists = (a, b) => PROFILE_KEYS.every((key) => [...a[key]].sort().join() === [...b[key]].sort().join());
+const NO_ICON = { blob: null, preview: "", removed: false };
 
 /**
- * Everything about one game that its owner can change, with a single Save for the settings:
- * the icon, the name and what the game is (genres, platforms, languages). Save can always be pressed;
- * when something is still empty it says what, next to the button. The two actions that cannot be taken back (a new API
- * key, deleting the game) are not part of Save; each asks first.
+ * Everything about one game that its owner can change. Laid out as cards: the icon and name on top, the game's
+ * description (genres, platforms, languages) beside the API key, and the two actions that cannot be taken back
+ * (a new key, deleting the game) kept apart from Save. Save is a bar that is on screen only while there is
+ * something to save (or just after it was saved); when something is still empty it says what.
  * `profile` is null when the database does not know these lists yet (migration 0018).
  */
 export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile }) {
   const router = useRouter();
   const fileRef = useRef(null);
+  const noteTimer = useRef(null);
 
   const [title, setTitle] = useState(name);
   const [lists, setLists] = useState(profile);
   const [saved, setSaved] = useState({ name, lists: profile });
-  const [icon, setIcon] = useState({ blob: null, preview: "", removed: false }); // a change waiting for Save
+  const [icon, setIcon] = useState(NO_ICON); // a change waiting for Save
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null); // { tone, text }
 
   useEffect(() => () => icon.preview && URL.revokeObjectURL(icon.preview), [icon.preview]);
+  useEffect(() => () => clearTimeout(noteTimer.current), []);
 
   const iconChanged = Boolean(icon.blob) || icon.removed;
   const nameChanged = title.trim() !== saved.name;
   const listsChanged = lists ? !sameLists(lists, saved.lists) : false;
-  const changed = nameChanged || listsChanged || iconChanged;
+  const dirty = nameChanged || listsChanged || iconChanged;
 
   const missing = [];
-  if (!title.trim()) missing.push("Name");
-  if (lists) for (const key of PROFILE_KEYS) if (lists[key].length === 0) missing.push(FIELDS[key].label);
+  if (!title.trim()) missing.push("name");
+  if (lists) for (const key of PROFILE_KEYS) if (lists[key].length === 0) missing.push(FIELDS[key].label.toLowerCase());
   const valid = missing.length === 0;
+  const filled = lists ? PROFILE_KEYS.filter((key) => lists[key].length > 0).length : 0;
 
   const shownIcon = icon.removed ? "" : icon.preview || iconUrl;
-  const touch = () => setNote(null);
+  const touch = () => {
+    clearTimeout(noteTimer.current);
+    setNote(null);
+  };
+  const flash = (text) => {
+    clearTimeout(noteTimer.current);
+    setNote({ tone: "done", text });
+    noteTimer.current = setTimeout(() => setNote(null), 6000);
+  };
 
   async function chooseIcon(event) {
     const file = event.target.files?.[0];
@@ -66,17 +78,21 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
     }
   }
 
-  async function save(event) {
-    event.preventDefault();
-    if (busy) return;
-    if (!valid) return setNote({ tone: "error", text: `Fill in the game description: ${missing.join(", ")}.` });
-    if (!changed) return setNote({ tone: "done", text: "Nothing to save: no changes." });
+  function discard() {
+    setTitle(saved.name);
+    setLists(saved.lists);
+    setIcon(NO_ICON);
+    touch();
+  }
+
+  async function save() {
+    if (busy || !dirty) return;
+    if (!valid) return setNote({ tone: "error", text: `Still to fill in: ${missing.join(", ")}.` });
     setBusy(true);
     setNote(null);
 
-    let result = { ok: true, name: saved.name, value: saved.lists };
     if (nameChanged || listsChanged) {
-      result = await saveGame({ gameId, name: title, ...(lists ?? {}) }).catch(() => ({ error: "Connection lost. Try again." }));
+      const result = await saveGame({ gameId, name: title, ...(lists ?? {}) }).catch(() => ({ error: "Connection lost. Try again." }));
       if (result?.error) {
         setBusy(false);
         return setNote({ tone: "error", text: result.error });
@@ -93,55 +109,54 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
         router.refresh();
         return setNote({ tone: "error", text: `Saved, but the icon was not: ${failed}` });
       }
-      setIcon({ blob: null, preview: "", removed: false });
+      setIcon(NO_ICON);
     }
 
     setBusy(false);
-    setNote({ tone: "done", text: "Saved. Players get the changes the next time they start the game." });
+    flash("Saved. Players get the changes the next time they start the game.");
     router.refresh();
   }
 
+  // What the bar says while there is something to save.
+  const changedParts = [nameChanged && "name", listsChanged && "description", iconChanged && "icon"].filter(Boolean);
+  const barText = !valid
+    ? `Still to fill in: ${missing.join(", ")}.`
+    : `Unsaved changes: ${changedParts.join(" and ")}. Players get them the next time they start the game.`;
+
   return (
-    <form onSubmit={save} className="settings-form" noValidate>
-      <div className="settings-top">
-        <section className="panel settings-ident" aria-label="Icon and name">
-          <div className="icon-edit">
-            <GameIcon name={title || name} url={shownIcon} />
-            {iconsReady && (
-              <>
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
+    <div className="st">
+      <section className="st-card st-ident" aria-label="Icon and name">
+        <div className="st-icon">
+          <GameIcon name={title || name} url={shownIcon} size="lg" />
+          {iconsReady && (
+            <>
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
+              <button type="button" className="st-icon-change" onClick={() => fileRef.current?.click()} disabled={busy}>
+                <CameraIcon /> {shownIcon ? "Change" : "Add icon"}
+              </button>
+              {shownIcon && (
                 <button
                   type="button"
-                  className="icon-badge"
-                  aria-label={shownIcon ? "Change icon" : "Add icon"}
-                  title={shownIcon ? "Change icon" : "Add icon"}
-                  onClick={() => fileRef.current?.click()}
+                  className="st-icon-remove"
+                  aria-label="Remove icon"
+                  title="Remove icon"
+                  onClick={() => {
+                    setIcon({ blob: null, preview: "", removed: true });
+                    touch();
+                  }}
                   disabled={busy}
                 >
-                  <CameraIcon />
+                  ×
                 </button>
-                {shownIcon && (
-                  <button
-                    type="button"
-                    className="icon-badge icon-badge-remove"
-                    aria-label="Remove icon"
-                    title="Remove icon"
-                    onClick={() => {
-                      setIcon({ blob: null, preview: "", removed: true });
-                      touch();
-                    }}
-                    disabled={busy}
-                  >
-                    ×
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="st-name">
+          <label htmlFor="game-name">Game name</label>
           <input
             id="game-name"
-            className="field"
-            aria-label="Name"
+            className="st-name-input"
             value={title}
             onChange={(event) => {
               setTitle(event.target.value);
@@ -150,59 +165,173 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
             maxLength={120}
             disabled={busy}
           />
-        </section>
-        <KeyButton gameId={gameId} apiKey={apiKey} />
-      </div>
-      
+          <div className="st-name-line">
+            {lists && (
+              <span className={`st-status ${valid ? "is-ready" : "is-open"}`}>
+                <span className="st-status-dot" aria-hidden="true" />
+                {valid ? "Ready for advertisers" : "Description incomplete"}
+              </span>
+            )}
+            <span className="st-muted">The name and icon are what advertisers see in the catalog.</span>
+          </div>
+        </div>
+      </section>
 
-      {lists ? (
-        <section className="panel pick-rows" aria-labelledby="about-title">
-          <h2 id="about-title" className="sr-only">
-            About the game
-          </h2>
-          {PROFILE_KEYS.map((key) => (
-            <PickField
-              key={key}
-              compact
-              label={FIELDS[key].label}
-              noun={FIELDS[key].noun}
-              nounPlural={FIELD_TEXT[key].plural}
-              options={FIELDS[key].options}
-              value={lists[key]}
-              onChange={(next) => {
-                setLists({ ...lists, [key]: next });
-                touch();
-              }}
-              searchable={key === "languages"}
-              disabled={busy}
-            />
-          ))}
-        </section>
-      ) : (
-        <p className="notice">
-          Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to describe your game for
-          advertisers.
-        </p>
+      <div className="st-cols">
+        {lists ? (
+          <section className="st-card st-about" aria-labelledby="about-title">
+            <div className="st-card-head">
+              <div>
+                <h2 id="about-title">About the game</h2>
+                <p>Advertisers aim ads at a genre, platform or language. An ad shows only in games that have said what they are.</p>
+              </div>
+              <span className="st-progress">
+                <span className="st-bars" aria-hidden="true">
+                  {PROFILE_KEYS.map((key, index) => (
+                    <span key={key} className={index < filled ? "is-on" : ""} />
+                  ))}
+                </span>
+                {filled} of {PROFILE_KEYS.length} filled in
+              </span>
+            </div>
+            {PROFILE_KEYS.map((key) => (
+              <AboutRow
+                key={key}
+                label={FIELDS[key].label}
+                noun={FIELDS[key].noun}
+                nounPlural={FIELD_TEXT[key].plural}
+                hint={FIELD_TEXT[key].hint}
+                options={FIELDS[key].options}
+                value={lists[key]}
+                onChange={(next) => {
+                  setLists({ ...lists, [key]: next });
+                  touch();
+                }}
+                searchable={key === "languages"}
+                disabled={busy}
+              />
+            ))}
+          </section>
+        ) : (
+          <p className="notice st-about">
+            Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to describe your game for
+            advertisers.
+          </p>
+        )}
+
+        <KeyCard gameId={gameId} apiKey={apiKey} />
+      </div>
+
+      <DeleteGame gameId={gameId} name={name} />
+
+      {(dirty || note) && (
+        <div className="st-bar" role="region" aria-label="Unsaved changes">
+          <span className={`st-bar-dot ${note?.tone === "done" && !dirty ? "is-done" : ""}`} aria-hidden="true" />
+          <span role="status" aria-live="polite" className="st-bar-text">
+            {note ? note.text : barText}
+          </span>
+          {dirty && (
+            <>
+              <button type="button" className="st-bar-discard" onClick={discard} disabled={busy}>
+                Discard
+              </button>
+              <button type="button" className="st-bar-save" onClick={save} disabled={busy || !valid}>
+                {busy ? "Saving…" : "Save changes"}
+              </button>
+            </>
+          )}
+        </div>
       )}
-
-      <div className="save-bar">
-        <button className="button" type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Save"}
-        </button>
-        <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "upload-done"}>
-          {note?.text ?? ""}
-        </span>
-        <DeleteGame gameId={gameId} name={name} />
-      </div>
-    </form>
+    </div>
   );
 }
 
+/** One list of the game's description: its name (what it means shows when you point at it), what is chosen, an Add button. */
+function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, searchable, disabled }) {
+  const [open, setOpen] = useState(false);
+  const tipId = useId();
+  const labelOf = new Map(options.map((option) => [option.id, option.label]));
+  // the order of the full list, so the tags read the same as the pop-up
+  const order = new Map(options.map((option, index) => [option.id, index]));
+  const chosen = [...value].sort((a, b) => (order.get(a) ?? 1e9) - (order.get(b) ?? 1e9));
+  const empty = chosen.length === 0;
+
+  return (
+    <div className={`st-row ${empty ? "is-empty" : ""}`}>
+      <div className="st-row-label">
+        <span className="st-tipwrap">
+          <button type="button" className="st-tipbtn" aria-describedby={tipId}>
+            {label}
+          </button>
+          <span id={tipId} role="tooltip" className="st-tipbody">
+            {hint}
+          </span>
+        </span>
+      </div>
+      <div className="st-row-values" aria-live="polite">
+        {empty && (
+          <span className="st-required">
+            <AlertIcon /> Required: add at least one
+          </span>
+        )}
+        {chosen.map((id) => (
+          <span className="st-chip" key={id}>
+            {labelOf.get(id) ?? id}
+            <button
+              type="button"
+              className="st-chip-x"
+              aria-label={`Remove ${labelOf.get(id) ?? id}`}
+              onClick={() => onChange(value.filter((item) => item !== id))}
+              disabled={disabled}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <button type="button" className="st-add" onClick={() => setOpen(true)} disabled={disabled}>
+          <PlusIcon /> {empty ? `Add ${noun}` : "Add"}
+        </button>
+      </div>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Add ${nounPlural}`}
+        footer={
+          <>
+            <span className="muted-line">{value.length === 0 ? "None added yet" : `${value.length} added`}</span>
+            <button type="button" className="button" onClick={() => setOpen(false)}>
+              Done
+            </button>
+          </>
+        }
+      >
+        <MultiPick label={label} options={options} value={value} onChange={onChange} searchable={searchable} />
+      </Modal>
+    </div>
+  );
+}
 
 function CameraIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <path d="M4 8h3l2-3h6l2 3h3v11H4zM12 11a3 3 0 100 6 3 3 0 000-6z" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M8 3v10M3 8h10" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v5M12 16.5v.01" strokeLinecap="round" />
     </svg>
   );
 }
@@ -226,32 +355,19 @@ async function storeIcon(gameId, icon) {
 }
 
 /**
- * The API key sits behind one button in the corner of the tab. The button opens a field in its place
- * (it floats over what is below, so nothing on the page moves) that shows the key on request, copies
- * it, and can issue a new one (that takes effect at once, without Save, and is asked for twice).
- * "Hide" folds it back under the button.
+ * The API key, always in view: hidden until asked, with show and copy beside it, and "Issue a new key" below.
+ * A new key takes effect at once, without Save, and is asked for twice.
  */
-function KeyButton({ gameId, apiKey }) {
+function KeyCard({ gameId, apiKey }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
   const [step, setStep] = useState("idle"); // idle | confirm | working
   const [note, setNote] = useState(null);
   const codeRef = useRef(null);
   const timer = useRef(null);
-  const buttonRef = useRef(null);
 
   useEffect(() => () => clearTimeout(timer.current), []);
-
-  function close() {
-    setOpen(false);
-    setShown(false);
-    setCopied(false);
-    setStep("idle");
-    setNote(null);
-    buttonRef.current?.focus();
-  }
 
   async function copy() {
     let ok = false;
@@ -288,85 +404,71 @@ function KeyButton({ gameId, apiKey }) {
   }
 
   return (
-    <div className="key-corner">
-      {/* the button keeps its place (and its room) while the field is open */}
-      <button
-        ref={buttonRef}
-        type="button"
-        className="button button-quiet key-corner-button"
-        onClick={() => setOpen(true)}
-        aria-expanded={open}
-        aria-controls="key-field"
-        tabIndex={open ? -1 : 0}
-        style={open ? { visibility: "hidden" } : undefined}
-      >
-        <KeyIcon /> API key
-      </button>
-      {open && (
-        <section
-          id="key-field"
-          className="key-field"
-          aria-label="API key"
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && step !== "working") close();
-          }}
+    <section className="st-card st-sdk" aria-labelledby="sdk-title">
+      <div className="st-sdk-head">
+        <span className="st-key-tile">
+          <KeyIcon />
+        </span>
+        <h2 id="sdk-title">SDK connection</h2>
+      </div>
+      <p className="st-muted">
+        Paste the key into <strong>Tools → DeusADS → Settings</strong> in Unity, then press Send placements.
+      </p>
+      <div className="st-key-row">
+        {/* one fixed-size line: hidden or shown, what does not fit is cut off, so nothing moves */}
+        <code ref={codeRef} className="st-key">
+          {shown ? apiKey : "•".repeat(24)}
+        </code>
+        <button
+          type="button"
+          className="st-key-btn"
+          onClick={() => setShown(!shown)}
+          aria-pressed={shown}
+          aria-label={shown ? "Hide key" : "Show key"}
+          title={shown ? "Hide key" : "Show key"}
         >
-          <div className="key-field-head">
-            <span className="key-field-title">
-              <KeyIcon /> API key
-            </span>
-            <button type="button" className="button button-quiet key-toggle" onClick={close} disabled={step === "working"} autoFocus>
-              Hide
+          <EyeIcon open={shown} />
+        </button>
+        <button type="button" className="st-key-btn st-key-copy" onClick={copy} aria-label="Copy key">
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <hr className="st-rule" />
+      {step === "confirm" || step === "working" ? (
+        <div className="st-rotate">
+          <p>
+            The old key stops working at once. Builds already shipped with it stop receiving creatives and show their
+            fallback textures until you paste the new key into the SDK and release again.
+          </p>
+          <div className="st-rotate-actions">
+            <button type="button" className="st-danger-fill" onClick={rotate} disabled={step === "working"}>
+              {step === "working" ? "Issuing…" : "Replace the key"}
+            </button>
+            <button type="button" className="st-plain" onClick={() => setStep("idle")} disabled={step === "working"}>
+              Cancel
             </button>
           </div>
-          <p className="settings-help">Paste it into Tools → DeusADS → Settings in Unity.</p>
-          {/* one fixed-size line: hidden or shown, what does not fit is cut off, so nothing moves */}
-          <div className="key-row">
-            <code ref={codeRef} className="key key-line">
-              {shown ? apiKey : "•".repeat(48)}
-            </code>
-            <button
-              type="button"
-              className="key-icon"
-              onClick={() => setShown(!shown)}
-              aria-pressed={shown}
-              aria-label={shown ? "Hide key" : "Show key"}
-              title={shown ? "Hide key" : "Show key"}
-            >
-              <EyeIcon open={shown} />
-            </button>
-            <button type="button" className="key-icon" onClick={copy} aria-label="Copy key" title={copied ? "Copied" : "Copy"}>
-              {copied ? <CheckIcon /> : <CopyIcon />}
-            </button>
-          </div>
-          <div className="key-rotate">
-            {step === "idle" ? (
-              <button type="button" className="button button-quiet" onClick={() => setStep("confirm")}>
-                Issue a new key…
-              </button>
-            ) : (
-              <>
-                <p className="settings-help">
-                  The old key stops working at once, without Save: builds already shipped with it stop receiving creatives
-                  and show their fallback textures until you paste the new key into the SDK settings and release again.
-                </p>
-                <div className="row">
-                  <button type="button" className="button button-danger" onClick={rotate} disabled={step === "working"}>
-                    {step === "working" ? "Issuing…" : "Replace the key"}
-                  </button>
-                  <button type="button" className="button button-quiet" onClick={() => setStep("idle")} disabled={step === "working"}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-            <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "upload-done"}>
-              {note?.text ?? ""}
-            </span>
-          </div>
-        </section>
+        </div>
+      ) : (
+        <div className="st-rotate">
+          <button
+            type="button"
+            className="st-plain"
+            onClick={() => {
+              setStep("confirm");
+              setNote(null);
+            }}
+          >
+            Issue a new key…
+          </button>
+          <span className="st-muted st-small">Needed only if the key has leaked. Applies at once, without Save.</span>
+        </div>
       )}
-    </div>
+      <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "st-done"}>
+        {note?.text ?? ""}
+      </span>
+    </section>
   );
 }
 
@@ -398,29 +500,38 @@ function CheckIcon() {
 
 function KeyIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <circle cx="8" cy="15" r="4" />
-      <path d="M11 12l9-9M16 7l3 3" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="15" r="4.2" />
+      <path d="M11.2 11.8L20.5 2.5M16.5 6.5l3 3" />
     </svg>
   );
 }
 
-/** Deleting the game: a link in the bottom bar; the pop-up needs the game's exact name typed. */
+/**
+ * Deleting the game. A card of its own at the bottom; the button opens a small confirmation over itself (the button
+ * keeps its place, so nothing moves). The word "delete" has to be typed. A click anywhere else, or Escape, closes it.
+ */
 function DeleteGame({ gameId, name }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const [typed, setTyped] = useState("");
   const [note, setNote] = useState(null);
+  const buttonRef = useRef(null);
+
+  const ready = typed.trim().toLowerCase() === "delete";
 
   function close() {
+    if (working) return;
     setOpen(false);
     setTyped("");
     setNote(null);
+    buttonRef.current?.focus();
   }
 
   async function remove(event) {
     event.preventDefault();
+    if (!ready || working) return;
     setWorking(true);
     setNote(null);
     const result = await deleteGame({ gameId, confirmName: typed }).catch(() => ({ error: "Connection lost. Try again." }));
@@ -433,58 +544,87 @@ function DeleteGame({ gameId, name }) {
   }
 
   return (
-    <>
-      <button type="button" className="delete-link" onClick={() => setOpen(true)}>
-        <TrashIcon /> Delete game
-      </button>
-      <Modal
-        open={open}
-        onClose={close}
-        title="Delete game"
-        busy={working}
-        footer={
-          <>
-            <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "upload-done"}>
-              {note?.text ?? ""}
-            </span>
-            <button type="button" className="button button-quiet" onClick={close} disabled={working}>
-              Cancel
-            </button>
-            <button type="submit" form="delete-game-form" className="button button-danger" disabled={working || typed.trim() !== name}>
-              {working ? "Deleting…" : "Delete forever"}
-            </button>
-          </>
-        }
-      >
-        <p className="settings-help">
-          Removes the game with its placements, assignments and every impression recorded for it. Creatives stay in your
-          library. This cannot be undone.
+    <section className="st-card st-danger" aria-labelledby="danger-title">
+      <div className="st-danger-text">
+        <h2 id="danger-title">Delete this game</h2>
+        <p>
+          Removes the game with its placements, assignments and every impression recorded for it. Creatives stay in
+          your library. This cannot be undone.
         </p>
-        <form id="delete-game-form" onSubmit={remove} className="stack">
-          <label htmlFor="confirm-name">
-            Type <strong>{name}</strong> to confirm
-          </label>
-          <input
-            id="confirm-name"
-            className="field"
-            value={typed}
-            onChange={(event) => {
-              setTyped(event.target.value);
-              setNote(null);
-            }}
-            autoComplete="off"
-            disabled={working}
-          />
-        </form>
-      </Modal>
-    </>
+      </div>
+      <div className="st-danger-slot">
+        <button
+          ref={buttonRef}
+          type="button"
+          className="st-delete"
+          onClick={() => setOpen(true)}
+          aria-expanded={open}
+          aria-controls="delete-confirm"
+          tabIndex={open ? -1 : 0}
+          style={open ? { visibility: "hidden" } : undefined}
+        >
+          <TrashTile size="sm" /> Delete game…
+        </button>
+        {open && (
+          <>
+            <div className="st-scrim" onClick={close} aria-hidden="true" />
+            <form
+              id="delete-confirm"
+              className="st-confirm"
+              aria-labelledby="delete-title"
+              onSubmit={remove}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") close();
+              }}
+            >
+              <div className="st-confirm-head">
+                <TrashTile size="lg" />
+                <div>
+                  <h3 id="delete-title">Delete {name}?</h3>
+                  <p>
+                    This cannot be undone. Type <strong>delete</strong> to confirm.
+                  </p>
+                </div>
+              </div>
+              <input
+                className="st-confirm-input"
+                aria-label="Type delete to confirm"
+                placeholder="delete"
+                value={typed}
+                onChange={(event) => {
+                  setTyped(event.target.value);
+                  setNote(null);
+                }}
+                autoComplete="off"
+                autoFocus
+                disabled={working}
+              />
+              <div className="st-confirm-actions">
+                <span role="status" aria-live="polite" className="error">
+                  {note?.text ?? ""}
+                </span>
+                <button type="button" className="st-plain" onClick={close} disabled={working}>
+                  Cancel
+                </button>
+                <button type="submit" className="st-danger-fill" disabled={!ready || working}>
+                  {working ? "Deleting…" : "Delete forever"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
-function TrashIcon() {
+/** The red rounded square with a white trash can. */
+function TrashTile({ size }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
-    </svg>
+    <span className={`st-trash is-${size}`} aria-hidden="true">
+      <svg width={size === "lg" ? 19 : 15} height={size === "lg" ? 19 : 15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+      </svg>
+    </span>
   );
 }

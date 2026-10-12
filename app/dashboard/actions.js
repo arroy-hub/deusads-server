@@ -364,8 +364,9 @@ export async function deleteGame({ gameId, confirmName }) {
   const id = String(gameId ?? "");
   const { data: game } = await db.from("games").select("id, name").eq("id", id).maybeSingle();
   if (!game) return { error: "That game no longer exists." };
-  if (String(confirmName ?? "").trim() !== game.name) {
-    return { error: "The name does not match. Nothing was deleted." };
+  // The owner confirms by typing the word "delete".
+  if (String(confirmName ?? "").trim().toLowerCase() !== "delete") {
+    return { error: "Type delete to confirm. Nothing was deleted." };
   }
   // The icon file goes with the game (the column exists from migration 0019; without it: no icon).
   const { data: withIcon } = await db.from("games").select("icon_path").eq("id", id).maybeSingle();

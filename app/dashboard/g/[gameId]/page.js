@@ -134,12 +134,6 @@ export default async function GamePage({ params, searchParams }) {
           on screen.
         </p>
       )}
-      {tab === "settings" && (
-        <p className="lede">
-          Icon, name and what the game is for advertisers; Save applies them together. The API key and deleting the game
-          are separate and ask first.
-        </p>
-      )}
 
       <nav className="tabs" aria-label="Game sections">
         {TABS.map(([key, label]) => (
