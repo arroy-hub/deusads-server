@@ -5,6 +5,7 @@ import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
 import { formatLabel, formatOf } from "../../../../lib/formats";
 import { loadPerformance } from "../../../../lib/performance-data";
 import { countNew, loadCampaigns } from "../../../../lib/campaigns-data";
+import { connection } from "../../../../lib/connection";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
 import GameIcon from "../../game-icon";
 import SettingsTab from "./settings-tab";
@@ -101,6 +102,10 @@ export default async function GamePage({ params, searchParams }) {
   let newCount = 0;
   if (campaigns?.campaigns) newCount = campaigns.campaigns.filter((item) => item.isNew || item.creatives.some((creative) => creative.isNew)).length;
   else if (!campaigns) newCount = await countNew({ service: serviceClient(), gameId }).catch(() => 0);
+  // How the SDK is connected (games.last_signal_at, migration 0024): a chip beside the title, details in Settings.
+  const signal = await db.from("games").select("last_signal_at").eq("id", gameId).maybeSingle();
+  const lastSignal = signal.data?.last_signal_at ?? null;
+  const link = signal.error ? null : tab === "settings" ? await connectionOf(db, gameId, lastSignal) : connection(lastSignal);
   // "Open to advertisers" needs migration 0014; without it the switch is left out.
   const { data: openRows, error: openError } =
     tab === "placements" ? await db.from("placements").select("id, open_to_advertisers").eq("game_id", gameId) : { data: [], error: null };
@@ -117,6 +122,12 @@ export default async function GamePage({ params, searchParams }) {
         <div className="game-title">
           <GameIcon name={game.name} url={iconUrl} size="sm" />
           <h1>{game.name}</h1>
+          {link && (
+            <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-chip conn-${link.mode}`} title="Connection details are in Settings">
+              <b />
+              {link.chip}
+            </Link>
+          )}
         </div>
       </div>
       {gaps.known && gaps.missing.length > 0 && (
@@ -226,11 +237,36 @@ export default async function GamePage({ params, searchParams }) {
           apiKey={game.api_key}
           iconUrl={iconUrl}
           iconsReady={iconsReady}
+          link={link}
           profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
         />
       )}
     </>
   );
+}
+
+/** The SDK connection of a game with the figures its details show. */
+async function connectionOf(db, gameId, lastSignalAt) {
+  const state = connection(lastSignalAt);
+  const [sent, first, created] = await Promise.all([
+    db.from("placements").select("id", { count: "exact", head: true }).eq("game_id", gameId).is("removed_at", null),
+    db.from("impressions").select("occurred_at").eq("game_id", gameId).order("occurred_at", { ascending: true }).limit(1),
+    db.from("games").select("created_at").eq("id", gameId).maybeSingle(),
+  ]);
+  const placements = sent.error ? 0 : sent.count ?? 0;
+  const firstAt = first.error ? null : first.data?.[0]?.occurred_at ?? null;
+  const day = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return {
+    ...state,
+    placements,
+    firstImpression: firstAt ? day(firstAt) : "—",
+    steps: [
+      { title: "API key issued", done: true, when: created.data?.created_at ? day(created.data.created_at) : "" },
+      { title: "Placements sent from Unity (Send placements)", done: placements > 0, when: placements > 0 ? `${placements} placements` : "Paste the key into Tools → DeusADS → Settings, then press Send placements" },
+      { title: "SDK asked for the manifest", done: Boolean(lastSignalAt), when: lastSignalAt ? state.last : "Run the game once with the SDK in it" },
+      { title: "First impression received", done: Boolean(firstAt), when: firstAt ? day(firstAt) : "Appears after a placement is on screen" },
+    ],
+  };
 }
 
 /**

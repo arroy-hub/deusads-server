@@ -6,7 +6,7 @@ import { getMember } from "../../../../lib/admin";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { categoryLabel, isCategory } from "../../../../lib/categories";
 import { ACTIONS, SCOPES, WINDOW_MS, blockedCategories, bulkKeyOf, changeMessage, nextControl, planChange } from "../../../../lib/game-controls";
-import { notify } from "../../../../lib/notify";
+import { notify, notifyMany } from "../../../../lib/notify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MISSING = "Run migration 0023 in the Supabase SQL editor first.";
@@ -220,4 +220,52 @@ export async function markSeen({ gameId, campaignId, creativeIds }) {
   if (error) return { error: "Could not save." };
   revalidatePath(`/dashboard/g/${game.id}`);
   return { ok: true };
+}
+
+const REPORT_REASONS = ["Misleading or deceptive", "Inappropriate content", "Wrong category", "Suspicious link or malware", "Other"];
+
+/**
+ * The developer reports a creative that runs in their game. DeusADS reviews it (Disputes in the admin area).
+ * With `alsoBlock` the creative is blocked in this game at once, the same way as the Block button.
+ */
+export async function reportCreative({ gameId, creativeId, reason, comment, alsoBlock }) {
+  const found = await ownGame(gameId);
+  if (found.error) return { error: found.error };
+  const { me, game } = found;
+  if (!UUID.test(String(creativeId ?? ""))) return { error: "Creative not found." };
+  const cleanReason = REPORT_REASONS.includes(reason) ? reason : null;
+  if (!cleanReason) return { error: "Choose a reason." };
+
+  const { data: placements } = await me.service.from("placements").select("id").eq("game_id", game.id);
+  const placementIds = (placements ?? []).map((row) => row.id);
+  const { data: booked } = placementIds.length
+    ? await me.service.from("bookings").select("campaign_id").in("placement_id", placementIds).eq("creative_id", creativeId).limit(1)
+    : { data: [] };
+  if (!booked?.length) return { error: "This creative is not booked in your game." };
+
+  const { error } = await me.service.from("creative_disputes").insert({
+    game_id: game.id,
+    developer_id: me.user.id,
+    creative_id: creativeId,
+    campaign_id: booked[0].campaign_id,
+    reason: cleanReason,
+    comment: clip(comment, 1000) || null,
+  });
+  if (error) {
+    if (error.code === "23505") return { ok: true, duplicate: true, message: "You already reported this creative. DeusADS is reviewing it." };
+    if (isSchemaOutdated(error) || error.code === "42P01") return { error: "Run migration 0024 in the Supabase SQL editor first." };
+    return { error: "Could not send the report." };
+  }
+
+  const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report about a creative in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes");
+
+  let block = null;
+  if (alsoBlock) block = await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Reported to DeusADS", comment: "" });
+  revalidatePath("/dashboard/admin/disputes");
+  return {
+    ok: true,
+    block: block && !block.error ? block : null,
+    message: `Report sent to DeusADS.${block?.applied?.length ? " The creative is blocked in your game." : ""} You will get a notification with the outcome.`,
+  };
 }

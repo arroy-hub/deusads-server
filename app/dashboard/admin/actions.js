@@ -178,3 +178,61 @@ export async function createUser({ email, password, company, role }) {
   revalidatePath("/dashboard/admin/users");
   return { ok: true };
 }
+
+/**
+ * Settle a developer's report about a creative (migration 0024).
+ *   decision "remove"   the creative is rejected everywhere (no game serves it any more); bookings are not changed
+ *   decision "dismiss"  nothing changes
+ * The developer who reported it is told the outcome; on a removal the advertiser is told too.
+ */
+export async function resolveDispute({ disputeId, decision }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+  if (decision !== "remove" && decision !== "dismiss") return { error: "Unknown decision." };
+
+  const { data: dispute, error } = await admin.service
+    .from("creative_disputes")
+    .select("id, developer_id, creative_id, reason, status, game_id")
+    .eq("id", String(disputeId ?? ""))
+    .maybeSingle();
+  if (isSchemaOutdated(error) || error?.code === "42P01") return { error: "Run migration 0024 in the Supabase SQL editor first." };
+  if (error || !dispute) return { error: "Report not found." };
+  if (dispute.status !== "open") return { error: "This report was already settled." };
+
+  const { data: creative } = await admin.service.from("creatives").select("id, name, owner_id").eq("id", dispute.creative_id).maybeSingle();
+  const outcome = decision === "remove" ? "removed" : "dismissed";
+
+  if (decision === "remove" && creative) {
+    const { error: removeError } = await admin.service
+      .from("creatives")
+      .update({ status: "rejected", review_note: `Removed after a report: ${dispute.reason}`.slice(0, 500), reviewed_at: new Date().toISOString() })
+      .eq("id", creative.id);
+    if (removeError) return { error: "Could not remove the creative." };
+  }
+
+  const { error: saveError } = await admin.service
+    .from("creative_disputes")
+    .update({ status: "resolved", outcome, resolved_by: admin.user.id, resolved_at: new Date().toISOString() })
+    .eq("id", dispute.id)
+    .eq("status", "open");
+  if (saveError) return { error: "Could not save the decision." };
+
+  const name = creative?.name ?? "the creative";
+  await notify(admin.service, {
+    accountId: dispute.developer_id,
+    text: decision === "remove" ? `DeusADS reviewed your report: the creative "${name}" was removed.` : `DeusADS reviewed your report on "${name}" and dismissed it.`,
+    link: "/dashboard/games",
+  });
+  if (decision === "remove" && creative?.owner_id) {
+    await notify(admin.service, {
+      accountId: creative.owner_id,
+      text: `Your creative "${name}" was removed after a report: ${dispute.reason}.`,
+      link: "/dashboard/creatives",
+    });
+  }
+
+  revalidatePath("/dashboard/admin/disputes");
+  revalidatePath("/dashboard/creatives");
+  revalidatePath("/dashboard/games");
+  return { ok: true, outcome, name };
+}

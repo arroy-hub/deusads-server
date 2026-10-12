@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { userClient } from "../../../lib/supabase-server";
+import { userClient, currentUser } from "../../../lib/supabase-server";
+import { serviceClient } from "../../../lib/api";
+import { connection } from "../../../lib/connection";
+import { loadDigest, newByGame, registerVisit } from "../../../lib/overview-data";
+import { dayLabel } from "../../../lib/campaigns-view";
+import Digest from "./digest";
 import { gapWords, profileGaps } from "../../../lib/targeting";
 import AddGameDialog from "../add-game-dialog";
 import GameIcon from "../game-icon";
@@ -36,6 +41,17 @@ export default async function GamesPage() {
     if (!(error && ["42703", "PGRST204", "PGRST100"].includes(error.code))) break;
   }
 
+  // When the SDK last asked (migration 0024), what is new in each game, and the summary of the visit before this one.
+  const user = await currentUser();
+  const service = serviceClient();
+  const signals = await db.from("games").select("id, last_signal_at");
+  const signalOf = new Map(signals.error ? [] : (signals.data ?? []).map((row) => [row.id, row.last_signal_at]));
+  const now = Date.now();
+  const withConnection = (games ?? []).map((game) => ({ ...game, connection: signals.error ? null : connection(signalOf.get(game.id) ?? null, now) }));
+  const fresh = await newByGame(service, withConnection.map((game) => game.id)).catch(() => new Map());
+  const visit = await registerVisit(service, user?.id, now).catch(() => null);
+  const lines = await loadDigest({ service, userId: user?.id, games: withConnection.filter((game) => game.connection), visit, now }).catch(() => []);
+
   return (
     <>
       <div className="main-head">
@@ -48,9 +64,16 @@ export default async function GamesPage() {
         game&apos;s placements.
       </p>
 
+      {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}
+
       {games?.length ? (
         <ul className="game-list">
-          {games.map((game) => {
+          {withConnection.map((game) => {
+            const news = fresh.get(game.id) ?? { campaigns: 0, creatives: 0 };
+            const tag = [
+              news.campaigns ? `${news.campaigns} new ${news.campaigns === 1 ? "campaign" : "campaigns"}` : "",
+              news.creatives ? `${news.creatives} new ${news.creatives === 1 ? "creative" : "creatives"}` : "",
+            ].filter(Boolean).join(" · ");
             const gaps = profileGaps(game);
             return (
               <li key={game.id} className="game-item">
@@ -64,6 +87,15 @@ export default async function GamesPage() {
                   </Link>
                   <div className="game-meta">
                     {game.placements?.[0]?.count ?? 0} placements
+                  </div>
+                  <div className="game-badges">
+                    {game.connection && (
+                      <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-chip conn-${game.connection.mode}`} title="Connection details are in Settings">
+                        <b />
+                        {game.connection.chip}
+                      </Link>
+                    )}
+                    {tag && <Link href={`/dashboard/g/${game.id}?tab=campaigns`} className="cp-tag">{tag}</Link>}
                   </div>
                   {gaps.known && gaps.missing.length > 0 && (
                     <div className="game-warn">

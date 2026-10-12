@@ -7,7 +7,7 @@ const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item)
 
 assert.deepEqual(labels("developer"), ["Home", "My games"]);
 assert.deepEqual(labels("advertiser"), ["Home", "Creatives", "Find placements", "Campaigns", "Reports"]);
-assert.equal(labels("admin").slice(0, 4).join(), "Review creatives,All bookings,Users,System");
+assert.equal(labels("admin").slice(0, 5).join(), "Review creatives,Disputes,All bookings,Users,System");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
 assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
 // an admin's own library is not confused with the review page

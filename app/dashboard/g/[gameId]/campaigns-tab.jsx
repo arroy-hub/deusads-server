@@ -14,7 +14,7 @@ import {
   number,
   totalsFor,
 } from "../../../../lib/campaigns-view";
-import { changeAds, markSeen, setCategoryBlocked } from "./campaign-actions";
+import { changeAds, markSeen, reportCreative, setCategoryBlocked } from "./campaign-actions";
 
 const PILL = {
   active: ["p-active", "Active"],
@@ -79,6 +79,10 @@ const PauseIcon = () => (
 const BlockIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M6.5 6.5l11 11" /></svg>
 );
+const FlagIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 21V4" /><path d="M5 4h12l-2 4 2 4H5" /></svg>
+);
+const REPORT_REASONS = ["Misleading or deceptive", "Inappropriate content", "Wrong category", "Suspicious link or malware", "Other"];
 const CaretIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 2l4 4-4 4" /></svg>
 );
@@ -116,6 +120,7 @@ export default function CampaignsTab({ gameId, model }) {
   const [note, setNote] = useState(null);
   const [toast, setToast] = useState("");
   const [dialog, setDialog] = useState(null);
+  const [report, setReport] = useState(null);
 
   const ctx = useMemo(() => ({ controls: controlMap(controls), blocked: blockedCategories(categoryRows) }), [controls, categoryRows]);
 
@@ -282,6 +287,30 @@ export default function CampaignsTab({ gameId, model }) {
     const scope = d.scope === "selected" ? "campaign" : d.scope;
     await run({ scope, action: "block", ids: d.ids, reason: d.reason, comment: d.comment, extra: d.tail ?? "" });
     if (d.scope === "selected") setSelected({});
+  }
+
+  async function sendReport() {
+    const r = report;
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await reportCreative({ gameId, creativeId: r.id, reason: r.reason, comment: r.comment, alsoBlock: r.alsoBlock });
+      if (result.error) {
+        setToast(result.error);
+        return;
+      }
+      setReport(null);
+      if (result.block?.applied?.length) {
+        const gone = new Set(result.block.applied);
+        setControls((previous) => [...previous.filter((row) => !(row.scope === "creative" && gone.has(row.target_id))), ...result.block.applied.map((id) => ({ scope: "creative", target_id: id, state: "blocked", reason: result.block.reason, comment: "" }))]);
+        setRecent((previous) => [...previous, ...result.block.logged]);
+      }
+      setToast(result.message);
+    } catch {
+      setToast("Could not send the report. Try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function toggleCategory(id) {
@@ -611,6 +640,7 @@ export default function CampaignsTab({ gameId, model }) {
                                 <div className="cp-num">{number(creative.totals.views)}</div>
                                 <div className="cp-num">{averageText(creative.totals)}</div>
                                 <div className="cp-acts">
+                                  <button type="button" className="cp-ib" title="Report to DeusADS…" aria-label={`Report ${creative.name} to DeusADS`} disabled={busy} onClick={() => setReport({ id: creative.id, name: creative.name, campaign: campaign.name, reason: REPORT_REASONS[0], comment: "", alsoBlock: !creative.blocked })}><FlagIcon /></button>
                                   {canBlock && <button type="button" className="cp-ib danger" title="Block this creative…" aria-label={`Block ${creative.name}`} disabled={busy} onClick={() => askBlock("creative", creative.id, `creative "${creative.name}"`, { campaignId: campaign.id, name: creative.name })}><BlockIcon /></button>}
                                   {creative.blocked && <button type="button" className="cp-ib on-block" title="Blocked. Click to unblock" aria-pressed="true" aria-label={`Unblock ${creative.name}`} disabled={busy} onClick={() => run({ scope: "creative", action: "unblock", ids: [creative.id] })}><BlockIcon /></button>}
                                 </div>
@@ -766,6 +796,31 @@ export default function CampaignsTab({ gameId, model }) {
             <div className="foot">
               <button type="button" className="cp-btn" onClick={() => setDialog(null)}>Cancel</button>
               <button type="button" className="cp-btn cp-btn-primary" disabled={busy} onClick={confirmBlock}>{dialogCopy.button}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {report && (
+        <div className="cp-veil">
+          <div className="cp-dlg" role="dialog" aria-modal="true" aria-labelledby="cp-rep-title">
+            <h2 id="cp-rep-title">Report this creative to DeusADS?</h2>
+            <p style={{ fontWeight: 600, margin: "0 0 4px" }}>{report.name} · {report.campaign}</p>
+            <label className="fl" htmlFor="cp-rep-reason">Reason</label>
+            <select id="cp-rep-reason" className="cp-sel" value={report.reason} onChange={(event) => setReport({ ...report, reason: event.target.value })}>
+              {REPORT_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+            </select>
+            <label className="fl" htmlFor="cp-rep-comment">Comment <span className="cp-sub" style={{ fontWeight: 400 }}>(optional)</span></label>
+            <textarea id="cp-rep-comment" className="cp-ta" maxLength={1000} value={report.comment} onChange={(event) => setReport({ ...report, comment: event.target.value })} />
+            {!controls.some((row) => row.scope === "creative" && row.target_id === report.id && row.state === "blocked") && (
+              <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0" }}>
+                <input type="checkbox" checked={report.alsoBlock} onChange={(event) => setReport({ ...report, alsoBlock: event.target.checked })} /> Also block this creative in my game
+              </label>
+            )}
+            <p className="cp-hint">DeusADS reviews reports. It can remove a creative that breaks platform rules; bookings are not changed. You get a notification with the outcome.</p>
+            <div className="foot">
+              <button type="button" className="cp-btn" onClick={() => setReport(null)}>Cancel</button>
+              <button type="button" className="cp-btn cp-btn-primary" disabled={busy} onClick={sendReport}>Send report</button>
             </div>
           </div>
         </div>

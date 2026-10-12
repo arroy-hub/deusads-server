@@ -2,9 +2,10 @@ import Link from "next/link";
 import { userClient, currentUser } from "../../lib/supabase-server";
 import { currentRole } from "../../lib/admin";
 import { serviceClient } from "../../lib/api";
+import { registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
-import { adminCounts, unreadCount } from "../../lib/counts";
+import { adminCounts, openDisputes, unreadCount } from "../../lib/counts";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import NavLink from "./nav-link";
 import NotificationsBell from "./notifications-bell";
@@ -29,6 +30,8 @@ export default async function DashboardLayout({ children }) {
       </main>
     );
   }
+  // Opening any page keeps the visit alive (My games works out "since your last visit" from it).
+  await registerVisit(serviceClient(), user?.id).catch(() => null);
   const requests = 0; // bookings approve themselves: nothing waits for the developer
   const unread = await unreadCount(db, user?.id);
   // The latest notifications for the bell (the table comes with migration 0013; without it: none).
@@ -40,6 +43,7 @@ export default async function DashboardLayout({ children }) {
         .limit(15)
     : { data: null };
   const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
+  const disputes = role === "admin" ? await openDisputes(serviceClient()) : 0;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
   // The icon of a game (migration 0019) shows in the menu; without it the plain list still loads.
   let { data: games, error: gamesError } = await db
@@ -50,7 +54,7 @@ export default async function DashboardLayout({ children }) {
 
   const groups = menuFor(
     role,
-    { requests, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
+    { requests, disputes, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
     (games ?? []).map((game) => ({
       href: `/dashboard/g/${game.id}`,
       label: game.name,

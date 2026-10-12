@@ -73,6 +73,7 @@ globalThis.fetch = async (input, init = {}) => {
     // The key lookup (the SDK) and the profile read (by id) both land here.
     const byKey = url.searchParams.get("api_key") === `eq.${GAME.api_key}`;
     const byId = url.searchParams.get("id") === `eq.${GAME.id}`;
+    if (method === "PATCH") return ok([]); // the SDK-signal stamp (migration 0024)
     if (byId) profileReads += 1;
     return ok(byKey || byId ? [GAME] : []);
   }

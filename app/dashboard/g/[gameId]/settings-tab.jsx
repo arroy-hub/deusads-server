@@ -26,7 +26,7 @@ const NO_ICON = { blob: null, preview: "", removed: false };
  * something to save (or just after it was saved); when something is still empty it says what.
  * `profile` is null when the database does not know these lists yet (migration 0018).
  */
-export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile }) {
+export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile, link }) {
   const router = useRouter();
   const fileRef = useRef(null);
   const noteTimer = useRef(null);
@@ -228,7 +228,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
           </p>
         )}
 
-        <KeyCard gameId={gameId} apiKey={apiKey} />
+        <KeyCard gameId={gameId} apiKey={apiKey} link={link} />
       </div>
 
       <DeleteGame gameId={gameId} name={name} />
@@ -367,7 +367,7 @@ async function storeIcon(gameId, icon) {
  * The API key, always in view: hidden until asked, with show and copy beside it, and "Issue a new key" below.
  * A new key takes effect at once, without Save, and is asked for twice.
  */
-function KeyCard({ gameId, apiKey }) {
+function KeyCard({ gameId, apiKey, link }) {
   const router = useRouter();
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -419,6 +419,12 @@ function KeyCard({ gameId, apiKey }) {
           <KeyIcon />
         </span>
         <h2 id="sdk-title">SDK connection</h2>
+        {link && (
+          <span className={`conn-chip conn-${link.mode}`} style={{ marginLeft: "auto" }}>
+            <b />
+            {link.short}
+          </span>
+        )}
       </div>
       <p className="st-muted">
         Paste the key into <strong>Tools → DeusADS → Settings</strong> in Unity, then press Send placements.
@@ -477,6 +483,34 @@ function KeyCard({ gameId, apiKey }) {
       <span role="status" aria-live="polite" className={note?.tone === "error" ? "error" : "st-done"}>
         {note?.text ?? ""}
       </span>
+      {link && (
+        <details className="st-details">
+          <summary>
+            Connection details<span className="st-details-last">{link.last}</span>
+          </summary>
+          {link.mode === "silent" && (
+            <p className="notice" role="status">
+              {link.chip}. Check that the build still has the SDK and the key, and that the game was started recently.
+            </p>
+          )}
+          <dl className="st-kv">
+            <div><dt>Last signal</dt><dd>{link.last}</dd></div>
+            <div><dt>Placements sent</dt><dd>{link.placements}</dd></div>
+            <div><dt>First impression</dt><dd>{link.firstImpression}</dd></div>
+          </dl>
+          <ol className="st-steps">
+            {link.steps.map((step) => (
+              <li key={step.title} className={step.done ? "is-done" : ""}>
+                <span aria-hidden="true">{step.done ? "✓" : "–"}</span>
+                <span>
+                  <b>{step.title}</b>
+                  <small>{step.when}</small>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </section>
   );
 }
