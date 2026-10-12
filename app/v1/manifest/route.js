@@ -14,6 +14,7 @@ import { rotate } from "../../../lib/rotation";
 import { choosePictures } from "../../../lib/manifest-pick";
 import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
+import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,8 @@ export const GET = guarded(async function GET(request) {
     source: row.source ?? "own",
     advertiserId: row.creatives.owner_id ?? null,
     creativeId: row.creatives.id,
+    assignmentId: row.id,
+    category: row.creatives.ad_category ?? null,
     row,
   }));
 
@@ -104,8 +107,23 @@ export const GET = guarded(async function GET(request) {
   const off = await loadSwitches(db, game);
   const disabled = new Set(off.disabled);
 
+  // What the developer paused or blocked in this game (migration 0023) is dropped the same way.
+  const controls = await loadControls(db, game, servable);
+  const allowed = (item) =>
+    !controls ||
+    mayServe(
+      {
+        source: item.source,
+        campaignId: controls.campaignOf.get(item.assignmentId),
+        advertiserId: item.advertiserId,
+        creativeId: item.creativeId,
+        category: item.category,
+      },
+      controls
+    );
+
   const placements = rotate(
-    servable.filter((item) => !suspended.has(item.advertiserId) && !disabled.has(item.placementId))
+    servable.filter((item) => !suspended.has(item.advertiserId) && !disabled.has(item.placementId) && allowed(item))
   ).map(({ row }) => ({
     id: row.placements.external_id,
     creativeId: row.creatives.id,
@@ -115,6 +133,51 @@ export const GET = guarded(async function GET(request) {
 
   return json({ version: 1, placements, disabled: off.disabled, disabledScenes: off.disabledScenes });
 });
+
+/**
+ * Pauses and blocks the developer set in this game (migration 0023): { controls, blocked, campaignOf },
+ * ready for mayServe(). Null when nothing needs checking, or when they cannot be read: a read failure
+ * must not hide a developer's ads, and the manifest is asked again at the next start.
+ */
+async function loadControls(db, game, items) {
+  const booked = items.filter((item) => item.source === "booking");
+  if (!booked.length) return null;
+
+  const { data: rows, error: controlsError } = await db
+    .from("game_ad_controls")
+    .select("scope, target_id, state, reason, comment")
+    .eq("game_id", game.id);
+  if (controlsError) {
+    if (isSchemaOutdated(controlsError)) warnSchemaOutdated("GET /v1/manifest", "0023_game_ad_controls.sql");
+    else logDbError("manifest controls", controlsError);
+    return null;
+  }
+
+  const { data: categoryRows, error: categoriesError } = await db
+    .from("game_category_blocks")
+    .select("category, blocked")
+    .eq("game_id", game.id);
+  if (categoriesError) {
+    logDbError("manifest category blocks", categoriesError);
+    return null;
+  }
+
+  const assignmentIds = [...new Set(booked.map((item) => item.assignmentId).filter(Boolean))];
+  const { data: bookings, error: bookingsError } = await db
+    .from("bookings")
+    .select("assignment_id, campaign_id")
+    .in("assignment_id", assignmentIds);
+  if (bookingsError) {
+    logDbError("manifest bookings", bookingsError);
+    return null;
+  }
+
+  return {
+    controls: controlMap(rows),
+    blocked: blockedCategories(categoryRows),
+    campaignOf: new Map((bookings ?? []).map((booking) => [booking.assignment_id, booking.campaign_id])),
+  };
+}
 
 /**
  * The developer's on/off switches for this game: { disabled, disabledScenes } (see
@@ -212,10 +275,11 @@ function activeAssignments(db, game, { skipRemoved, withCrop, withSource, withFo
     .from("assignments")
     .select(
       `
+      id,
       ${withCrop ? "crop_zoom, crop_x, crop_y," : ""}
       ${withSource ? "source," : ""}
       placements!inner ( external_id${withFormats ? ", aspect_ratio" : ""} ),
-      creatives!inner ( id, storage_path, status, owner_id${withFormats ? ", width_px, height_px, safe_x, safe_y, safe_w, safe_h" : ""}${withTargeting ? ", targeting" : ""} )
+      creatives!inner ( id, storage_path, status, owner_id${withSource ? ", ad_category" : ""}${withFormats ? ", width_px, height_px, safe_x, safe_y, safe_w, safe_h" : ""}${withTargeting ? ", targeting" : ""} )
     `
     )
     .eq("owner_id", game.owner_id)
