@@ -4996,32 +4996,42 @@ th.num .sort-button {
 
 .st-icon-change {
   position: absolute;
-  left: 50%;
-  bottom: -11px;
-  transform: translateX(-50%);
-  display: inline-flex;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  height: 22px;
-  padding: 0 9px;
-  border: 1px solid var(--st-field);
-  border-radius: 99px;
-  background: var(--paper);
-  color: var(--ink);
+  padding: 0;
+  border: 0;
+  border-radius: 26px;
+  background: rgba(20, 22, 27, 0);
+  color: #fff;
   font: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(20, 22, 27, 0.1);
 }
 
-.st-icon-change:hover:not(:disabled) {
-  background: var(--surface);
+.st-icon-change > * {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.st-icon-change:hover:not(:disabled),
+.st-icon-change:focus-visible {
+  background: rgba(20, 22, 27, 0.5);
+}
+
+.st-icon-change:hover:not(:disabled) > *,
+.st-icon-change:focus-visible > * {
+  opacity: 1;
 }
 
 .st-icon-remove {
   position: absolute;
+  z-index: 2;
   top: -6px;
   right: -6px;
   width: 20px;
@@ -5655,10 +5665,11 @@ th.num .sort-button {
   align-items: center;
   gap: 12px 16px;
   padding: 10px 14px 10px 20px;
-  background: var(--ink);
-  color: #fff;
+  background: #e9ebef;
+  border: 1px solid #cdd1d8;
+  color: var(--ink);
   border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(20, 22, 27, 0.28);
+  box-shadow: 0 8px 22px rgba(20, 22, 27, 0.12);
 }
 
 .st-bar-dot {
@@ -5666,11 +5677,11 @@ th.num .sort-button {
   width: 8px;
   height: 8px;
   border-radius: 99px;
-  background: #ff8a65;
+  background: var(--signal);
 }
 
 .st-bar-dot.is-done {
-  background: #5fd08f;
+  background: #1f7a4d;
 }
 
 .st-bar-text {
@@ -5690,9 +5701,9 @@ th.num .sort-button {
 
 .st-bar-discard {
   padding: 0 16px;
-  border: 1px solid var(--ink-2);
-  background: transparent;
-  color: #fff;
+  border: 1px solid var(--st-field);
+  background: var(--paper);
+  color: var(--ink);
   font-weight: 600;
 }
 
