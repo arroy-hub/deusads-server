@@ -22,10 +22,9 @@ const COLUMNS = {
   avg: { label: "Avg. visible", numeric: true, width: 92, min: 64 },
 };
 const DEFAULT_ORDER = Object.keys(COLUMNS);
-const NAME_WIDTH = 240;
 const NAME_MIN = 160;
 const MAX_WIDTH = 520;
-const STORE_KEY = "deusads.performance.columns.v1";
+const STORE_KEY = "deusads.performance.columns.v2";
 const clamp = (value, min) => Math.max(min, Math.min(MAX_WIDTH, Math.round(value)));
 
 const seconds = (value) => (value == null ? "—" : `${value.toFixed(1)} s`);
@@ -345,32 +344,42 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
     }
   }, [layout]);
 
-  const widthOf = (key) => layout.widths[key] ?? (key === "name" ? NAME_WIDTH : COLUMNS[key].width);
+  const widthOf = (key) => layout.widths[key] ?? COLUMNS[key].width;
   const labelOf = (key) => (key === "name" ? nameHead : key === "share" && single ? "Share of total" : COLUMNS[key].label);
   const shown = layout.order.filter((key) => !single || ["views", "share", "sessions", "avg"].includes(key));
-  const cols = `34px ${widthOf("name")}px ${shown.map((key) => `${widthOf(key)}px`).join(" ")} minmax(0, 1fr)`;
-  const gridWidth = 34 + widthOf("name") + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 2) + 12;
+  // The name takes what is left, so the table keeps the width of its panel and the figure columns sit together on the right.
+  const cols = `34px minmax(${NAME_MIN}px, 1fr) ${shown.map((key) => `${widthOf(key)}px`).join(" ")}`;
+  const gridWidth = 34 + NAME_MIN + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 1) + 12;
 
-  const setWidth = (key, width) =>
-    setLayout((current) => ({ ...current, widths: { ...current.widths, [key]: clamp(width, key === "name" ? NAME_MIN : COLUMNS[key].min) } }));
-  const move = (key, target) =>
-    setLayout((current) => {
-      if (key === target || !current.order.includes(target)) return current;
-      const order = current.order.filter((entry) => entry !== key);
-      order.splice(order.indexOf(target) + (current.order.indexOf(key) < current.order.indexOf(target) ? 1 : 0), 0, key);
-      return { ...current, order };
-    });
-  const shift = (key, by) => {
-    const at = shown.indexOf(key) + by;
-    if (at >= 0 && at < shown.length) move(key, shown[at]);
+  /**
+   * Move the edge on the right of `key` by dx. The table keeps its width, so what one column gains its right
+   * neighbour loses (for the name column that neighbour is the first figure column). dx is limited so neither
+   * goes under its minimum or past the maximum.
+   */
+  const dragEdge = (key, from, dx) => {
+    const right = key === "name" ? shown[0] : shown[shown.indexOf(key) + 1];
+    if (!right) return;
+    const minLeft = key === "name" ? NAME_MIN : COLUMNS[key].min;
+    const lo = Math.max(minLeft - from.left, from.right - MAX_WIDTH);
+    const hi = Math.min(key === "name" ? Infinity : MAX_WIDTH - from.left, from.right - COLUMNS[right].min);
+    const step = Math.round(Math.max(lo, Math.min(hi, dx)));
+    setLayout((current) => ({
+      ...current,
+      widths: {
+        ...current.widths,
+        ...(key === "name" ? {} : { [key]: from.left + step }),
+        [right]: from.right - step,
+      },
+    }));
   };
+  const edgeStart = (key, cell) => ({ left: key === "name" ? cell.getBoundingClientRect().width : widthOf(key), right: widthOf(key === "name" ? shown[0] : shown[shown.indexOf(key) + 1]) });
   const startResize = (key) => (event) => {
     event.preventDefault();
     const handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
     const x0 = event.clientX;
-    const w0 = widthOf(key);
-    const onMove = (e) => setWidth(key, w0 + e.clientX - x0);
+    const from = edgeStart(key, handle.parentElement);
+    const onMove = (e) => dragEdge(key, from, e.clientX - x0);
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);
@@ -383,8 +392,19 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const resizeKey = (key) => (event) => {
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
-      setWidth(key, widthOf(key) + (event.key === "ArrowRight" ? 16 : -16));
+      dragEdge(key, edgeStart(key, event.currentTarget.parentElement), event.key === "ArrowRight" ? 16 : -16);
     }
+  };
+  const move = (key, target) =>
+    setLayout((current) => {
+      if (key === target || !current.order.includes(target)) return current;
+      const order = current.order.filter((entry) => entry !== key);
+      order.splice(order.indexOf(target) + (current.order.indexOf(key) < current.order.indexOf(target) ? 1 : 0), 0, key);
+      return { ...current, order };
+    });
+  const shift = (key, by) => {
+    const at = shown.indexOf(key) + by;
+    if (at >= 0 && at < shown.length) move(key, shown[at]);
   };
 
   const note =
@@ -553,6 +573,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
                       </span>
                     </button>
                   </span>
+                  {key !== shown[shown.length - 1] && (
                   <span
                     className="pf-resize"
                     role="separator"
@@ -562,6 +583,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
                     onPointerDown={startResize(key)}
                     onKeyDown={resizeKey(key)}
                   />
+                  )}
                 </div>
               );
             })}
