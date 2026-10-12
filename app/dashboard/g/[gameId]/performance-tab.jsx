@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
@@ -24,6 +24,7 @@ const COLUMNS = {
 const DEFAULT_ORDER = Object.keys(COLUMNS);
 const NAME_MIN = 160;
 const MAX_WIDTH = 520;
+const HEAD_PAD = 10; // room on each side of a column title
 const STORE_KEY = "deusads.performance.columns.v2";
 const clamp = (value, min) => Math.max(min, Math.min(MAX_WIDTH, Math.round(value)));
 
@@ -344,12 +345,27 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
     }
   }, [layout]);
 
-  const widthOf = (key) => layout.widths[key] ?? COLUMNS[key].width;
+  // A column is never narrower than its title with the room kept for the sort arrow (measured, so it follows the font).
+  const [fit, setFit] = useState({});
+  const gridRef = useRef(null);
+  const minOf = (key) => (key === "name" ? NAME_MIN : Math.max(COLUMNS[key].min, fit[key] ?? 0));
+  const widthOf = (key) => Math.max(layout.widths[key] ?? COLUMNS[key].width, key === "name" ? 0 : fit[key] ?? 0);
   const labelOf = (key) => (key === "name" ? nameHead : key === "share" && single ? "Share of total" : COLUMNS[key].label);
   const shown = layout.order.filter((key) => !single || ["views", "share", "sessions", "avg"].includes(key));
   // The name takes what is left, so the table keeps the width of its panel and the figure columns sit together on the right.
   const cols = `34px minmax(${NAME_MIN}px, 1fr) ${shown.map((key) => `${widthOf(key)}px`).join(" ")}`;
   const gridWidth = 34 + NAME_MIN + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 1) + 12;
+
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const next = {};
+    for (const cell of grid.querySelectorAll(".pf-head [data-col]")) {
+      const label = cell.querySelector(".sort-button");
+      if (label) next[cell.dataset.col] = Math.ceil(label.getBoundingClientRect().width) + 2 * HEAD_PAD;
+    }
+    setFit((current) => (Object.keys(next).every((key) => current[key] === next[key]) && Object.keys(current).length >= Object.keys(next).length ? current : { ...current, ...next }));
+  });
 
   /**
    * Move the edge on the right of `key` by dx. The table keeps its width, so what one column gains its right
@@ -359,9 +375,9 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const dragEdge = (key, from, dx) => {
     const right = key === "name" ? shown[0] : shown[shown.indexOf(key) + 1];
     if (!right) return;
-    const minLeft = key === "name" ? NAME_MIN : COLUMNS[key].min;
+    const minLeft = minOf(key);
     const lo = Math.max(minLeft - from.left, from.right - MAX_WIDTH);
-    const hi = Math.min(key === "name" ? Infinity : MAX_WIDTH - from.left, from.right - COLUMNS[right].min);
+    const hi = Math.min(key === "name" ? Infinity : MAX_WIDTH - from.left, from.right - minOf(right));
     const step = Math.round(Math.max(lo, Math.min(hi, dx)));
     setLayout((current) => ({
       ...current,
@@ -526,20 +542,20 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
       </div>
 
       <div className="pf-scroll">
-        <div className="pf-tgrid" style={{ minWidth: gridWidth }} role="table" aria-label={`Impressions by ${nameHead.toLowerCase()}`}>
+        <div className="pf-tgrid" ref={gridRef} style={{ minWidth: gridWidth }} role="table" aria-label={`Impressions by ${nameHead.toLowerCase()}`}>
           <div className="pf-row pf-head" role="row" style={{ gridTemplateColumns: cols }}>
             <div className="pf-cell pf-pick" role="columnheader">
               <span className="sr-only">Count in the chart</span>
             </div>
             {["name", ...shown].map((key) => {
-              const numeric = key !== "name" && COLUMNS[key].numeric;
               const movable = key !== "name";
               const side = dropOn === key && dragging && dragging !== key ? (key === "name" || shown.indexOf(dragging) > shown.indexOf(key) ? "is-drop-left" : "is-drop-right") : "";
               const dropTarget = key === "name" ? shown[0] : key;
               return (
                 <div
                   key={key}
-                  className={`pf-cell pf-hcell ${numeric ? "pf-num" : ""} ${side}`}
+                  data-col={key}
+                  className={`pf-cell pf-hcell ${movable ? "pf-hc-center" : ""} ${side}`}
                   role="columnheader"
                   aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                   onDragOver={(event) => { if (dragging) { event.preventDefault(); setDropOn(key); } }}
@@ -581,6 +597,11 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
                     aria-label={`Resize ${labelOf(key)}`}
                     tabIndex={0}
                     onPointerDown={startResize(key)}
+                    onDoubleClick={(event) => {
+                      const cell = event.currentTarget.parentElement;
+                      const from = edgeStart(key, cell);
+                      dragEdge(key, from, minOf(key) - from.left);
+                    }}
                     onKeyDown={resizeKey(key)}
                   />
                   )}

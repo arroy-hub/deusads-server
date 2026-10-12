@@ -4846,22 +4846,26 @@ th.num .sort-button {
   position: relative;
   display: flex;
   align-items: center;
-  padding-right: 10px;
+  padding: 0 10px; /* HEAD_PAD in performance-tab.jsx */
 }
 
-.pf-hcell.pf-num {
-  justify-content: flex-end;
+.pf-hcell.pf-hc-center {
+  justify-content: center;
 }
 
 .pf-hlabel {
-  min-width: 0;
-  overflow: hidden;
+  flex: none;
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .pf-hlabel .sort-button {
-  max-width: 100%;
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+/* the figure columns are centred, title and content alike */
+.pf-row .pf-num {
+  text-align: center;
 }
 
 .pf-hlabel.is-movable {
@@ -4920,4 +4924,8 @@ th.num .sort-button {
 
 .pf-resize:focus-visible {
   outline: none;
+}
+
+.pf-hcell:not(.pf-hc-center) {
+  padding-left: 0;
 }
