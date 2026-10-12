@@ -90,9 +90,8 @@ export default async function GamesPage() {
                   </div>
                   <div className="game-badges">
                     {game.connection && (
-                      <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-chip conn-${game.connection.mode}`} title="Connection details are in Settings">
+                      <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${game.connection.mode}`} aria-label={`SDK: ${game.connection.chip}`}>
                         <b />
-                        {game.connection.chip}
                       </Link>
                     )}
                     {tag && <Link href={`/dashboard/g/${game.id}?tab=campaigns`} className="cp-tag">{tag}</Link>}

@@ -5912,9 +5912,11 @@ th.num .sort-button {
 .game-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .conn-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line); background: #fff; white-space: nowrap; }
 .conn-chip b { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.conn-dot { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: none; }
+.conn-dot b { width: 10px; height: 10px; border-radius: 50%; display: block; }
 .conn-ok { color: #1d6b43; } .conn-ok b { background: #1d8a55; }
 .conn-new { color: var(--ink-2); } .conn-new b { background: var(--ink-3); }
-.conn-silent { color: #7a4f00; background: #fbf0d9; border-color: #ecd49a; } .conn-silent b { background: #c27a00; }
+.conn-silent { color: #7a4f00; } .conn-chip.conn-silent { background: #fbf0d9; border-color: #ecd49a; } .conn-silent b { background: #c27a00; }
 .digest { background: #fff; border: 1px solid #e2b4a8; border-left: 4px solid var(--signal); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px; display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
 .digest-body { flex: 1; min-width: 280px; }
 .digest h2 { font-size: 15px; margin-bottom: 6px; }

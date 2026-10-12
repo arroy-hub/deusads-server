@@ -123,9 +123,8 @@ export default async function GamePage({ params, searchParams }) {
           <GameIcon name={game.name} url={iconUrl} size="sm" />
           <h1>{game.name}</h1>
           {link && (
-            <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-chip conn-${link.mode}`} title="Connection details are in Settings">
+            <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${link.mode}`} aria-label={`SDK: ${link.chip}`}>
               <b />
-              {link.chip}
             </Link>
           )}
         </div>
