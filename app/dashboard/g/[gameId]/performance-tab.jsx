@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
@@ -11,6 +11,22 @@ const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My pict
 const SESSIONS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your pictures" };
 const BY_LABEL = Object.fromEntries(BREAKDOWNS);
 const FILTER_KEYS = ["folder", "scene", "tag", "type", "format"];
+
+// Columns of the table after the name. Their order and widths are the viewer's to change and are remembered in this browser.
+const COLUMNS = {
+  views: { label: "Impressions", numeric: true, width: 96, min: 64 },
+  adv: { label: "Advertisers", numeric: true, width: 96, min: 64 },
+  own: { label: "My pictures", numeric: true, width: 96, min: 64 },
+  share: { label: "Advertiser share", numeric: false, width: 150, min: 90 },
+  sessions: { label: "Sessions", numeric: true, width: 84, min: 60 },
+  avg: { label: "Avg. visible", numeric: true, width: 92, min: 64 },
+};
+const DEFAULT_ORDER = Object.keys(COLUMNS);
+const NAME_WIDTH = 240;
+const NAME_MIN = 160;
+const MAX_WIDTH = 520;
+const STORE_KEY = "deusads.performance.columns.v1";
+const clamp = (value, min) => Math.max(min, Math.min(MAX_WIDTH, Math.round(value)));
 
 const seconds = (value) => (value == null ? "—" : `${value.toFixed(1)} s`);
 const count = (value) => formatCount(value);
@@ -189,24 +205,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
             </button>
           ))}
         </div>
-        <span className="pf-bar-label">Days are counted in UTC</span>
-        {!focus && (
-          <div className="pf-search">
-            <input
-              className="pf-field"
-              type="search"
-              value={state.q}
-              placeholder="Find a placement, scene or tag"
-              aria-label="Find a placement, scene or tag"
-              onChange={(event) => go({ q: event.target.value }, 350)}
-            />
-          </div>
-        )}
-      </div>
-
-      {!focus && (facets.length > 0 || state.ticked.length > 0 || filtered) && (
-        <div className="pf-bar-row">
-          {facets.length > 0 && <span className="pf-bar-label">Show only</span>}
+        {!focus && facets.length > 0 && <span className="pf-bar-label">Show only</span>}
           {menu && <button type="button" className="pf-scrim" aria-label="Close menu" onClick={() => setMenu(null)} />}
           {facets.map((facet) => {
             const chosen = state.filters[facet.key];
@@ -261,7 +260,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
               </span>
             );
           })}
-          {state.ticked.length > 0 && model.ticked.length > 0 && (
+          {!focus && state.ticked.length > 0 && model.ticked.length > 0 && (
             <span className="pf-pill-group is-set">
               <span className="pf-pill pf-pill-static">
                 Ticked: {model.ticked.length} {model.ticked.length === 1 ? "placement" : "placements"}
@@ -276,8 +275,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
               Clear filters
             </button>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -322,10 +320,72 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
 
   const sortBy = (key) => setSort((current) => (current.key === key ? { key, dir: current.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" ? "asc" : "desc" }));
   const nameHead = BY_LABEL[table.by];
-  const heads = single
-    ? [["name", nameHead, false], ["views", "Impressions", true], ["share", "Share of total", false], ["sessions", "Sessions", true], ["avg", "Avg. visible", true]]
-    : [["name", nameHead, false], ["views", "Impressions", true], ["adv", "Advertisers", true, "adv"], ["own", "My pictures", true, "own"], ["share", "Advertiser share", false], ["sessions", "Sessions", true], ["avg", "Avg. visible", true]];
-  const cols = single ? "34px minmax(200px, 1fr) 90px 170px 76px 84px" : "34px minmax(200px, 1fr) 84px 84px 84px 150px 76px 84px";
+  const [layout, setLayout] = useState({ order: DEFAULT_ORDER, widths: {} });
+  const [dragging, setDragging] = useState(null);
+  const [dropOn, setDropOn] = useState(null);
+  const loaded = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? "null");
+      if (saved && Array.isArray(saved.order)) {
+        const order = [...saved.order.filter((key) => DEFAULT_ORDER.includes(key)), ...DEFAULT_ORDER.filter((key) => !saved.order.includes(key))];
+        setLayout({ order, widths: saved.widths && typeof saved.widths === "object" ? saved.widths : {} });
+      }
+    } catch {
+      // Nothing saved, or storage is blocked: the default layout is fine.
+    }
+    loaded.current = true;
+  }, []);
+  useEffect(() => {
+    if (!loaded.current) return;
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(layout));
+    } catch {
+      // Remembering the layout is a convenience.
+    }
+  }, [layout]);
+
+  const widthOf = (key) => layout.widths[key] ?? (key === "name" ? NAME_WIDTH : COLUMNS[key].width);
+  const labelOf = (key) => (key === "name" ? nameHead : key === "share" && single ? "Share of total" : COLUMNS[key].label);
+  const shown = layout.order.filter((key) => !single || ["views", "share", "sessions", "avg"].includes(key));
+  const cols = `34px minmax(${widthOf("name")}px, 1fr) ${shown.map((key) => `${widthOf(key)}px`).join(" ")}`;
+  const gridWidth = 34 + widthOf("name") + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 1) + 12;
+
+  const setWidth = (key, width) =>
+    setLayout((current) => ({ ...current, widths: { ...current.widths, [key]: clamp(width, key === "name" ? NAME_MIN : COLUMNS[key].min) } }));
+  const move = (key, target) =>
+    setLayout((current) => {
+      if (key === target) return current;
+      const order = current.order.filter((entry) => entry !== key);
+      order.splice(order.indexOf(target) + (current.order.indexOf(key) < current.order.indexOf(target) ? 1 : 0), 0, key);
+      return { ...current, order };
+    });
+  const shift = (key, by) => {
+    const at = shown.indexOf(key) + by;
+    if (at >= 0 && at < shown.length) move(key, shown[at]);
+  };
+  const startResize = (key) => (event) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    const x0 = event.clientX;
+    const w0 = widthOf(key);
+    const onMove = (e) => setWidth(key, w0 + e.clientX - x0);
+    const onUp = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  };
+  const resizeKey = (key) => (event) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      setWidth(key, widthOf(key) + (event.key === "ArrowRight" ? 16 : -16));
+    }
+  };
 
   const note =
     table.by === "tag"
@@ -337,43 +397,36 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const empty = table.total.placements === 0;
   const allFolded = grouped && groups.length > 0 && groups.every((group) => folded.has(group.key));
 
-  /** The figure cells of one row, in the order of the heads. */
+  /** The figure cells of one row, in the order the viewer put the columns. */
   const figureCells = (cell) => {
     const f = figures(cell, source);
     const sum = cell.adv + cell.own;
     const shareOfTotal = percent(f.views, totalViews);
-    return (
-      <>
-        <div className="pf-cell pf-num pf-strong" role="cell">{count(f.views)}</div>
-        {!single && (
-          <>
-            <div className="pf-cell pf-num" role="cell">{count(cell.adv)}</div>
-            <div className="pf-cell pf-num" role="cell">{count(cell.own)}</div>
-            <div className="pf-cell pf-tbar" role="cell">
-              <span
-                className="pf-split"
-                role="img"
-                aria-label={sum ? `${Math.round(percent(cell.adv, sum))}% advertisers, ${100 - Math.round(percent(cell.adv, sum))}% my pictures` : "No views"}
-              >
-                {cell.adv > 0 && <span className="pf-split-adv" style={{ width: `${percent(cell.adv, sum).toFixed(2)}%` }} />}
-                {cell.own > 0 && <span className="pf-split-own" style={{ width: `${percent(cell.own, sum).toFixed(2)}%` }} />}
-              </span>
-              <span className="pf-bar-pct">{sum ? `${Math.round(percent(cell.adv, sum))}%` : "—"}</span>
-            </div>
-          </>
-        )}
-        {single && (
-          <div className="pf-cell pf-tbar" role="cell">
-            <span className="pf-split" role="img" aria-label={`${count(f.views)} views, ${Math.round(shareOfTotal)}% of the total`}>
-              {f.views > 0 && <span className={`pf-split-one ${source === "adv" ? "pf-split-adv" : "pf-split-own"}`} style={{ width: `${shareOfTotal.toFixed(2)}%` }} />}
-            </span>
-            <span className="pf-bar-pct">{totalViews ? `${Math.round(shareOfTotal)}%` : "—"}</span>
-          </div>
-        )}
-        <div className="pf-cell pf-num" role="cell">{f.sessions ? count(f.sessions) : "—"}</div>
-        <div className="pf-cell pf-num" role="cell">{seconds(f.avgVisible)}</div>
-      </>
-    );
+    const advPct = Math.round(percent(cell.adv, sum));
+    const parts = {
+      views: <div className="pf-cell pf-num pf-strong" role="cell">{count(f.views)}</div>,
+      adv: <div className="pf-cell pf-num" role="cell">{count(cell.adv)}</div>,
+      own: <div className="pf-cell pf-num" role="cell">{count(cell.own)}</div>,
+      share: single ? (
+        <div className="pf-cell pf-tbar" role="cell">
+          <span className="pf-split" role="img" aria-label={`${count(f.views)} views, ${Math.round(shareOfTotal)}% of the total`}>
+            {f.views > 0 && <span className={`pf-split-one ${source === "adv" ? "pf-split-adv" : "pf-split-own"}`} style={{ width: `${shareOfTotal.toFixed(2)}%` }} />}
+          </span>
+          <span className="pf-bar-pct">{totalViews ? `${Math.round(shareOfTotal)}%` : "—"}</span>
+        </div>
+      ) : (
+        <div className="pf-cell pf-tbar" role="cell">
+          <span className="pf-split" role="img" aria-label={sum ? `${advPct}% advertisers, ${100 - advPct}% my pictures` : "No views"}>
+            {cell.adv > 0 && <span className="pf-split-adv" style={{ width: `${percent(cell.adv, sum).toFixed(2)}%` }} />}
+            {cell.own > 0 && <span className="pf-split-own" style={{ width: `${percent(cell.own, sum).toFixed(2)}%` }} />}
+          </span>
+          <span className="pf-bar-pct">{sum ? `${advPct}%` : "—"}</span>
+        </div>
+      ),
+      sessions: <div className="pf-cell pf-num" role="cell">{f.sessions ? count(f.sessions) : "—"}</div>,
+      avg: <div className="pf-cell pf-num" role="cell">{seconds(f.avgVisible)}</div>,
+    };
+    return shown.map((key) => <Fragment key={key}>{parts[key]}</Fragment>);
   };
 
   const placementRow = (row, indent) => (
@@ -402,6 +455,14 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
       <div className="pf-table-head">
         <h2 id="pf-table-title">By {nameHead.toLowerCase()}</h2>
         <div className="pf-table-tools">
+          <input
+            className="pf-field pf-find"
+            type="search"
+            value={state.q}
+            placeholder="Find a placement, scene or tag"
+            aria-label="Find a placement, scene or tag"
+            onChange={(event) => go({ q: event.target.value }, 350)}
+          />
           <label className="pf-inline">
             <span>Break down by</span>
             <select
@@ -419,47 +480,75 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
               ))}
             </select>
           </label>
-          {grouped && groups.length > 0 && (
-            <>
-              <button type="button" className="link-button" onClick={() => setFolded(new Set())} disabled={folded.size === 0}>
-                Expand all
-              </button>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => setFolded(new Set(groups.filter((group) => !group.special || group.kids.length > 0).map((group) => group.key)))}
-                disabled={allFolded}
-              >
-                Collapse all
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className="link-button pf-fold"
+            disabled={!grouped || groups.length === 0}
+            onClick={() => setFolded(allFolded ? new Set() : new Set(groups.map((group) => group.key)))}
+          >
+            {allFolded ? "Expand all" : "Collapse all"}
+          </button>
         </div>
       </div>
-      {note && <p className="pf-table-note">{note}</p>}
 
       <div className="pf-scroll">
-        <div className="pf-tgrid" role="table" aria-label={`Impressions by ${nameHead.toLowerCase()}`}>
+        <div className="pf-tgrid" style={{ minWidth: gridWidth }} role="table" aria-label={`Impressions by ${nameHead.toLowerCase()}`}>
           <div className="pf-row pf-head" role="row" style={{ gridTemplateColumns: cols }}>
             <div className="pf-cell pf-pick" role="columnheader">
               <span className="sr-only">Count in the chart</span>
             </div>
-            {heads.map(([key, label, numeric, swatch]) => (
-              <div
-                key={key}
-                className={`pf-cell ${numeric ? "pf-num" : ""}`}
-                role="columnheader"
-                aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-              >
-                <button type="button" className="sort-button" onClick={() => sortBy(key)}>
-                  {swatch && <span className={`pf-key ${swatch === "adv" ? "pf-key-adv" : "pf-key-own"}`} aria-hidden="true" />}
-                  {label}
-                  <span className="sort-arrow" aria-hidden="true">
-                    {sort.key === key ? (sort.dir === "asc" ? "▲" : "▼") : ""}
+            {["name", ...shown].map((key) => {
+              const numeric = key !== "name" && COLUMNS[key].numeric;
+              const movable = key !== "name";
+              return (
+                <div
+                  key={key}
+                  className={`pf-cell pf-hcell ${numeric ? "pf-num" : ""} ${dropOn === key && dragging !== key ? "is-drop" : ""}`}
+                  role="columnheader"
+                  aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+                  onDragOver={movable ? (event) => { if (dragging) { event.preventDefault(); setDropOn(key); } } : undefined}
+                  onDrop={movable ? (event) => { event.preventDefault(); if (dragging) move(dragging, key); setDragging(null); setDropOn(null); } : undefined}
+                >
+                  <span
+                    className={`pf-hlabel ${movable ? "is-movable" : ""} ${dragging === key ? "is-dragging" : ""}`}
+                    draggable={movable}
+                    onDragStart={movable ? (event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", key); setDragging(key); } : undefined}
+                    onDragEnd={() => { setDragging(null); setDropOn(null); }}
+                  >
+                    <button
+                      type="button"
+                      className="sort-button"
+                      title={movable ? "Click to sort · drag to move · Alt+←/→ to move with the keyboard" : "Click to sort"}
+                      onClick={() => sortBy(key)}
+                      onKeyDown={
+                        movable
+                          ? (event) => {
+                              if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+                                event.preventDefault();
+                                shift(key, event.key === "ArrowRight" ? 1 : -1);
+                              }
+                            }
+                          : undefined
+                      }
+                    >
+                      {labelOf(key)}
+                      <span className="sort-arrow" aria-hidden="true">
+                        {sort.key === key ? (sort.dir === "asc" ? "▲" : "▼") : ""}
+                      </span>
+                    </button>
                   </span>
-                </button>
-              </div>
-            ))}
+                  <span
+                    className="pf-resize"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize ${labelOf(key)}`}
+                    tabIndex={0}
+                    onPointerDown={startResize(key)}
+                    onKeyDown={resizeKey(key)}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {!empty && (
@@ -556,6 +645,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
           )}
         </div>
       </div>
+      {note && <p className="pf-table-note pf-table-note-end">{note}</p>}
     </section>
   );
 }

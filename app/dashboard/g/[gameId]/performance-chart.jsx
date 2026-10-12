@@ -61,7 +61,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
             ))}
           </div>
 
-          <div className="pf-cols" role="group" aria-label={title}>
+          <div className="pf-cols" role="group" aria-label={title} style={{ gap: days.length <= 14 ? 14 : days.length <= 45 ? 4 : 2 }}>
             {days.map((day, index) => {
               const a = adv(day);
               const o = own(day);

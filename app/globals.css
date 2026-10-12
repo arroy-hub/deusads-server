@@ -992,7 +992,7 @@ tr:last-child td {
 
 .chart-bar {
   display: block;
-  width: min(100%, 18px);
+  width: min(100%, 72px);
   background: var(--signal);
   border-radius: 4px 4px 0 0;
 }
@@ -3929,9 +3929,6 @@ th.num .sort-button {
   color: #fff;
 }
 
-.pf-search {
-  margin-left: auto;
-}
 
 .pf-field {
   min-height: 32px;
@@ -3944,8 +3941,8 @@ th.num .sort-button {
   color: var(--ink);
 }
 
-.pf-search .pf-field {
-  width: min(260px, 100%);
+.pf-find {
+  width: 230px;
 }
 
 .pf-pill-wrap {
@@ -4042,6 +4039,7 @@ th.num .sort-button {
 
 .pf-opt {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   min-height: 32px;
@@ -4056,6 +4054,7 @@ th.num .sort-button {
 }
 
 .pf-opt input {
+  flex: none;
   width: 15px;
   height: 15px;
   margin: 0;
@@ -4786,4 +4785,108 @@ th.num .sort-button {
 .pf h2 {
   font-size: 0.9375rem;
   margin: 0;
+}
+
+/* table header: title on the left, search, grouping and fold on the right, always the same controls */
+.pf-table-head {
+  flex-wrap: nowrap;
+}
+
+.pf-table-head h2 {
+  white-space: nowrap;
+}
+
+.pf-table-tools {
+  flex: 1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.pf-inline {
+  flex-direction: row;
+}
+
+.pf-fold {
+  min-width: 4.8rem;
+  text-align: right;
+  font-size: 0.8125rem;
+}
+
+.pf-table-note-end {
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* resizable, movable column heads */
+.pf-hcell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+
+.pf-hcell.pf-num {
+  justify-content: flex-end;
+}
+
+.pf-hlabel {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pf-hlabel .sort-button {
+  max-width: 100%;
+}
+
+.pf-hlabel.is-movable {
+  cursor: grab;
+}
+
+.pf-hlabel.is-dragging {
+  opacity: 0.4;
+}
+
+.pf-hcell.is-drop::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--signal);
+}
+
+.pf-resize {
+  position: absolute;
+  right: -5px;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pf-resize::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--line);
+}
+
+.pf-resize:hover::after,
+.pf-resize:focus-visible::after {
+  background: var(--signal);
+}
+
+.pf-resize:focus-visible {
+  outline: none;
 }
