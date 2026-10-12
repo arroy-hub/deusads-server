@@ -3828,7 +3828,7 @@ th.num .sort-button {
 .pf-stack {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.75rem;
   transition: opacity 0.15s;
 }
 
@@ -3840,7 +3840,7 @@ th.num .sort-button {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 14px 16px;
 }
 
 .pf-panel-head {
@@ -3849,11 +3849,11 @@ th.num .sort-button {
   justify-content: space-between;
   align-items: baseline;
   gap: 0.25rem 1rem;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .pf-sub {
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   color: var(--ink-2);
 }
 
@@ -3881,8 +3881,8 @@ th.num .sort-button {
 .pf-bar {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.7rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -3892,7 +3892,7 @@ th.num .sort-button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .pf-bar-label {
@@ -3908,14 +3908,14 @@ th.num .sort-button {
 }
 
 .pf-seg-btn {
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 26px;
+  padding: 0 11px;
   border: 0;
   border-radius: 99px;
   background: transparent;
   font: inherit;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--ink-2);
   cursor: pointer;
 }
@@ -3934,18 +3934,18 @@ th.num .sort-button {
 }
 
 .pf-field {
-  min-height: 40px;
+  min-height: 32px;
   padding: 0 0.75rem;
   border: 1px solid var(--field);
   border-radius: 8px;
   background: var(--paper);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   color: var(--ink);
 }
 
 .pf-search .pf-field {
-  width: min(320px, 100%);
+  width: min(260px, 100%);
 }
 
 .pf-pill-wrap {
@@ -3966,13 +3966,13 @@ th.num .sort-button {
 }
 
 .pf-pill {
-  min-height: 34px;
-  padding: 0 0.8rem;
+  min-height: 28px;
+  padding: 0 0.6rem;
   border: 0;
   background: transparent;
   border-radius: 99px;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--ink-2);
   cursor: pointer;
 }
@@ -4004,8 +4004,8 @@ th.num .sort-button {
 }
 
 .pf-pill-x {
-  min-width: 30px;
-  min-height: 34px;
+  min-width: 24px;
+  min-height: 28px;
   border: 0;
   background: transparent;
   color: var(--signal-ink);
@@ -4030,8 +4030,8 @@ th.num .sort-button {
   top: calc(100% + 6px);
   left: 0;
   z-index: 13;
-  width: 270px;
-  max-height: 330px;
+  width: 250px;
+  max-height: 300px;
   overflow: auto;
   background: var(--paper);
   border: 1px solid var(--line);
@@ -4044,11 +4044,11 @@ th.num .sort-button {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 40px;
+  min-height: 32px;
   padding: 0 10px;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
 }
 
 .pf-opt:hover {
@@ -4056,8 +4056,8 @@ th.num .sort-button {
 }
 
 .pf-opt input {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   margin: 0;
   accent-color: var(--signal-ink);
 }
@@ -4077,16 +4077,16 @@ th.num .sort-button {
 /* figures: the three cards are one choice (which views count) */
 .pf-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
 }
 
 .pf-src {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 16px 18px;
+  gap: 0;
+  padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--paper);
@@ -4110,8 +4110,8 @@ th.num .sort-button {
 .pf-src.is-on::after {
   content: "";
   position: absolute;
-  top: 14px;
-  right: 18px;
+  top: 11px;
+  right: 12px;
   width: 6px;
   height: 11px;
   border: solid var(--ink);
@@ -4129,12 +4129,12 @@ th.num .sort-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   color: var(--ink-2);
 }
 
 .pf-src-val {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -4142,7 +4142,7 @@ th.num .sort-button {
 }
 
 .pf-src-sub {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--ink-2);
 }
 
@@ -4150,12 +4150,12 @@ th.num .sort-button {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 16px 6px;
+  padding: 9px 6px;
 }
 
 .pf-hint {
-  margin: 12px 0 0;
-  font-size: 0.8125rem;
+  margin: 8px 0 0;
+  font-size: 0.75rem;
   color: var(--ink-2);
 }
 
@@ -4164,9 +4164,9 @@ th.num .sort-button {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 18px;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--ink-2);
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .pf-legend > span {
@@ -4181,7 +4181,7 @@ th.num .sort-button {
 
 .pf-plot {
   position: relative;
-  height: 200px;
+  height: 110px;
 }
 
 .pf-grid-lines {
@@ -4200,7 +4200,7 @@ th.num .sort-button {
   position: absolute;
   right: calc(100% + 0.5rem);
   top: -0.6em;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   line-height: 1.2;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
@@ -4264,7 +4264,7 @@ th.num .sort-button {
   display: flex;
   justify-content: space-between;
   margin: 8px 0 0 3rem;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--ink-2);
 }
 
@@ -4330,8 +4330,8 @@ th.num .sort-button {
 }
 
 .pf-details {
-  margin-top: 1rem;
-  font-size: 0.9375rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
 }
 
 .pf-details summary {
@@ -4343,7 +4343,7 @@ th.num .sort-button {
 .pf-mini {
   margin-top: 8px;
   max-width: 34rem;
-  max-height: 330px;
+  max-height: 260px;
   overflow: auto;
   border-top: 1px solid var(--line);
 }
@@ -4352,7 +4352,7 @@ th.num .sort-button {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr 1fr;
   gap: 8px;
-  padding: 8px 4px;
+  padding: 5px 4px;
   border-bottom: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
 }
@@ -4375,7 +4375,7 @@ th.num .sort-button {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  padding: 20px 24px 10px;
+  padding: 12px 16px 8px;
 }
 
 .pf-table-tools {
@@ -4389,14 +4389,14 @@ th.num .sort-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--ink-2);
 }
 
 .pf-table-note {
   margin: 0;
-  padding: 0 24px 10px;
-  font-size: 0.8125rem;
+  padding: 0 16px 8px;
+  font-size: 0.75rem;
   color: var(--ink-2);
 }
 
@@ -4405,29 +4405,29 @@ th.num .sort-button {
 }
 
 .pf-tgrid {
-  min-width: 980px;
+  min-width: 780px;
 }
 
 .pf-row {
   display: grid;
   align-items: center;
   column-gap: 8px;
-  padding-right: 16px;
+  padding-right: 12px;
   border-bottom: 1px solid var(--line);
-  min-height: 56px;
-  font-size: 0.9375rem;
+  min-height: 38px;
+  font-size: 0.8125rem;
 }
 
 .pf-head {
-  min-height: 44px;
-  font-size: 0.8125rem;
+  min-height: 32px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink-2);
   border-top: 1px solid var(--line);
 }
 
 .pf-cell {
-  padding: 6px 0;
+  padding: 3px 0;
   min-width: 0;
 }
 
@@ -4437,8 +4437,8 @@ th.num .sort-button {
 }
 
 .pf-pick input {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   margin: 0;
   accent-color: var(--signal-ink);
   cursor: pointer;
@@ -4513,7 +4513,7 @@ th.num .sort-button {
 }
 
 .pf-sub-line {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--ink-2);
   font-weight: 400;
   white-space: nowrap;
@@ -4522,8 +4522,8 @@ th.num .sort-button {
 }
 
 .pf-caret {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   flex: none;
   border: 0;
   background: transparent;
@@ -4553,12 +4553,12 @@ th.num .sort-button {
 .pf-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
+  min-height: 18px;
+  padding: 0 7px;
   border-radius: 99px;
   border: 1px solid var(--line);
   background: var(--surface);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--ink-2);
   white-space: nowrap;
@@ -4579,7 +4579,7 @@ th.num .sort-button {
   flex: 1;
   display: flex;
   gap: 2px;
-  height: 10px;
+  height: 8px;
   min-width: 40px;
   background: var(--surface);
   border-radius: 3px;
@@ -4601,28 +4601,28 @@ th.num .sort-button {
 }
 
 .pf-bar-pct {
-  width: 38px;
+  width: 34px;
   text-align: right;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
 .pf-empty {
-  padding: 28px 24px;
+  padding: 18px 16px;
   color: var(--ink-2);
 }
 
 /* one placement */
 .pf-back {
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--field);
   border-radius: 99px;
   background: var(--paper);
   font: inherit;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--ink);
   cursor: pointer;
 }
@@ -4640,7 +4640,7 @@ th.num .sort-button {
 }
 
 .pf-focus-name {
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   overflow-wrap: anywhere;
 }
 
@@ -4664,20 +4664,21 @@ th.num .sort-button {
 
 .pf-focus-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 0.75rem;
   align-items: start;
 }
 
 .pf-cgroup + .pf-cgroup {
-  margin-top: 20px;
+  margin-top: 12px;
 }
 
 .pf-cgroup-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
+  padding: 5px 0;
+  font-size: 0.8125rem;
   border-bottom: 1px solid var(--ink);
 }
 
@@ -4701,16 +4702,17 @@ th.num .sort-button {
 
 .pf-crow {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 72px 150px;
-  gap: 12px;
+  grid-template-columns: 48px minmax(0, 1fr) 64px 130px;
+  gap: 10px;
   align-items: center;
-  padding: 10px 0;
+  padding: 6px 0;
+  font-size: 0.8125rem;
   border-bottom: 1px solid var(--line);
 }
 
 .pf-thumb {
-  width: 64px;
-  height: 40px;
+  width: 48px;
+  height: 30px;
   border-radius: 6px;
   display: grid;
   place-items: center;
@@ -4750,32 +4752,38 @@ th.num .sort-button {
 
 .pf-empty-line {
   margin: 0;
-  padding: 12px 0;
-  font-size: 0.9375rem;
+  padding: 8px 0;
+  font-size: 0.8125rem;
   color: var(--ink-2);
 }
 
 .pf-srow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 170px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 64px 150px;
+  gap: 10px;
   align-items: center;
-  padding: 10px 0;
+  padding: 6px 0;
+  font-size: 0.8125rem;
   border-bottom: 1px solid var(--line);
 }
 
 .pf-note {
-  margin: 12px 0 0;
-  font-size: 0.8125rem;
+  margin: 8px 0 0;
+  font-size: 0.75rem;
   color: var(--ink-2);
 }
 
 @media (max-width: 819px) {
   .pf-crow {
-    grid-template-columns: 64px minmax(0, 1fr) 72px;
+    grid-template-columns: 48px minmax(0, 1fr) 64px;
   }
 
   .pf-crow .pf-tbar {
     display: none;
   }
+}
+
+.pf h2 {
+  font-size: 0.9375rem;
+  margin: 0;
 }

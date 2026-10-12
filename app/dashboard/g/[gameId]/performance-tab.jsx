@@ -325,7 +325,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const heads = single
     ? [["name", nameHead, false], ["views", "Impressions", true], ["share", "Share of total", false], ["sessions", "Sessions", true], ["avg", "Avg. visible", true]]
     : [["name", nameHead, false], ["views", "Impressions", true], ["adv", "Advertisers", true, "adv"], ["own", "My pictures", true, "own"], ["share", "Advertiser share", false], ["sessions", "Sessions", true], ["avg", "Avg. visible", true]];
-  const cols = single ? "44px minmax(240px, 1fr) 118px 210px 92px 100px" : "44px minmax(240px, 1fr) 108px 108px 108px 190px 92px 100px";
+  const cols = single ? "34px minmax(200px, 1fr) 90px 170px 76px 84px" : "34px minmax(200px, 1fr) 84px 84px 84px 150px 76px 84px";
 
   const note =
     table.by === "tag"
