@@ -5894,15 +5894,15 @@ th.num .sort-button {
 .org-iconbtn.org-edit { padding: 0 16px; background: var(--signal); border-color: var(--signal); color: #fff; }
 .org-iconbtn.org-edit:hover { background: #c9401f; }
 .org-group {
-  background: #f3ede8;
-  border: 1px solid #e0d3c9;
-  border-left: 4px solid var(--signal);
+  background: #eceef1;
+  border: 1px solid #d5d9e0;
+  border-left: 4px solid #4b5160;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(20, 22, 27, 0.06), 0 6px 16px rgba(20, 22, 27, 0.07);
 }
 .org-group .org-group-head { background: #fff; border-radius: 0; min-height: 54px; padding: 14px 18px; }
-.org-group.is-open .org-group-head { border-bottom: 1px solid #e0d3c9; border-radius: 0; }
+.org-group.is-open .org-group-head { border-bottom: 1px solid #d5d9e0; border-radius: 0; }
 .org-group .org-group-body { background: transparent; border-radius: 0; padding: 16px 16px 18px; }
 .org-group .org-folder-icon, .org-group .org-folder-icon.is-open { color: var(--signal); }
 .org-group.is-off { background: #f6f7f9; border-color: #e8eaee; border-left-color: #c5c9d1; box-shadow: none; }
