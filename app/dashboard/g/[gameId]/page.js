@@ -120,13 +120,14 @@ export default async function GamePage({ params, searchParams }) {
     <>
       <div className="main-head">
         <div className="game-title">
-          <GameIcon name={game.name} url={iconUrl} size="sm" />
+          <GameIcon name={game.name} url={iconUrl} size="sm">
+            {link && (
+              <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${link.mode}`} aria-label={`SDK: ${link.chip}`}>
+                <b />
+              </Link>
+            )}
+          </GameIcon>
           <h1>{game.name}</h1>
-          {link && (
-            <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${link.mode}`} aria-label={`SDK: ${link.chip}`}>
-              <b />
-            </Link>
-          )}
         </div>
       </div>
       {gaps.known && gaps.missing.length > 0 && (

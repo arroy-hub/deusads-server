@@ -80,7 +80,13 @@ export default async function GamesPage() {
                 <GameIcon
                   name={game.name}
                   url={game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : ""}
-                />
+                >
+                  {game.connection && (
+                    <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${game.connection.mode}`} aria-label={`SDK: ${game.connection.chip}`}>
+                      <b />
+                    </Link>
+                  )}
+                </GameIcon>
                 <div className="game-main">
                   <Link href={`/dashboard/g/${game.id}`} className="game-name">
                     {game.name}
@@ -89,11 +95,6 @@ export default async function GamesPage() {
                     {game.placements?.[0]?.count ?? 0} placements
                   </div>
                   <div className="game-badges">
-                    {game.connection && (
-                      <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${game.connection.mode}`} aria-label={`SDK: ${game.connection.chip}`}>
-                        <b />
-                      </Link>
-                    )}
                     {tag && <Link href={`/dashboard/g/${game.id}?tab=campaigns`} className="cp-tag">{tag}</Link>}
                   </div>
                   {gaps.known && gaps.missing.length > 0 && (

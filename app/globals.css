@@ -5939,3 +5939,9 @@ th.num .sort-button {
 .cp-seg-link { padding: 5px 14px; font-size: 13px; font-weight: 500; min-height: 30px; display: inline-flex; align-items: center; background: #fff; }
 .cp-seg-link + .cp-seg-link { border-left: 1px solid #c5c9d1; }
 .cp-seg-link[aria-current="page"] { background: var(--ink); color: #fff; }
+
+/* Bigger game icons with the SDK connection dot on the top right corner */
+.game-icon-wrap { position: relative; display: inline-flex; flex: none; }
+.game-icon-wrap .conn-dot { position: absolute; top: -5px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px var(--line); }
+.game-icon.is-md { width: 80px; height: 80px; border-radius: 20px; font-size: 2.1rem; }
+.game-icon.is-sm { width: 64px; height: 64px; border-radius: 16px; font-size: 1.6rem; }
