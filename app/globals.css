@@ -4897,7 +4897,7 @@ th.num .sort-button {
 
 .pf-resize {
   position: absolute;
-  right: -5px;
+  left: -9px;
   top: 0;
   bottom: 0;
   z-index: 1;

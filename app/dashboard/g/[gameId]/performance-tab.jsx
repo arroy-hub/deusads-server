@@ -349,7 +349,8 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const [fit, setFit] = useState({});
   const gridRef = useRef(null);
   const minOf = (key) => (key === "name" ? NAME_MIN : Math.max(COLUMNS[key].min, fit[key] ?? 0));
-  const widthOf = (key) => Math.max(layout.widths[key] ?? COLUMNS[key].width, key === "name" ? 0 : fit[key] ?? 0);
+  // Until the viewer sets a width, a column is a little wider than its title needs, so there is room to move borders either way.
+  const widthOf = (key) => Math.max(layout.widths[key] ?? Math.max(COLUMNS[key].width, (fit[key] ?? 0) + 12), fit[key] ?? 0);
   const labelOf = (key) => (key === "name" ? nameHead : key === "share" && single ? "Share of total" : COLUMNS[key].label);
   const shown = layout.order.filter((key) => !single || ["views", "share", "sessions", "avg"].includes(key));
   // The name takes what is left, so the table keeps the width of its panel and the figure columns sit together on the right.
@@ -368,51 +369,58 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   });
 
   /**
-   * Move the edge on the right of `key` by dx; the table keeps its width. What a column gains is taken from the
-   * columns on its right, nearest first, as far as they can give (down to their minimum). When they have nothing
-   * left it comes out of the name column, which holds all the slack, so a column can always be widened as long as
-   * there is room anywhere. What a column gives up goes to its right neighbour (then the next, up to the maximum).
-   * from: { left: width of the column, name: width of the name column }.
+   * Drag the border on the left of figure column `key` (the border it shares with the column before it, or with the
+   * name column). The table keeps its width, so the border moves by taking room from one side and giving it to the other:
+   *   to the right: the column on the right of the border (and then the ones after it) give up room, down to their
+   *                 minimum, and the column on the left of the border grows;
+   *   to the left:  the name column gives up room first, down to its minimum, then the columns left of the border,
+   *                 nearest first, and the column on the right of the border grows.
+   * All of it is worked out from the widths when the drag began (`start`), so the border follows the pointer exactly
+   * and comes back to where it was when the pointer does. The border stops where nothing is left to give.
    */
-  const dragEdge = (key, from, dx) => {
-    const at = key === "name" ? -1 : shown.indexOf(key);
-    const rights = shown.slice(at + 1);
-    if (rights.length === 0) return;
-    const slack = (k) => Math.max(0, widthOf(k) - minOf(k));
-    const room = (k) => Math.max(0, MAX_WIDTH - widthOf(k));
-    const sum = (list, fn) => list.reduce((total, k) => total + fn(k), 0);
-    const nameSlack = Math.max(0, from.name - NAME_MIN);
-    let step = Math.round(dx);
-    if (key === "name") {
-      step = step > 0 ? Math.min(step, sum(rights, slack)) : -Math.min(-step, nameSlack, sum(rights, room));
-    } else if (step > 0) {
-      step = Math.min(step, room(key), sum(rights, slack) + nameSlack);
-    } else {
-      step = -Math.min(-step, widthOf(key) - minOf(key));
+  const snapshot = () => {
+    const widths = { name: gridRef.current?.querySelector('.pf-head [data-col="name"]')?.getBoundingClientRect().width ?? NAME_MIN };
+    for (const key of shown) widths[key] = widthOf(key);
+    return widths;
+  };
+  const dragBorder = (key, start, dx) => {
+    const cols = ["name", ...shown];
+    const right = cols.indexOf(key);
+    const left = right - 1;
+    const min = (k) => (k === "name" ? NAME_MIN : minOf(k));
+    const give = (list, amount) => {
+      const out = {};
+      let rest = amount;
+      for (const k of list) {
+        const part = Math.min(rest, Math.max(0, start[k] - min(k)));
+        out[k] = -part;
+        rest -= part;
+      }
+      return { out, taken: amount - rest };
+    };
+    let change = {};
+    if (dx > 0) {
+      const room = cols[left] === "name" ? Infinity : MAX_WIDTH - start[cols[left]];
+      const { out, taken } = give(cols.slice(right), Math.min(dx, room));
+      change = out;
+      if (taken > 0) change[cols[left]] = (change[cols[left]] ?? 0) + taken;
+    } else if (dx < 0) {
+      const order = ["name", ...cols.slice(1, left + 1).reverse()].filter((k, i, all) => all.indexOf(k) === i);
+      const { out, taken } = give(order, Math.min(-dx, MAX_WIDTH - start[key]));
+      change = out;
+      if (taken > 0) change[key] = (change[key] ?? 0) + taken;
     }
-    if (step === 0) return;
     const widths = { ...layout.widths };
-    if (key !== "name") widths[key] = widthOf(key) + step;
-    let rest = Math.abs(step);
-    for (const k of rights) {
-      if (rest <= 0) break;
-      const part = Math.min(rest, step > 0 ? slack(k) : room(k));
-      widths[k] = widthOf(k) + (step > 0 ? -part : part);
-      rest -= part;
-    }
+    for (const k of shown) widths[k] = Math.round(start[k] + (change[k] ?? 0));
     setLayout((current) => ({ ...current, widths }));
   };
-  const edgeStart = (key, cell) => ({
-    left: key === "name" ? cell.getBoundingClientRect().width : widthOf(key),
-    name: gridRef.current?.querySelector('.pf-head [data-col="name"]')?.getBoundingClientRect().width ?? NAME_MIN,
-  });
   const startResize = (key) => (event) => {
     event.preventDefault();
     const handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
     const x0 = event.clientX;
-    const from = edgeStart(key, handle.parentElement);
-    const onMove = (e) => dragEdge(key, from, e.clientX - x0);
+    const start = snapshot();
+    const onMove = (e) => dragBorder(key, start, e.clientX - x0);
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);
@@ -425,8 +433,19 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const resizeKey = (key) => (event) => {
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
-      dragEdge(key, edgeStart(key, event.currentTarget.parentElement), event.key === "ArrowRight" ? 16 : -16);
+      dragBorder(key, snapshot(), event.key === "ArrowRight" ? 16 : -16);
     }
+  };
+  /** Double click on a border: the column on its left is made as narrow as its title allows, the one on the right takes the room. */
+  const fitLeftOf = (key) => {
+    const cols = ["name", ...shown];
+    const left = cols[cols.indexOf(key) - 1];
+    if (left === "name") return;
+    const start = snapshot();
+    const give = Math.max(0, start[left] - minOf(left));
+    const take = Math.min(give, MAX_WIDTH - start[key]);
+    if (take <= 0) return;
+    setLayout((current) => ({ ...current, widths: { ...current.widths, ...Object.fromEntries(shown.map((k) => [k, Math.round(start[k] + (k === left ? -take : k === key ? take : 0))])) } }));
   };
   const move = (key, target) =>
     setLayout((current) => {
@@ -606,21 +625,17 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
                       </span>
                     </button>
                   </span>
-                  {key !== shown[shown.length - 1] && (
-                  <span
-                    className="pf-resize"
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label={`Resize ${labelOf(key)}`}
-                    tabIndex={0}
-                    onPointerDown={startResize(key)}
-                    onDoubleClick={(event) => {
-                      const cell = event.currentTarget.parentElement;
-                      const from = edgeStart(key, cell);
-                      dragEdge(key, from, minOf(key) - from.left);
-                    }}
-                    onKeyDown={resizeKey(key)}
-                  />
+                  {movable && (
+                    <span
+                      className="pf-resize"
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize ${labelOf(key)} from its left edge`}
+                      tabIndex={0}
+                      onPointerDown={startResize(key)}
+                      onDoubleClick={() => fitLeftOf(key)}
+                      onKeyDown={resizeKey(key)}
+                    />
                   )}
                 </div>
               );
