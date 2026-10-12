@@ -4997,7 +4997,7 @@ th.num .sort-button {
 .st-icon-change {
   position: absolute;
   left: 50%;
-  bottom: 8px;
+  bottom: -11px;
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
@@ -5216,7 +5216,7 @@ th.num .sort-button {
   font-weight: 600;
   color: var(--ink);
   text-align: left;
-  cursor: default;
+  cursor: help;
 }
 
 .st-tipbody {
