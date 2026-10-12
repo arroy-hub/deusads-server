@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getMember } from "../../../lib/admin";
 import { bookingsMissing } from "../../../lib/booking-rules";
 import { loadBookings } from "../../../lib/bookings-data";
+import { blockedCategories, controlMap, controlNote } from "../../../lib/game-controls";
 import BookingRow from "../booking-row";
 import CampaignHead from "./campaign-head";
 import { canAdvertise } from "../../../lib/admin-rules";
@@ -15,6 +16,33 @@ export default async function AdvertisingPage() {
   if (!me || !canAdvertise(me.role)) notFound();
 
   const { bookings, error } = await loadBookings(me.service, (query) => query.eq("advertiser_id", me.user.id));
+
+  // What each developer paused or blocked in the games these bookings are in (migration 0023). Without it nothing is added.
+  const gameIds = [...new Set(bookings.map((booking) => booking.gameId).filter(Boolean))];
+  if (gameIds.length) {
+    const [controlRows, categoryRows] = await Promise.all([
+      me.service.from("game_ad_controls").select("game_id, scope, target_id, state, reason, comment").in("game_id", gameIds),
+      me.service.from("game_category_blocks").select("game_id, category, blocked").in("game_id", gameIds),
+    ]);
+    if (!controlRows.error && !categoryRows.error) {
+      const perGame = new Map(
+        gameIds.map((id) => [
+          id,
+          {
+            controls: controlMap((controlRows.data ?? []).filter((row) => row.game_id === id)),
+            blocked: blockedCategories((categoryRows.data ?? []).filter((row) => row.game_id === id)),
+          },
+        ])
+      );
+      for (const booking of bookings) {
+        if (booking.status !== "approved" && booking.status !== "pending") continue;
+        booking.controlNote = controlNote(
+          { campaignId: booking.campaignId, advertiserId: booking.advertiserId, creativeId: booking.creativeId, category: booking.category },
+          perGame.get(booking.gameId)
+        );
+      }
+    }
+  }
 
   // Campaigns come from their own table so an empty one still shows (and can be deleted).
   const { data: campaignRows } = await me.service
@@ -42,7 +70,7 @@ export default async function AdvertisingPage() {
       </div>
       <p className="lede">
         Your campaigns and the placements each one is booked on, with their status. Bookings go live by themselves
-        (from the start date, once the creative is approved); a developer can stop an ad in their game. Add more
+        (from the start date, once the creative is approved); a developer can pause or block an ad in their game, and you see it here. Add more
         placements under Find placements.
       </p>
 

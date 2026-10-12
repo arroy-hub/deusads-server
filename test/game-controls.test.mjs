@@ -1,7 +1,7 @@
 // Rules for pausing and blocking ads in one game. Run: node test/game-controls.test.mjs
 import assert from "node:assert/strict";
 import {
-  CHANGE_LIMIT, blockedCategories, bulkKeyOf, campaignState, changeMessage, controlMap, mayServe, nextControl, planChange,
+  CHANGE_LIMIT, controlNote, blockedCategories, bulkKeyOf, campaignState, changeMessage, controlMap, mayServe, nextControl, planChange,
 } from "../lib/game-controls.js";
 
 // categories: restricted ones are blocked unless a row says otherwise
@@ -81,5 +81,14 @@ assert.match(changeMessage({ action: "pause", scope: "campaign", applied: 0, bul
 assert.match(changeMessage({ action: "pause", scope: "campaign", applied: 0, duplicates: 2 }), /already in this state/);
 assert.match(changeMessage({ action: "pause", scope: "campaign", applied: 2, duplicates: 1 }), /1 already in this state/);
 assert.equal(CHANGE_LIMIT, 2);
+
+// what an advertiser is told
+const who = { campaignId: "c4", advertiserId: "a", creativeId: "x", category: "retail" };
+assert.equal(controlNote(who, ctx), "");
+assert.match(controlNote({ ...who, campaignId: "c1" }, ctx), /paused this campaign/);
+assert.match(controlNote({ ...who, campaignId: "c2" }, ctx), /blocked this campaign.*Reason: bad/);
+assert.match(controlNote({ ...who, advertiserId: "adv3" }, ctx), /blocked your account.*Reason: no/);
+assert.match(controlNote({ ...who, creativeId: "cr9" }, ctx), /blocked this creative/);
+assert.match(controlNote({ ...who, category: "gambling" }, ctx), /does not show ads of this category/);
 
 console.log("game-controls tests passed");

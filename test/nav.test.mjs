@@ -5,7 +5,7 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 
 const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
 
-assert.deepEqual(labels("developer"), ["Home", "My games", "Now showing"]);
+assert.deepEqual(labels("developer"), ["Home", "My games"]);
 assert.deepEqual(labels("advertiser"), ["Home", "Creatives", "Find placements", "Campaigns", "Reports"]);
 assert.equal(labels("admin").slice(0, 4).join(), "Review creatives,All bookings,Users,System");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
@@ -23,8 +23,9 @@ assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard");
 
 // badges
-const badged = menuFor("developer", { requests: 3 }).flatMap((group) => group.items).find((item) => item.key === "requests");
+const badged = menuFor("advertiser", { campaigns: 3 }).flatMap((group) => group.items).find((item) => item.key === "campaigns");
 assert.equal(badged.badge, 3);
+assert.ok(!labels("developer").includes("Now showing") && !labels("admin").includes("Now showing"), "Now showing moved into each game's Campaigns tab");
 
 // the active item
 const home = { href: "/dashboard", exact: true };

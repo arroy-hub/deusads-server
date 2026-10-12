@@ -135,12 +135,11 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
   await notifyMany(
     service,
     goingLive,
-    "A new ad is showing in your game. You can switch it off in Now showing.",
-    "/dashboard/requests"
+    "A new ad is showing in your game. You can pause or block it in the game's Campaigns tab.",
+    "/dashboard/games"
   );
 
   revalidatePath("/dashboard/advertising");
-  revalidatePath("/dashboard/requests");
   revalidatePath("/dashboard/admin/bookings");
   return { ok: true, count: fresh.length, skipped: placements.length - fresh.length, ...outcome };
 }
@@ -159,12 +158,11 @@ export async function cancelBooking({ bookingId }) {
     await notify(me.service, {
       accountId: info.developerId,
       text: `The advertiser withdrew their booking on ${info.where}.`,
-      link: "/dashboard/requests",
+      link: "/dashboard/games",
     });
   }
 
   revalidatePath("/dashboard/advertising");
-  revalidatePath("/dashboard/requests");
   revalidatePath("/dashboard/admin/bookings");
   return { ok: true };
 }

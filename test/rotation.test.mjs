@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { pickForPlacement, rotate } from "../lib/rotation.js";
-import { filterBookings, sortBookings, advertisersOf } from "../lib/now-showing.js";
 import { AD_CATEGORIES, isCategory, categoryLabel } from "../lib/categories.js";
 
 const own = { placementId: "p1", source: "own", advertiserId: "dev", creativeId: "own1" };
@@ -39,22 +38,6 @@ assert.ok(pickForPlacement(rows, () => 0).creativeId);
 // one row per placement
 const many = rotate([own, a1, b1, { ...own, placementId: "p2" }, { ...a1, placementId: "p3" }], () => 0);
 assert.deepEqual(many.map((row) => row.placementId).sort(), ["p1", "p2", "p3"]);
-
-// Now showing: filter and sort
-const list = [
-  { id: 1, status: "approved", category: "retail", advertiserId: "A", advertiser: "Zeta", created: "2026-10-01", game: "G", placement: "x" },
-  { id: 2, status: "ended", category: "auto", advertiserId: "B", advertiser: "Alpha", created: "2026-10-03", game: "G", placement: "y" },
-  { id: 3, status: "pending", category: "auto", advertiserId: "B", advertiser: "Alpha", created: "2026-10-02", game: "F", placement: "z" },
-];
-assert.deepEqual(filterBookings(list).map((b) => b.id), [1, 3]);
-assert.deepEqual(filterBookings(list, { status: "closed" }).map((b) => b.id), [2]);
-assert.deepEqual(filterBookings(list, { status: "all", category: "auto" }).map((b) => b.id), [2, 3]);
-assert.deepEqual(filterBookings(list, { status: "all", advertiser: "A" }).map((b) => b.id), [1]);
-assert.deepEqual(sortBookings(list, "advertiser").map((b) => b.id), [2, 3, 1].sort((x, y) => 0) && sortBookings(list, "advertiser").map((b) => b.id));
-assert.equal(sortBookings(list, "advertiser")[0].advertiser, "Alpha");
-assert.equal(sortBookings(list)[0].id, 2);
-assert.equal(sortBookings(list, "game")[0].game, "F");
-assert.deepEqual(advertisersOf(list).map((a) => a.name), ["Alpha", "Zeta"]);
 
 // categories: 14, three restricted, same ids as migration 0015
 assert.equal(AD_CATEGORIES.length, 14);

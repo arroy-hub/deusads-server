@@ -4,12 +4,14 @@ import { isSchemaOutdated, serviceClient } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
 import { formatLabel, formatOf } from "../../../../lib/formats";
 import { loadPerformance } from "../../../../lib/performance-data";
+import { countNew, loadCampaigns } from "../../../../lib/campaigns-data";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
 import GameIcon from "../../game-icon";
 import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
 import PerformanceTab from "./performance-tab";
+import CampaignsTab from "./campaigns-tab";
 import PlacementsOrganizer from "./placements-organizer";
 import Link from "next/link";
 
@@ -26,6 +28,7 @@ export async function generateMetadata({ params }) {
 
 const TABS = [
   ["placements", "Placements"],
+  ["campaigns", "Campaigns"],
   ["performance", "Performance"],
   ["settings", "Settings"],
 ];
@@ -93,6 +96,11 @@ export default async function GamePage({ params, searchParams }) {
   // What the Performance tab shows for its address; the game is the signed-in person's own (read under row-level
   // security above), which is what lets the server read the names of the creatives shown in it.
   const performance = tab === "performance" ? await loadPerformance({ db, service: serviceClient(), gameId, searchParams: query }) : null;
+  // The Campaigns tab (migration 0023); the other tabs only need the number of new things for its badge.
+  const campaigns = tab === "campaigns" ? await loadCampaigns({ db, service: serviceClient(), gameId }) : null;
+  let newCount = 0;
+  if (campaigns?.campaigns) newCount = campaigns.campaigns.filter((item) => item.isNew || item.creatives.some((creative) => creative.isNew)).length;
+  else if (!campaigns) newCount = await countNew({ service: serviceClient(), gameId }).catch(() => 0);
   // "Open to advertisers" needs migration 0014; without it the switch is left out.
   const { data: openRows, error: openError } =
     tab === "placements" ? await db.from("placements").select("id, open_to_advertisers").eq("game_id", gameId) : { data: [], error: null };
@@ -128,6 +136,12 @@ export default async function GamePage({ params, searchParams }) {
           Changes reach players the next time they start the game, no new build needed.
         </p>
       )}
+      {tab === "campaigns" && (
+        <p className="lede">
+          The advertisers that booked this game. Pause or block a campaign, one creative or a whole advertiser, or a whole category. Everything here
+          applies to this game only, nothing is cancelled, and you can take it back at any time.
+        </p>
+      )}
       {tab === "performance" && (
         <p className="lede">
           How often ads were shown in this game, and whose they were. A view counts when a player had the placement
@@ -139,9 +153,20 @@ export default async function GamePage({ params, searchParams }) {
         {TABS.map(([key, label]) => (
           <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
             {label}
+            {key === "campaigns" && newCount > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Campaigns with something new">{newCount}</span>}
           </Link>
         ))}
       </nav>
+
+      {tab === "campaigns" && campaigns?.days && <CampaignsTab gameId={game.id} model={campaigns} />}
+      {tab === "campaigns" && campaigns?.error === "migration" && (
+        <p className="notice">
+          Run <code>supabase/migrations/0023_game_ad_controls.sql</code> in the Supabase SQL editor to turn the Campaigns tab on.
+        </p>
+      )}
+      {tab === "campaigns" && campaigns?.error === "failed" && (
+        <p className="notice">The campaigns could not be read just now. Reload the page; if it keeps happening, the server log says why.</p>
+      )}
 
       {tab === "performance" && performance?.model && (
         <PerformanceTab gameId={game.id} model={performance.model} defaultBy={performance.defaultBy} />

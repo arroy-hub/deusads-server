@@ -88,7 +88,7 @@ async function DeveloperHome({ me }) {
                   {booking.dates ? ` · ${booking.dates}` : ""}
                 </div>
               </div>
-              <Link href="/dashboard/requests" className="button">
+              <Link href="/dashboard/games" className="button">
                 Review
               </Link>
             </div>
