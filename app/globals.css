@@ -4944,15 +4944,15 @@ th.num .sort-button {
   --st-field: #b7bcc6;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
 }
 
 .game-icon.is-lg {
-  width: 132px;
-  height: 132px;
-  border-radius: 30px;
-  font-size: 3.6rem;
+  width: 104px;
+  height: 104px;
+  border-radius: 24px;
+  font-size: 2.9rem;
 }
 
 .st-card {
@@ -4964,7 +4964,7 @@ th.num .sort-button {
 
 .st-muted {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1.45;
   color: var(--ink-2);
 }
@@ -4983,34 +4983,34 @@ th.num .sort-button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 32px;
-  padding: 28px 32px;
+  gap: 24px;
+  padding: 20px 24px;
 }
 
 .st-icon {
   position: relative;
   flex: none;
-  width: 132px;
-  height: 132px;
-  margin-bottom: 14px;
+  width: 104px;
+  height: 104px;
+  margin-bottom: 12px;
 }
 
 .st-icon-change {
   position: absolute;
   left: 50%;
-  bottom: -14px;
+  bottom: -12px;
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 14px;
+  height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--st-field);
   border-radius: 99px;
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -5049,11 +5049,11 @@ th.num .sort-button {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .st-name label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink-2);
 }
@@ -5061,14 +5061,14 @@ th.num .sort-button {
 .st-name-input {
   box-sizing: border-box;
   width: 100%;
-  height: 56px;
-  padding: 0 16px;
+  height: 44px;
+  padding: 0 14px;
   border: 1px solid var(--st-field);
   border-radius: 10px;
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -5084,10 +5084,10 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 28px;
-  padding: 0 12px;
+  height: 24px;
+  padding: 0 10px;
   border-radius: 99px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -5130,20 +5130,21 @@ th.num .sort-button {
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px 16px;
-  padding: 22px 28px 18px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 22px 14px;
 }
 
 .st-card h2 {
-  margin: 0 0 4px;
-  font-size: 1.125rem;
+  margin: 0 0 3px;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .st-card-head p {
   margin: 0;
-  max-width: 520px;
-  font-size: 0.875rem;
+  max-width: 560px;
+  font-size: 0.8125rem;
   line-height: 1.45;
   color: var(--ink-2);
 }
@@ -5152,8 +5153,8 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding-top: 4px;
-  font-size: 0.8125rem;
+  padding-top: 0;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--ink-2);
 }
@@ -5164,8 +5165,8 @@ th.num .sort-button {
 }
 
 .st-bars span {
-  width: 22px;
-  height: 5px;
+  width: 20px;
+  height: 4px;
   border-radius: 3px;
   background: var(--line);
 }
@@ -5177,9 +5178,9 @@ th.num .sort-button {
 .st-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px 20px;
-  padding: 18px 28px;
+  align-items: center;
+  gap: 10px 20px;
+  padding: 12px 22px;
   border-top: 1px solid var(--line);
 }
 
@@ -5188,8 +5189,8 @@ th.num .sort-button {
 }
 
 .st-row-label {
-  flex: 0 0 150px;
-  padding-top: 7px;
+  flex: 0 0 140px;
+  padding-top: 0;
 }
 
 .st-row-values {
@@ -5212,7 +5213,7 @@ th.num .sort-button {
   border: 0;
   background: none;
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ink);
   text-align: left;
@@ -5260,8 +5261,8 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  font-size: 0.875rem;
+  height: 30px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--signal-ink);
 }
@@ -5270,17 +5271,17 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  height: 36px;
-  padding: 0 6px 0 14px;
+  height: 30px;
+  padding: 0 4px 0 12px;
   border-radius: 99px;
   background: var(--surface);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
 }
 
 .st-chip-x {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -5301,14 +5302,14 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 14px;
+  height: 30px;
+  padding: 0 12px;
   border: 1px dashed var(--ink-3);
   border-radius: 99px;
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -5338,8 +5339,8 @@ th.num .sort-button {
   align-self: flex-start;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 22px 24px;
+  gap: 12px;
+  padding: 18px 20px;
 }
 
 .st-sdk-head {
@@ -5353,8 +5354,8 @@ th.num .sort-button {
 }
 
 .st-key-tile {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
@@ -5373,24 +5374,24 @@ th.num .sort-button {
   flex: 1;
   min-width: 0;
   box-sizing: border-box;
-  height: 36px;
+  height: 32px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
   color: var(--ink);
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   overflow: hidden;
   white-space: nowrap;
 }
 
 .st-key-btn {
-  min-width: 36px;
-  height: 36px;
+  min-width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5442,7 +5443,7 @@ th.num .sort-button {
 }
 
 .st-plain {
-  height: 36px;
+  height: 32px;
   padding: 0 14px;
   border: 1px solid var(--st-field);
   border-radius: 10px;
@@ -5459,7 +5460,7 @@ th.num .sort-button {
 }
 
 .st-danger-fill {
-  height: 36px;
+  height: 32px;
   padding: 0 16px;
   border: 0;
   border-radius: 10px;
@@ -5493,8 +5494,7 @@ th.num .sort-button {
   align-items: center;
   justify-content: space-between;
   gap: 12px 20px;
-  max-width: 720px;
-  padding: 14px 28px;
+  padding: 14px 22px;
   border-color: #f0c9c9;
 }
 
@@ -5525,8 +5525,8 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 18px;
+  height: 36px;
+  padding: 0 16px;
   border: 1px solid var(--st-red);
   border-radius: 10px;
   background: var(--paper);
@@ -5653,7 +5653,7 @@ th.num .sort-button {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 16px;
-  padding: 12px 16px 12px 22px;
+  padding: 10px 14px 10px 20px;
   background: var(--ink);
   color: #fff;
   border-radius: 14px;

@@ -563,7 +563,7 @@ function DeleteGame({ gameId, name }) {
           tabIndex={open ? -1 : 0}
           style={open ? { visibility: "hidden" } : undefined}
         >
-          <TrashTile size="sm" /> Delete game…
+          <TrashTile size="sm" /> Delete game
         </button>
         {open && (
           <>
