@@ -1,22 +1,21 @@
 import { notFound } from "next/navigation";
 import { userClient } from "../../../../lib/supabase-server";
-import { isSchemaOutdated } from "../../../../lib/api";
+import { isSchemaOutdated, serviceClient } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
 import { formatLabel, formatOf } from "../../../../lib/formats";
-import { fillDays, formatCount, parsePlacementFilter, placementRows, splitOwnDays } from "../../../../lib/analytics";
+import { loadPerformance } from "../../../../lib/performance-data";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
-import DailyChart from "./daily-chart";
 import GameIcon from "../../game-icon";
 import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
-import PlacementStats from "./placement-stats";
+import PerformanceTab from "./performance-tab";
 import PlacementsOrganizer from "./placements-organizer";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-const ANALYTICS_DAYS = 30;
+const ANALYTICS_DAYS = 30; // views per place shown on the Placements tab
 
 export async function generateMetadata({ params }) {
   const { gameId } = await params;
@@ -33,9 +32,8 @@ const TABS = [
 
 export default async function GamePage({ params, searchParams }) {
   const { gameId } = await params;
-  const { tab: requested, p: pickedParam, all: allParam, placement: focusParam } = await searchParams;
-  // Performance counts the developer's own pictures apart; ?all=1 folds them into one figure.
-  const combined = allParam === "1";
+  const query = await searchParams;
+  const { tab: requested, placement: focusParam } = query;
   const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
   const db = await userClient();
 
@@ -50,11 +48,11 @@ export default async function GamePage({ params, searchParams }) {
   const gaps = profileGaps(game);
   const iconUrl = game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : "";
 
-  const [placementResult, stats] =
-    await Promise.all([
-      livePlacements(db, gameId, { skipRemoved: true, withCrop: true, withSource: true }),
-      gameStats(db, gameId),
-    ]);
+  // Only the Placements tab lists placements; Performance reads its own (lib/performance-data.js).
+  const placementResult =
+    tab === "placements"
+      ? await livePlacements(db, gameId, { skipRemoved: true, withCrop: true, withSource: true })
+      : { data: [], error: null };
 
   if (placementResult.error) {
     console.error("[DeusADS] dashboard placements query failed:", {
@@ -92,14 +90,12 @@ export default async function GamePage({ params, searchParams }) {
       hidden: all.length - rows.length,
     });
   }
-  // Which placements the Performance chart counts: those ticked in the table (all when none).
-  const onlyPlacements = parsePlacementFilter(pickedParam, rows.map((row) => row.id));
-  const analytics = tab === "performance" ? await gameAnalytics(db, gameId, ANALYTICS_DAYS, onlyPlacements, combined) : null;
+  // What the Performance tab shows for its address; the game is the signed-in person's own (read under row-level
+  // security above), which is what lets the server read the names of the creatives shown in it.
+  const performance = tab === "performance" ? await loadPerformance({ db, service: serviceClient(), gameId, searchParams: query }) : null;
   // "Open to advertisers" needs migration 0014; without it the switch is left out.
-  const { data: openRows, error: openError } = await db
-    .from("placements")
-    .select("id, open_to_advertisers")
-    .eq("game_id", gameId);
+  const { data: openRows, error: openError } =
+    tab === "placements" ? await db.from("placements").select("id, open_to_advertisers").eq("game_id", gameId) : { data: [], error: null };
   const openOf = openError ? null : new Map((openRows ?? []).map((row) => [row.id, Boolean(row.open_to_advertisers)]));
   const openCount = openOf ? rows.filter((row) => openOf.get(row.id)).length : null;
   const withPictures = rows.filter((row) => ownAssignments(row).length > 0).length;
@@ -134,8 +130,8 @@ export default async function GamePage({ params, searchParams }) {
       )}
       {tab === "performance" && (
         <p className="lede">
-          How often ads were shown in this game, by day and by placement. A view counts when a player had the
-          placement on screen. Tick placements in the table to count only them in the chart.
+          How often ads were shown in this game, and whose they were. A view counts when a player had the placement
+          on screen.
         </p>
       )}
       {tab === "settings" && (
@@ -153,86 +149,17 @@ export default async function GamePage({ params, searchParams }) {
         ))}
       </nav>
 
-      {tab === "performance" && (
-        <>
-      <div className="panel" style={{ marginBottom: "2rem" }}>
-        <div className="figures">
-          <div>
-            <div className="figure-value">{rows.length}</div>
-            <div className="figure-label">Placements</div>
-          </div>
-          <div>
-            <div className="figure-value">{withPictures}</div>
-            <div className="figure-label">With own pictures</div>
-          </div>
-          <div>
-            <div className="figure-value">
-              {formatCount(stats.own != null && !combined ? Math.max(0, stats.impressions - stats.own) : stats.impressions)}
-            </div>
-            <div className="figure-label">{combined ? "Impressions, all" : "Impressions"}</div>
-          </div>
-          {stats.own != null && !combined && (
-            <div>
-              <div className="figure-value">{formatCount(stats.own)}</div>
-              <div className="figure-label">Own pictures</div>
-            </div>
-          )}
-          <div>
-            <div className="figure-value">
-              {stats.sessions}
-              {stats.sessionsApproximate ? "+" : ""}
-            </div>
-            <div className="figure-label">Sessions</div>
-          </div>
-        </div>
-        {stats.own != null && (
-          <p className="muted-line" style={{ margin: "0.75rem 0 0" }}>
-            {combined
-              ? "Views of your own pictures are counted together with advertisers' views."
-              : "Views of your own pictures are counted apart from advertisers' views."}{" "}
-            <Link href={`/dashboard/g/${game.id}?${new URLSearchParams({ tab: "performance", ...(pickedParam ? { p: pickedParam } : {}), ...(combined ? {} : { all: "1" }) })}`}>
-              {combined ? "Count them apart" : "Combine into one figure"}
-            </Link>
-          </p>
-        )}
-      </div>
-
-
-        </>
+      {tab === "performance" && performance?.model && (
+        <PerformanceTab gameId={game.id} model={performance.model} defaultBy={performance.defaultBy} />
       )}
-
-      {tab === "performance" && analytics && (
-        <>
-          <section className="panel analytics" aria-labelledby="daily-title">
-            <div className="analytics-head">
-              <h2 id="daily-title">Impressions per day</h2>
-              <span className="analytics-sub">
-                Last {ANALYTICS_DAYS} days · UTC ·{" "}
-                {analytics.filtered
-                  ? `${onlyPlacements.length} of ${rows.length} placements`
-                  : "all placements"}{" "}
-                · {formatCount(analytics.days.reduce((sum, day) => sum + day.impressions, 0))} in total
-              </span>
-            </div>
-            <DailyChart days={analytics.days} />
-          </section>
-
-          {onlyPlacements.length > 0 && !analytics.filtered && (
-            <p className="notice">
-              Run <code>supabase/migrations/0019_game_icon_and_placement_stats.sql</code> in the Supabase SQL editor
-              to count the chart for chosen placements only.
-            </p>
-          )}
-
-          {rows.length > 0 && (
-            <PlacementStats
-              gameId={game.id}
-              rows={placementRows(rows, analytics.placements, analytics.ownPlacements, combined)}
-              combined={combined}
-              selected={onlyPlacements}
-            />
-          )}
-        </>
+      {tab === "performance" && performance?.error === "migration" && (
+        <p className="notice">
+          Run <code>supabase/migrations/0022_game_performance.sql</code> in the Supabase SQL editor to turn the
+          Performance tab on.
+        </p>
+      )}
+      {tab === "performance" && performance?.error === "failed" && (
+        <p className="notice">The figures could not be read just now. Reload the page; if it keeps happening, the server log says why.</p>
       )}
 
       {tab === "placements" && (rows.length === 0 ? (
@@ -350,75 +277,6 @@ async function loadOrganization(db, gameId, rows) {
     items,
     folders: (folders.data ?? []).map((folder) => ({ id: folder.id, name: folder.name, enabled: folder.enabled !== false, parentId: folder.parent_id ?? null })),
     offScenes: (off.data ?? []).map((entry) => entry.scene),
-  };
-}
-
-/**
- * Impressions per day and per placement for the last `days` days (migration 0007).
- * Null when the database does not have the functions yet: the page then just
- * leaves the analytics out rather than failing.
- */
-async function gameAnalytics(db, gameId, days, onlyPlacements = [], combined = false) {
-  // With placements picked, the per-day figures count only them (migration 0019); the table
-  // always lists every placement. Without that function the chart keeps showing the whole game.
-  const wholeGame = () => db.rpc("game_daily", { p_game_id: gameId, p_days: days });
-  const chosen =
-    onlyPlacements.length > 0
-      ? await db.rpc("game_daily_by_placement", { p_game_id: gameId, p_days: days, p_placement_ids: onlyPlacements })
-      : null;
-  const filtered = Boolean(chosen && !chosen.error);
-  const [daily, perPlacement, ownDaily, ownPlacements] = await Promise.all([
-    filtered ? chosen : wholeGame(),
-    db.rpc("game_placement_stats", { p_game_id: gameId, p_days: days }),
-    // Views of the developer's own pictures (migration 0020); absent before it.
-    db.rpc("game_own_daily", {
-      p_game_id: gameId,
-      p_days: days,
-      p_placement_ids: filtered ? onlyPlacements : null,
-    }),
-    db.rpc("game_own_placement_stats", { p_game_id: gameId, p_days: days }),
-  ]);
-  const ownReady = !ownDaily.error && !ownPlacements.error;
-  const error = daily.error ?? perPlacement.error;
-  if (error) {
-    console.warn("[DeusADS] dashboard: analytics unavailable (run migration 0007):", error.code, error.message);
-    return null;
-  }
-  return {
-    days: splitOwnDays(fillDays(daily.data, days), ownReady ? ownDaily.data ?? [] : null, combined),
-    placements: perPlacement.data ?? [],
-    ownPlacements: ownReady ? ownPlacements.data ?? [] : null,
-    filtered,
-  };
-}
-
-/**
- * Exact impression and session counts (migration 0006). A database without it
- * still answers: impressions are counted exactly, but sessions come from the
- * rows PostgREST returns (at most 1000), so they are marked with a "+" when the
- * rows were cut short.
- */
-async function gameStats(db, gameId) {
-  const { data, error } = await db.rpc("game_stats", { p_game_id: gameId }).single();
-  if (!error && data) {
-    // Own-picture views (migration 0020); null while it is not applied.
-    const ownResult = await db.rpc("game_own_stats", { p_game_id: gameId }).single();
-    const own = ownResult.error || !ownResult.data ? null : Number(ownResult.data.impressions);
-    return { impressions: Number(data.impressions), sessions: Number(data.sessions), sessionsApproximate: false, own };
-  }
-  if (error) console.warn("[DeusADS] dashboard: game_stats unavailable, counting from rows:", error.code, error.message);
-
-  const { data: rows, count } = await db
-    .from("impressions")
-    .select("session_id", { count: "exact" })
-    .eq("game_id", gameId);
-
-  const total = count ?? rows?.length ?? 0;
-  return {
-    impressions: total,
-    sessions: new Set((rows ?? []).map((row) => row.session_id)).size,
-    sessionsApproximate: total > (rows?.length ?? 0),
-    own: null,
   };
 }
 
