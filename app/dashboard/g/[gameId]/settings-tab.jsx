@@ -146,7 +146,9 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                   }}
                   disabled={busy}
                 >
-                  ×
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                    <path d="M1 1l6 6M7 1L1 7" />
+                  </svg>
                 </button>
               )}
             </>
@@ -313,7 +315,7 @@ function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, sea
 
 function CameraIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <path d="M4 8h3l2-3h6l2 3h3v11H4zM12 11a3 3 0 100 6 3 3 0 000-6z" />
     </svg>
   );
