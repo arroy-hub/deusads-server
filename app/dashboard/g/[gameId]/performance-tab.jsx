@@ -369,14 +369,13 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   });
 
   /**
-   * Drag the border on the left of figure column `key` (the border it shares with the column before it, or with the
-   * name column). The table keeps its width, so the border moves by taking room from one side and giving it to the other:
-   *   to the right: the column on the right of the border (and then the ones after it) give up room, down to their
-   *                 minimum, and the column on the left of the border grows;
-   *   to the left:  the name column gives up room first, down to its minimum, then the columns left of the border,
-   *                 nearest first, and the column on the right of the border grows.
-   * All of it is worked out from the widths when the drag began (`start`), so the border follows the pointer exactly
-   * and comes back to where it was when the pointer does. The border stops where nothing is left to give.
+   * Drag the left edge of figure column `key`. The table keeps its width, and the name column is where room comes
+   * from and goes to, so a column getting narrower never makes another figure column wider:
+   *   to the left (the column grows): the name column gives up room first, down to its minimum, then the columns on the
+   *                 left of this one, nearest first; the columns in between just move;
+   *   to the right (the column shrinks): the column gets narrower, down to its minimum, and the name column takes the room.
+   * All of it is worked out from the widths when the drag began (`start`), so the edge follows the pointer exactly
+   * and comes back to where it was when the pointer does. It stops where nothing is left to give.
    */
   const snapshot = () => {
     const widths = { name: gridRef.current?.querySelector('.pf-head [data-col="name"]')?.getBoundingClientRect().width ?? NAME_MIN };
@@ -400,12 +399,9 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
     };
     let change = {};
     if (dx > 0) {
-      const room = cols[left] === "name" ? Infinity : MAX_WIDTH - start[cols[left]];
-      const { out, taken } = give(cols.slice(right), Math.min(dx, room));
-      change = out;
-      if (taken > 0) change[cols[left]] = (change[cols[left]] ?? 0) + taken;
+      change[key] = -Math.min(dx, Math.max(0, start[key] - min(key)));
     } else if (dx < 0) {
-      const order = ["name", ...cols.slice(1, left + 1).reverse()].filter((k, i, all) => all.indexOf(k) === i);
+      const order = ["name", ...cols.slice(1, left + 1).reverse()];
       const { out, taken } = give(order, Math.min(-dx, MAX_WIDTH - start[key]));
       change = out;
       if (taken > 0) change[key] = (change[key] ?? 0) + taken;
@@ -436,16 +432,12 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
       dragBorder(key, snapshot(), event.key === "ArrowRight" ? 16 : -16);
     }
   };
-  /** Double click on a border: the column on its left is made as narrow as its title allows, the one on the right takes the room. */
-  const fitLeftOf = (key) => {
-    const cols = ["name", ...shown];
-    const left = cols[cols.indexOf(key) - 1];
-    if (left === "name") return;
+  /** Double click on the left edge of a column: it becomes as narrow as its title allows and the name column takes the room. */
+  const fitColumn = (key) => {
     const start = snapshot();
-    const give = Math.max(0, start[left] - minOf(left));
-    const take = Math.min(give, MAX_WIDTH - start[key]);
+    const take = Math.max(0, start[key] - minOf(key));
     if (take <= 0) return;
-    setLayout((current) => ({ ...current, widths: { ...current.widths, ...Object.fromEntries(shown.map((k) => [k, Math.round(start[k] + (k === left ? -take : k === key ? take : 0))])) } }));
+    setLayout((current) => ({ ...current, widths: { ...current.widths, ...Object.fromEntries(shown.map((k) => [k, Math.round(start[k] - (k === key ? take : 0))])) } }));
   };
   const move = (key, target) =>
     setLayout((current) => {
@@ -633,7 +625,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
                       aria-label={`Resize ${labelOf(key)} from its left edge`}
                       tabIndex={0}
                       onPointerDown={startResize(key)}
-                      onDoubleClick={() => fitLeftOf(key)}
+                      onDoubleClick={() => fitColumn(key)}
                       onKeyDown={resizeKey(key)}
                     />
                   )}
