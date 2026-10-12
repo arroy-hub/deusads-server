@@ -4999,18 +4999,19 @@ th.num .sort-button {
   inset: 0;
   z-index: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   padding: 0;
   border: 0;
   border-radius: 26px;
-  background: rgba(20, 22, 27, 0);
-  color: #fff;
+  background: rgba(255, 255, 255, 0);
+  color: var(--ink);
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -5021,7 +5022,7 @@ th.num .sort-button {
 
 .st-icon-change:hover:not(:disabled),
 .st-icon-change:focus-visible {
-  background: rgba(20, 22, 27, 0.5);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .st-icon-change:hover:not(:disabled) > *,
