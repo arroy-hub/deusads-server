@@ -10,10 +10,8 @@ import {
   DEFAULT_CROP,
   MAX_ZOOM,
   clampCrop,
-  hiddenPercent,
   imagePlacement,
   normalizeCrop,
-  ratioLabel,
   sameCrop,
   visibleWindow,
 } from "../../../../lib/surface-math";
@@ -342,7 +340,6 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
     left: `${place.left}%`,
     top: `${place.top}%`,
   };
-  const hidden = creative ? hiddenPercent(imageAspect, aspect, crop.zoom) : 0;
   const framed = !sameCrop(crop, DEFAULT_CROP);
 
   return (
@@ -568,15 +565,6 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
 
         {note && <div className={note.tone === "error" ? "error surface-note" : "surface-warn"}>{note.text}</div>}
 
-        {!adjusting && (
-          hidden >= 5 &&
-          !framed && (
-            <div className="surface-warn">
-              {hidden}% of the image is cut off. {cropEnabled ? "Use Framing to pick what shows, or" : "Use"} a{" "}
-              {ratioLabel(aspect)} file.
-            </div>
-          )
-        )}
         {children}
         <CardSections placementId={placementId} />
       </div>
