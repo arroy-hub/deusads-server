@@ -4494,7 +4494,7 @@ th.num .sort-button {
   border: 0;
   background: none;
   font: inherit;
-  font-weight: 600;
+  font-weight: 400;
   color: inherit;
   text-align: left;
   text-decoration: underline;
@@ -4928,4 +4928,10 @@ th.num .sort-button {
 
 .pf-hcell:not(.pf-hc-center) {
   padding-left: 0;
+}
+
+/* bold is for the folder rows and the total row only; what is inside a folder is regular weight */
+.pf-group-row .pf-num,
+.pf-total .pf-num {
+  font-weight: 600;
 }

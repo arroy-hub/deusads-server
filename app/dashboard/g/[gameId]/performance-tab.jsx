@@ -368,27 +368,44 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   });
 
   /**
-   * Move the edge on the right of `key` by dx. The table keeps its width, so what one column gains its right
-   * neighbour loses (for the name column that neighbour is the first figure column). dx is limited so neither
-   * goes under its minimum or past the maximum.
+   * Move the edge on the right of `key` by dx; the table keeps its width. What a column gains is taken from the
+   * columns on its right, nearest first, as far as they can give (down to their minimum). When they have nothing
+   * left it comes out of the name column, which holds all the slack, so a column can always be widened as long as
+   * there is room anywhere. What a column gives up goes to its right neighbour (then the next, up to the maximum).
+   * from: { left: width of the column, name: width of the name column }.
    */
   const dragEdge = (key, from, dx) => {
-    const right = key === "name" ? shown[0] : shown[shown.indexOf(key) + 1];
-    if (!right) return;
-    const minLeft = minOf(key);
-    const lo = Math.max(minLeft - from.left, from.right - MAX_WIDTH);
-    const hi = Math.min(key === "name" ? Infinity : MAX_WIDTH - from.left, from.right - minOf(right));
-    const step = Math.round(Math.max(lo, Math.min(hi, dx)));
-    setLayout((current) => ({
-      ...current,
-      widths: {
-        ...current.widths,
-        ...(key === "name" ? {} : { [key]: from.left + step }),
-        [right]: from.right - step,
-      },
-    }));
+    const at = key === "name" ? -1 : shown.indexOf(key);
+    const rights = shown.slice(at + 1);
+    if (rights.length === 0) return;
+    const slack = (k) => Math.max(0, widthOf(k) - minOf(k));
+    const room = (k) => Math.max(0, MAX_WIDTH - widthOf(k));
+    const sum = (list, fn) => list.reduce((total, k) => total + fn(k), 0);
+    const nameSlack = Math.max(0, from.name - NAME_MIN);
+    let step = Math.round(dx);
+    if (key === "name") {
+      step = step > 0 ? Math.min(step, sum(rights, slack)) : -Math.min(-step, nameSlack, sum(rights, room));
+    } else if (step > 0) {
+      step = Math.min(step, room(key), sum(rights, slack) + nameSlack);
+    } else {
+      step = -Math.min(-step, widthOf(key) - minOf(key));
+    }
+    if (step === 0) return;
+    const widths = { ...layout.widths };
+    if (key !== "name") widths[key] = widthOf(key) + step;
+    let rest = Math.abs(step);
+    for (const k of rights) {
+      if (rest <= 0) break;
+      const part = Math.min(rest, step > 0 ? slack(k) : room(k));
+      widths[k] = widthOf(k) + (step > 0 ? -part : part);
+      rest -= part;
+    }
+    setLayout((current) => ({ ...current, widths }));
   };
-  const edgeStart = (key, cell) => ({ left: key === "name" ? cell.getBoundingClientRect().width : widthOf(key), right: widthOf(key === "name" ? shown[0] : shown[shown.indexOf(key) + 1]) });
+  const edgeStart = (key, cell) => ({
+    left: key === "name" ? cell.getBoundingClientRect().width : widthOf(key),
+    name: gridRef.current?.querySelector('.pf-head [data-col="name"]')?.getBoundingClientRect().width ?? NAME_MIN,
+  });
   const startResize = (key) => (event) => {
     event.preventDefault();
     const handle = event.currentTarget;
@@ -440,7 +457,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
     const shareOfTotal = percent(f.views, totalViews);
     const advPct = Math.round(percent(cell.adv, sum));
     const parts = {
-      views: <div className="pf-cell pf-num pf-strong" role="cell">{count(f.views)}</div>,
+      views: <div className="pf-cell pf-num" role="cell">{count(f.views)}</div>,
       adv: <div className="pf-cell pf-num" role="cell">{count(cell.adv)}</div>,
       own: <div className="pf-cell pf-num" role="cell">{count(cell.own)}</div>,
       share: single ? (
