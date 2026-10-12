@@ -348,14 +348,14 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const widthOf = (key) => layout.widths[key] ?? (key === "name" ? NAME_WIDTH : COLUMNS[key].width);
   const labelOf = (key) => (key === "name" ? nameHead : key === "share" && single ? "Share of total" : COLUMNS[key].label);
   const shown = layout.order.filter((key) => !single || ["views", "share", "sessions", "avg"].includes(key));
-  const cols = `34px minmax(${widthOf("name")}px, 1fr) ${shown.map((key) => `${widthOf(key)}px`).join(" ")}`;
-  const gridWidth = 34 + widthOf("name") + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 1) + 12;
+  const cols = `34px ${widthOf("name")}px ${shown.map((key) => `${widthOf(key)}px`).join(" ")} minmax(0, 1fr)`;
+  const gridWidth = 34 + widthOf("name") + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 2) + 12;
 
   const setWidth = (key, width) =>
     setLayout((current) => ({ ...current, widths: { ...current.widths, [key]: clamp(width, key === "name" ? NAME_MIN : COLUMNS[key].min) } }));
   const move = (key, target) =>
     setLayout((current) => {
-      if (key === target) return current;
+      if (key === target || !current.order.includes(target)) return current;
       const order = current.order.filter((entry) => entry !== key);
       order.splice(order.indexOf(target) + (current.order.indexOf(key) < current.order.indexOf(target) ? 1 : 0), 0, key);
       return { ...current, order };
@@ -482,11 +482,25 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
           </label>
           <button
             type="button"
-            className="link-button pf-fold"
+            className="pf-icon-btn"
             disabled={!grouped || groups.length === 0}
+            aria-label={allFolded ? "Expand all folders" : "Collapse all folders"}
+            title={allFolded ? "Expand all" : "Collapse all"}
             onClick={() => setFolded(allFolded ? new Set() : new Set(groups.map((group) => group.key)))}
           >
-            {allFolded ? "Expand all" : "Collapse all"}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {allFolded ? (
+                <>
+                  <path d="M4.5 6 8 2.5 11.5 6" />
+                  <path d="M4.5 10 8 13.5 11.5 10" />
+                </>
+              ) : (
+                <>
+                  <path d="M4.5 2.5 8 6 11.5 2.5" />
+                  <path d="M4.5 13.5 8 10 11.5 13.5" />
+                </>
+              )}
+            </svg>
           </button>
         </div>
       </div>
@@ -500,14 +514,16 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
             {["name", ...shown].map((key) => {
               const numeric = key !== "name" && COLUMNS[key].numeric;
               const movable = key !== "name";
+              const side = dropOn === key && dragging && dragging !== key ? (key === "name" || shown.indexOf(dragging) > shown.indexOf(key) ? "is-drop-left" : "is-drop-right") : "";
+              const dropTarget = key === "name" ? shown[0] : key;
               return (
                 <div
                   key={key}
-                  className={`pf-cell pf-hcell ${numeric ? "pf-num" : ""} ${dropOn === key && dragging !== key ? "is-drop" : ""}`}
+                  className={`pf-cell pf-hcell ${numeric ? "pf-num" : ""} ${side}`}
                   role="columnheader"
                   aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-                  onDragOver={movable ? (event) => { if (dragging) { event.preventDefault(); setDropOn(key); } } : undefined}
-                  onDrop={movable ? (event) => { event.preventDefault(); if (dragging) move(dragging, key); setDragging(null); setDropOn(null); } : undefined}
+                  onDragOver={(event) => { if (dragging) { event.preventDefault(); setDropOn(key); } }}
+                  onDrop={(event) => { event.preventDefault(); if (dragging) move(dragging, dropTarget); setDragging(null); setDropOn(null); }}
                 >
                   <span
                     className={`pf-hlabel ${movable ? "is-movable" : ""} ${dragging === key ? "is-dragging" : ""}`}
