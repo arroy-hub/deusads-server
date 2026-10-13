@@ -63,7 +63,7 @@ export function CardHandle({ placementId }) {
   const { item, editing, selected, onSelect } = org;
   if (editing) {
     return (
-      <label className="org-pick" data-nodrag="1">
+      <label className="org-pick">
         <input type="checkbox" checked={selected.has(item.id)} onChange={() => onSelect(item.id)} />
         <span className="sr-only">Select {item.label}</span>
       </label>
@@ -380,7 +380,7 @@ export function CardPopups() {
       <div className="org-pop is-tag" role="dialog" aria-label="Add a tag" style={style}>
         <PopHead title="Add a tag" onClose={() => setPop(null)} />
         <div className="org-pop-sec">
-          <TagAdder org={org} />
+          <TagAdder org={org} current />
         </div>
       </div>
     );
@@ -535,7 +535,7 @@ function DetailsBody({ org }) {
 }
 
 /** A field for a new tag (commas separate several), and the tags used elsewhere in the game, one click to add. */
-function TagAdder({ org, edit: given }) {
+function TagAdder({ org, edit: given, current = false }) {
   const own = useTagEdit(org);
   const edit = given ?? own;
   const [text, setText] = useState("");
@@ -547,6 +547,16 @@ function TagAdder({ org, edit: given }) {
         if (edit.add(text)) setText("");
       }}
     >
+      {current && edit.shown.length > 0 && (
+        <>
+          <span className="org-pop-title">On this placement</span>
+          <span className="org-chips">
+            {edit.shown.map((tag) => (
+              <TagChip key={tag} tag={tag} edit={edit} />
+            ))}
+          </span>
+        </>
+      )}
       <div className="org-val">
         <input className="field org-tag-field" value={text} maxLength={60} placeholder="New tag name" aria-label="New tag" onChange={(event) => setText(event.target.value)} />
         <button className="button button-quiet button-small" type="submit" disabled={splitTags(text, edit.shown).length === 0}>

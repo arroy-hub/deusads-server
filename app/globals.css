@@ -6117,6 +6117,7 @@ th.num .sort-button {
 .org-undo { margin-left: 0.75rem; }
 
 /* Placement name just typed: dimmed until the server's list carries it */
+.org-empty-group { padding: 1.1rem 0; max-width: none; text-align: center; border: 2px dashed #c3c8d1; border-radius: var(--radius); }
 .org-name-btn.is-pending { opacity: 0.5; cursor: progress; }
 /* Dropping a card between two others: a bar on the side it will land */
 .org-cell { position: relative; }

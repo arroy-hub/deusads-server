@@ -263,7 +263,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     const place = folderId ? folders.find((folder) => folder.id === folderId) : null;
     const what = changedFolder.length === 1 ? `“${changedFolder[0].label}”` : `${changedFolder.length} placements`;
     const text = place ? `${what} moved to “${place.name}”` : `${what} taken out of the folder`;
-    run(reorderPlacements({ gameId, folderId, ids: list }), () => changedFolder.length > 0 && setNotice({ kind: "note", text, undo: () => undoMove(before) }), forget);
+    run(reorderPlacements({ gameId, folderId, ids: list }), (result) => changedFolder.length > 0 && !result?.warning && setNotice({ kind: "note", text, undo: () => undoMove(before) }), forget);
   }
 
   // ---- dragging a card by its top row, the way Explorer drags files: onto a folder, or out of all folders
@@ -339,7 +339,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       const head = event.target.closest?.(".org-namerow");
       const cell = head?.closest("[data-card]");
       if (!cell || event.target.closest("[data-nodrag]")) return;
-      if (event.pointerType === "touch" && !event.target.closest("[data-grip]")) return;
+      if (event.pointerType === "touch" && !event.target.closest("[data-grip], .org-pick")) return;
       candidate = { id: cell.getAttribute("data-card"), x0: event.clientX, y0: event.clientY, started: false, ids: [], label: "" };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
@@ -478,11 +478,21 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     const name = (newFolder ?? "").trim();
     if (!name) return;
     setShownNow((current) => ({ ...current, folders: [...current.folders, { id: `new-${name}`, name, enabled: true, parentId: null }] }));
-    run(createFolder({ gameId, name }), () => setNewFolder(null), forget);
+    run(
+      createFolder({ gameId, name }),
+      (result) => {
+        setNewFolder(null);
+        // the folder has its real id now: swap it in so it can be renamed before the fresh list arrives
+        const real = result?.folder?.id;
+        if (real) setShownNow((current) => ({ ...current, folders: current.folders.map((folder) => (folder.id === `new-${name}` ? { ...folder, id: real } : folder)) }));
+      },
+      forget
+    );
   }
 
   // The folder's name is renamed where it stands: Enter or a click elsewhere saves, Escape cancels.
   function startRenameFolder(group) {
+    if (String(group.folderId).startsWith("new-")) return; // still being created
     renameDone.current = false;
     setEditFolder({ id: group.folderId, name: group.label, original: group.label });
   }

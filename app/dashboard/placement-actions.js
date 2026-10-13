@@ -189,22 +189,30 @@ export async function reorderPlacements({ gameId, folderId, ids }) {
   if (!isId(gameId) || !list) return { error: "Choose at least one placement." };
   if (folderId !== null && !isId(folderId)) return { error: "Unknown folder." };
 
+  let ordered = true; // false once the database turns out not to have migration 0025
   for (let start = 0; start < list.length; start += 20) {
     const results = await Promise.all(
       list.slice(start, start + 20).map((id, offset) =>
         db
           .from("placements")
-          .update({ folder_id: folderId, sort_index: start + offset })
+          .update(ordered ? { folder_id: folderId, sort_index: start + offset } : { folder_id: folderId })
           .eq("id", id)
           .eq("game_id", gameId)
           .eq("owner_id", user.id)
       )
     );
     const bad = results.find((result) => result.error);
+    if (bad && ordered && isSchemaOutdated(bad.error)) {
+      // no order column yet: still move the cards into the folder, and say the order was not kept
+      ordered = false;
+      start = -20;
+      continue;
+    }
     if (bad) return failed(bad.error);
   }
 
   refresh();
+  if (!ordered) return { ok: true, changed: list.length, warning: "Moved, but the order was not saved. Run supabase/migrations/0025_placement_order.sql in the Supabase SQL editor first." };
   return { ok: true, changed: list.length };
 }
 
