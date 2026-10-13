@@ -7,8 +7,8 @@ import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
 
-const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My pictures" };
-const SESSIONS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your pictures" };
+const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
+const SESSIONS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
 const BY_LABEL = Object.fromEntries(BREAKDOWNS);
 const FILTER_KEYS = ["folder", "scene", "tag", "type", "format"];
 
@@ -16,7 +16,7 @@ const FILTER_KEYS = ["folder", "scene", "tag", "type", "format"];
 const COLUMNS = {
   views: { label: "Impressions", numeric: true, width: 96, min: 64 },
   adv: { label: "Advertisers", numeric: true, width: 96, min: 64 },
-  own: { label: "My pictures", numeric: true, width: 96, min: 64 },
+  own: { label: "My creatives", numeric: true, width: 96, min: 64 },
   share: { label: "Advertiser share", numeric: false, width: 150, min: 90 },
   sessions: { label: "Sessions", numeric: true, width: 84, min: 60 },
   avg: { label: "Avg. visible", numeric: true, width: 92, min: 64 },
@@ -35,7 +35,7 @@ const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0);
 /**
  * The Performance tab: how many times ads were shown in the game, and whose they were.
  * The address holds everything that changes what is counted (period, filters, grouping, ticks, one placement);
- * the server answers for it. Choosing which views count (all, advertisers', my pictures), sorting and folding
+ * the server answers for it. Choosing which views count (all, advertisers', my creatives), sorting and folding
  * groups need no new answer and happen here at once.
  *
  * model: lib/performance-view.js assembleList() or assembleFocus().
@@ -147,7 +147,7 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
               <span className="pf-src-sub">per view</span>
             </div>
           </div>
-          <p className="pf-hint">Click Advertisers or My pictures to count only those views, in the chart and below.</p>
+          <p className="pf-hint">Click Advertisers or My creatives to count only those views, in the chart and below.</p>
         </section>
 
         <PerformanceChart
@@ -480,7 +480,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
         </div>
       ) : (
         <div className="pf-cell pf-tbar" role="cell">
-          <span className="pf-split" role="img" aria-label={sum ? `${advPct}% advertisers, ${100 - advPct}% my pictures` : "No views"}>
+          <span className="pf-split" role="img" aria-label={sum ? `${advPct}% advertisers, ${100 - advPct}% my creatives` : "No views"}>
             {cell.adv > 0 && <span className="pf-split-adv" style={{ width: `${percent(cell.adv, sum).toFixed(2)}%` }} />}
             {cell.own > 0 && <span className="pf-split-own" style={{ width: `${percent(cell.own, sum).toFixed(2)}%` }} />}
           </span>
@@ -772,16 +772,16 @@ function FocusPanels({ model, source }) {
       thumb: "pf-thumb-adv",
       total: kpi.adv,
       items: shown.adv,
-      empty: "No advertiser was shown here. Only your pictures were.",
+      empty: "No advertiser was shown here. Only your creatives were.",
     },
     source !== "adv" && {
       id: "own",
-      label: "My pictures",
+      label: "My creatives",
       swatch: "pf-key-own",
       thumb: "pf-thumb-own",
       total: kpi.own,
       items: shown.own,
-      empty: "None of your pictures were shown here.",
+      empty: "None of your creatives were shown here.",
     },
   ].filter(Boolean);
   const spotViews = (cell) => (source === "adv" ? cell.adv : source === "own" ? cell.own : cell.adv + cell.own);
@@ -846,7 +846,7 @@ function FocusPanels({ model, source }) {
                 </span>
                 <span className="pf-num pf-strong">{count(spotViews(row.cell))}</span>
                 <span className="pf-tbar">
-                  <span className="pf-split" role="img" aria-label={`${Math.round(advW)}% advertisers, ${100 - Math.round(advW)}% my pictures`}>
+                  <span className="pf-split" role="img" aria-label={`${Math.round(advW)}% advertisers, ${100 - Math.round(advW)}% my creatives`}>
                     {row.cell.adv > 0 && source !== "own" && <span className="pf-split-adv" style={{ width: `${advW.toFixed(2)}%` }} />}
                     {row.cell.own > 0 && source !== "adv" && <span className="pf-split-own" style={{ width: `${(100 - advW).toFixed(2)}%` }} />}
                   </span>

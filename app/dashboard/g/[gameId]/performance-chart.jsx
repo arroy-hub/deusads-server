@@ -5,7 +5,7 @@ import { formatCount, formatDay } from "../../../../lib/analytics";
 import { compactCount, figures, niceTop } from "../../../../lib/performance-view";
 
 /**
- * Impressions per day as stacked columns: advertisers' views and the developer's own pictures, one on the other.
+ * Impressions per day as stacked columns: advertisers' views and the developer's own creatives, one on the other.
  * With one source chosen only that series is drawn. Two series, so there is a legend, and the colours are never the
  * only carrier of meaning: the tooltip, the labels and "Show as table" name each series. Each column is the hover and
  * focus target (the full height of the plot, wider than the painted bar).
@@ -46,7 +46,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
         {showOwn && (
           <span>
             <span className="pf-key pf-key-own" aria-hidden="true" />
-            My pictures
+            My creatives
           </span>
         )}
       </div>
@@ -67,7 +67,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
               const o = own(day);
               const label =
                 `${formatDay(day.date)}: ${formatCount(a + o)} impressions` +
-                (showAdv && showOwn ? ` (${formatCount(a)} advertisers, ${formatCount(o)} my pictures)` : "");
+                (showAdv && showOwn ? ` (${formatCount(a)} advertisers, ${formatCount(o)} my creatives)` : "");
               return (
                 <div
                   key={day.date}
@@ -106,7 +106,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
                 <div className="pf-tip-row">
                   <span className="pf-tip-key pf-key-own" aria-hidden="true" />
                   <span className="pf-tip-val">{formatCount(current.own)}</span>
-                  <span className="pf-tip-label">My pictures</span>
+                  <span className="pf-tip-label">My creatives</span>
                 </div>
               )}
               <div className="pf-tip-meta">
@@ -128,7 +128,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
             <div className="pf-mini-row pf-mini-head" role="row">
               <span role="columnheader">Day (UTC)</span>
               <span className="pf-num" role="columnheader">Advertisers</span>
-              <span className="pf-num" role="columnheader">My pictures</span>
+              <span className="pf-num" role="columnheader">My creatives</span>
               <span className="pf-num" role="columnheader">Total</span>
             </div>
             {[...days].reverse().map((day) => (

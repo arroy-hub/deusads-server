@@ -397,7 +397,7 @@ const shown = focus.shown.adv.reduce((sum, c) => sum + c.views, 0) + focus.shown
 assert.equal(shown, billboardViews, "the creatives add up to the placement");
 assert.equal(focus.shown.adv.reduce((sum, c) => sum + c.views, 0), focus.kpi.cell.adv, "advertisers' creatives add up to advertisers' views");
 assert.deepEqual(focus.shown.adv.map((c) => c.views), [...focus.shown.adv.map((c) => c.views)].sort((x, y) => y - x), "most shown first");
-assert.equal(focus.shown.own[0].name, "Your picture", "an own picture with no name on file is still called something");
+assert.equal(focus.shown.own[0].name, "Your creative", "an own creative with no name on file is still called something");
 assert.equal(run(withState({ focus: "poster" })).where.spots.length, 0);
 assert.equal(run(withState({ focus: "dead" })).placement.off, true);
 

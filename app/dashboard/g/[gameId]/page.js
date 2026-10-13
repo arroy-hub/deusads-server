@@ -139,7 +139,7 @@ export default async function GamePage({ params, searchParams }) {
       )}
       {tab === "placements" && (
         <p className="lede">
-          The ad spaces the SDK found in your game. Add your own pictures to each one (up to 5): they show in
+          The ad spaces the SDK found in your game. Add your own creatives to each one (up to 5): they show in
           turn whenever no advertiser is booked. Switch a placement on to open it to advertisers and list it in their catalog.
           {openOf
             ? ` ${openCount} of ${rows.length} are open.`

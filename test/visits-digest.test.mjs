@@ -60,7 +60,7 @@ assert.equal(lines[1].text, "1 new placement found after Send placements in CAST
 assert.equal(lines[2].text, "DeusADS reviewed your report on “Jackpot”: creative removed");
 assert.equal(lines.length, 4);
 assert.equal(lines[3].warn, true);
-assert.match(lines[3].text, /No SDK signal from Hoops for 9 days/);
+assert.match(lines[3].text, /Hoops hasn't synced for 9 days/);
 assert.deepEqual(buildDigest({ games: [{ id: "g1", name: "A" }], since }), []);
 
 console.log("visits-digest tests passed");

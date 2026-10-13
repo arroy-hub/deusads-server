@@ -259,8 +259,8 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || working) return;
-    if (!OWN_PICTURE_TYPES[file.type]) return setNote({ tone: "error", text: "Pictures must be PNG or JPG." });
-    if (file.size > OWN_PICTURE_MAX_BYTES) return setNote({ tone: "error", text: "Pictures must be under 8 MB." });
+    if (!OWN_PICTURE_TYPES[file.type]) return setNote({ tone: "error", text: "Creatives must be PNG or JPG." });
+    if (file.size > OWN_PICTURE_MAX_BYTES) return setNote({ tone: "error", text: "Creatives must be under 8 MB." });
 
     setBusy("adding");
     setNote(null);
@@ -312,7 +312,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
       setPending((all) => all.filter((item) => item.assignmentId !== tempId));
       URL.revokeObjectURL(localUrl);
       setSelectedId((current) => (current === tempId ? serverItems[0]?.assignmentId ?? "" : current));
-      setNote({ tone: "error", text: error?.message || "Could not add the picture. Try again." });
+      setNote({ tone: "error", text: error?.message || "Could not add the creative. Try again." });
     } finally {
       setBusy("");
     }
@@ -381,7 +381,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                 onLoad={(event) => markLoaded(creative.id, event.currentTarget)}
               />
             ) : (
-              <div className="surface-empty">No pictures of your own yet</div>
+              <div className="surface-empty">No creatives of your own yet</div>
             )}
 
             {creative && !loaded && <div className="surface-loading" aria-hidden="true" />}
@@ -426,7 +426,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         )}
 
         <div className="own-tabs">
-        <div className="own-strip" role="tablist" aria-label={`Your pictures for ${label}`}>
+        <div className="own-strip" role="tablist" aria-label={`Your creatives for ${label}`}>
           {items.map((item, index) => (
             <button
               key={item.assignmentId}
@@ -436,7 +436,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
               onClick={() => choose(item.assignmentId)}
               disabled={working}
               aria-selected={item.assignmentId === activeId}
-              aria-label={`Picture ${index + 1}${item.enabled ? ", in the rotation" : ", switched off"}`}
+              aria-label={`Creative ${index + 1}${item.enabled ? ", in the rotation" : ", switched off"}`}
               title={`${item.name}${item.enabled ? "" : " — off"}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -459,8 +459,8 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                 className="own-thumb own-add"
                 onClick={() => fileRef.current?.click()}
                 disabled={working}
-                aria-label="Add a picture of your own"
-                title={items.length === 0 ? "Add a picture of your own" : `Add a picture (${items.length} of ${MAX_OWN_CREATIVES})`}
+                aria-label="Add a creative of your own"
+                title={items.length === 0 ? "Add a creative of your own" : `Add a creative (${items.length} of ${MAX_OWN_CREATIVES})`}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />
@@ -479,7 +479,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   className="own-switch own-switch-small"
                   role="switch"
                   aria-checked={creative.enabled}
-                  aria-label="Show this picture"
+                  aria-label="Show this creative"
                   onClick={toggle}
                   disabled={working}
                 >
@@ -495,7 +495,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   onClick={() => setAdjusting(true)}
                   disabled={!canAdjust}
                   aria-label="Framing"
-                  title={cropEnabled ? "Drag and zoom the picture inside the frame" : "Framing needs migration 0003"}
+                  title={cropEnabled ? "Drag and zoom the creative inside the frame" : "Framing needs migration 0003"}
                 >
                   <CropIcon />
                 </button>
@@ -505,8 +505,8 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   onClick={remove}
                   onBlur={() => setConfirmDelete(false)}
                   disabled={working}
-                  aria-label={confirmDelete ? "Click again to delete this picture" : "Delete this picture"}
-                  title={confirmDelete ? "Click again to delete" : "Delete this picture"}
+                  aria-label={confirmDelete ? "Click again to delete this creative" : "Delete this creative"}
+                  title={confirmDelete ? "Click again to delete" : "Delete this creative"}
                 >
                   <TrashIcon />
                   {confirmDelete && <span>Delete?</span>}

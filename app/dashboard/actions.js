@@ -189,11 +189,11 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   }
   if (!OWN_PICTURE_TYPES[type]) {
     await cleanup();
-    return { error: "Pictures must be PNG or JPG." };
+    return { error: "Creatives must be PNG or JPG." };
   }
   if (!(size > 0) || size > MAX_BYTES) {
     await cleanup();
-    return { error: "Pictures must be under 8 MB." };
+    return { error: "Creatives must be under 8 MB." };
   }
 
   // Row-level security only lets an owner see their own placements.
@@ -214,7 +214,7 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   }
   if ((count ?? 0) >= MAX_OWN_CREATIVES) {
     await cleanup();
-    return { error: `A placement holds at most ${MAX_OWN_CREATIVES} pictures. Delete one first.` };
+    return { error: `A placement holds at most ${MAX_OWN_CREATIVES} creatives. Delete one first.` };
   }
 
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
@@ -224,7 +224,7 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
     .from("creatives")
     .insert({
       owner_id: user.id,
-      name: String(name ?? "").trim().slice(0, 120) || "Own picture",
+      name: String(name ?? "").trim().slice(0, 120) || "Own creative",
       storage_path: path,
       width_px: px(width),
       height_px: px(height),
@@ -236,7 +236,7 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   if (error) {
     console.error("[DeusADS] own picture not saved:", error.code, error.message);
     await cleanup();
-    return { error: isSchemaOutdated(error) ? NEEDS_OWN_MIGRATION : "Could not save the picture on our side. Nothing was lost: try again in a moment, and if it keeps failing, tell us." };
+    return { error: isSchemaOutdated(error) ? NEEDS_OWN_MIGRATION : "Could not save the creative on our side. Nothing was lost: try again in a moment, and if it keeps failing, tell us." };
   }
 
   const { data: assignment, error: assignError } = await db
@@ -251,8 +251,8 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
     return {
       error:
         assignError.code === "23514"
-          ? `A placement holds at most ${MAX_OWN_CREATIVES} pictures. Delete one first.`
-          : "Could not put the picture on the placement. Try again.",
+          ? `A placement holds at most ${MAX_OWN_CREATIVES} creatives. Delete one first.`
+          : "Could not put the creative on the placement. Try again.",
     };
   }
 
@@ -263,7 +263,7 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
 /** Changes one of the developer's own pictures: switched on or off, and how it is framed. */
 export async function saveOwnCreative({ assignmentId, enabled, crop }) {
   assignmentId = String(assignmentId ?? "");
-  if (!assignmentId) return { error: "Unknown picture." };
+  if (!assignmentId) return { error: "Unknown creative." };
 
   const { db, user } = await session();
   if (!user) return { error: "Your session expired. Sign in again." };
@@ -295,7 +295,7 @@ export async function saveOwnCreative({ assignmentId, enabled, crop }) {
 /** Removes one of the developer's own pictures from its placement, with its file. */
 export async function deleteOwnCreative({ assignmentId }) {
   assignmentId = String(assignmentId ?? "");
-  if (!assignmentId) return { error: "Unknown picture." };
+  if (!assignmentId) return { error: "Unknown creative." };
 
   const { db, user } = await session();
   if (!user) return { error: "Your session expired. Sign in again." };
@@ -307,19 +307,19 @@ export async function deleteOwnCreative({ assignmentId }) {
     .eq("owner_id", user.id)
     .eq("source", "own")
     .maybeSingle();
-  if (!assignment) return { error: "That picture is already gone." };
+  if (!assignment) return { error: "That creative is already gone." };
 
   // Only a creative that is an "own" picture is deleted with its assignment; anything else
   // (never expected here) would stay in its owner's library.
   const creative = assignment.creatives;
   if (creative?.kind === "own") {
     const { error } = await db.from("creatives").delete().eq("id", creative.id);
-    if (error) return { error: "Could not delete the picture." };
+    if (error) return { error: "Could not delete the creative." };
     const { error: storageError } = await db.storage.from("creatives").remove([creative.storage_path]);
     if (storageError) console.warn("[DeusADS] own picture file not removed:", creative.storage_path, storageError.message);
   } else {
     const { error } = await db.from("assignments").delete().eq("id", assignmentId);
-    if (error) return { error: "Could not delete the picture." };
+    if (error) return { error: "Could not delete the creative." };
   }
 
   revalidatePath("/dashboard", "layout");
