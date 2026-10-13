@@ -1516,7 +1516,7 @@ body {
   display: block;
   min-height: 0;
   padding: 12px;
-  border: 1px dashed #d8cabd;
+  border: 1px dashed #b7bcc6;
   border-radius: 10px;
   line-height: 1.4;
 }
@@ -6001,11 +6001,11 @@ th.num .sort-button {
    not by colour alone. */
 
 .rail {
-  --rail-bg: #1f1814;
-  --rail-text: #d8cbc1;
-  --rail-dim: #b3a498;
-  --rail-line: #3a2d26;
-  --rail-hover: #2c211b;
+  --rail-bg: #14161b;
+  --rail-text: #c9cdd5;
+  --rail-dim: #9aa1ad;
+  --rail-line: #2a2e37;
+  --rail-hover: #1f232b;
   background: var(--rail-bg);
   border-right: 1px solid var(--rail-line);
   color: var(--rail-text);
@@ -6045,7 +6045,7 @@ th.num .sort-button {
 
 .rail-link[aria-current="page"],
 .rail-link[aria-current="page"]:hover {
-  background: #3a2b23;
+  background: #2b303a;
   color: #fff;
   box-shadow: inset 3px 0 0 var(--signal);
 }
