@@ -5,6 +5,7 @@ import {
   campaignStatus,
   controlKind,
   controlLog,
+  daysUntil,
   coverageSummary,
   creativeShape,
   deltaText,
@@ -136,5 +137,20 @@ const items = attentionItems({
 assert.deepEqual(items.map((item) => item.key), ["rejected:c1", "limited:k1", "gap:c2", "dispute:c1"]);
 assert.equal(items.find((item) => item.key === "gap:c2").title, "Banner is not shown in 15 placements");
 assert.equal(attentionItems({}).length, 0);
+
+// a campaign ending within 3 days is reported, later or already ended ones are not
+const soon = attentionItems({
+  ending: [
+    { id: "e1", name: "Spring", endsOn: "2026-10-17" },
+    { id: "e2", name: "Later", endsOn: "2026-10-30" },
+    { id: "e3", name: "Past", endsOn: "2026-10-01" },
+    { id: "e4", name: "Open ended", endsOn: null },
+  ],
+  today: "2026-10-14",
+});
+assert.deepEqual(soon.map((item) => item.key), ["ending:e1"]);
+assert.equal(soon[0].title, "Spring ends in 3 days");
+assert.equal(daysUntil("2026-10-14", "2026-10-14"), 0);
+assert.equal(daysUntil(null, "2026-10-14"), null);
 
 console.log("advertiser-overview tests passed");

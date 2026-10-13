@@ -224,3 +224,59 @@ export async function deleteCampaign({ campaignId }) {
   revalidatePath("/dashboard/advertising");
   return { ok: true };
 }
+
+/**
+ * Take a creative out of one campaign: its open bookings there are withdrawn (a live one stops at once). The creative stays
+ * in the library and in other campaigns.
+ */
+export async function removeCreativeFromCampaign({ campaignId, creativeId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+
+  const { data: open, error } = await me.service
+    .from("bookings")
+    .select("id")
+    .eq("advertiser_id", me.user.id)
+    .eq("campaign_id", String(campaignId ?? ""))
+    .eq("creative_id", String(creativeId ?? ""))
+    .in("status", ["pending", "approved"]);
+  if (error) return { error: "Could not read the bookings. Try again." };
+  for (const booking of open ?? []) {
+    const { error: cancelError } = await me.service.rpc("cancel_booking", { p_booking: booking.id, p_advertiser: me.user.id });
+    if (cancelError) return { error: bookingErrorMessage(cancelError) };
+  }
+  revalidatePath("/dashboard/advertising");
+  return { ok: true, count: (open ?? []).length };
+}
+
+/** Change the dates of every open booking in one of the caller's campaigns (migration 0013). Empty means no start or no end. */
+export async function setCampaignDates({ campaignId, startsOn, endsOn }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+
+  const id = String(campaignId ?? "");
+  const { data: campaign } = await me.service.from("campaigns").select("id").eq("id", id).eq("advertiser_id", me.user.id).maybeSingle();
+  if (!campaign) return { error: "Unknown campaign." };
+
+  // A campaign that already started keeps its start date; only a new start date must not be in the past.
+  const { data: open } = await me.service.from("bookings").select("starts_on").eq("campaign_id", id).eq("advertiser_id", me.user.id).in("status", ["pending", "approved"]);
+  const current = (open ?? []).map((row) => row.starts_on).filter(Boolean).sort()[0] ?? null;
+  const kept = String(startsOn ?? "").trim();
+  const range = parseDateRange(startsOn, endsOn, kept && kept === current ? kept : undefined);
+  if (range.error) return { error: range.error };
+
+  const { error } = await me.service
+    .from("bookings")
+    .update({ starts_on: range.startsOn, ends_on: range.endsOn })
+    .eq("campaign_id", id)
+    .eq("advertiser_id", me.user.id)
+    .in("status", ["pending", "approved"]);
+  if (isSchemaOutdated(error)) return { error: "Dates need migration 0013 in the Supabase SQL editor first." };
+  if (error) return { error: "Could not change the dates. Try again." };
+  await me.service.rpc("sync_booking_schedule");
+
+  revalidatePath("/dashboard/advertising");
+  return { ok: true };
+}

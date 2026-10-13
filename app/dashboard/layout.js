@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { userClient, currentUser } from "../../lib/supabase-server";
-import { currentRole } from "../../lib/admin";
+import { currentRole, getMember } from "../../lib/admin";
+import { loadAttention } from "../../lib/advertiser-data";
 import { serviceClient } from "../../lib/api";
 import { registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
@@ -42,6 +43,12 @@ export default async function DashboardLayout({ children }) {
         .order("created_at", { ascending: false })
         .limit(15)
     : { data: null };
+  // An advertiser's bell also lists what needs action (rejected creatives, format gaps, limited campaigns, reports).
+  let attention = [];
+  if (role === "advertiser") {
+    const me = await getMember().catch(() => null);
+    attention = me ? await loadAttention(me.service, me).catch(() => []) : [];
+  }
   const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
   const disputes = role === "admin" ? await openDisputes(serviceClient()) : 0;
   const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
@@ -93,7 +100,7 @@ export default async function DashboardLayout({ children }) {
 
       <div className="content">
         <header className="topbar">
-          <NotificationsBell items={latest ?? []} unread={unread} />
+          <NotificationsBell items={latest ?? []} unread={unread} attention={attention} />
         </header>
         <main className="main">{children}</main>
       </div>

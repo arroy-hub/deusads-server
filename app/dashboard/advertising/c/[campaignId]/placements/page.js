@@ -1,0 +1,95 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getMember } from "../../../../../../lib/admin";
+import { canAdvertise } from "../../../../../../lib/admin-rules";
+import { loadCampaignReport } from "../../../../../../lib/advertiser-data";
+import { gameRows } from "../../../../../../lib/advertiser-overview";
+import { formatCount } from "../../../../../../lib/analytics";
+import { reportRows } from "../../../../../../lib/reports";
+import { ratioLabel } from "../../../../../../lib/surface-math";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Campaign placements" };
+
+const FILTERS = [
+  ["all", "All"],
+  ["showing", "Showing"],
+  ["held", "Paused or blocked"],
+];
+
+export default async function CampaignPlacementsPage({ params, searchParams }) {
+  const { campaignId } = await params;
+  const query = await searchParams;
+  const me = await getMember();
+  if (!me || !canAdvertise(me.role)) notFound();
+  const report = await loadCampaignReport(me.service, me, campaignId, 30);
+  if (!report) notFound();
+
+  const open = report.bookings.filter((booking) => booking.status === "approved" || booking.status === "pending");
+  const games = gameRows(report.bookings, reportRows(report.bookings, report.placementStats));
+  const placementsOf = new Map();
+  for (const booking of open) {
+    if (!placementsOf.has(booking.gameId)) placementsOf.set(booking.gameId, new Map());
+    placementsOf.get(booking.gameId).set(booking.placementId, booking);
+  }
+  const isHeld = (game) => game.state === "paused" || game.state === "blocked" || game.state === "category";
+  const filter = FILTERS.some(([key]) => key === query?.show) ? query.show : "all";
+  const shown = games.filter((game) => (filter === "showing" ? game.state === "showing" : filter === "held" ? isHeld(game) : true));
+  const count = (key) => games.filter((game) => (key === "showing" ? game.state === "showing" : key === "held" ? isHeld(game) : true)).length;
+  const placementTotal = [...placementsOf.values()].reduce((sum, map) => sum + map.size, 0);
+
+  return (
+    <>
+      <div className="lib-head">
+        <p className="settings-help">
+          {report.audience ? `Chosen by audience: ${report.audience}. ` : "Every game. "}
+          Placements opened later are not added automatically.
+        </p>
+        <Link href={`/dashboard/advertising/new?campaign=${campaignId}`} className="button">
+          Add placements
+        </Link>
+      </div>
+
+      <div className="cp-filter" role="group" aria-label="Filter">
+        {FILTERS.map(([key, label]) => (
+          <Link key={key} href={`/dashboard/advertising/c/${campaignId}/placements${key === "all" ? "" : `?show=${key}`}`} aria-current={filter === key ? "page" : undefined}>
+            {label} <span>{count(key)}</span>
+          </Link>
+        ))}
+      </div>
+
+      {games.length === 0 ? (
+        <div className="empty">
+          <p style={{ margin: "0 auto" }}>No placements in this campaign yet. Use “Add placements”.</p>
+        </div>
+      ) : (
+        <section className="panel" style={{ padding: 0 }} aria-label="Games and placements">
+          <div className="cp-sum">
+            <span>
+              {games.length} {games.length === 1 ? "game" : "games"} · {placementTotal} {placementTotal === 1 ? "placement" : "placements"}
+            </span>
+            <span>Impressions, 30 days</span>
+          </div>
+          {shown.map((game) => (
+            <div className="cp-game" key={game.id}>
+              <div className="cp-game-top">
+                <div className="cp-game-name">{game.game}</div>
+                <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
+                <div className="cp-game-num">{game.impressions > 0 ? formatCount(game.impressions) : "—"}</div>
+              </div>
+              {game.note && <p className="todo-sub">{game.note}</p>}
+              <div className="cp-chips">
+                {[...(placementsOf.get(game.id)?.values() ?? [])].map((booking) => (
+                  <span className="cp-chip" key={booking.placementId}>
+                    {booking.placement}
+                    {booking.placementAspect ? <span className="muted num">{ratioLabel(booking.placementAspect)}</span> : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+    </>
+  );
+}

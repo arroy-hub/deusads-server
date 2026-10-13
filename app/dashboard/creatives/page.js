@@ -6,11 +6,14 @@ import { targetingSummary } from "../../../lib/targeting";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 import { canAdvertise } from "../../../lib/admin-rules";
+import AdvertiserCreatives from "./advertiser-creatives";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creatives" };
 
 export default async function CreativesPage() {
+  const member = await getMember();
+  if (member && canAdvertise(member.role)) return <AdvertiserCreatives me={member} />;
   const db = await userClient();
   // Pictures a developer put on their own placements (kind 'own', migration 0020) are not library creatives.
   const listCreatives = async (columns) => {
@@ -105,3 +108,4 @@ export default async function CreativesPage() {
     </>
   );
 }
+

@@ -7,7 +7,6 @@ import { gameRows } from "../../../../../lib/advertiser-overview";
 import { formatCount, formatDay } from "../../../../../lib/analytics";
 import { REPORT_RANGES, parseRange, reportRows } from "../../../../../lib/reports";
 import DailyChart from "../../../g/[gameId]/daily-chart";
-import { StatusPill } from "../../../advertiser-overview";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign report" };
@@ -28,34 +27,9 @@ export default async function CampaignReportPage({ params, searchParams }) {
   const showing = games.filter((game) => game.state === "showing").length;
   const href = (next) => `/dashboard/advertising/c/${campaign.id}?days=${next}`;
   const exportHref = `/dashboard/advertising/reports/export?kind=placements&days=${days}&campaign=${campaign.id}`;
-  const details = [report.dates, report.audience || "Every game", `${report.creativeCount} ${report.creativeCount === 1 ? "creative" : "creatives"}`].filter(Boolean);
 
   return (
     <>
-      <div className="main-head">
-        <div>
-          <p className="muted-line">
-            <Link href="/dashboard/advertising/overview" style={{ textDecoration: "underline" }}>
-              Overview
-            </Link>{" "}
-            / Campaign
-          </p>
-          <div className="row">
-            <h1>{campaign.name}</h1>
-            <StatusPill status={status} />
-          </div>
-        </div>
-        <div className="row">
-          <a href={exportHref} className="button button-quiet" download>
-            Download CSV
-          </a>
-          <Link href={`/dashboard/advertising/new?campaign=${campaign.id}`} className="button">
-            Add placements
-          </Link>
-        </div>
-      </div>
-      <p className="lede">{details.join(" · ")}</p>
-
       {report.missing && (
         <p className="notice">
           Run <code>supabase/migrations/0009_campaigns_and_bookings.sql</code> and <code>0010_advertiser_reports.sql</code> in the
@@ -70,13 +44,18 @@ export default async function CampaignReportPage({ params, searchParams }) {
         </p>
       )}
 
-      <nav className="subnav" aria-label="Period">
+      <div className="lib-head">
+      <nav className="subnav" aria-label="Period" style={{ margin: 0 }}>
         {REPORT_RANGES.map((range) => (
           <Link key={range} href={href(range)} aria-current={range === days ? "page" : undefined}>
             {range} days
           </Link>
         ))}
       </nav>
+      <a href={exportHref} className="button button-quiet" download>
+        Download CSV
+      </a>
+      </div>
 
       <section className="panel" aria-label="Numbers">
         <div className="figures">

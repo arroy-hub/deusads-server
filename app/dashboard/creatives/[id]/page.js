@@ -7,6 +7,8 @@ import Workbench from "./workbench";
 import { canAdvertise } from "../../../../lib/admin-rules";
 import { FORMATS } from "../../../../lib/formats";
 import { coverageSummary, creativeShape } from "../../../../lib/advertiser-overview";
+import AdvertiserCreatives from "../advertiser-creatives";
+import CreativeDialog from "./creative-dialog";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creative" };
@@ -20,7 +22,7 @@ export default async function CreativeFormatsPage({ params }) {
   const read = (columns) =>
     service.from("creatives").select(columns).eq("id", id).eq("owner_id", user.id).maybeSingle();
   // The safe zone comes with migration 0017.
-  let { data: creative, error } = await read("id, name, storage_path, width_px, height_px, status, safe_x, safe_y, safe_w, safe_h");
+  let { data: creative, error } = await read("id, name, storage_path, width_px, height_px, status, review_note, safe_x, safe_y, safe_w, safe_h");
   const migrated = !isSchemaOutdated(error);
   if (!migrated) ({ data: creative } = await read("id, name, storage_path, width_px, height_px, status"));
   if (!creative) notFound();
@@ -90,6 +92,33 @@ export default async function CreativeFormatsPage({ params }) {
         placements: (shapes ?? []).map((row) => ({ aspect: row.aspect_ratio == null ? null : Number(row.aspect_ratio) })),
       });
     }
+  }
+
+  // An advertiser sees the editor as a pop-up over the Creatives tab.
+  if (canAdvertise(me.role) && migrated) {
+    return (
+      <>
+        <AdvertiserCreatives me={me} />
+        <CreativeDialog
+          creative={{
+            id: creative.id,
+            name: creative.name,
+            url: urlOf(creative.storage_path),
+            width: creative.width_px,
+            height: creative.height_px,
+            safe: { x: creative.safe_x, y: creative.safe_y, w: creative.safe_w, h: creative.safe_h },
+          }}
+          assets={assets}
+          status={creative.status}
+          note={creative.review_note ?? ""}
+          placements={coverage?.placements ?? 0}
+          missingPlacements={coverage?.missingPlacements ?? 0}
+          audience={audience ? { targeting: audience.targeting, catalog } : null}
+          audienceMissing={audienceMissing}
+
+        />
+      </>
+    );
   }
 
   return (

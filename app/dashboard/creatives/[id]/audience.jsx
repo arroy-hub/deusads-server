@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MultiPick from "../../multi-pick";
 import { saveTargeting } from "../actions";
@@ -22,7 +22,7 @@ const sameAudience = (a, b) => Object.keys(EMPTY).every((key) => [...a[key]].sor
  * advertisers (null when that is not known), so the advertiser sees at once how many games fit.
  * A booking is accepted whatever the audience is; this only decides where the ad appears.
  */
-export default function Audience({ creativeId, initial, catalog }) {
+export default function Audience({ creativeId, initial, catalog, embedded = false, onChange }) {
   const router = useRouter();
   const start = { ...EMPTY, ...(initial ?? {}) };
   const [audience, setAudience] = useState(start);
@@ -32,6 +32,11 @@ export default function Audience({ creativeId, initial, catalog }) {
 
   const targeting = toTargeting(audience);
   const changed = !sameAudience(audience, saved);
+  // Inside the creative pop-up the pop-up's own Save stores the audience; this form only reports what is picked.
+  useEffect(() => {
+    if (embedded) onChange?.({ targeting: toTargeting(audience), changed });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audience, embedded]);
   const fitting = catalog ? countFitting(catalog, targeting) : null;
 
   const pick = (key) => (next) => {
@@ -57,8 +62,8 @@ export default function Audience({ creativeId, initial, catalog }) {
   }
 
   return (
-    <section className="panel settings" aria-labelledby="audience-title">
-      <h2 id="audience-title">Audience</h2>
+    <section className={embedded ? "settings" : "panel settings"} aria-labelledby="audience-title">
+      <h2 id="audience-title">{embedded ? "Who may see it" : "Audience"}</h2>
       <p className="settings-help">
         Choose which games may show this creative. Pick nothing and it can show in every game. Inside one
         list any pick is enough; across lists a game has to fit all of them. A game that has not filled in
@@ -95,11 +100,13 @@ export default function Audience({ creativeId, initial, catalog }) {
         )}
 
         <div className="row">
-          <button className="button" type="submit" disabled={busy || !changed}>
-            {busy ? "Saving…" : "Save audience"}
-          </button>
+          {!embedded && (
+            <button className="button" type="submit" disabled={busy || !changed}>
+              {busy ? "Saving…" : "Save audience"}
+            </button>
+          )}
           {hasTargeting(targeting) && (
-            <button className="button button-quiet" type="button" disabled={busy} onClick={() => save(EMPTY)}>
+            <button className="button button-quiet" type="button" disabled={busy} onClick={() => (embedded ? setAudience(EMPTY) : save(EMPTY))}>
               Show in every game
             </button>
           )}
