@@ -6,13 +6,13 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
 
 assert.deepEqual(labels("developer"), ["Home", "My games"]);
-assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns", "Reports"]);
+assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns", "Creatives"]);
 assert.equal(labels("admin").slice(0, 5).join(), "Review creatives,Disputes,All bookings,Users,System");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
 assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
 // an admin's own library is not confused with the review page
-assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives");
-assert.ok(!labels("advertiser").some((label) => /creatives|find placements/i.test(label)), "creatives and placements live inside Campaigns, not in the menu");
+assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives,Creatives");
+assert.ok(!labels("advertiser").some((label) => /find placements/i.test(label)), "placements are not a menu entry");
 assert.ok(labels("admin").includes("My games"), "an admin keeps their own developer and advertiser tools");
 // an admin has the whole advertiser menu and the whole developer menu, in two labelled sections
 const adminGroups = menuFor("admin");

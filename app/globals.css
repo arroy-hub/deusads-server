@@ -6982,3 +6982,8 @@ th.num .sort-button {
 .ovx-grid-table tr.ovx-blank td { height: 52px; border-bottom: 1px solid #efe7de; color: var(--ink-2); font-size: 13px; }
 .ovx-grid-table .ovx-namecell .cp-cti { margin-right: 0; }
 .ovx-grid-table .ovx-namecell .cp-pill { margin-left: 4px; }
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.lib-add { margin-bottom: 16px; }
+.lib-add > summary { display: inline-block; cursor: pointer; list-style: none; }
+.lib-add > summary::-webkit-details-marker { display: none; }
+.lib-add[open] > summary { margin-bottom: 12px; }

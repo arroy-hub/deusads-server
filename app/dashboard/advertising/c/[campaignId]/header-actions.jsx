@@ -27,7 +27,7 @@ export default function HeaderActions({ id, paused, canPause, rules, draft }) {
               </Link>
             ))}
           </div>
-          <a className="button button-quiet" href={`/dashboard/advertising/reports/export?kind=placements&days=${days}&campaign=${id}`} download>
+          <a className="button button-quiet" href={`/dashboard/advertising/export?kind=placements&days=${days}&campaign=${id}`} download>
             Export CSV
           </a>
         </>

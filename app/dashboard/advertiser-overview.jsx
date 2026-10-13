@@ -17,6 +17,14 @@ export default function AdvertiserOverview({ data, basePath }) {
           <h1>Overview</h1>
           <p className="lede">How your ads are doing across all campaigns.</p>
         </div>
+        <div className="head-actions">
+          <a className="button button-quiet" href={`/dashboard/advertising/export?kind=daily&days=${days}`} download>
+            Download by day (CSV)
+          </a>
+          <a className="button button-quiet" href={`/dashboard/advertising/export?kind=placements&days=${days}`} download>
+            Download by placement (CSV)
+          </a>
+        </div>
       </div>
 
       {data.missing && (

@@ -1,15 +1,15 @@
-import { getMember } from "../../../../../lib/admin";
-import { toCsv } from "../../../../../lib/csv";
-import { loadReport } from "../../../../../lib/report-data";
-import { parseRange } from "../../../../../lib/reports";
-import { canAdvertise } from "../../../../../lib/admin-rules";
+import { getMember } from "../../../../lib/admin";
+import { toCsv } from "../../../../lib/csv";
+import { loadReport } from "../../../../lib/report-data";
+import { parseRange } from "../../../../lib/reports";
+import { canAdvertise } from "../../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
 
 const text = (body, status) => new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
 
 /**
- * GET /dashboard/advertising/reports/export?kind=placements|daily&days=30&campaign=<id>
+ * GET /dashboard/advertising/export?kind=placements|daily&days=30&campaign=<id>
  * The report the page shows, as a CSV download. Only for the signed-in advertiser's
  * own figures; the same rules as the page decide what is in it.
  */

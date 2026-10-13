@@ -9,7 +9,6 @@ import { canAdvertise } from "../../../lib/admin-rules";
 import CategoryIcon from "./category-icon";
 import StatusPill from "./status-pill";
 import RowMenu from "./row-menu";
-import SectionTabs from "./section-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaigns" };
@@ -17,7 +16,7 @@ export const metadata = { title: "Campaigns" };
 export default async function AdvertisingPage() {
   const me = await getMember();
   if (!me || !canAdvertise(me.role)) notFound();
-  const { campaigns, creativeCount, error, rules } = await loadCampaignList(me.service, me, 30);
+  const { campaigns, error, rules } = await loadCampaignList(me.service, me, 30);
 
   return (
     <>
@@ -31,7 +30,6 @@ export default async function AdvertisingPage() {
         </Link>
       </div>
 
-      <SectionTabs active="campaigns" campaigns={campaigns.length || null} creatives={creativeCount || null} />
 
       {bookingsMissing(error) && (
         <p className="notice">
