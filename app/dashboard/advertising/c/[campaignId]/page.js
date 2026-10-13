@@ -49,7 +49,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
           <a href={exportHref} className="button button-quiet" download>
             Download CSV
           </a>
-          <Link href="/dashboard/advertising/new" className="button">
+          <Link href={`/dashboard/advertising/new?campaign=${campaign.id}`} className="button">
             Add placements
           </Link>
         </div>
@@ -119,7 +119,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
           </h2>
           {games.length === 0 ? (
             <p className="settings-help" style={{ padding: "0 1.25rem 1.25rem" }}>
-              No placements in this campaign yet. Add some under Find placements.
+              No placements in this campaign yet. Add some with “Add placements”.
             </p>
           ) : (
             <div className="ov-table-wrap">

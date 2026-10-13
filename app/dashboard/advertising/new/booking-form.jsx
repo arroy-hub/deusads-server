@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBooking } from "../actions";
+import UploadForm from "../../creatives/upload-form";
 import MultiPick from "../../multi-pick";
 import { formatLabel, formatOf, pickImage } from "../../../../lib/formats";
 import { FIELDS, PROFILE_KEYS, countFitting, evaluate, hasTargeting, targetingSummary, whyNot } from "../../../../lib/targeting";
@@ -14,13 +15,17 @@ import { FIELDS, PROFILE_KEYS, countFitting, evaluate, hasTargeting, targetingSu
  * fit the creative's audience and can be filtered. A booking is accepted for any game: the audience
  * only decides where the ad appears.
  */
-export default function BookingForm({ creatives, campaigns, games, aimable = false }) {
+export default function BookingForm({ creatives, campaigns, games, aimable = false, initialCampaignId = "" }) {
   const router = useRouter();
   // Creatives still in review can be booked: the booking starts when the creative is approved.
   const usable = creatives.filter((item) => item.status !== "rejected");
 
   const [creativeId, setCreativeId] = useState(usable[0]?.id ?? "");
-  const [campaignId, setCampaignId] = useState(""); // "" = a new campaign
+  const [justAdded, setJustAdded] = useState("");
+  const [campaignId, setCampaignId] = useState(initialCampaignId); // "" = a new campaign
+  const [step, setStep] = useState(1);
+  const [adding, setAdding] = useState(usable.length === 0); // the upload form inside step 1
+  const [mode, setMode] = useState("audience"); // audience | manual
   const [campaignName, setCampaignName] = useState("");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
@@ -55,8 +60,23 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
       return next;
     });
 
-  async function submit(event) {
-    event.preventDefault();
+  // By audience: every open placement in the games that match the filters (and the creative's own audience).
+  const audienceGames = games.filter((game) => (!aimed || fitOf(game).fits) && (!filtering || evaluate(game.profile, filters).fits));
+  const audienceIds = audienceGames.flatMap((game) => game.placements.map((placement) => placement.id));
+  const bookIds = mode === "audience" ? audienceIds : chosenIds;
+
+  const needsName = !campaignId && !campaignName.trim();
+  const canNext = step === 1 ? Boolean(creativeId) && !needsName : step === 2 ? bookIds.length > 0 : true;
+  const campaignLabel = campaignId ? campaigns.find((item) => item.id === campaignId)?.name : campaignName.trim();
+
+  function added(creative) {
+    setJustAdded(creative.id);
+    setCreativeId(creative.id);
+    setAdding(false);
+    router.refresh(); // the server list now holds the new creative
+  }
+
+  async function submit() {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -64,7 +84,7 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
       campaignId: campaignId || undefined,
       campaignName,
       creativeId,
-      placementIds: chosenIds,
+      placementIds: bookIds,
       startsOn,
       endsOn,
     }).catch(() => ({ error: "Connection lost. Try again." }));
@@ -74,163 +94,227 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
     router.refresh();
   }
 
-  if (usable.length === 0) {
-    return (
-      <div className="empty">
-        <p style={{ margin: "0 auto" }}>
-          You have no usable creatives yet. Upload one under Creatives.
-        </p>
-      </div>
-    );
-  }
+  const STEPS = ["Creative", "Where", "Schedule", "Review"];
+  const chosenInList = chosen || usable.find((item) => item.id === justAdded);
 
   return (
-    <form className="panel stack" onSubmit={submit}>
-      <label htmlFor="creative">Creative</label>
-      <select id="creative" className="field" value={creativeId} onChange={(event) => setCreativeId(event.target.value)} disabled={busy}>
-        {usable.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name}
-            {item.size ? ` (${item.size})` : ""}
-            {item.status === "pending" ? " — in review" : ""}
-          </option>
+    <div className="panel stack wizard">
+      <ol className="wizard-steps" aria-label="Steps">
+        {STEPS.map((label, index) => (
+          <li key={label} aria-current={step === index + 1 ? "step" : undefined} className={step > index + 1 ? "is-done" : undefined}>
+            <span className="num">{index + 1}</span> {label}
+          </li>
         ))}
-      </select>
+      </ol>
 
-      <label htmlFor="campaign">Campaign</label>
-      <div className="row">
-        <select id="campaign" className="field" value={campaignId} onChange={(event) => setCampaignId(event.target.value)} disabled={busy}>
-          <option value="">New campaign…</option>
-          {campaigns.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        {!campaignId && (
-          <input
-            className="field"
-            value={campaignName}
-            onChange={(event) => setCampaignName(event.target.value)}
-            placeholder="Campaign name"
-            aria-label="Campaign name"
-            maxLength={120}
-            disabled={busy}
-          />
-        )}
-      </div>
-
-      <div className="settings-title">Dates (optional)</div>
-      <div className="row">
-        <label htmlFor="starts-on">From</label>
-        <input id="starts-on" className="field" type="date" min={today} value={startsOn} onChange={(event) => setStartsOn(event.target.value)} disabled={busy} />
-        <label htmlFor="ends-on">Until (last day shown)</label>
-        <input id="ends-on" className="field" type="date" min={startsOn || today} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} disabled={busy} />
-      </div>
-      <p className="settings-help">
-        Leave empty to start right away and run until you stop it. Days are UTC. If the creative is still in review, the ads start when it is approved.
-      </p>
-
-      <div className="settings-title">Placements</div>
-      {aimable && games.length > 0 && chosen && (
-        <div className="audience-box">
-          {aimed ? (
-            <>
-              <p className="audience-line">
-                This creative's audience: {targetingSummary(targeting)}.{" "}
-                <span className="muted-line">
-                  {fitting} of {games.length} {games.length === 1 ? "game" : "games"} in the catalog fit{fitting === 1 ? "s" : ""}.
-                </span>{" "}
-                <Link href={`/dashboard/creatives/${chosen.id}`}>Change the audience</Link>
-              </p>
-              {fitting === 0 && (
-                <p className="notice">
-                  No game fits this audience yet. You can still book: the booking is accepted and the creative
-                  starts showing as soon as a matching game opens a placement.
-                </p>
-              )}
-              <label className="pick-item">
-                <input type="checkbox" checked={fitOnly} onChange={(event) => setFitOnly(event.target.checked)} disabled={busy} />
-                <span>Show only games that fit</span>
-              </label>
-            </>
-          ) : (
+      {step === 1 && (
+        <div className="stack">
+          {campaignId ? (
             <p className="settings-help">
-              No audience set: this creative can show in every game.{" "}
-              <Link href={`/dashboard/creatives/${chosen.id}`}>Aim it at certain games</Link>
+              Adding to <strong>{campaignLabel}</strong>.{" "}
+              <button type="button" className="link-button" onClick={() => setCampaignId("")}>
+                Start a new campaign instead
+              </button>
             </p>
+          ) : (
+            <>
+              <label htmlFor="campaign-name">Campaign name</label>
+              <input
+                id="campaign-name"
+                className="field"
+                value={campaignName}
+                onChange={(event) => setCampaignName(event.target.value)}
+                placeholder="Spring launch"
+                maxLength={120}
+                disabled={busy}
+              />
+            </>
           )}
-          <details className="filter-box" open={filtering || undefined}>
-            <summary>Filter the games{filtering ? " (on)" : ""}</summary>
-            <div className="stack">
-              {PROFILE_KEYS.map((key) => (
-                <MultiPick
-                  key={key}
-                  label={FIELDS[key].label}
-                  options={FIELDS[key].options}
-                  value={filters[key]}
-                  onChange={(next) => setFilters({ ...filters, [key]: next })}
-                  searchable={key === "languages"}
-                  disabled={busy}
-                />
-              ))}
-              {filtering && (
-                <div className="row">
-                  <button type="button" className="button button-quiet" onClick={() => setFilters({ genres: [], platforms: [], languages: [] })}>
-                    Clear filters
-                  </button>
-                  <span className="muted-line">Games that have not filled in a list you filter by are hidden.</span>
-                </div>
+
+          <div className="settings-title">Creative</div>
+          {usable.length > 0 && !adding && (
+            <>
+              <select id="creative" className="field" value={creativeId} onChange={(event) => setCreativeId(event.target.value)} disabled={busy} aria-label="Creative">
+                {usable.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                    {item.size ? ` (${item.size})` : ""}
+                    {item.status === "pending" ? " — in review" : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="settings-help">
+                Your creatives can be used in any campaign.{" "}
+                <button type="button" className="link-button" onClick={() => setAdding(true)}>
+                  Upload a new one
+                </button>
+              </p>
+            </>
+          )}
+          {adding && (
+            <div className="audience-box">
+              <UploadForm embedded onUploaded={added} />
+              {usable.length > 0 && (
+                <button type="button" className="link-button" onClick={() => setAdding(false)}>
+                  Use one I already have
+                </button>
               )}
             </div>
-          </details>
+          )}
+          {chosenInList?.status === "pending" && (
+            <p className="settings-help">This creative is in review. You can set the campaign up now; ads start when it is approved.</p>
+          )}
+          {chosen && (
+            <p className="settings-help">
+              Cropping, pictures for other formats and the creative's own audience are on{" "}
+              <Link href={`/dashboard/creatives/${chosen.id}`}>the creative's page</Link>.
+            </p>
+          )}
         </div>
       )}
-      {games.length === 0 ? (
-        <p className="settings-help">No placements are available yet.</p>
-      ) : shownGames.length === 0 ? (
-        <p className="settings-help">No game matches. Change or clear the filters.</p>
-      ) : (
-        shownGames.map((game) => (
-          <fieldset key={game.id ?? game.name} className="pick-group">
-            <legend>
-              {game.name}
-              {aimed && (
-                <span className={`fit-badge ${fitOf(game).fits ? "is-fit" : "is-miss"}`}>
-                  {fitOf(game).fits ? "fits the audience" : `won't show here: ${whyNot(fitOf(game).problems)}`}
-                </span>
-              )}
-            </legend>
-            {game.placements.map((placement) => (
-              <label key={placement.id} className="pick-item">
-                <input
-                  type="checkbox"
-                  checked={picked.has(placement.id)}
-                  onChange={() => toggle(placement.id)}
-                  disabled={busy}
-                />
-                <span
-                  className="pick-shape"
-                  aria-hidden="true"
-                  style={{ aspectRatio: placement.aspect ? String(Math.min(4, Math.max(0.5, placement.aspect))) : "16 / 9" }}
-                />
-                <span>
-                  {placement.label}
+
+      {step === 2 && (
+        <div className="stack">
+          <div className="subnav" role="group" aria-label="How to choose">
+            <button type="button" className="link-button" aria-pressed={mode === "audience"} onClick={() => setMode("audience")}>
+              By audience
+            </button>
+            <button type="button" className="link-button" aria-pressed={mode === "manual"} onClick={() => setMode("manual")}>
+              Pick placements
+            </button>
+          </div>
+
+          {aimable && games.length > 0 && (
+            <div className="audience-box">
+              {aimed ? (
+                <p className="audience-line">
+                  This creative's audience: {targetingSummary(targeting)}.{" "}
                   <span className="muted-line">
-                    {[
-                      placement.scene && `scene ${placement.scene}`,
-                      placement.aspect && `${placement.aspect.toFixed(2)}:1`,
-                      placement.aspect && formatLabel(formatOf(placement.aspect)),
-                      chosen && coverageNote(chosen, placement.aspect),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-        ))
+                    {fitting} of {games.length} {games.length === 1 ? "game" : "games"} fit{fitting === 1 ? "s" : ""}.
+                  </span>{" "}
+                  <Link href={`/dashboard/creatives/${chosen.id}`}>Change it</Link>
+                </p>
+              ) : (
+                <p className="settings-help">No audience on this creative: it can show in every game.</p>
+              )}
+              {mode === "manual" && aimed && (
+                <label className="pick-item">
+                  <input type="checkbox" checked={fitOnly} onChange={(event) => setFitOnly(event.target.checked)} disabled={busy} />
+                  <span>Show only games that fit</span>
+                </label>
+              )}
+              <details className="filter-box" open={mode === "audience" || filtering || undefined}>
+                <summary>{mode === "audience" ? "Games to reach" : "Filter the games"}{filtering ? " (on)" : ""}</summary>
+                <div className="stack">
+                  {PROFILE_KEYS.map((key) => (
+                    <MultiPick
+                      key={key}
+                      label={FIELDS[key].label}
+                      options={FIELDS[key].options}
+                      value={filters[key]}
+                      onChange={(next) => setFilters({ ...filters, [key]: next })}
+                      searchable={key === "languages"}
+                      disabled={busy}
+                    />
+                  ))}
+                  {filtering && (
+                    <div className="row">
+                      <button type="button" className="button button-quiet" onClick={() => setFilters({ genres: [], platforms: [], languages: [] })}>
+                        Clear filters
+                      </button>
+                      <span className="muted-line">Games that have not filled in a list you filter by are left out.</span>
+                    </div>
+                  )}
+                </div>
+              </details>
+            </div>
+          )}
+
+          {mode === "audience" ? (
+            <p className="audience-line">
+              {audienceIds.length === 0
+                ? "No open placement matches yet. Change the audience, or pick placements by hand."
+                : `${audienceIds.length} ${audienceIds.length === 1 ? "placement" : "placements"} in ${audienceGames.length} ${audienceGames.length === 1 ? "game" : "games"}: ${audienceGames.map((game) => game.name).slice(0, 6).join(", ")}${audienceGames.length > 6 ? "…" : ""}`}
+              <span className="muted-line"> Placements opened later are not added automatically.</span>
+            </p>
+          ) : games.length === 0 ? (
+            <p className="settings-help">No placements are available yet.</p>
+          ) : shownGames.length === 0 ? (
+            <p className="settings-help">No game matches. Change or clear the filters.</p>
+          ) : (
+            shownGames.map((game) => (
+              <fieldset key={game.id ?? game.name} className="pick-group">
+                <legend>
+                  {game.name}
+                  {aimed && (
+                    <span className={`fit-badge ${fitOf(game).fits ? "is-fit" : "is-miss"}`}>
+                      {fitOf(game).fits ? "fits the audience" : `won't show here: ${whyNot(fitOf(game).problems)}`}
+                    </span>
+                  )}
+                </legend>
+                {game.placements.map((placement) => (
+                  <label key={placement.id} className="pick-item">
+                    <input type="checkbox" checked={picked.has(placement.id)} onChange={() => toggle(placement.id)} disabled={busy} />
+                    <span
+                      className="pick-shape"
+                      aria-hidden="true"
+                      style={{ aspectRatio: placement.aspect ? String(Math.min(4, Math.max(0.5, placement.aspect))) : "16 / 9" }}
+                    />
+                    <span>
+                      {placement.label}
+                      <span className="muted-line">
+                        {[
+                          placement.scene && `scene ${placement.scene}`,
+                          placement.aspect && `${placement.aspect.toFixed(2)}:1`,
+                          placement.aspect && formatLabel(formatOf(placement.aspect)),
+                          chosen && coverageNote(chosen, placement.aspect),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            ))
+          )}
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="stack">
+          <div className="settings-title">Dates (optional)</div>
+          <div className="row">
+            <label htmlFor="starts-on">From</label>
+            <input id="starts-on" className="field" type="date" min={today} value={startsOn} onChange={(event) => setStartsOn(event.target.value)} disabled={busy} />
+            <label htmlFor="ends-on">Until (last day shown)</label>
+            <input id="ends-on" className="field" type="date" min={startsOn || today} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} disabled={busy} />
+          </div>
+          <p className="settings-help">
+            Leave empty to start right away and run until you stop it. Days are UTC. If the creative is still in review, the ads start when it is approved.
+          </p>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="stack">
+          <dl className="review-list">
+            <dt>Campaign</dt>
+            <dd>{campaignLabel}</dd>
+            <dt>Creative</dt>
+            <dd>
+              {chosen?.name}
+              {chosen?.status === "pending" ? " (in review)" : ""}
+            </dd>
+            <dt>Placements</dt>
+            <dd>
+              {bookIds.length} {mode === "audience" ? "by audience" : "picked by hand"}
+            </dd>
+            <dt>Dates</dt>
+            <dd>{startsOn || endsOn ? `${startsOn || "now"} → ${endsOn || "until stopped"}` : "Starts right away, runs until you stop it"}</dd>
+          </dl>
+          <p className="settings-help">Several advertisers can share a placement and take turns; a developer can switch an ad off.</p>
+        </div>
       )}
 
       {error && (
@@ -239,11 +323,22 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
         </div>
       )}
       <div className="row">
-        <button className="button" type="submit" disabled={busy || chosenIds.length === 0 || (!campaignId && !campaignName.trim())}>
-          {busy ? "Booking…" : `Book ${chosenIds.length || ""} ${chosenIds.length === 1 ? "placement" : "placements"}`.replace("  ", " ")}
-        </button>
+        {step > 1 && (
+          <button type="button" className="button button-quiet" onClick={() => setStep(step - 1)} disabled={busy}>
+            Back
+          </button>
+        )}
+        {step < 4 ? (
+          <button type="button" className="button" onClick={() => setStep(step + 1)} disabled={!canNext || busy}>
+            Next
+          </button>
+        ) : (
+          <button type="button" className="button" onClick={submit} disabled={busy || bookIds.length === 0 || needsName || !creativeId}>
+            {busy ? "Starting…" : "Start campaign"}
+          </button>
+        )}
       </div>
-    </form>
+    </div>
   );
 }
 

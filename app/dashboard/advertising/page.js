@@ -27,6 +27,20 @@ export default async function AdvertisingPage() {
     .select("id, name")
     .eq("advertiser_id", me.user.id)
     .order("created_at", { ascending: false });
+  // The advertiser's creatives, used by any campaign (a developer's own pictures, kind 'own', are not these).
+  let { data: creativeRows, error: creativeError } = await me.service
+    .from("creatives")
+    .select("id, name, status, width_px, height_px, review_note")
+    .eq("owner_id", me.user.id)
+    .neq("kind", "own")
+    .order("created_at", { ascending: false });
+  if (creativeError) {
+    ({ data: creativeRows } = await me.service
+      .from("creatives")
+      .select("id, name, status, width_px, height_px")
+      .eq("owner_id", me.user.id)
+      .order("created_at", { ascending: false }));
+  }
   const campaigns = (campaignRows ?? []).map((campaign) => ({
     ...campaign,
     bookings: bookings.filter((booking) => booking.campaignId === campaign.id),
@@ -41,14 +55,14 @@ export default async function AdvertisingPage() {
             Reports
           </Link>
           <Link href="/dashboard/advertising/new" className="button">
-            Find placements
+            New campaign
           </Link>
         </div>
       </div>
       <p className="lede">
         Your campaigns and the placements each one is booked on, with their status. Bookings go live by themselves
-        (from the start date, once the creative is approved); a developer can pause or block an ad in their game, and you see it here. Add more
-        placements under Find placements.
+        (from the start date, once the creative is approved); a developer can pause or block an ad in their game, and you see it here. Open a
+        campaign to add placements or see its report.
       </p>
 
       {bookingsMissing(error) && (
@@ -61,8 +75,7 @@ export default async function AdvertisingPage() {
       {campaigns.length === 0 && !error ? (
         <div className="empty">
           <p style={{ margin: "0 auto" }}>
-            No bookings yet. Upload a creative under Creatives, wait for it to be approved, then
-            book placements.
+            No campaigns yet. Start one: add a creative, choose where it runs, set the dates.
           </p>
         </div>
       ) : (
@@ -89,6 +102,41 @@ export default async function AdvertisingPage() {
             )}
           </section>
         ))
+      )}
+
+      {creativeRows?.length > 0 && (
+        <section className="panel" aria-labelledby="creatives-title" style={{ padding: 0 }}>
+          <h2 id="creatives-title" style={{ padding: "1.25rem 1.25rem 0.5rem" }}>
+            Your creatives
+          </h2>
+          <p className="ov-note" style={{ padding: "0 1.25rem" }}>
+            Any creative can be used in any campaign. Open one to set its crop, add pictures for other formats and choose its audience.
+          </p>
+          <div className="ov-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Size</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {creativeRows.map((creative) => (
+                  <tr key={creative.id}>
+                    <td className="ov-name">
+                      <Link href={`/dashboard/creatives/${creative.id}`}>{creative.name}</Link>
+                    </td>
+                    <td>{creative.width_px && creative.height_px ? `${creative.width_px} × ${creative.height_px}` : "—"}</td>
+                    <td>
+                      {creative.status === "approved" ? "Approved" : creative.status === "rejected" ? `Rejected${creative.review_note ? `: ${creative.review_note}` : ""}` : "In review"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </>
   );

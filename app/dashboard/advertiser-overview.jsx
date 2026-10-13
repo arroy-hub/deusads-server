@@ -22,7 +22,7 @@ export default function AdvertiserOverview({ data, basePath }) {
             Reports
           </Link>
           <Link href="/dashboard/advertising/new" className="button">
-            Find placements
+            New campaign
           </Link>
         </div>
       </div>
@@ -52,22 +52,22 @@ export default function AdvertiserOverview({ data, basePath }) {
           {!data.hasCreatives && (
             <div className="todo">
               <div>
-                <strong>Upload your first creative</strong>
-                <div className="todo-sub">You can book it while it is reviewed; ads start once it is approved.</div>
+                <strong>Start your first campaign</strong>
+                <div className="todo-sub">Upload a creative and choose where it runs. Ads start once the creative is approved.</div>
               </div>
-              <Link href="/dashboard/creatives" className="button">
-                Upload
+              <Link href="/dashboard/advertising/new" className="button">
+                New campaign
               </Link>
             </div>
           )}
           {data.hasCreatives && !data.hasCampaigns && (
             <div className="todo">
               <div>
-                <strong>Choose where it should run</strong>
-                <div className="todo-sub">Pick placements and start a campaign.</div>
+                <strong>Start a campaign with it</strong>
+                <div className="todo-sub">Pick a creative and the placements, then start a campaign.</div>
               </div>
               <Link href="/dashboard/advertising/new" className="button">
-                Find placements
+                New campaign
               </Link>
             </div>
           )}
@@ -158,7 +158,7 @@ export default function AdvertiserOverview({ data, basePath }) {
         <div className="analytics-head" style={{ padding: "1.25rem 1.25rem 0.5rem" }}>
           <h2 id="campaigns-title">Campaigns</h2>
           <Link href="/dashboard/advertising" className="link-button">
-            Manage bookings
+            All campaigns
           </Link>
         </div>
         {campaigns.length === 0 ? (

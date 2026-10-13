@@ -7,9 +7,10 @@ import BookingForm from "./booking-form";
 import { canAdvertise } from "../../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Find placements" };
+export const metadata = { title: "New campaign" };
 
-export default async function NewBookingPage() {
+export default async function NewBookingPage({ searchParams }) {
+  const query = await searchParams;
   const me = await getMember();
   if (!me || !canAdvertise(me.role)) notFound();
   const { service, user } = me;
@@ -99,15 +100,14 @@ export default async function NewBookingPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Find placements</h1>
+        <h1>New campaign</h1>
         <Link href="/dashboard/advertising" className="button button-quiet">
-          Back
+          Cancel
         </Link>
       </div>
       <p className="lede">
-        The catalog of placements developers have opened to advertisers. Pick a creative and a campaign, tick the
-        placements you want and book. A booking starts at once, or on the date you set; several advertisers can
-        share a placement and take turns, and a developer can switch an ad off.
+        Add a creative, choose where it runs, set the dates. Upload a new creative right here or pick one you already
+        have; a creative in review can be booked, and the ads start when it is approved.
       </p>
       {bookingsMissing(campaignResult.error) && (
         <p className="notice">
@@ -131,6 +131,7 @@ export default async function NewBookingPage() {
         campaigns={campaignResult.data ?? []}
         games={[...games.values()]}
         aimable={profiled}
+        initialCampaignId={(campaignResult.data ?? []).some((item) => item.id === query?.campaign) ? query.campaign : ""}
       />
     </>
   );

@@ -5984,3 +5984,97 @@ th.num .sort-button {
 .ov-cover-bar { display: flex; gap: 4px; }
 .ov-cover-bar span { flex: 1; height: 6px; border-radius: 3px; background: #0a6b3a; }
 .ov-cover-bar span.is-missing { background: var(--signal); }
+
+/* New campaign: the four steps */
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; list-style: none; margin: 0 0 0.5rem; padding: 0; font-size: 0.875rem; color: var(--muted, #6b6560); }
+.wizard-steps li[aria-current="step"] { color: var(--signal-ink); font-weight: 600; }
+.wizard-steps li.is-done { color: inherit; }
+.wizard-steps .num { display: inline-block; min-width: 1.25rem; text-align: center; }
+.review-list { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1.25rem; margin: 0; }
+.review-list dt { color: var(--muted, #6b6560); }
+.review-list dd { margin: 0; }
+.subnav [aria-pressed="true"] { font-weight: 600; text-decoration: underline; }
+
+/* ---------------------------------------------------------------- dark side panel
+   Only the side panel is dark; the page next to it stays light. Text on it is at least 7:1
+   against the panel, and the current page is marked by a lighter fill and a terracotta bar,
+   not by colour alone. */
+
+.rail {
+  --rail-bg: #14161b;
+  --rail-text: #c9cdd5;
+  --rail-dim: #9aa1ad;
+  --rail-line: #2a2e37;
+  --rail-hover: #1f232b;
+  background: var(--rail-bg);
+  border-right: 1px solid var(--rail-line);
+  color: var(--rail-text);
+}
+
+.rail-logo {
+  background: var(--signal);
+  color: #fff;
+}
+
+.rail-mark {
+  color: #fff;
+}
+
+.rail-mark span {
+  color: #ff8a6b;
+}
+
+.rail-role,
+.rail-heading,
+.rail-foot {
+  color: var(--rail-dim);
+}
+
+.rail-group + .rail-group {
+  border-top-color: var(--rail-line);
+}
+
+.rail-link {
+  color: var(--rail-text);
+}
+
+.rail-link:hover {
+  background: var(--rail-hover);
+  color: #fff;
+}
+
+.rail-link[aria-current="page"],
+.rail-link[aria-current="page"]:hover {
+  background: #2b303a;
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--signal);
+}
+
+.rail-link[data-open="true"] {
+  color: #fff;
+}
+
+.rail-sub {
+  border-left-color: var(--rail-line);
+}
+
+.rail-switch .rail-link {
+  border-color: #4a505c;
+}
+
+.rail-game-icon.is-empty {
+  background: var(--signal);
+  border-color: transparent;
+  color: #fff;
+}
+
+.rail :focus-visible {
+  outline: 2px solid #ff8a6b;
+  outline-offset: 2px;
+}
+
+@media (max-width: 800px) {
+  .rail {
+    border-bottom: 1px solid var(--rail-line);
+  }
+}

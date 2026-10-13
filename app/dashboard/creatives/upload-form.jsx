@@ -14,7 +14,7 @@ const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
  * same storage policies), then a small action records it. The preview and the
  * size check happen the moment a file is chosen.
  */
-export default function UploadForm() {
+export default function UploadForm({ onUploaded, embedded = false }) {
   const formRef = useRef(null);
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -83,7 +83,8 @@ export default function UploadForm() {
       if (result?.error) return fail(result.error);
 
       setStatus("done");
-      setMessage(`“${result.creative.name}” is in the library. Pick it on any placement.`);
+      setMessage(onUploaded ? `“${result.creative.name}” is added.` : `“${result.creative.name}” is in the library. Pick it on any placement.`);
+      onUploaded?.(result.creative);
       setFile(null);
       setPreview(null);
       setName("");
@@ -97,7 +98,7 @@ export default function UploadForm() {
   const uploading = status === "uploading";
 
   return (
-    <form ref={formRef} onSubmit={submit} className="panel stack upload" style={{ maxWidth: 480 }}>
+    <form ref={formRef} onSubmit={submit} className={embedded ? "stack upload" : "panel stack upload"} style={embedded ? undefined : { maxWidth: 480 }}>
       <label>
         Name
         <input
