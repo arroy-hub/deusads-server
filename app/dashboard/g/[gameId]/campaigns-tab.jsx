@@ -32,7 +32,7 @@ const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === 
 const REASONS = ["Not suitable for my audience", "Low quality creative", "Competitor", "Misleading or inappropriate", "Other"];
 const SENSITIVE = ["alcohol_tobacco", "gambling", "dating_adult"];
 const STATUS_FILTERS = [["all", "All"], ["new", "New"], ["active", "Active"], ["paused", "Paused"], ["blocked", "Blocked"], ["ended", "Ended"]];
-const AVATARS = ["#d94625", "#3b6fb6", "#2f9e8f", "#b8862b", "#8a63b8", "#c2527a"];
+const AVATARS = ["#c94a24", "#3b6fb6", "#2f9e8f", "#b8862b", "#8a63b8", "#c2527a"];
 
 const ICON_PATHS = {
   games_apps: "M6 11h4M8 9v4M15 12h.01M18 10h.01M17.3 5H6.7a4 4 0 00-3.9 3.2L2 15a3 3 0 005.3 2l1.2-2h7l1.2 2A3 3 0 0022 15l-.8-6.8A4 4 0 0017.3 5z",
