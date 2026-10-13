@@ -9,15 +9,17 @@ export default async function AdvertiserCreatives({ me }) {
   return (
     <>
       <div className="main-head">
-        <h1>Campaigns</h1>
+        <div>
+          <h1>Campaigns</h1>
+          <p className="lede">Your campaigns and the creatives they use.</p>
+        </div>
         <Link href="/dashboard/advertising/new" className="button">
           New campaign
         </Link>
       </div>
-      <p className="lede">Your campaigns and the creatives they use.</p>
-      <SectionTabs active="creatives" campaigns={campaignCount} creatives={creatives.length} />
+      <SectionTabs active="creatives" campaigns={campaignCount || null} creatives={creatives.length || null} />
       <div className="lib-head">
-        <p className="settings-help">Any creative can be used in any campaign. Open one to frame it and add pictures for other shapes.</p>
+        <p className="settings-help">Any creative can be used in any campaign.</p>
         <Link href="/dashboard/advertising/new" className="button button-quiet">
           Add a creative
         </Link>

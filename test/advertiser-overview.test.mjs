@@ -7,7 +7,9 @@ import {
   controlLog,
   daysUntil,
   coverageSummary,
+  creativeComparison,
   creativeShape,
+  deliveryNote,
   deltaText,
   formatShare,
   gameRows,
@@ -157,5 +159,38 @@ assert.equal(daysUntil(null, "2026-10-14"), null);
 assert.equal(campaignStatus([{ status: "approved", label: "Live" }], { paused: true }).key, "paused");
 assert.equal(campaignStatus([{ status: "cancelled", label: "" }], { paused: true }).key, "ended");
 assert.equal(campaignStatus([], { paused: true }).key, "draft");
+
+
+// creatives side by side
+const cb = [
+  { creativeId: "c1", creativeName: "Hero", creativeUrl: "u1" },
+  { creativeId: "c1", creativeName: "Hero", creativeUrl: "u1" },
+  { creativeId: "c2", creativeName: "Square", creativeUrl: "u2" },
+  { creativeId: "c3", creativeName: "Idle", creativeUrl: "u3" },
+];
+const cs = [
+  { creative_id: "c1", impressions: 700, avg_visible_seconds: 7.1 },
+  { creative_id: "c1", impressions: 300, avg_visible_seconds: 7.1 },
+  { creative_id: "c2", impressions: 400, avg_visible_seconds: 5.2 },
+];
+const cmp = creativeComparison(cb, cs);
+assert.deepEqual(cmp.map((row) => row.id), ["c1", "c2", "c3"], "busiest first, idle last");
+assert.equal(cmp[0].impressions, 1000);
+assert.equal(Math.round(cmp[0].share * 100), 71);
+assert.equal(cmp[0].longer, true, "7.1 s is well above 5.2 s");
+assert.equal(cmp[1].longer, false);
+assert.equal(cmp[2].avgVisible, null);
+assert.equal(creativeComparison(cb, [{ creative_id: "c1", impressions: 50, avg_visible_seconds: 9 }, { creative_id: "c2", impressions: 50, avg_visible_seconds: 3 }]).some((row) => row.longer), false, "too few views to say");
+assert.equal(creativeComparison(cb, [{ creative_id: "c1", impressions: 500, avg_visible_seconds: 6.0 }, { creative_id: "c2", impressions: 500, avg_visible_seconds: 5.8 }]).some((row) => row.longer), false, "a small gap is not a winner");
+
+// the sentence under the tabs
+const g = (state) => ({ state });
+assert.equal(deliveryNote([g("showing")], { key: "live" }), null);
+const note = deliveryNote([g("showing"), g("showing"), g("paused"), g("blocked")], { key: "limited" });
+assert.equal(note.lead, "Delivery is limited.");
+assert.match(note.text, /One game paused this campaign and another blocked it/);
+assert.match(note.text, /still run in 2 other games/);
+assert.equal(deliveryNote([g("paused")], { key: "stopped" }).lead, "This campaign is not showing.");
+assert.match(deliveryNote([g("paused")], { key: "stopped" }).text, /not showing in any game/);
 
 console.log("advertiser-overview tests passed");

@@ -11,6 +11,17 @@ const TABS = [
   { key: "updates", label: "Updates" },
 ];
 
+/** "5 h", "2 d" for something recent, "1 Oct" for older. */
+function ago(date) {
+  const then = new Date(date);
+  if (Number.isNaN(then.getTime())) return String(date).slice(0, 10);
+  const minutes = Math.max(0, Math.round((Date.now() - then.getTime()) / 60000));
+  if (minutes < 60) return `${Math.max(1, minutes)} min`;
+  if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h`;
+  if (minutes < 60 * 24 * 7) return `${Math.round(minutes / 60 / 24)} d`;
+  return then.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+}
+
 /**
  * The bell in the top corner. One place for everything that wants the person's eye: things that need
  * action (an advertiser's rejected creatives, format gaps, limited campaigns, reports) and updates
@@ -81,7 +92,7 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
             )}
           </div>
 
-          {attention.length > 0 && (
+          {attention.length + items.length > 0 && (
             <div className="bell-tabs" role="tablist" aria-label="Show">
               {TABS.map((item) => (
                 <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className="bell-tab" onClick={() => setTab(item.key)}>
@@ -127,15 +138,22 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
               )}
               <ul className="bell-list">
                 {items.map((item) => (
-                  <li key={item.id} className={item.read_at ? "" : "is-unread"}>
-                    {item.link ? (
-                      <Link href={item.link} onClick={() => setOpen(false)}>
-                        {item.text}
-                      </Link>
-                    ) : (
-                      <span>{item.text}</span>
-                    )}
-                    <time className="muted-line">{String(item.created_at).slice(0, 10)}</time>
+                  <li key={item.id} className={`bell-item bell-update${item.read_at ? "" : " is-unread"}`}>
+                    <span className="bell-icon bell-good" aria-hidden="true">
+                      ✓
+                    </span>
+                    <div>
+                      {item.link ? (
+                        <Link href={item.link} onClick={() => setOpen(false)}>
+                          {item.text}
+                        </Link>
+                      ) : (
+                        <span>{item.text}</span>
+                      )}
+                    </div>
+                    <time className="bell-time" dateTime={String(item.created_at)}>
+                      {ago(item.created_at)}
+                    </time>
                   </li>
                 ))}
               </ul>

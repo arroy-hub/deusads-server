@@ -31,25 +31,37 @@ export default async function CampaignSettingsPage({ params }) {
   const closed = head.bookings.filter((booking) => booking.status !== "pending" && booking.status !== "approved").length;
 
   return (
-    <div className="stack">
+    <div className="cs-wrap">
       <SettingsForm id={head.id} name={head.name} starts={head.starts ?? ""} ends={head.ends ?? ""} hasOpen={hasOpen} closedBookings={closed} />
-      <section className="panel stack" aria-labelledby="run-title">
-        <h2 id="run-title">Running</h2>
+      {head.rules && <CampaignAudience campaignId={head.id} initial={head.targeting} catalog={catalog} />}
+      <section className="cs-card cs-rows" aria-label="Running">
         {head.rules ? (
           <>
-            <p className="settings-help">
-              {head.paused ? "The campaign is paused: its ads are not shown in any game." : "Pause stops the ads in every game until you resume. Placements, dates and figures stay."}
-            </p>
-            <div className="row">
-              {hasOpen && <PauseButton id={head.id} paused={head.paused} />}
+            <div className="cs-row">
+              <div>
+                <h2>Duplicate the campaign</h2>
+                <p>Starts a new draft with the same creatives, audience and placements. Dates are left empty.</p>
+              </div>
               <DuplicateButton id={head.id} />
             </div>
+            {hasOpen && (
+              <div className="cs-row">
+                <div>
+                  <h2>{head.paused ? "Resume the campaign" : "Pause the campaign"}</h2>
+                  <p>
+                    {head.paused
+                      ? "The campaign is paused: its ads are not shown in any game."
+                      : "Stops it everywhere at once. Resume any time. Players see the change at their next launch."}
+                  </p>
+                </div>
+                <PauseButton id={head.id} paused={head.paused} full />
+              </div>
+            )}
           </>
         ) : (
           <p className="notice">Pause, duplicate and the campaign audience need migration <code>0026_campaign_rules.sql</code> in the Supabase SQL editor.</p>
         )}
       </section>
-      {head.rules && <CampaignAudience campaignId={head.id} initial={head.targeting} catalog={catalog} />}
     </div>
   );
 }

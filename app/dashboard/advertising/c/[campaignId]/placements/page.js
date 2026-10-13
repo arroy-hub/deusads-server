@@ -43,15 +43,22 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
 
   return (
     <>
-      <div className="lib-head">
-        <p className="settings-help">
-          {report.audience ? `Chosen by audience: ${report.audience}. ` : "Every game. "}
-          Placements opened later are not added automatically.
-        </p>
-        <Link href={`/dashboard/advertising/new?campaign=${campaignId}`} className="button">
-          Add placements
-        </Link>
-      </div>
+      <section className="cp-aud" aria-label="Audience">
+        <div>
+          <h2>{report.audience ? "Chosen by audience" : "Every game"}</h2>
+          <p>
+            {report.audience ? `${report.audience}. ` : ""}Placements opened later are not added automatically.
+          </p>
+        </div>
+        <div className="cp-aud-actions">
+          <Link href={`/dashboard/advertising/c/${campaignId}/settings`} className="button button-quiet">
+            Change audience
+          </Link>
+          <Link href={`/dashboard/advertising/new?campaign=${campaignId}`} className="button">
+            Add placements
+          </Link>
+        </div>
+      </section>
 
       <div className="cp-filter" role="group" aria-label="Filter">
         {FILTERS.map(([key, label]) => (
@@ -74,15 +81,21 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
             <span>Impressions, 30 days</span>
           </div>
           {shown.map((game) => (
-            <div className="cp-game" key={game.id}>
+            <div className={`cp-game${skipped.has(game.id) ? " is-excluded" : ""}`} key={game.id}>
               <div className="cp-game-top">
-                <div className="cp-game-name">{game.game}</div>
-                {skipped.has(game.id) && <span className="ov-pill ov-paused">Excluded</span>}
-                <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
-                {report.rules && game.bookings.some((booking) => booking.status === "approved" || booking.status === "pending") && (
+                <div className="cp-game-name">
+                  {game.game}
+                  {report.gameTags?.[game.id] && <span className="cp-game-tags">{report.gameTags[game.id]}</span>}
+                </div>
+                {skipped.has(game.id) ? (
+                  <span className="ov-pill ov-ended">Excluded by you</span>
+                ) : (
+                  <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
+                )}
+<div className="cp-game-num">{game.impressions > 0 && !skipped.has(game.id) ? formatCount(game.impressions) : "—"}</div>
+                {report.rules && placementsOf.has(game.id) && (
                   <ExcludeButton campaignId={campaignId} gameId={game.id} excluded={skipped.has(game.id)} />
                 )}
-                <div className="cp-game-num">{game.impressions > 0 ? formatCount(game.impressions) : "—"}</div>
               </div>
               {game.note && <p className="todo-sub">{game.note}</p>}
               <div className="cp-chips">
@@ -97,6 +110,8 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
           ))}
         </section>
       )}
+
+      <p className="ovx-hint">Exclude a game to stop this campaign there, for example if it does not suit your brand. Unlike a developer’s block, you can undo it yourself at any time.</p>
     </>
   );
 }

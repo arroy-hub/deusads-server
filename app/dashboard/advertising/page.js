@@ -21,14 +21,16 @@ export default async function AdvertisingPage() {
   return (
     <>
       <div className="main-head">
-        <h1>Campaigns</h1>
+        <div>
+          <h1>Campaigns</h1>
+          <p className="lede">Your campaigns and where each one stands.</p>
+        </div>
         <Link href="/dashboard/advertising/new" className="button">
           New campaign
         </Link>
       </div>
-      <p className="lede">Your campaigns and where each one stands.</p>
 
-      <SectionTabs active="campaigns" campaigns={campaigns.length} creatives={creativeCount} />
+      <SectionTabs active="campaigns" campaigns={campaigns.length || null} creatives={creativeCount || null} />
 
       {bookingsMissing(error) && (
         <p className="notice">
@@ -37,13 +39,46 @@ export default async function AdvertisingPage() {
       )}
 
       {campaigns.length === 0 && !error ? (
-        <div className="empty cl-empty">
-          <h2>No campaigns yet</h2>
-          <p>A campaign is a creative, the games it runs in and the dates. Set one up in four short steps; ads start once the creative is approved.</p>
-          <Link href="/dashboard/advertising/new" className="button">
-            Start your first campaign
-          </Link>
-        </div>
+        <>
+          <section className="panel cl-empty" aria-labelledby="cl-empty-title">
+            <span className="cl-empty-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h10" />
+              </svg>
+            </span>
+            <div className="cl-empty-text">
+              <h2 id="cl-empty-title">Start your first campaign</h2>
+              <p>A campaign puts one creative in front of the games you choose. It takes a few minutes, and nothing goes live until your creative is approved.</p>
+            </div>
+            <Link href="/dashboard/advertising/new" className="button cl-empty-cta">
+              Create a campaign
+            </Link>
+            <ol className="cl-steps">
+              <li>
+                <span className="cl-step-n">1</span>
+                <span>
+                  <strong>Add a creative</strong>
+                  <span>Upload a PNG or JPG. We check it and help you cover every ad shape.</span>
+                </span>
+              </li>
+              <li>
+                <span className="cl-step-n">2</span>
+                <span>
+                  <strong>Choose where</strong>
+                  <span>Pick the audience, or choose placements by hand.</span>
+                </span>
+              </li>
+              <li>
+                <span className="cl-step-n">3</span>
+                <span>
+                  <strong>Set the dates and start</strong>
+                  <span>Ads begin when the creative is approved. You can stop any time.</span>
+                </span>
+              </li>
+            </ol>
+          </section>
+          <p className="cl-foot">Developers can pause or block an ad in their game; you will see where and why in the campaign report.</p>
+        </>
       ) : (
         <section className="panel cl-panel" aria-label="Campaigns">
           <div className="ov-table-wrap">

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMember } from "../../../../lib/admin";
 import { bookingsMissing } from "../../../../lib/booking-rules";
@@ -19,7 +18,7 @@ export default async function NewBookingPage({ searchParams }) {
   const [{ data: creatives }, campaignResult, firstCatalog] = await Promise.all([
     service
       .from("creatives")
-      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h")
+      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h, storage_path")
       .eq("owner_id", user.id)
       .neq("kind", "own")
       .order("created_at", { ascending: false }),
@@ -40,7 +39,7 @@ export default async function NewBookingPage({ searchParams }) {
   if (!creativeRows) {
     ({ data: creativeRows } = await service
       .from("creatives")
-      .select("id, name, status, width_px, height_px")
+      .select("id, name, status, width_px, height_px, storage_path")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false }));
   }
@@ -105,16 +104,6 @@ export default async function NewBookingPage({ searchParams }) {
 
   return (
     <>
-      <div className="main-head">
-        <h1>New campaign</h1>
-        <Link href="/dashboard/advertising" className="button button-quiet">
-          Cancel
-        </Link>
-      </div>
-      <p className="lede">
-        Add a creative, choose where it runs, set the dates. Upload a new creative right here or pick one you already
-        have; a creative in review can be booked, and the ads start when it is approved.
-      </p>
       {bookingsMissing(campaignResult.error) && !isSchemaOutdated(campaignResult.error) && (
         <p className="notice">
           Run <code>supabase/migrations/0009_campaigns_and_bookings.sql</code> in the Supabase SQL editor to
@@ -128,6 +117,7 @@ export default async function NewBookingPage({ searchParams }) {
           targeting: audienceOf.get(item.id) ?? null,
           id: item.id,
           name: item.name,
+          url: item.storage_path ? service.storage.from("creatives").getPublicUrl(item.storage_path).data.publicUrl : "",
           approved: item.status === "approved",
           status: item.status,
           size: item.width_px && item.height_px ? `${item.width_px} × ${item.height_px}` : "",

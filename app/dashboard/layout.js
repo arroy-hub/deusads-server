@@ -70,7 +70,7 @@ export default async function DashboardLayout({ children }) {
   );
 
   return (
-    <div className="shell">
+    <div className={`shell${role === "advertiser" ? " is-adv" : ""}`}>
       <nav className="rail" aria-label="Main">
         <div className="rail-brand">
           <div className="rail-logo" aria-hidden="true">
@@ -94,7 +94,14 @@ export default async function DashboardLayout({ children }) {
         ))}
 
         <div className="rail-group rail-switch">
-          <div className="rail-foot">{user?.email}</div>
+          <div className="rail-foot">
+            {role === "advertiser" && (
+              <span className="rail-avatar" aria-hidden="true">
+                {(user?.email ?? "?").slice(0, 1).toUpperCase()}
+              </span>
+            )}
+            <span className="rail-email">{user?.email}</span>
+          </div>
         </div>
       </nav>
 

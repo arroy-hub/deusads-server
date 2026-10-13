@@ -15,12 +15,14 @@ export default function AdvertiserOverview({ data, basePath }) {
   return (
     <>
       <div className="main-head">
-        <h1>Overview</h1>
+        <div>
+          <h1>Overview</h1>
+          <p className="lede">How your ads are doing across all campaigns.</p>
+        </div>
         <Link href="/dashboard/advertising/new" className="button">
           New campaign
         </Link>
       </div>
-      <p className="lede">How your ads are doing across all campaigns. What needs your attention is under the bell, top right.</p>
 
       {data.missing && (
         <p className="notice">
@@ -62,7 +64,7 @@ export default function AdvertiserOverview({ data, basePath }) {
         </span>
       </nav>
 
-      <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} />
+      <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} />
     </>
   );
 }

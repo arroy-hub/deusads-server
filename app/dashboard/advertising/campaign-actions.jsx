@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { duplicateCampaign, pauseCampaign } from "./actions";
 
 /** Pause or resume a whole campaign: its ads stop (or start again) in every game at the next manifest. */
-export function PauseButton({ id, paused, small = false, onDone }) {
+export function PauseButton({ id, paused, small = false, full = false, onDone }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export function PauseButton({ id, paused, small = false, onDone }) {
   return (
     <>
       <button type="button" className={`button button-quiet${small ? " button-small" : ""}`} disabled={busy} onClick={toggle}>
-        {busy ? "…" : paused ? "Resume" : "Pause"}
+        {busy ? "…" : `${paused ? "Resume" : "Pause"}${full ? " campaign" : ""}`}
       </button>
       {error && <span className="error" role="alert">{error}</span>}
     </>

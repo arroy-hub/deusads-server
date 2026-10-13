@@ -56,29 +56,28 @@ export default function SettingsForm({ id, name, starts, ends, hasOpen, closedBo
 
   return (
     <>
-      <section className="panel stack" aria-labelledby="gen-title">
-        <h2 id="gen-title">General</h2>
-        <label>
+      <section className="cs-card" aria-label="General">
+        <label className="cs-label">
           Campaign name
-          <input className="field" value={title} maxLength={120} disabled={busy} onChange={(event) => setTitle(event.target.value)} />
+          <input className="field cs-name" value={title} maxLength={120} disabled={busy} onChange={(event) => setTitle(event.target.value)} />
           <span className="settings-help">Only you see this name.</span>
         </label>
-        <div className="row">
-          <label>
+        <div className="cs-dates">
+          <label className="cs-label">
             From
             <input className="field" type="date" value={from} disabled={busy || !hasOpen} onChange={(event) => setFrom(event.target.value)} />
           </label>
-          <label>
+          <label className="cs-label">
             Until (last day shown)
             <input className="field" type="date" value={until} disabled={busy || !hasOpen} onChange={(event) => setUntil(event.target.value)} />
           </label>
         </div>
         {hasOpen ? (
-          <div className="row">
+          <div className="cs-extend">
             {left != null && left >= 0 && left <= 3 && <span className="ov-pill ov-scheduled">{left === 0 ? "Ends today" : `Ends in ${left} ${left === 1 ? "day" : "days"}`}</span>}
-            <span className="settings-help">Extend by</span>
+            <span className="ovx-muted">Extend by</span>
             {[7, 14, 30].map((days) => (
-              <button key={days} type="button" className="button button-quiet button-small" disabled={busy || !until} onClick={() => setUntil(addDays(until, days))}>
+              <button key={days} type="button" className="cs-pill-button" disabled={busy || !until} onClick={() => setUntil(addDays(until, days))}>
                 {days} days
               </button>
             ))}
@@ -87,22 +86,29 @@ export default function SettingsForm({ id, name, starts, ends, hasOpen, closedBo
           <p className="settings-help">Dates are set when you add placements.</p>
         )}
         <p className="settings-help">Days are UTC. Leave a date empty for no start or no end.</p>
-        <div className="row">
-          <button type="button" className="button" disabled={busy || !changed || !title.trim()} onClick={save}>
-            {busy ? "Saving…" : "Save"}
-          </button>
-          <button type="button" className="button button-quiet" disabled={busy || !changed} onClick={() => { setTitle(name); setFrom(starts); setUntil(ends); setNote({ tone: "", text: "" }); }}>
-            Discard
-          </button>
-          {note.text && (
-            <span className={note.tone === "error" ? "error" : "upload-done"} role="status">
-              {note.text}
-            </span>
-          )}
-        </div>
+        {note.text && !changed && (
+          <span className={note.tone === "error" ? "error" : "upload-done"} role="status">
+            {note.text}
+          </span>
+        )}
       </section>
 
-      <section className="panel stack" aria-labelledby="del-title">
+      {changed && (
+        <div className="cs-bar" role="region" aria-label="Unsaved changes">
+          <strong>Unsaved changes</strong>
+          {note.text && note.tone === "error" && <span className="cs-bar-error" role="alert">{note.text}</span>}
+          <span className="cs-bar-actions">
+            <button type="button" className="cs-bar-discard" disabled={busy} onClick={() => { setTitle(name); setFrom(starts); setUntil(ends); setNote({ tone: "", text: "" }); }}>
+              Discard
+            </button>
+            <button type="button" className="cs-bar-save" disabled={busy || !title.trim()} onClick={save}>
+              {busy ? "Saving…" : "Save"}
+            </button>
+          </span>
+        </div>
+      )}
+
+      <section className="cs-card cs-danger" aria-labelledby="del-title">
         <h2 id="del-title">Delete the campaign</h2>
         <p className="settings-help">
           Possible only when nothing in it is running: withdraw or stop its open bookings first.{" "}
