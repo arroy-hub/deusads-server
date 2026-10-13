@@ -1,14 +1,17 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } from "../../../../lib/placement-view";
 import { addressOf, locateUrl } from "../../../../lib/unity-link";
-import { changeTags, movePlacements, renamePlacement, setPlaceType } from "../../placement-actions";
+import { changeTags, setPlaceType } from "../../placement-actions";
 
-// What the Placements tab adds to a placement's own card (the picture editor): a tick box while editing,
-// the on/off switch, chips, and the Details, Where it stands and Tags sections. The organizer provides the
-// context; the card (surface-card.jsx) places these pieces inside itself, so a placement stays one plate.
+// What the Placements tab adds to a placement's own card (the picture editor): the handle (grip, or a tick
+// box while editing), the name you rename by clicking it, the "⋮" menu, the on/off switch, and the row of chips
+// and tags. Menus and small panels (Details, Where it stands, add a tag, pick a scene) float over the page,
+// so opening one never changes the size of a card or moves its neighbours. The organizer provides the
+// context and draws the floating layer once; the card (surface-card.jsx) places the pieces inside itself.
 
 export const OrgContext = createContext(null);
 
@@ -21,7 +24,7 @@ export function useOrg(placementId) {
 }
 
 const CUSTOM = "__custom";
-const NEW_TAG = "__new_tag";
+const SHOWN_TAGS = 3; // tags written on the card itself; the rest are in Details
 
 function useAction() {
   const [pending, startTransition] = useTransition();
@@ -43,32 +46,39 @@ function useAction() {
   return { message, setMessage, run, pending };
 }
 
-/** Over the picture: the tick box while editing, and a badge when the placement is switched off. */
-export function CardOverlay({ placementId }) {
-  const org = useOrg(placementId);
-  if (!org) return null;
-  const { item, editing, selected, onSelect } = org;
-  return (
-    <>
-      {editing && (
-        <label className="org-pick">
-          <input type="checkbox" checked={selected.has(item.id)} onChange={() => onSelect(item.id)} />
-          <span className="sr-only">Select {item.label}</span>
-        </label>
-      )}
-    </>
-  );
-}
-
 /** What the placement is doing now, in one phrase: its own switch first, then its folder, then what is on it. */
 function statusOf(item, state, ctx) {
-  if (item.enabled === false) return { key: "off", text: "Switched off" };
+  if (item.enabled === false) return { key: "off", text: "Inactive" };
   const folder = item.folderId ? (ctx.folders ?? []).find((entry) => entry.id === item.folderId) : null;
   if (folder && folder.enabled === false) return { key: "folder", text: "Folder is off" };
+  if (state === "showing") return { key: state, text: "Active" };
+  if (state === "empty") return { key: state, text: "No pictures" };
   return { key: state, text: STATUS_LABELS[state] };
 }
 
-/** Next to the name: how the placement stands, and its switch. */
+/** Left of the name: the grip to drag the card by, or the tick box while editing. */
+export function CardHandle({ placementId }) {
+  const org = useOrg(placementId);
+  if (!org) return null;
+  const { item, editing, selected, onSelect } = org;
+  if (editing) {
+    return (
+      <label className="org-pick">
+        <input type="checkbox" checked={selected.has(item.id)} onChange={() => onSelect(item.id)} />
+        <span className="sr-only">Select {item.label}</span>
+      </label>
+    );
+  }
+  return (
+    <span className="org-grip" data-grip="1" aria-hidden="true" title="Drag to another folder">
+      <svg width="10" height="16" viewBox="0 0 10 16">
+        {[3, 8, 13].flatMap((y) => [2.5, 7.5].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.4" fill="currentColor" />))}
+      </svg>
+    </span>
+  );
+}
+
+/** Under the picture: how the placement stands (Active, Inactive, Folder is off, No pictures), and its switch. */
 export function CardStatus({ placementId }) {
   const org = useOrg(placementId);
   if (!org) return null;
@@ -98,25 +108,12 @@ export function CardStatus({ placementId }) {
   );
 }
 
-/** The name under the picture, with a tiny pencil to rename it in place. */
+/** The name at the top of the card. Click it and the field opens right there; Enter or a click elsewhere saves, Escape cancels. */
 export function CardName({ placementId, label }) {
   const org = useOrg(placementId);
-  const { message, run, pending } = useAction();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(label);
-  const formRef = useRef(null);
-  const pencilRef = useRef(null);
-  // a click anywhere outside the field closes it, like Hide (not while the name is being saved)
-  useEffect(() => {
-    if (!editing) return;
-    function outside(event) {
-      if (pending) return;
-      if (formRef.current?.contains(event.target) || pencilRef.current?.contains(event.target)) return;
-      setEditing(false);
-    }
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [editing, pending]);
+  const finished = useRef(false);
   if (!org) {
     return (
       <div className="surface-label" title={label}>
@@ -125,141 +122,468 @@ export function CardName({ placementId, label }) {
     );
   }
   const { item } = org;
-  const changed = name.trim() !== "" && name.trim() !== item.label;
-  function save(event) {
-    event.preventDefault();
-    if (!changed) return setEditing(false);
-    run(renamePlacement({ placementId: item.id, label: name.trim() }), () => setEditing(false));
+  function open() {
+    finished.current = false;
+    setName(item.label);
+    setEditing(true);
+  }
+  function save() {
+    if (finished.current) return;
+    finished.current = true;
+    const next = name.trim();
+    setEditing(false);
+    // The new name shows at once, dimmed, until the list from the server carries it.
+    if (next !== "" && next !== item.label) org.renameItem(item.id, next);
   }
   return (
     <div className="org-name">
-      <div className="surface-label" title={item.label}>
-        {item.label}
-      </div>
-      <button
-        ref={pencilRef}
-        type="button"
-        className="org-rename"
-        aria-label="Rename"
-        title="Rename"
-        aria-expanded={editing}
-        style={editing ? { visibility: "hidden" } : undefined}
-        tabIndex={editing ? -1 : 0}
-        onClick={() => {
-          setName(item.label);
-          setEditing(true);
-        }}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-        </svg>
-      </button>
-      {editing && (
-        <form
-          ref={formRef}
-          className="key-field org-rename-field"
-          aria-label="Rename placement"
-          onSubmit={save}
+      {editing ? (
+        <input
+          className="field org-name-input"
+          value={name}
+          maxLength={120}
+          autoFocus
+          aria-label="Placement name"
+          data-nodrag="1"
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => setName(event.target.value)}
+          onBlur={save}
           onKeyDown={(event) => {
-            if (event.key === "Escape" && !pending) setEditing(false);
+            if (event.key === "Enter") {
+              event.preventDefault();
+              save();
+            } else if (event.key === "Escape") {
+              finished.current = true;
+              setEditing(false);
+            }
           }}
+        />
+      ) : (
+        <button
+          type="button"
+          className={`org-name-btn${item.labelPending ? " is-pending" : ""}`}
+          title={item.labelPending ? "Saving the new name…" : "Click to rename"}
+          aria-busy={item.labelPending ? true : undefined}
+          onClick={open}
         >
-          <div className="key-field-head">
-            <span className="key-field-title">Rename placement</span>
-            <button type="button" className="own-small-button" onClick={() => setEditing(false)} disabled={pending}>
-              Hide
-            </button>
-          </div>
-          <input className="field" value={name} maxLength={120} autoFocus disabled={pending} onChange={(event) => setName(event.target.value)} aria-label="Placement name" />
-          <div className="row">
-            <button className="own-small-button is-solid" type="submit" disabled={!changed || pending}>
-              {pending ? "Saving…" : "Save"}
-            </button>
-          </div>
-          {message?.kind === "error" && (
-            <span role="alert" className="error">
-              {message.text}
-            </span>
-          )}
-        </form>
+          {item.label}
+          {item.labelPending && <Spinner />}
+        </button>
       )}
     </div>
   );
 }
 
-/** Under the name: shared or unique, the kind of spot, and why it is off when that is not its own switch. */
-export function CardChips({ placementId }) {
+/** The "⋮" button in the card's top row; the menu itself floats (CardPopups). */
+export function CardMenuButton({ placementId }) {
   const org = useOrg(placementId);
   if (!org) return null;
-  const { item, state, ctx } = org;
+  const { item, pop } = org;
+  return (
+    <button
+      type="button"
+      className="org-menu-btn"
+      data-nodrag="1"
+      data-popbtn="1"
+      aria-haspopup="menu"
+      aria-expanded={pop?.id === item.id && pop.kind === "menu"}
+      aria-label={`More actions for ${item.label}`}
+      title="More"
+      onClick={(event) => org.togglePop(event, item.id, "menu")}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="12" cy="5" r="2" />
+        <circle cx="12" cy="12" r="2" />
+        <circle cx="12" cy="19" r="2" />
+      </svg>
+    </button>
+  );
+}
+
+/** Splits what was typed into tags: commas separate them, repeats and empty ones are dropped. */
+function splitTags(text, already = []) {
+  const seen = new Set(already.map((tag) => tag.toLowerCase()));
+  const out = [];
+  for (const part of String(text).split(",")) {
+    const tag = part.trim().replace(/\s+/g, " ").slice(0, 30);
+    if (!tag || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    out.push(tag);
+  }
+  return out;
+}
+
+/** Adding and removing one placement's tags; a change shows at once and is undone if the server refuses. */
+function useTagEdit(org) {
+  const { item, gameId } = org;
+  const { message, run, pending } = useAction();
+  const [adding, setAdding] = useState([]);
+  const [removing, setRemoving] = useState([]);
+  useEffect(() => {
+    setAdding((current) => current.filter((tag) => !item.tags.includes(tag)));
+    setRemoving((current) => current.filter((tag) => item.tags.includes(tag)));
+  }, [item.tags]);
+  const shown = [...item.tags, ...adding.filter((tag) => !item.tags.includes(tag))];
+  const known = [...new Set([...org.items.values()].flatMap((entry) => entry.tags))].sort((a, b) => a.localeCompare(b));
+  const shownLower = new Set(shown.map((tag) => tag.toLowerCase()));
+  const offered = known.filter((tag) => !shownLower.has(tag.toLowerCase()));
+  const undo = () => {
+    setAdding([]);
+    setRemoving([]);
+  };
+  function add(text) {
+    const list = splitTags(text, shown);
+    if (list.length === 0) return false;
+    setAdding((current) => [...current, ...list]);
+    run(changeTags({ gameId, ids: [item.id], add: list }), undefined, undo);
+    return true;
+  }
+  function remove(tag) {
+    setRemoving((current) => [...current, tag]);
+    run(changeTags({ gameId, ids: [item.id], remove: [tag] }), undefined, undo);
+  }
+  return { shown, offered, adding, removing, add, remove, message, pending };
+}
+
+function TagChip({ tag, edit }) {
+  const busy = edit.adding.includes(tag) || edit.removing.includes(tag);
+  return (
+    <span className={`org-chip org-chip-tag${busy ? " is-busy" : ""}`}>
+      {tag}
+      {busy ? (
+        <Spinner />
+      ) : (
+        <button type="button" className="org-x" aria-label={`Remove tag ${tag}`} onClick={() => edit.remove(tag)}>
+          ×
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** Under "Open to advertisers": the kind of spot, the tags (each can be removed here), and "+ Tag". */
+export function CardTagRow({ placementId }) {
+  const org = useOrg(placementId);
+  const edit = useTagEdit(org ?? { item: { tags: [], id: "" }, gameId: "", items: new Map() });
+  if (!org) return null;
+  const { item, state, ctx, pop } = org;
   const places = item.places.length;
   const type = effectiveType(item);
   const why = state === "off" || state === "partly" ? offReason(item, ctx) : "";
+  const tags = edit.shown;
   return (
-    <div className="org-chips">
-      {item.shared && places > 1 && (
-        <span className="org-chip org-chip-places" title="Copies of one prefab share this placement">
-          ×{places} places
+    <div className="org-summary">
+      <div className="org-chips">
+        {item.shared && places > 1 && (
+          <span className="org-chip org-chip-places" title="Copies of one prefab share this placement">
+            ×{places} places
+          </span>
+        )}
+        {!item.shared && (
+          <span className="org-chip org-chip-unique" title="This placement has an ID of its own">
+            unique
+          </span>
+        )}
+        <span
+          className={`org-chip${typeIsSuggested(item) ? " org-chip-guess" : ""}`}
+          title={typeIsSuggested(item) ? "Suggested automatically. Change it in Details." : undefined}
+        >
+          {type ? typeLabel(type) : "Type not determined"}
+          {typeIsSuggested(item) ? " (auto)" : ""}
         </span>
+        {why && why !== "Switched off" && !/^(Folder|Its folder)/.test(why) && <span className="org-chip org-chip-off">{why}</span>}
+        {tags.slice(0, SHOWN_TAGS).map((tag) => (
+          <TagChip key={tag} tag={tag} edit={edit} />
+        ))}
+        {tags.length > SHOWN_TAGS && <span className="org-chip org-chip-tag" title="The rest are in Details">+{tags.length - SHOWN_TAGS}</span>}
+        <button
+          type="button"
+          className="org-chip org-chip-add"
+          data-popbtn="1"
+          aria-haspopup="dialog"
+          aria-expanded={pop?.id === item.id && pop.kind === "tag"}
+          onClick={(event) => org.togglePop(event, item.id, "tag")}
+        >
+          + Tag
+        </button>
+      </div>
+      {edit.message?.kind === "error" && (
+        <div className="error" role="alert">
+          {edit.message.text}
+        </div>
       )}
-      {!item.shared && (
-        <span className="org-chip org-chip-unique" title="This placement has an ID of its own">
-          unique
-        </span>
-      )}
-      <span
-        className={`org-chip${typeIsSuggested(item) ? " org-chip-guess" : ""}`}
-        title={typeIsSuggested(item) ? "Suggested automatically. Change it in Details." : undefined}
-      >
-        {type ? typeLabel(type) : "Type not determined"}
-        {typeIsSuggested(item) ? " (auto)" : ""}
-      </span>
-      {why && why !== "Switched off" && !/^(Folder|Its folder)/.test(why) && <span className="org-chip org-chip-off">{why}</span>}
     </div>
   );
 }
 
-/** Details, Where it stands and Tags: three folding sections at the foot of the card. */
-export function CardSections({ placementId }) {
-  const org = useOrg(placementId);
-  const [open, setOpen] = useState({ details: false, places: false, tags: false });
-  if (!org) return null;
-  const toggle = (key) => setOpen((current) => ({ ...current, [key]: !current[key] }));
-  const { item } = org;
-  return (
-    <div className="org-sections">
-      <Section title="Details" open={open.details} onToggle={() => toggle("details")}>
-        <Details org={org} />
-      </Section>
-      <Section title="Where it stands" count={item.places.length} open={open.places} onToggle={() => toggle("places")}>
-        <Places org={org} />
-      </Section>
-      <Section title="Tags" count={item.tags.length} open={open.tags} onToggle={() => toggle("tags")}>
-        <CardChips placementId={placementId} />
-        <Tags org={org} />
-      </Section>
-    </div>
-  );
+// ---------------------------------------------------------------- the floating layer
+
+const MENU_WIDTH = 236;
+
+/**
+ * Drawn once by the organizer. Shows whichever menu or panel is open (org.pop): the "⋮" menu, the small
+ * "add a tag" panel, or the scene picker laid over the card. Outside click, Escape, scrolling the page or
+ * resizing the window closes it.
+ */
+export function CardPopups() {
+  const ctx = useContext(OrgContext);
+  const pop = ctx?.pop ?? null;
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  const setPop = ctx?.setPop;
+  useEffect(() => {
+    if (!pop || !setPop) return;
+    const close = () => setPop(null);
+    const down = (event) => {
+      if (event.target.closest?.(".org-pop, [data-popbtn]")) return;
+      close();
+    };
+    const scroll = (event) => {
+      if (event.target?.closest?.(".org-pop")) return;
+      close();
+    };
+    const key = (event) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", down);
+    document.addEventListener("keydown", key);
+    window.addEventListener("scroll", scroll, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("pointerdown", down);
+      document.removeEventListener("keydown", key);
+      window.removeEventListener("scroll", scroll, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [pop, setPop]);
+  if (!ready || !pop) return null;
+  const item = ctx.items.get(pop.id);
+  if (!item) return null;
+  const org = { ...ctx, item, state: ctx.stateOf(item) };
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const a = pop.anchor;
+  let body;
+  if (pop.kind === "menu") {
+    const left = Math.max(8, Math.min(vw - MENU_WIDTH - 8, a.right - MENU_WIDTH));
+    const flip = left + MENU_WIDTH + 350 > vw;
+    const up = vh - a.bottom < 560;
+    body = (
+      <div className={`org-pop org-menu${flip ? " is-flip" : ""}${up ? " is-up" : ""}`} role="menu" style={{ left, top: a.bottom + 6, width: MENU_WIDTH }}>
+        <CardMenu org={org} />
+      </div>
+    );
+  } else if (pop.kind === "tag") {
+    const width = 290;
+    const left = Math.max(8, Math.min(vw - width - 8, a.left));
+    const style = vh - a.bottom >= 220 ? { left, width, top: a.bottom + 6 } : { left, width, bottom: vh - a.top + 6 };
+    body = (
+      <div className="org-pop is-tag" role="dialog" aria-label="Add a tag" style={style}>
+        <PopHead title="Add a tag" onClose={() => setPop(null)} />
+        <div className="org-pop-sec">
+          <TagAdder org={org} current />
+        </div>
+      </div>
+    );
+  } else {
+    const c = pop.cell;
+    body = (
+      <div className="org-pop is-card" role="dialog" aria-label="Show in Unity" style={{ left: c.left, top: c.top, width: c.width, height: c.height }}>
+        <PopHead title="Show in Unity: pick a scene" onClose={() => setPop(null)} />
+        <div className="org-pop-scroll">
+          <div className="org-scene-list">
+            <Places org={org} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return createPortal(body, document.body);
 }
 
-function Section({ title, count, open, onToggle, children }) {
+function PopHead({ title, onClose }) {
   return (
-    <div className="org-section">
-      <button type="button" className="org-disclose" onClick={onToggle} aria-expanded={open}>
-        <span className="org-caret" aria-hidden="true">{open ? "▾" : "▸"}</span>
-        <span>{title}</span>
-        {count !== undefined && <span className="org-count">· {count}</span>}
+    <div className="org-pop-head">
+      <span>{title}</span>
+      <button type="button" className="org-icon-button org-icon-small" aria-label="Close" onClick={onClose}>
+        ×
       </button>
-      {open && <div className="org-section-body">{children}</div>}
     </div>
+  );
+}
+
+function CardMenu({ org }) {
+  const { item, ctx, setPop } = org;
+  const [copied, setCopied] = useState(false);
+  // the folder the placement is in now is always first
+  const targets = [{ id: null, label: "No folder" }, ...ctx.folders.map((folder) => ({ id: folder.id, label: folder.name + (folder.enabled === false ? " (off)" : "") }))];
+  const here = (target) => (target.id ?? null) === (item.folderId ?? null);
+  const ordered = [...targets.filter(here), ...targets.filter((target) => !here(target))];
+
+  async function copyId() {
+    setPop(null);
+    try {
+      await navigator.clipboard.writeText(item.externalId);
+      org.say({ kind: "ok", text: "ID copied." });
+    } catch {
+      org.say({ kind: "error", text: "Could not copy. Select the ID in Details and copy it by hand." });
+    }
+  }
+  async function showInUnity() {
+    if (item.places.length > 1) return setPop({ id: item.id, kind: "unity", cell: org.pop.cell });
+    setPop(null);
+    if (item.places.length === 0) return org.say({ kind: "note", text: "Unity has not reported where this one stands yet. Press Send placements in Unity." });
+    org.say({ kind: "note", text: "Asking Unity…" });
+    org.say(await askUnity(item, item.places[0]));
+  }
+
+  return (
+    <>
+      <div className="org-sub is-wide">
+        <button type="button" className="org-menu-item" role="menuitem" aria-haspopup="true">
+          <ListIcon />
+          <span>Details</span>
+          <span className="org-menu-caret" aria-hidden="true">▸</span>
+        </button>
+        <div className="org-flyout org-fly-details" role="dialog" aria-label="Details">
+          <div className="org-pop-scroll">
+            <DetailsBody org={org} />
+          </div>
+        </div>
+      </div>
+      <div className="org-sub">
+        <button type="button" className="org-menu-item" role="menuitem" aria-haspopup="true">
+          <FolderIcon />
+          <span>Move to folder</span>
+          <span className="org-menu-caret" aria-hidden="true">▸</span>
+        </button>
+        <div className="org-flyout org-fly-move" role="menu">
+          {ordered.map((target) => (
+            <button
+              key={target.id ?? "none"}
+              type="button"
+              className="org-menu-item"
+              role="menuitem"
+              disabled={here(target)}
+              onClick={() => {
+                setPop(null);
+                org.moveItems([item.id], target.id);
+              }}
+            >
+              <FolderIcon />
+              <span>{target.label}</span>
+              {here(target) && <span className="org-menu-tick">current</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="org-menu-sep" />
+      <button type="button" className="org-menu-item" role="menuitem" onClick={copyId}>
+        <CopyIcon small />
+        Copy ID
+      </button>
+      <button type="button" className="org-menu-item" role="menuitem" onClick={showInUnity}>
+        <CubeIcon small />
+        <span>Show in Unity</span>
+        {item.places.length > 1 && <span className="org-menu-caret">{item.places.length} scenes</span>}
+      </button>
+    </>
+  );
+}
+
+/** Asks the Unity editor (it listens on this computer) to select one place; resolves to a message. */
+async function askUnity(item, place) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(locateUrl(item.externalId, place), { signal: controller.signal });
+    const body = await response.json().catch(() => ({}));
+    return response.ok ? { kind: "ok", text: "Shown in Unity." } : { kind: "error", text: body.error || "Unity could not find it. Open the right scene and try again." };
+  } catch {
+    return {
+      kind: "error",
+      text: "Could not reach Unity. Open this project in the Unity editor (DeusADS SDK 0.8 or newer), or copy the address and find it by hand.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The panel that flies out of the menu: ID and place type, where it stands, and its tags. */
+function DetailsBody({ org }) {
+  const edit = useTagEdit(org);
+  return (
+    <>
+      <div className="org-pop-sec">
+        <Details org={org} />
+      </div>
+      <div className="org-pop-sec">
+        <h4 className="org-pop-title">Where it stands · {org.item.places.length}</h4>
+        <Places org={org} />
+      </div>
+      <div className="org-pop-sec">
+        <h4 className="org-pop-title">Tags · {edit.shown.length}</h4>
+        <div className="org-chips">
+          {edit.shown.length === 0 && <span className="muted-line">No tags.</span>}
+          {edit.shown.map((tag) => (
+            <TagChip key={tag} tag={tag} edit={edit} />
+          ))}
+        </div>
+        <TagAdder org={org} edit={edit} />
+      </div>
+    </>
+  );
+}
+
+/** A field for a new tag (commas separate several), and the tags used elsewhere in the game, one click to add. */
+function TagAdder({ org, edit: given, current = false }) {
+  const own = useTagEdit(org);
+  const edit = given ?? own;
+  const [text, setText] = useState("");
+  return (
+    <form
+      className="org-tag-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (edit.add(text)) setText("");
+      }}
+    >
+      {current && edit.shown.length > 0 && (
+        <>
+          <span className="org-pop-title">On this placement</span>
+          <span className="org-chips">
+            {edit.shown.map((tag) => (
+              <TagChip key={tag} tag={tag} edit={edit} />
+            ))}
+          </span>
+        </>
+      )}
+      <div className="org-val">
+        <input className="field org-tag-field" value={text} maxLength={60} placeholder="New tag name" aria-label="New tag" onChange={(event) => setText(event.target.value)} />
+        <button className="button button-quiet button-small" type="submit" disabled={splitTags(text, edit.shown).length === 0}>
+          {edit.pending ? <Spinner /> : "Add"}
+        </button>
+      </div>
+      {edit.offered.length > 0 && (
+        <>
+          <span className="org-pop-title">Your other tags</span>
+          <span className="org-chips">
+            {edit.offered.map((tag) => (
+              <button key={tag} type="button" className="org-chip org-chip-pick" onClick={() => edit.add(tag)}>
+                + {tag}
+              </button>
+            ))}
+          </span>
+        </>
+      )}
+      <Message message={edit.message} />
+    </form>
   );
 }
 
 function Details({ org }) {
-  const { item, gameId, ctx } = org;
-  const { message, setMessage, run, pending } = useAction();
-  const [folderId, setFolderId] = useState(item.folderId ?? "");
-  const folderChanged = folderId !== (item.folderId ?? "");
+  const { item, gameId } = org;
+  const { message, setMessage, run } = useAction();
   const known = (id) => PLACE_TYPES.some((entry) => entry.id === id);
   const [customOpen, setCustomOpen] = useState(false);
   const [customType, setCustomType] = useState(item.placeType && !known(item.placeType) ? item.placeType : "");
@@ -292,24 +616,6 @@ function Details({ org }) {
           </IconButton>
         </div>
 
-        <span className="org-key">Folder</span>
-        <div className="org-val">
-          <select className="field" value={folderId} aria-label="Folder" onChange={(event) => setFolderId(event.target.value)}>
-            <option value="">No folder</option>
-            {ctx.folders.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
-                {folder.enabled === false ? " (off)" : ""}
-              </option>
-            ))}
-          </select>
-          {folderChanged && (
-            <button className="button button-quiet button-small" type="button" disabled={pending} onClick={() => run(movePlacements({ gameId, ids: [item.id], folderId: folderId || null }))}>
-              {pending ? "Saving…" : "Save"}
-            </button>
-          )}
-        </div>
-
         <span className="org-key">Place type</span>
         <div className="org-val org-val-stack">
           <select className="field" value={customActive ? CUSTOM : item.placeType ?? ""} aria-label="Place type" onChange={(event) => chooseType(event.target.value)}>
@@ -337,7 +643,6 @@ function Details({ org }) {
             </form>
           )}
         </div>
-
       </div>
       <Message message={message} />
     </>
@@ -350,20 +655,7 @@ function Places({ org }) {
 
   async function showInUnity(place) {
     setLink({ kind: "note", text: "Asking Unity…" });
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
-    try {
-      const response = await fetch(locateUrl(item.externalId, place), { signal: controller.signal });
-      const body = await response.json().catch(() => ({}));
-      setLink(response.ok ? { kind: "ok", text: "Shown in Unity." } : { kind: "error", text: body.error || "Unity could not find it. Open the right scene and try again." });
-    } catch {
-      setLink({
-        kind: "error",
-        text: "Could not reach Unity. Open this project in the Unity editor (DeusADS SDK 0.8 or newer), or copy the address and find it by hand.",
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    setLink(await askUnity(item, place));
   }
 
   async function copyAddress(place) {
@@ -403,121 +695,6 @@ function Spinner() {
   return <span className="org-spin" aria-hidden="true" />;
 }
 
-function Tags({ org }) {
-  const { item, gameId } = org;
-  const { message, run, pending } = useAction();
-  const [text, setText] = useState("");
-  const [adding, setAdding] = useState([]); // tags just typed, shown at once until the server's list has them
-  const [removing, setRemoving] = useState([]);
-  useEffect(() => {
-    setAdding((current) => current.filter((tag) => !item.tags.includes(tag)));
-    setRemoving((current) => current.filter((tag) => item.tags.includes(tag)));
-  }, [item.tags]);
-  const shown = [...item.tags, ...adding.filter((tag) => !item.tags.includes(tag))];
-  // Nobody in this game has a tag yet: type any name. Otherwise pick one that exists, or choose "New tag…".
-  const known = [...new Set([...org.items.values()].flatMap((entry) => entry.tags))].sort((a, b) => a.localeCompare(b));
-  const typing_only = known.length === 0;
-  const [choice, setChoice] = useState("");
-  const typing = typing_only || choice === NEW_TAG;
-  const offered = known.filter((tag) => !shown.includes(tag));
-  const tagToAdd = typing_only ? text.trim() : choice === NEW_TAG ? text.trim() : choice;
-  const undo = () => {
-    setAdding([]);
-    setRemoving([]);
-  };
-  return (
-    <>
-      <div className="org-chips">
-        {shown.length === 0 && <span className="muted-line">No tags.</span>}
-        {shown.map((tag) => {
-          const busy = adding.includes(tag) || removing.includes(tag);
-          return (
-            <span className={`org-chip org-chip-tag${busy ? " is-busy" : ""}`} key={tag}>
-              {tag}
-              {busy ? (
-                <Spinner />
-              ) : (
-                <button
-                  type="button"
-                  className="org-x"
-                  aria-label={`Remove tag ${tag}`}
-                  onClick={() => {
-                    setRemoving((current) => [...current, tag]);
-                    run(changeTags({ gameId, ids: [item.id], remove: [tag] }), undefined, undo);
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </span>
-          );
-        })}
-      </div>
-      <form
-        className="org-tag-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!tagToAdd) return;
-          setAdding((current) => [...current, tagToAdd]);
-          run(changeTags({ gameId, ids: [item.id], add: [tagToAdd] }), undefined, undo);
-          setText("");
-          setChoice("");
-        }}
-      >
-        <div className="org-val">
-          {typing ? (
-            <input
-              className="field org-tag-field"
-              value={text}
-              maxLength={30}
-              placeholder={choice === NEW_TAG ? "Name of the new tag" : "Add a tag"}
-              autoFocus={choice === NEW_TAG}
-              onChange={(event) => setText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && !typing_only) {
-                  setChoice("");
-                  setText("");
-                }
-              }}
-              aria-label="New tag"
-            />
-          ) : (
-            <select className="field org-tag-field" value={choice} aria-label="Tag" onChange={(event) => setChoice(event.target.value)}>
-              <option value="" disabled hidden>
-                Add a tag…
-              </option>
-              {offered.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              ))}
-              <option value={NEW_TAG}>New tag…</option>
-            </select>
-          )}
-          {!typing_only && choice === NEW_TAG && (
-            <button
-              type="button"
-              className="org-icon-button org-icon-small"
-              aria-label="Back to the list of tags"
-              title="Back to the list"
-              onClick={() => {
-                setChoice("");
-                setText("");
-              }}
-            >
-              ×
-            </button>
-          )}
-          <button className="button button-quiet button-small" type="submit" disabled={!tagToAdd}>
-            {pending ? <Spinner /> : "Add"}
-          </button>
-        </div>
-      </form>
-      <Message message={message} />
-    </>
-  );
-}
-
 function Message({ message }) {
   if (!message) return null;
   return (
@@ -535,20 +712,38 @@ function IconButton({ label, hint, onClick, children }) {
   );
 }
 
-function CopyIcon() {
+function CopyIcon({ small }) {
+  const size = small ? 16 : 18;
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="9" y="9" width="12" height="12" rx="2" />
       <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
     </svg>
   );
 }
 
-function CubeIcon() {
+function CubeIcon({ small }) {
+  const size = small ? 16 : 18;
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 2.5l8.5 4.8v9.4L12 21.5l-8.5-4.8V7.3z" />
       <path d="M3.8 7.4L12 12l8.2-4.6M12 12v9.3" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 6h16M4 12h16M4 18h10" />
+    </svg>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2.5h8A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
     </svg>
   );
 }
