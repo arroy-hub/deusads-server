@@ -26,10 +26,12 @@ import {
   setPlacementsEnabled,
   setSceneEnabled,
 } from "../../placement-actions";
-import { OrgContext } from "./placement-card";
+import { CardPopups, OrgContext } from "./placement-card";
 
 const FILTER_KEYS = ["format", "status", "type", "folder", "tag", "scene", "sharing"];
 const CUSTOM = "__custom";
+const DRAG_FROM = 6; // pixels the pointer must travel before a press on a card becomes a drag
+const SPRING_MS = 600; // a card held over a closed folder opens it
 const PAGE = 24; // cards shown per group until "Show more"
 const FEW = 12; // with this many placements or fewer, every group starts open
 
@@ -45,14 +47,19 @@ const FEW = 12; // with this many placements or fewer, every group starts open
 export default function PlacementsOrganizer({ gameId, items: serverItems, folders: serverFolders, offScenes: serverOffScenes, focus }) {
   const [pending, startTransition] = useTransition();
   // What the person just did, shown at once while the server catches up. Dropped when fresh data arrives or an action fails.
-  const [shownNow, setShownNow] = useState({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
+  const [shownNow, setShownNow] = useState(emptyShownNow);
   useEffect(() => {
-    setShownNow({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
+    setShownNow(emptyShownNow());
   }, [serverItems, serverFolders, serverOffScenes]);
-  const items = useMemo(
-    () => (shownNow.enabled.size ? serverItems.map((item) => (shownNow.enabled.has(item.id) ? { ...item, enabled: shownNow.enabled.get(item.id) } : item)) : serverItems),
-    [serverItems, shownNow.enabled]
-  );
+  const items = useMemo(() => {
+    if (!shownNow.enabled.size && !shownNow.folderOf.size) return serverItems;
+    return serverItems.map((item) => {
+      let next = item;
+      if (shownNow.enabled.has(item.id)) next = { ...next, enabled: shownNow.enabled.get(item.id) };
+      if (shownNow.folderOf.has(item.id)) next = { ...next, folderId: shownNow.folderOf.get(item.id) };
+      return next;
+    });
+  }, [serverItems, shownNow.enabled, shownNow.folderOf]);
   const folders = useMemo(() => {
     const base = shownNow.folderEnabled.size ? serverFolders.map((folder) => (shownNow.folderEnabled.has(folder.id) ? { ...folder, enabled: shownNow.folderEnabled.get(folder.id) } : folder)) : serverFolders;
     return shownNow.folders.length ? [...base, ...shownNow.folders.filter((added) => !base.some((folder) => folder.name === added.name))].sort((a, b) => a.name.localeCompare(b.name)) : base;
@@ -81,6 +88,10 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const [busy, setBusy] = useState(() => new Set()); // switches waiting for the server: p:<placement>, f:<folder>, s:<scene>
   const [newFolder, setNewFolder] = useState(null); // null: closed, string: being typed
   const [editFolder, setEditFolder] = useState(null); // { id, name }
+  const [confirmFolder, setConfirmFolder] = useState(null); // folder whose trash was pressed once
+  const [pop, setPop] = useState(null); // the open menu or panel: { id, kind, anchor, cell }
+  const [drag, setDrag] = useState(null); // while a card is carried: { ids, label, x, y, over }
+  const renameDone = useRef(false);
   const [bulkTag, setBulkTag] = useState("");
   const [bulkType, setBulkType] = useState("");
   const [bulkCustom, setBulkCustom] = useState("");
@@ -167,11 +178,122 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       after?.(result);
     });
   }
-  const forget = () => setShownNow({ enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [] });
+  const forget = () => setShownNow(emptyShownNow());
   function switchPlacements(ids, enabled) {
     setShownNow((current) => ({ ...current, enabled: new Map([...current.enabled, ...ids.map((id) => [id, enabled])]) }));
     run(setPlacementsEnabled({ gameId, ids, enabled }), undefined, forget, ids.map((id) => `p:${id}`));
   }
+
+  // ---- menus and panels that float over the page (drawn by CardPopups)
+  function togglePop(event, id, kind) {
+    if (pop && pop.id === id && pop.kind === kind) return setPop(null);
+    const button = event.currentTarget;
+    const cell = button.closest("[data-card]");
+    if (!cell) return;
+    setPop({ id, kind, anchor: rectOf(button), cell: rectOf(cell) });
+  }
+  const say = (next) => setNotice(next);
+
+  // ---- moving placements between folders (the menu's "Move to folder" and dragging a card)
+  function moveItems(ids, folderId) {
+    const moving = ids.map((id) => itemById.get(id)).filter((item) => item && (item.folderId ?? null) !== folderId);
+    if (moving.length === 0) return;
+    const before = moving.map((item) => [item.id, item.folderId ?? null]);
+    const place = folderId ? folders.find((folder) => folder.id === folderId) : null;
+    const what = moving.length === 1 ? `“${moving[0].label}”` : `${moving.length} placements`;
+    const text = place ? `${what} moved to “${place.name}”${place.enabled === false ? " (that folder is switched off)" : ""}` : `${what} taken out of the folder`;
+    setShownNow((current) => ({ ...current, folderOf: new Map([...current.folderOf, ...moving.map((item) => [item.id, folderId])]) }));
+    run(movePlacements({ gameId, ids: moving.map((item) => item.id), folderId }), () => setNotice({ kind: "note", text, undo: () => undoMove(before) }), forget);
+  }
+  function undoMove(before) {
+    const byFolder = new Map();
+    for (const [id, folderId] of before) byFolder.set(folderId, [...(byFolder.get(folderId) ?? []), id]);
+    setShownNow((current) => ({ ...current, folderOf: new Map([...current.folderOf, ...before]) }));
+    setNotice(null);
+    for (const [folderId, ids] of byFolder) run(movePlacements({ gameId, ids, folderId }), undefined, forget);
+  }
+
+  // ---- dragging a card by its top row, the way Explorer drags files: onto a folder, or out of all folders
+  const latest = useRef(null);
+  latest.current = { groupBy, editing, selected, itemById, groups, moveItems, isOpen, setGroupOpen, keyOf };
+  useEffect(() => {
+    let candidate = null;
+    let springKey = null;
+    let springTimer = 0;
+    const groupAt = (x, y) => document.elementFromPoint(x, y)?.closest?.("[data-group]")?.getAttribute("data-group") ?? null;
+    function spring(group) {
+      const live = latest.current;
+      const target = group && group !== "none" ? live.groups.find((entry) => entry.kind === "folder" && entry.folderId === group) : null;
+      const closed = target && !live.isOpen(target, live.groups.indexOf(target));
+      const key = closed ? group : null;
+      if (key === springKey) return;
+      clearTimeout(springTimer);
+      springKey = key;
+      if (key) springTimer = setTimeout(() => live.setGroupOpen((current) => new Map(current).set(live.keyOf(target), true)), SPRING_MS);
+    }
+    function move(event) {
+      if (!candidate) return;
+      const live = latest.current;
+      if (!candidate.started) {
+        if (Math.hypot(event.clientX - candidate.x0, event.clientY - candidate.y0) < DRAG_FROM) return;
+        candidate.started = true;
+        candidate.ids = live.editing && live.selected.has(candidate.id) ? [...live.selected] : [candidate.id];
+        candidate.label = candidate.ids.length > 1 ? `${candidate.ids.length} placements` : live.itemById.get(candidate.id)?.label ?? "";
+        document.body.classList.add("is-dragging-cards");
+        setPop(null);
+      }
+      const over = groupAt(event.clientX, event.clientY);
+      spring(over);
+      if (event.clientY < 90) window.scrollBy(0, -16);
+      else if (event.clientY > window.innerHeight - 90) window.scrollBy(0, 16);
+      setDrag({ ids: candidate.ids, label: candidate.label, x: event.clientX, y: event.clientY, over });
+    }
+    function finish(event, drop) {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      clearTimeout(springTimer);
+      springKey = null;
+      const done = candidate;
+      candidate = null;
+      if (!done?.started) return;
+      document.body.classList.remove("is-dragging-cards");
+      setDrag(null);
+      // the click that ends a drag must not also press a button under the pointer
+      const swallow = (clickEvent) => clickEvent.stopPropagation();
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener("click", swallow, true), 0);
+      if (!drop) return;
+      const target = groupAt(event.clientX, event.clientY);
+      if (target === null) return;
+      latest.current.moveItems(done.ids, target === "none" ? null : target);
+    }
+    const up = (event) => finish(event, true);
+    const cancel = (event) => finish(event, false);
+    function down(event) {
+      const live = latest.current;
+      if (live.groupBy !== "folder") return;
+      if (event.button !== undefined && event.button !== 0) return;
+      const head = event.target.closest?.(".org-namerow");
+      const cell = head?.closest("[data-card]");
+      if (!cell || event.target.closest("[data-nodrag]")) return;
+      if (event.pointerType === "touch" && !event.target.closest("[data-grip]")) return;
+      candidate = { id: cell.getAttribute("data-card"), x0: event.clientX, y0: event.clientY, started: false, ids: [], label: "" };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", cancel);
+    }
+    document.addEventListener("pointerdown", down);
+    return () => {
+      document.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      clearTimeout(springTimer);
+      document.body.classList.remove("is-dragging-cards");
+    };
+  }, []);
+  const dragIds = useMemo(() => new Set(drag?.ids ?? []), [drag]);
 
   const chosen = [...selected];
   const toggleSelected = (id) =>
@@ -285,16 +407,25 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     run(createFolder({ gameId, name }), () => setNewFolder(null), forget);
   }
 
-  function submitRenameFolder(event) {
-    event.preventDefault();
-    if (!editFolder?.name.trim()) return;
-    run(renameFolder({ folderId: editFolder.id, name: editFolder.name }), () => setEditFolder(null));
+  // The folder's name is renamed where it stands: Enter or a click elsewhere saves, Escape cancels.
+  function startRenameFolder(group) {
+    renameDone.current = false;
+    setEditFolder({ id: group.folderId, name: group.label, original: group.label });
+  }
+  function commitRenameFolder() {
+    if (renameDone.current || !editFolder) return;
+    renameDone.current = true;
+    const name = editFolder.name.trim();
+    if (!name || name === editFolder.original) return setEditFolder(null);
+    run(renameFolder({ folderId: editFolder.id, name }), () => setEditFolder(null), () => {
+      renameDone.current = false;
+    });
   }
 
   const orgValue = useMemo(
-    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy }),
+    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy, pop, setPop, togglePop, say, moveItems, dragIds }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gameId, itemById, ctx, editing, selected, busy]
+    [gameId, itemById, ctx, editing, selected, busy, pop, dragIds]
   );
 
   const folderGroups = groups.filter((group) => group.kind === "folder").length;
@@ -537,6 +668,11 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
         {notice && (
           <div className={notice.kind === "error" ? "error" : "notice"} role={notice.kind === "error" ? "alert" : "status"}>
             {notice.text}
+            {notice.undo && (
+              <button type="button" className="link-button org-undo" onClick={notice.undo}>
+                Undo
+              </button>
+            )}
           </div>
         )}
 
@@ -562,13 +698,14 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               home={home}
               ctx={ctx}
               onJump={jumpHome}
+              dragIds={dragIds}
             />
           );
 
           // Placements outside any folder: no row, no frame, just the cards.
           if (loose(group)) {
             return (
-              <div className="org-loose" key={key}>
+              <div className={`org-loose${drag ? " is-zone" : ""}${drag?.over === "none" ? " is-drop" : ""}`} key={key} data-group="none">
                 {cards}
               </div>
             );
@@ -582,7 +719,11 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
           const counts = countStates(group.items, ctx);
           const switching = group.kind === "folder" ? busy.has(`f:${group.folderId}`) : group.kind === "scene" ? busy.has(`s:${group.scene}`) : ids.some((id) => busy.has(`p:${id}`));
           return (
-            <div className={`org-group${on ? "" : " is-off"}${open ? " is-open" : ""}`} key={key}>
+            <div
+              className={`org-group${on ? "" : " is-off"}${open ? " is-open" : ""}${drag && group.kind === "folder" && drag.over === group.folderId ? " is-drop" : ""}`}
+              key={key}
+              data-group={groupBy === "folder" && group.kind === "folder" ? group.folderId : undefined}
+            >
               <div className="org-group-head">
                 <button
                   type="button"
@@ -609,38 +750,58 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
                 )}
                 <FolderIcon open={open} off={!on} />
                 {folderEditing ? (
-                  <form className="row org-group-rename" onSubmit={submitRenameFolder}>
-                    <input className="field" value={editFolder.name} maxLength={80} autoFocus onChange={(event) => setEditFolder({ id: editFolder.id, name: event.target.value })} aria-label="Folder name" />
-                    <button className="button button-small" type="submit" disabled={!editFolder.name.trim() || pending}>
-                      Save
-                    </button>
-                    <button className="button button-quiet button-small" type="button" onClick={() => setEditFolder(null)}>
-                      Cancel
-                    </button>
-                  </form>
+                  <input
+                    className="field org-group-rename-input"
+                    value={editFolder.name}
+                    maxLength={80}
+                    autoFocus
+                    aria-label="Folder name"
+                    onFocus={(event) => event.target.select()}
+                    onChange={(event) => setEditFolder({ ...editFolder, name: event.target.value })}
+                    onBlur={commitRenameFolder}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        commitRenameFolder();
+                      } else if (event.key === "Escape") {
+                        renameDone.current = true;
+                        setEditFolder(null);
+                      }
+                    }}
+                  />
                 ) : (
-                  <button type="button" className="org-group-title" onClick={() => setGroupOpen((current) => new Map(current).set(key, !open))} aria-expanded={open}>
-                    <span className="org-group-name">{group.label}</span>
-                    <span className="org-group-counts">{describeCounts(ids.length, counts, !on && group.kind === "folder")}</span>
-                  </button>
+                  <div className="org-group-title">
+                    {group.kind === "folder" ? (
+                      <button type="button" className="org-group-name org-name-btn" title="Click to rename" onClick={() => startRenameFolder(group)}>
+                        {group.label}
+                      </button>
+                    ) : (
+                      <button type="button" className="org-group-name org-name-btn is-plain" onClick={() => setGroupOpen((current) => new Map(current).set(key, !open))} aria-expanded={open}>
+                        {group.label}
+                      </button>
+                    )}
+                    <button type="button" className="org-group-counts org-counts-btn" onClick={() => setGroupOpen((current) => new Map(current).set(key, !open))} aria-expanded={open} tabIndex={-1}>
+                      {describeCounts(ids.length, counts, !on && group.kind === "folder")}
+                    </button>
+                  </div>
                 )}
                 <span className="org-group-actions">
                   {editing && group.kind === "folder" && !folderEditing && (
-                    <>
-                      <button type="button" className="button button-quiet button-small" onClick={() => setEditFolder({ id: group.folderId, name: group.label })}>
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-quiet button-small org-danger"
-                        onClick={() => {
-                          const note = ids.length ? ` Its ${ids.length} placement${ids.length === 1 ? "" : "s"} stay${ids.length === 1 ? "s" : ""} in the game, just not in a folder.` : "";
-                          if (window.confirm(`Delete the folder "${group.label}"?${note}`)) run(deleteFolder({ folderId: group.folderId }));
-                        }}
-                      >
-                        Delete folder
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className={`org-trash-btn${confirmFolder === group.folderId ? " is-confirm" : ""}`}
+                      aria-label={confirmFolder === group.folderId ? `Click again to delete the folder ${group.label}` : `Delete the folder ${group.label}`}
+                      title={confirmFolder === group.folderId ? (ids.length ? `Click again to delete. Its ${ids.length} placement${ids.length === 1 ? "" : "s"} stay${ids.length === 1 ? "s" : ""} in the game, just not in a folder.` : "Click again to delete") : "Delete folder"}
+                      onBlur={() => setConfirmFolder(null)}
+                      onClick={() => {
+                        if (confirmFolder !== group.folderId) return setConfirmFolder(group.folderId);
+                        setConfirmFolder(null);
+                        run(deleteFolder({ folderId: group.folderId }));
+                      }}
+                    >
+                      <TrashIcon />
+                      {confirmFolder === group.folderId && <span>Delete?</span>}
+                    </button>
                   )}
                   {(group.kind === "folder" || (group.kind === "scene" && group.sceneSwitch) || (group.kind === "plain" && ids.length > 0)) && (
                     <span className="org-group-switch" title={group.kind === "scene" ? "Every placement standing in this scene" : group.kind === "folder" ? "Everything in this folder, now and later" : "Switch these placements on or off one by one"}>
@@ -666,7 +827,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               {open && (
                 <div className="org-group-body">
                   {group.items.length === 0 ? (
-                    <p className="muted-line org-empty-group">Nothing in here yet. Press Edit, tick placements and choose “Move to folder…”.</p>
+                    <p className="muted-line org-empty-group">Nothing in here yet. Drag a placement here, or press Edit, tick placements and choose “Move to folder…”.</p>
                   ) : (
                     cards
                   )}
@@ -676,14 +837,27 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
           );
         })}
 
+        {drag && groupBy === "folder" && looseCount === 0 && (
+          <div className={`org-loose is-zone is-empty${drag.over === "none" ? " is-drop" : ""}`} data-group="none">
+            <p className="muted-line">Drop here to take it out of its folder.</p>
+          </div>
+        )}
+
         <p className="muted-line org-delay">Changes reach players the next time they start the game. A game that is already running keeps what it loaded.</p>
       </section>
+      {drag && (
+        <div className="org-drag-ghost" style={{ left: drag.x + 14, top: drag.y + 14 }} aria-hidden="true">
+          <span>{drag.label}</span>
+          {drag.ids.length > 1 && <span className="org-drag-badge">{drag.ids.length}</span>}
+        </div>
+      )}
+      <CardPopups />
     </OrgContext.Provider>
   );
 }
 
 /** The cards of one group; a placement shown in an earlier group is only pointed to here. */
-function Cards({ group, limit, onMore, home, onJump }) {
+function Cards({ group, limit, onMore, home, onJump, dragIds }) {
   const list = group.items.slice(0, limit);
   const rest = group.items.length - list.length;
   return (
@@ -703,7 +877,7 @@ function Cards({ group, limit, onMore, home, onJump }) {
             );
           }
           return (
-            <div className="org-cell" id={`plc-${item.id}`} key={item.id}>
+            <div className={`org-cell${dragIds.has(item.id) ? " is-dragging" : ""}`} id={`plc-${item.id}`} data-card={item.id} key={item.id}>
               {item.card}
             </div>
           );
@@ -720,6 +894,23 @@ function Cards({ group, limit, onMore, home, onJump }) {
         </div>
       )}
     </>
+  );
+}
+
+function emptyShownNow() {
+  return { enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [], folderOf: new Map() };
+}
+
+function rectOf(node) {
+  const { left, top, right, bottom, width, height } = node.getBoundingClientRect();
+  return { left, top, right, bottom, width, height };
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+    </svg>
   );
 }
 

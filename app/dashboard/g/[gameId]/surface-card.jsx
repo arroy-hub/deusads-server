@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addOwnCreative, deleteOwnCreative, saveOwnCreative } from "../../actions";
 import { browserClient } from "../../../../lib/supabase-browser";
-import { CardName, CardOverlay, CardSections, CardStatus, useOrg } from "./placement-card";
+import { CardHandle, CardMenuButton, CardName, CardStatus, CardTagRow, useOrg } from "./placement-card";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_MAX_BYTES, OWN_PICTURE_TYPES } from "../../../../lib/own-creatives";
 import {
   DEFAULT_CROP,
@@ -346,7 +346,9 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
     <div className={`surface ${adjusting ? "is-adjusting" : ""}${org?.item.enabled === false ? " is-switched-off" : ""}`}>
       {org && (
         <div className="org-namerow">
+          <CardHandle placementId={placementId} />
           <CardName placementId={placementId} label={label} />
+          <CardMenuButton placementId={placementId} />
         </div>
       )}
       <div className="surface-stage">
@@ -407,7 +409,6 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
             )}
           </div>
         </div>
-        <CardOverlay placementId={placementId} />
       </div>
 
       <div className="surface-body">
@@ -566,7 +567,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
         {note && <div className={note.tone === "error" ? "error surface-note" : "surface-warn"}>{note.text}</div>}
 
         {children}
-        <CardSections placementId={placementId} />
+        <CardTagRow placementId={placementId} />
       </div>
     </div>
   );

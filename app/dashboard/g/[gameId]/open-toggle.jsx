@@ -29,7 +29,7 @@ export default function OpenToggle({ placementId, initial }) {
     <div>
       <label className="open-toggle">
         <input type="checkbox" checked={open} onChange={change} disabled={busy} />
-        <span>{open ? "Open to advertisers" : "Closed"}</span>
+        <span>Open to advertisers</span>
       </label>
       {error && (
         <div className="error" role="alert">
