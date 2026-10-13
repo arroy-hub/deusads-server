@@ -9,28 +9,38 @@ export default function Digest({ since, lines }) {
   const [hidden, setHidden] = useState(false);
   if (hidden || lines.length === 0) return null;
   return (
-    <section className="digest" role="region" aria-label="Since your last visit">
-      <div className="digest-body">
-        <h2>Since your last visit · {since}</h2>
-        <ul>
-          {lines.map((line, index) => (
-            <li key={index}>
-              <span className={`digest-dot${line.warn ? " warn" : ""}`} />
-              <span>{line.href ? <Link href={line.href}>{line.text}</Link> : line.text}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <button
-        type="button"
-        className="button button-quiet button-small"
-        onClick={() => {
-          setHidden(true);
-          dismissDigest().catch(() => {});
-        }}
-      >
-        Dismiss
-      </button>
-    </section>
+    <div className="mg-banners">
+      {lines.map((line, index) => (
+        <div key={index} className="mg-banner" role="status">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a3a1d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v5M12 16h.01" />
+          </svg>
+          <div className="mg-banner-text">
+            <b>{line.text}</b> <span>Since your last visit · {since}</span>
+          </div>
+          {line.href && (
+            <Link href={line.href} className="mg-banner-link">
+              View game
+            </Link>
+          )}
+          {index === 0 && (
+            <button
+              type="button"
+              className="mg-banner-x"
+              aria-label="Dismiss"
+              onClick={() => {
+                setHidden(true);
+                dismissDigest().catch(() => {});
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

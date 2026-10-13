@@ -2,11 +2,10 @@ import Link from "next/link";
 import { userClient, currentUser } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
-import { loadDigest, newByGame, registerVisit } from "../../../lib/overview-data";
+import { loadDigest, registerVisit } from "../../../lib/overview-data";
 import { formatCount } from "../../../lib/analytics";
 import { dayLabel } from "../../../lib/campaigns-view";
 import Digest from "./digest";
-import { gapWords, profileGaps } from "../../../lib/targeting";
 import AddGameDialog from "../add-game-dialog";
 import GameIcon from "../game-icon";
 import SetupPanel from "./setup-panel";
@@ -54,7 +53,6 @@ export default async function GamesPage({ searchParams }) {
   const signalOf = new Map(signals.error ? [] : (signals.data ?? []).map((row) => [row.id, row.last_signal_at]));
   const now = Date.now();
   const withConnection = (games ?? []).map((game) => ({ ...game, connection: signals.error ? null : connection(signalOf.get(game.id) ?? null, now) }));
-  const fresh = await newByGame(service, withConnection.map((game) => game.id)).catch(() => new Map());
   const visit = await registerVisit(service, user?.id, now).catch(() => null);
   const lines = await loadDigest({ service, userId: user?.id, games: withConnection.filter((game) => game.connection), visit, now }).catch(() => []);
 
@@ -83,32 +81,38 @@ export default async function GamesPage({ searchParams }) {
         })
       : null;
 
-  const count = (list, mode) => list.filter((game) => game.connection?.mode === mode).length;
+  const count = (mode) => withConnection.filter((game) => game.connection?.mode === mode).length;
+  const DOT = { ok: "#3fb577", silent: "#e0a23a", new: "#9aa0a6" };
+  const WORD = { ok: "#1f6b3a", silent: "#8a5a00", new: "#5b524a" };
+  const legend = [["ok", "connected"], ["silent", "out of sync"], ["new", "not connected"]];
 
   return (
-    <>
-      <div className="main-head">
-        <h1>My games</h1>
+    <div className="mg">
+      <div className="mg-head">
+        <div>
+          <h1>My games</h1>
+          <p>
+            {tab === "performance"
+              ? "How often ads were shown across your games, and whose they were."
+              : "Open a game to manage its placements and see how its ads perform."}
+          </p>
+        </div>
         <AddGameDialog />
+      </div>
+
+      <div role="tablist" aria-label="My games sections" className="mg-tabs">
+        <Link href="/dashboard/games" role="tab" aria-selected={tab === "games"} className="mg-tab">
+          Games<span className="mg-tab-count">{withConnection.length}</span>
+        </Link>
+        <Link href="/dashboard/games?tab=performance" role="tab" aria-selected={tab === "performance"} className="mg-tab">
+          Performance
+        </Link>
       </div>
 
       {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}
 
-      <nav className="tabs" aria-label="My games sections">
-        <Link href="/dashboard/games" className="tab" aria-current={tab === "games" ? "page" : undefined}>
-          Games
-          <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{withConnection.length}</span>
-        </Link>
-        <Link href="/dashboard/games?tab=performance" className="tab" aria-current={tab === "performance" ? "page" : undefined}>
-          Performance
-        </Link>
-      </nav>
-
       {tab === "performance" && (
         <>
-          <p className="lede">
-            How often ads were shown across all your games, and whose they were. A view counts when a player had the placement on screen.
-          </p>
           {performance?.model && <GamesPerformance model={performance.model} />}
           {performance?.error === "migration" && (
             <p className="notice">
@@ -120,80 +124,72 @@ export default async function GamesPage({ searchParams }) {
         </>
       )}
 
-      {tab === "games" && (games?.length ? (
-        <>
-          <p className="gc-legend">
-            {count(withConnection, "ok")} connected · {count(withConnection, "silent")} out of sync · {count(withConnection, "new")} not connected
-          </p>
-          <ul className="gc-grid">
-            {withConnection.map((game) => {
-              const news = fresh.get(game.id) ?? { campaigns: 0, creatives: 0 };
-              const tag = [
-                news.campaigns ? `${news.campaigns} new ${news.campaigns === 1 ? "campaign" : "campaigns"}` : "",
-                news.creatives ? `${news.creatives} new ${news.creatives === 1 ? "creative" : "creatives"}` : "",
-              ].filter(Boolean).join(" · ");
-              const gaps = profileGaps(game);
-              const week7 = views.get(game.id);
-              return (
-                <li key={game.id} className="gc-card">
-                  <div className="gc-top">
-                    <GameIcon name={game.name} url={iconOf(game)}>
-                      {game.connection && (
-                        <span className={`conn-dot conn-${game.connection.mode}`} role="img" aria-label={`SDK: ${game.connection.label}`}>
-                          <b />
-                        </span>
-                      )}
-                    </GameIcon>
-                    <div className="game-main">
-                      <Link href={`/dashboard/g/${game.id}`} className="game-name gc-link">
-                        {game.name}
-                      </Link>
-                      {game.connection && (
-                        <div className="game-meta">
-                          {game.connection.label} · {game.connection.line}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <dl className="gc-stats">
-                    <div>
-                      <dt>Placements</dt>
-                      <dd>{game.placements?.[0]?.count ?? 0}</dd>
-                    </div>
-                    <div>
-                      <dt>Views 7 days</dt>
-                      <dd>{week7 == null ? "—" : formatCount(week7)}</dd>
-                    </div>
-                  </dl>
-                  {tag && (
-                    <div className="game-badges gc-above">
-                      <Link href={`/dashboard/g/${game.id}?tab=campaigns`} className="cp-tag">{tag}</Link>
-                    </div>
-                  )}
-                  {gaps.known && gaps.missing.length > 0 && (
-                    <div className="game-warn gc-above">
-                      Not described yet.{" "}
-                      <Link href={`/dashboard/g/${game.id}?tab=settings`}>Add its {gapWords(gaps.missing)}</Link>{" "}
-                      so ads aimed at them can show here.
-                    </div>
-                  )}
-                  {game.connection?.mode === "new" && (
-                    <div className="gc-above">
-                      <SetupPanel gameId={game.id} gameName={game.name} />
-                    </div>
-                  )}
+      {tab === "games" &&
+        (games?.length ? (
+          <>
+            <ul className="mg-legend">
+              {legend.map(([mode, word]) => (
+                <li key={mode}>
+                  <span style={{ background: DOT[mode] }} />
+                  {count(mode)} {word}
                 </li>
-              );
-            })}
-          </ul>
-        </>
-      ) : (
-        <div className="empty">
-          <p style={{ margin: "0 auto 1rem" }}>
-            Add your first game to connect the Unity SDK: press “Add game” at the top.
-          </p>
-        </div>
-      ))}
-    </>
+              ))}
+            </ul>
+            <div className="mg-grid">
+              {withConnection.map((game) => {
+                const mode = game.connection?.mode ?? "ok";
+                const week7 = views.get(game.id);
+                const placements = game.placements?.[0]?.count ?? 0;
+                const url = iconOf(game);
+                return (
+                  <article key={game.id} className="mg-card">
+                    <Link href={`/dashboard/g/${game.id}`} aria-label={`Open ${game.name}`} className="mg-card-link" />
+                    <div className="mg-card-top">
+                      <div className="mg-icon">
+                        <GameIcon name={game.name} url={url} />
+                        {game.connection && <span className="mg-dot" style={{ background: DOT[mode] }} role="img" aria-label={`SDK: ${game.connection.label}`} />}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <h2>{game.name}</h2>
+                        {game.connection && (
+                          <div className="mg-state">
+                            <b style={{ color: WORD[mode] }}>{game.connection.label}</b> · {game.connection.line}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mg-stats">
+                      <div>
+                        <div className="mg-num" data-zero={placements === 0}>{placements}</div>
+                        <div className="mg-cap">Placements</div>
+                      </div>
+                      <div>
+                        <div className="mg-num" data-zero={!week7}>{week7 == null ? "—" : formatCount(week7)}</div>
+                        <div className="mg-cap">Views, 7 days</div>
+                      </div>
+                    </div>
+                    {mode === "new" ? (
+                      <div className="mg-foot mg-foot-setup">
+                        <SetupPanel gameId={game.id} gameName={game.name} iconUrl={url} />
+                      </div>
+                    ) : (
+                      <div className="mg-foot">
+                        <span>Open game</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="empty">
+            <p style={{ margin: "0 auto 1rem" }}>Add your first game to connect the Unity SDK: press “Add game” at the top.</p>
+          </div>
+        ))}
+    </div>
   );
 }

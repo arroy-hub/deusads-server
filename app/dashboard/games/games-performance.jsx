@@ -4,19 +4,27 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { formatCount } from "../../../lib/analytics";
-import { PERIODS, advShare, figures } from "../../../lib/performance-view";
+import { PERIODS, advShare, compactCount, figures, niceTop } from "../../../lib/performance-view";
 import { gamesQuery } from "../../../lib/games-query";
-import PerformanceChart from "../g/[gameId]/performance-chart";
 import GameIcon from "../game-icon";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
+const BREAK = [["game", "Game"], ["placement", "Placement"], ["type", "Place type"], ["format", "Format"]];
 const seconds = (value) => (value == null ? "—" : `${value.toFixed(1)} s`);
 const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0);
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayText = (iso) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
+
+const Caret = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
 
 /**
- * Performance across all games: the same figures as a game's Performance tab, grouped by game.
- * Period and filters change what the server counts (they live in the address); the choice of whose views
- * to show, the search and unfolding a game happen here at once.
+ * Performance across all games, laid out as in the design: period and filters, the figures, the chart and
+ * the table "By game". Period and filters are in the address (the server counts); whose views to show, the
+ * search, the grouping and unfolding happen here at once.
  *
  * model: lib/games-performance.js loadGamesPerformance().model
  */
@@ -27,7 +35,9 @@ export default function GamesPerformance({ model }) {
   const [state, setState] = useState(model.state);
   const [open, setOpen] = useState(() => new Set());
   const [query, setQuery] = useState("");
+  const [by, setBy] = useState("game");
   const [menu, setMenu] = useState(null);
+  const [asTable, setAsTable] = useState(false);
 
   useEffect(() => {
     setState((current) => ({ ...model.state, source: current.source }));
@@ -59,29 +69,64 @@ export default function GamesPerformance({ model }) {
   const kpi = model.kpi.cell;
   const all = kpi.adv + kpi.own;
   const shown = figures(kpi, source);
+  const placementTotal = model.rows.reduce((sum, row) => sum + row.placements.length, 0);
   const cards = [
-    { id: "all", value: all, sub: `${model.kpi.games} ${model.kpi.games === 1 ? "game" : "games"}` },
+    { id: "all", value: all, sub: `${model.kpi.games} ${model.kpi.games === 1 ? "game" : "games"} · ${placementTotal} ${placementTotal === 1 ? "placement" : "placements"}` },
     { id: "adv", value: kpi.adv, sub: `${Math.round(percent(kpi.adv, all))}% of all` },
     { id: "own", value: kpi.own, sub: `${Math.round(percent(kpi.own, all))}% of all` },
   ];
 
-  const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return model.rows
-      .filter((row) => !needle || row.name.toLowerCase().includes(needle))
-      .map((row) => ({ ...row, views: figures(row.cell, source).views }))
-      .sort((a, b) => b.views - a.views || a.name.localeCompare(b.name));
-  }, [model.rows, query, source]);
+  // ------------------------------------------------------------ the table
+  const needle = query.trim().toLowerCase();
+  const table = useMemo(() => {
+    const total = (cell) => figures(cell, source).views;
+    const sum = (list) => {
+      const cell = { ...model.kpi.cell };
+      for (const key of Object.keys(cell)) cell[key] = list.reduce((acc, entry) => acc + (entry.cell[key] ?? 0), 0);
+      return cell;
+    };
+    const flat = model.rows.flatMap((row) => row.placements.map((placement) => ({ ...placement, game: row })));
+    const matches = (...texts) => !needle || texts.some((text) => String(text).toLowerCase().includes(needle));
+    let rows;
+    if (by === "game") {
+      rows = model.rows
+        .map((row) => ({
+          id: row.id, name: row.name, game: row, cell: row.cell,
+          sub: `${row.placements.length} ${row.placements.length === 1 ? "placement" : "placements"}`,
+          kids: row.placements.filter((p) => matches(row.name, p.label)).map((p) => ({ id: p.id, name: p.label, sub: p.format, cell: p.cell })),
+        }))
+        .filter((row) => matches(row.name) || row.kids.length > 0)
+        .map((row) => (matches(row.name) ? { ...row, kids: row.game.placements.map((p) => ({ id: p.id, name: p.label, sub: p.format, cell: p.cell })) } : row));
+    } else if (by === "placement") {
+      rows = flat.filter((p) => matches(p.label, p.game.name)).map((p) => ({ id: p.id, name: p.label, sub: p.game.name, cell: p.cell, kids: [] }));
+    } else {
+      const groups = new Map();
+      for (const p of flat) {
+        const key = by === "type" ? p.type : p.format;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+      }
+      rows = [...groups]
+        .map(([key, list]) => ({
+          id: `${by}:${key}`, name: key, cell: sum(list), sub: `${list.length} ${list.length === 1 ? "placement" : "placements"}`,
+          kids: list.map((p) => ({ id: p.id, name: p.label, sub: p.game.name, cell: p.cell })),
+        }))
+        .filter((row) => matches(row.name, ...row.kids.map((k) => k.name)));
+    }
+    rows.sort((a, b) => total(b.cell) - total(a.cell) || String(a.name).localeCompare(String(b.name)));
+    const shownCell = sum(rows.length ? rows.map((row) => ({ cell: row.cell })) : []);
+    return { rows, shownCell, shownPlacements: by === "game" ? rows.reduce((n, r) => n + r.kids.length, 0) : flat.length };
+  }, [model, by, needle, source]);
 
   function exportCsv() {
-    const lines = [["Game", "Placement", "Impressions", "Advertisers", "My creatives", "Sessions", "Avg. visible (s)"]];
-    const line = (game, placement, cell) => {
+    const lines = [["Name", "Under", "Impressions", "Advertisers", "My creatives", "Sessions", "Avg. visible (s)"]];
+    const line = (name, under, cell) => {
       const f = figures(cell, source);
-      lines.push([game, placement, f.views, cell.adv, cell.own, f.sessions, f.avgVisible == null ? "" : f.avgVisible.toFixed(1)]);
+      lines.push([name, under, f.views, cell.adv, cell.own, f.sessions, f.avgVisible == null ? "" : f.avgVisible.toFixed(1)]);
     };
-    for (const row of rows) {
+    for (const row of table.rows) {
       line(row.name, "", row.cell);
-      for (const placement of row.placements) line(row.name, placement.label, placement.cell);
+      for (const kid of row.kids) line(kid.name, row.name, kid.cell);
     }
     const quote = (value) => `"${String(value).replace(/"/g, '""')}"`;
     const blob = new Blob([lines.map((fields) => fields.map(quote).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
@@ -92,185 +137,276 @@ export default function GamesPerformance({ model }) {
     URL.revokeObjectURL(link.href);
   }
 
+  // ------------------------------------------------------------ the chart
+  const days = model.days;
+  const showAdv = source !== "own";
+  const showOwn = source !== "adv";
+  const adv = (day) => (showAdv ? day.adv : 0);
+  const own = (day) => (showOwn ? day.own : 0);
+  const peak = days.reduce((best, day) => (adv(day) + own(day) > best.v ? { v: adv(day) + own(day), date: day.date } : best), { v: 0, date: null });
+  const top = niceTop(peak.v);
+  const ticks = [top, (top * 2) / 3, top / 3, 0];
+  const pct = (value) => `${(Math.min(value / top, 1) * 100).toFixed(2)}%`;
+  const labelAt = [0, 0.25, 0.5, 0.75, 1].map((f) => days[Math.round((days.length - 1) * f)]?.date).filter(Boolean);
+
   const filters = [
-    { key: "games", label: "Games", options: model.gameOptions },
-    { key: "types", label: "Place type", options: model.facets.types },
-    { key: "formats", label: "Format", options: model.facets.formats },
+    { key: "games", label: "Games", options: model.gameOptions, all: `All ${model.gameOptions.length}` },
+    { key: "types", label: "Place type", options: model.facets.types, all: "All" },
+    { key: "formats", label: "Format", options: model.facets.formats, all: "All" },
   ];
 
   return (
-    <div className="pf" aria-busy={pending}>
-      <div className={`pf-stack ${pending ? "is-pending" : ""}`}>
-        <div className="gp-controls">
-          <div className="pf-seg" role="group" aria-label="Period">
-            {PERIODS.map((days) => (
-              <button key={days} type="button" className="pf-seg-btn" aria-pressed={state.days === days} onClick={() => go({ days })}>
-                {days} days
-              </button>
-            ))}
-          </div>
-          <span className="pf-bar-label">Show only</span>
-          {filters.map((filter) => {
-            const chosen = state[filter.key];
-            return (
-              <div key={filter.key} className="gp-filter">
-                <button
-                  type="button"
-                  className="pf-field"
-                  aria-expanded={menu === filter.key}
-                  onClick={() => setMenu(menu === filter.key ? null : filter.key)}
-                >
-                  {filter.label}
-                  {chosen.length > 0 ? ` · ${chosen.length}` : ""} ▾
-                </button>
-                {menu === filter.key && (
-                  <div className="gp-menu" role="group" aria-label={filter.label}>
-                    {filter.options.length === 0 && <span className="pf-hint">Nothing to pick yet</span>}
-                    {filter.options.map((option) => (
-                      <label key={option.value} className="gp-option">
-                        <input type="checkbox" checked={chosen.includes(option.value)} onChange={() => toggle(filter.key, option.value)} />
-                        <span>{option.label}</span>
-                        {option.count != null && <span className="pf-hint">{option.count}</span>}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {(state.games.length > 0 || state.types.length > 0 || state.formats.length > 0) && (
-            <button type="button" className="pf-seg-btn" onClick={() => go({ games: [], types: [], formats: [] })}>
-              Clear filters
+    <div aria-busy={pending} className={`gp ${pending ? "is-pending" : ""}`}>
+      <div className="gp-filters">
+        <div role="group" aria-label="Period" className="gp-seg">
+          {PERIODS.map((n) => (
+            <button key={n} type="button" aria-pressed={state.days === n} onClick={() => go({ days: n })}>
+              {n} days
             </button>
-          )}
+          ))}
         </div>
-
-        <section className="pf-panel" aria-label="Figures">
-          <div className="pf-kpis" role="radiogroup" aria-label="Which views to count">
-            {cards.map((card) => (
-              <label key={card.id} className={`pf-src ${source === card.id ? "is-on" : ""}`}>
-                <input className="pf-src-input" type="radio" name="gp-source" checked={source === card.id} onChange={() => chooseSource(card.id)} />
-                <span className="pf-src-top">
-                  <span className={`pf-key ${card.id === "adv" ? "pf-key-adv" : card.id === "own" ? "pf-key-own" : "pf-key-all"}`} aria-hidden="true" />
-                  {SOURCE_LABEL[card.id]}
-                </span>
-                <span className="pf-src-val">{formatCount(card.value)}</span>
-                <span className="pf-src-sub">{card.sub}</span>
-              </label>
-            ))}
-            <div className="pf-fig">
-              <span className="pf-src-top">Sessions</span>
-              <span className="pf-src-val">{formatCount(shown.sessions)}</span>
-              <span className="pf-src-sub">summed over games</span>
-            </div>
-            <div className="pf-fig">
-              <span className="pf-src-top">Avg. visible</span>
-              <span className="pf-src-val">{seconds(shown.avgVisible)}</span>
-              <span className="pf-src-sub">per view</span>
-            </div>
-          </div>
-        </section>
-
-        <PerformanceChart days={model.days} source={source} subtitle={`${model.win.from} – ${model.win.to}`} />
-
-        <section className="pf-panel" aria-label="By game">
-          <div className="pf-panel-head">
-            <h2>By game</h2>
-            <div className="gp-tools">
-              <input
-                className="pf-field"
-                type="search"
-                placeholder="Search games"
-                aria-label="Search games"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <button type="button" className="pf-seg-btn" onClick={exportCsv}>
-                Export CSV
+        <span className="gp-sep" />
+        {filters.map((filter) => {
+          const chosen = state[filter.key];
+          return (
+            <div key={filter.key} className="gp-filter">
+              <button type="button" className="gp-drop" aria-expanded={menu === filter.key} onClick={() => setMenu(menu === filter.key ? null : filter.key)}>
+                <span>{filter.label}</span>
+                {chosen.length === 0 ? filter.all : `${chosen.length} selected`}
+                <Caret />
               </button>
+              {menu === filter.key && (
+                <div className="gp-menu" role="group" aria-label={filter.label}>
+                  {filter.options.length === 0 && <span className="gp-muted">Nothing to pick yet</span>}
+                  {filter.options.map((option) => (
+                    <label key={option.value} className="gp-option">
+                      <input type="checkbox" checked={chosen.includes(option.value)} onChange={() => toggle(filter.key, option.value)} />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                  {chosen.length > 0 && (
+                    <button type="button" className="gp-clear" onClick={() => go({ [filter.key]: [] })}>
+                      Show all
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="gp-kpis">
+        <div role="group" aria-label="Count views from" className="gp-cards">
+          {cards.map((card) => (
+            <button key={card.id} type="button" aria-pressed={source === card.id} className="gp-card" onClick={() => chooseSource(card.id)}>
+              <div className="gp-card-top">
+                <span className="gp-key" data-kind={card.id} />
+                {SOURCE_LABEL[card.id]}
+              </div>
+              <div className="gp-big">{formatCount(card.value)}</div>
+              <div className="gp-small">{card.sub}</div>
+              {source === card.id && (
+                <svg className="gp-tick" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#241d19" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12l5 5 9-10" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="gp-side">
+          <div>
+            <div className="gp-card-top">Sessions</div>
+            <div className="gp-big">{formatCount(shown.sessions)}</div>
+            <div className="gp-small">players who saw an ad</div>
+          </div>
+          <div>
+            <div className="gp-card-top">Avg. visible</div>
+            <div className="gp-big">{seconds(shown.avgVisible)}</div>
+            <div className="gp-small">per view</div>
+          </div>
+        </div>
+      </div>
+      <p className="gp-hint">Select Advertisers or My creatives to count only those views, in the chart and below. A view counts when a player had the placement on screen.</p>
+
+      <section className="gp-panel" aria-label="Impressions per day">
+        <div className="gp-chart-head">
+          <div>
+            <h2>Impressions per day</h2>
+            <div className="gp-small">
+              Last {model.win.days} days · {model.kpi.games} of {model.kpi.totalGames} games{peak.v > 0 ? ` · peak ${formatCount(peak.v)} on ${dayText(peak.date)}` : ""}
             </div>
           </div>
-          <div className="gp-table-wrap">
-            <table className="gp-table">
+          <div className="gp-legend">
+            {showAdv && (
+              <span><i data-kind="adv" />Advertisers <b>{formatCount(kpi.adv)}</b></span>
+            )}
+            {showOwn && (
+              <span><i data-kind="own" />My creatives <b>{formatCount(kpi.own)}</b></span>
+            )}
+          </div>
+        </div>
+        <div className="gp-plot-row">
+          <div className="gp-yaxis" aria-hidden="true">
+            {ticks.map((tick) => (
+              <span key={tick}>{compactCount(Math.round(tick))}</span>
+            ))}
+          </div>
+          <div className="gp-plot" role="img" aria-label={`Impressions per day, ${formatCount(days.reduce((n, d) => n + adv(d) + own(d), 0))} in total`}>
+            {days.map((day) => (
+              <div key={day.date} className="gp-bar" title={`${dayText(day.date)}: ${formatCount(adv(day) + own(day))}`}>
+                <div style={{ height: pct(own(day)), background: "#3d6fd1", borderRadius: "3px 3px 0 0" }} />
+                <div style={{ height: pct(adv(day)), background: "#c94a24", borderRadius: own(day) ? 0 : "3px 3px 0 0" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="gp-xaxis">
+          {labelAt.map((date) => (
+            <span key={date}>{dayText(date)}</span>
+          ))}
+        </div>
+        <button type="button" className="gp-toggle" aria-expanded={asTable} onClick={() => setAsTable(!asTable)}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ transform: asTable ? "rotate(90deg)" : "none" }}>
+            <path d="M8 5l10 7-10 7z" />
+          </svg>
+          Show as table
+        </button>
+        {asTable && (
+          <div className="gp-scroll">
+            <table className="gp-table gp-mini">
               <thead>
-                <tr>
-                  <th scope="col">Game</th>
-                  <th scope="col" className="num">Impressions</th>
-                  <th scope="col" className="num">Advertisers</th>
-                  <th scope="col" className="num">My creatives</th>
-                  <th scope="col">Advertiser share</th>
-                  <th scope="col" className="num">Sessions</th>
-                  <th scope="col" className="num">Avg. visible</th>
-                </tr>
+                <tr><th scope="col">Day</th><th scope="col" className="num">Advertisers</th><th scope="col" className="num">My creatives</th></tr>
               </thead>
               <tbody>
-                <tr className="gp-total">
-                  <th scope="row">All shown ({rows.length})</th>
-                  <Figures cell={kpi} source={source} />
-                </tr>
-                {rows.map((row) => {
-                  const expanded = open.has(row.id);
-                  return (
-                    <Fragment key={row.id}>
-                      <tr>
-                        <th scope="row">
-                          <button
-                            type="button"
-                            className="gp-fold"
-                            aria-expanded={expanded}
-                            aria-label={`${expanded ? "Hide" : "Show"} placements of ${row.name}`}
-                            onClick={() =>
-                              setOpen((current) => {
-                                const next = new Set(current);
-                                next.has(row.id) ? next.delete(row.id) : next.add(row.id);
-                                return next;
-                              })
-                            }
-                          >
-                            {expanded ? "▾" : "▸"}
-                          </button>
-                          <GameIcon name={row.name} url={row.iconUrl} size="sm" />
-                          <Link href={`/dashboard/g/${row.id}?tab=performance`}>{row.name}</Link>
-                          <span className="pf-hint">{row.placements.length} {row.placements.length === 1 ? "placement" : "placements"}</span>
-                        </th>
-                        <Figures cell={row.cell} source={source} />
-                      </tr>
-                      {expanded &&
-                        row.placements.map((placement) => (
-                          <tr key={placement.id} className="gp-kid">
-                            <th scope="row">{placement.label}</th>
-                            <Figures cell={placement.cell} source={source} />
-                          </tr>
-                        ))}
-                    </Fragment>
-                  );
-                })}
+                {days.map((day) => (
+                  <tr key={day.date}><td>{dayText(day.date)}</td><td className="num">{formatCount(day.adv)}</td><td className="num">{formatCount(day.own)}</td></tr>
+                ))}
               </tbody>
             </table>
           </div>
-          {rows.length === 0 && <p className="pf-hint">No games match.</p>}
-        </section>
-      </div>
+        )}
+      </section>
+
+      <section className="gp-panel gp-tablebox" aria-label="Table">
+        <div className="gp-table-head">
+          <h2>By {BREAK.find(([key]) => key === by)[1].toLowerCase()}</h2>
+          <div className="gp-tools">
+            <label className="gp-search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b5f56" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
+              <input aria-label="Find a game or placement" placeholder="Find a game or placement" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </label>
+            <label className="gp-by">
+              Break down by
+              <select value={by} onChange={(e) => { setBy(e.target.value); setOpen(new Set()); }}>
+                {BREAK.map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="gp-drop" onClick={exportCsv}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+        <div className="gp-scroll">
+          <table className="gp-table">
+            <thead>
+              <tr>
+                <th scope="col">{BREAK.find(([key]) => key === by)[1]}</th>
+                <th scope="col" className="num is-sorted" aria-sort="descending">
+                  Impressions{" "}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="#c94a24" aria-hidden="true" style={{ verticalAlign: "middle" }}>
+                    <path d="M5 8h14l-7 9z" />
+                  </svg>
+                </th>
+                <th scope="col" className="num">Advertisers</th>
+                <th scope="col" className="num">My creatives</th>
+                <th scope="col">Advertiser share</th>
+                <th scope="col" className="num">Sessions</th>
+                <th scope="col" className="num last">Avg. visible</th>
+              </tr>
+            </thead>
+            <tbody>
+              <Line total name="All shown" sub={`${table.rows.length} ${by === "game" ? (table.rows.length === 1 ? "game" : "games") : "rows"} · ${table.shownPlacements} ${table.shownPlacements === 1 ? "placement" : "placements"}`} cell={table.shownCell} source={source} />
+              {table.rows.map((row) => {
+                const expanded = open.has(row.id);
+                const empty = row.kids.length === 0;
+                return (
+                  <Fragment key={row.id}>
+                    <Line
+                      name={row.name}
+                      sub={row.sub}
+                      cell={row.cell}
+                      source={source}
+                      muted={empty && by === "game"}
+                      empty={empty && by === "game"}
+                      chevron={by !== "placement"}
+                      expanded={expanded}
+                      disabled={empty}
+                      onToggle={() =>
+                        setOpen((current) => {
+                          const next = new Set(current);
+                          next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                          return next;
+                        })
+                      }
+                      tile={by === "game" ? row.game : null}
+                      href={by === "game" ? `/dashboard/g/${row.id}?tab=performance` : null}
+                    />
+                    {expanded &&
+                      row.kids.map((kid) => <Line key={kid.id} kid name={kid.name} sub={kid.sub} cell={kid.cell} source={source} />)}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {table.rows.length === 0 && <p className="gp-muted" style={{ padding: "12px 20px" }}>Nothing matches.</p>}
+      </section>
     </div>
   );
 }
 
-function Figures({ cell, source }) {
+function Line({ name, sub, cell, source, total = false, kid = false, chevron = false, expanded = false, disabled = false, muted = false, empty = false, onToggle, tile = null, href = null }) {
   const f = figures(cell, source);
   const share = advShare(cell);
+  const dash = (value) => (empty ? "—" : value);
   return (
-    <>
-      <td className="num">{formatCount(f.views)}</td>
-      <td className="num">{formatCount(cell.adv)}</td>
-      <td className="num">{formatCount(cell.own)}</td>
+    <tr className={total ? "is-total" : kid ? "is-kid" : ""} data-muted={muted}>
       <td>
-        <span className="gp-share" aria-hidden="true">
-          <i style={{ width: `${share.toFixed(1)}%` }} />
-        </span>{" "}
-        <span className="pf-hint">{Math.round(share)}%</span>
+        <div className="gp-name">
+          {chevron && (
+            <button type="button" className="gp-chev" aria-label={`${expanded ? "Collapse" : "Expand"} ${name}`} aria-expanded={expanded} disabled={disabled} onClick={onToggle}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: `rotate(${expanded ? 90 : 0}deg)` }}>
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+          )}
+          {tile && <GameIcon name={tile.name} url={tile.iconUrl} size="sm" />}
+          <div style={{ minWidth: 0 }}>
+            <div className="gp-name-main">{href ? <Link href={href}>{name}</Link> : name}</div>
+            <div className="gp-small">{sub}</div>
+          </div>
+        </div>
       </td>
-      <td className="num">{formatCount(f.sessions)}</td>
-      <td className="num">{seconds(f.avgVisible)}</td>
-    </>
+      <td className="num strong">{dash(formatCount(f.views))}</td>
+      <td className="num">{dash(formatCount(cell.adv))}</td>
+      <td className="num">{dash(formatCount(cell.own))}</td>
+      <td>
+        <div className="gp-share">
+          <div><i style={{ width: `${empty ? 0 : share.toFixed(1)}%` }} /></div>
+          <span>{empty ? "—" : `${Math.round(share)}%`}</span>
+        </div>
+      </td>
+      <td className="num">{dash(formatCount(f.sessions))}</td>
+      <td className="num last">{empty ? "—" : seconds(f.avgVisible)}</td>
+    </tr>
   );
 }
