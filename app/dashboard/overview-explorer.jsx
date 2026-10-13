@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import CategoryIcon from "./advertising/category-icon";
+import StatusPill from "./advertising/status-pill";
+import { categoryLabel } from "../../lib/categories";
 import { useMemo, useRef, useState } from "react";
 import { formatCount, formatDay, niceMax } from "../../lib/analytics";
 import { deltaText } from "../../lib/advertiser-overview";
@@ -173,6 +176,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
         </div>
       </section>
 
+      {campaigns.length > 0 && (
       <section className="panel ovx-chart" aria-labelledby="ovx-chart-title">
         <div className="ovx-chart-head">
           <h2 id="ovx-chart-title">
@@ -283,6 +287,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           </div>
         )}
       </section>
+      )}
 
       <section className="panel ovx-table" aria-labelledby="ovx-table-title" style={{ padding: 0 }}>
         <div className="ovx-table-head">
@@ -290,9 +295,17 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <span className="ovx-hint">Tick a campaign to show it on the chart above. Click a column title to sort.</span>
         </div>
         {campaigns.length === 0 ? (
-          <p className="settings-help" style={{ padding: "0 18px 18px" }}>
-            No campaigns yet.
-          </p>
+          <div className="ov-table-wrap">
+            <table className="ovx-grid-table">
+              <tbody>
+                {[0, 1, 2, 3].map((index) => (
+                  <tr key={index} className="ovx-blank">
+                    <td colSpan={6}>{index === 0 ? <>No campaigns yet. <Link href="/dashboard/advertising/new">Create your first campaign</Link></> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="ov-table-wrap">
             <table className="ovx-grid-table">
@@ -332,8 +345,9 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                               {on ? "✓" : ""}
                             </button>
                           )}
+                          <CategoryIcon category={item.category} label={item.category ? categoryLabel(item.category) : "No category yet"} />
                           <Link href={`/dashboard/advertising/c/${item.id}`}>{item.name}</Link>
-                          <span className={`ov-pill ov-${item.status.key}`}>{item.status.label}</span>
+                          <StatusPill status={item.status} />
                         </span>
                       </td>
                       <td className="num">
@@ -353,6 +367,11 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                     </tr>
                   );
                 })}
+                {Array.from({ length: Math.max(0, 4 - tableRows.length) }, (_, index) => (
+                  <tr key={`blank-${index}`} className="ovx-blank" aria-hidden="true">
+                    <td colSpan={6} />
+                  </tr>
+                ))}
                 <tr className="ovx-total">
                   <td>{allOn ? "Total" : `Selected: ${chosen.length} of ${campaigns.length}`}</td>
                   <td className="num">{formatCount(totals.impressions)}</td>

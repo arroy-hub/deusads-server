@@ -20,7 +20,7 @@ const STATUS = { approved: ["Approved", "ov-live"], pending: ["In review", "ov-s
  * standard shape (add, replace or remove its picture; or drop several pictures and they are matched to the shapes
  * by proportions), and a single Save for the name and the frame. Closing returns to the list.
  */
-export default function CreativeDialog({ creative, assets, status, note, placements, missingPlacements, audience, audienceMissing }) {
+export default function CreativeDialog({ creative, assets, status, note, placements, missingPlacements, audience, audienceMissing, backTo = "" }) {
   const router = useRouter();
   const dialog = useRef(null);
   const stage = useRef(null);
@@ -49,7 +49,7 @@ export default function CreativeDialog({ creative, assets, status, note, placeme
     setName(creative.name);
   }, [creative.name]);
 
-  const close = () => router.push("/dashboard/creatives");
+  const close = () => router.push(backTo || "/dashboard/creatives");
   const zone = normalizeSafeZone({ x: centre.x - size / 2, y: centre.y - size / 2, w: size, h: size });
   const matrix = coverageByFormat({
     creative: { aspect, safeZone: zone },

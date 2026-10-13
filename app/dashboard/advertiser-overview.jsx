@@ -4,9 +4,7 @@ import { formatDay } from "../../lib/analytics";
 import { REPORT_RANGES } from "../../lib/reports";
 
 /** The status of a campaign as a small coloured tag; the colour never carries the meaning alone. */
-export function StatusPill({ status }) {
-  return <span className={`ov-pill ov-${status.key}`}>{status.label}</span>;
-}
+export { default as StatusPill } from "./advertising/status-pill";
 
 /** The advertiser's Overview: the period, the headline numbers, the chart and the campaigns table. What needs attention lives in the bell. */
 export default function AdvertiserOverview({ data, basePath }) {
@@ -19,9 +17,6 @@ export default function AdvertiserOverview({ data, basePath }) {
           <h1>Overview</h1>
           <p className="lede">How your ads are doing across all campaigns.</p>
         </div>
-        <Link href="/dashboard/advertising/new" className="button">
-          New campaign
-        </Link>
       </div>
 
       {data.missing && (
@@ -29,25 +24,6 @@ export default function AdvertiserOverview({ data, basePath }) {
           Run <code>supabase/migrations/0009_campaigns_and_bookings.sql</code> and <code>0010_advertiser_reports.sql</code> in the
           Supabase SQL editor to turn the numbers on.
         </p>
-      )}
-
-      {(!data.hasCreatives || !data.hasCampaigns) && (
-        <section className="panel" aria-labelledby="start-title">
-          <h2 id="start-title">Get your first ad running</h2>
-          <div className="todo">
-            <div>
-              <strong>{data.hasCreatives ? "Start a campaign with your creative" : "Start your first campaign"}</strong>
-              <div className="todo-sub">
-                {data.hasCreatives
-                  ? "Pick a creative and the placements, then start a campaign."
-                  : "Upload a creative and choose where it runs. Ads start once the creative is approved."}
-              </div>
-            </div>
-            <Link href="/dashboard/advertising/new" className="button">
-              New campaign
-            </Link>
-          </div>
-        </section>
       )}
 
       <nav className="ovx-period" aria-label="Period for everything below">

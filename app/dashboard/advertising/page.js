@@ -7,6 +7,7 @@ import { categoryLabel } from "../../../lib/categories";
 import { formatCount } from "../../../lib/analytics";
 import { canAdvertise } from "../../../lib/admin-rules";
 import CategoryIcon from "./category-icon";
+import StatusPill from "./status-pill";
 import RowMenu from "./row-menu";
 import SectionTabs from "./section-tabs";
 
@@ -65,7 +66,7 @@ export default async function AdvertisingPage() {
                 <span className="cl-step-n">2</span>
                 <span>
                   <strong>Choose where</strong>
-                  <span>Pick the audience, or choose placements by hand.</span>
+                  <span>Pick the audience: genres, platforms and languages.</span>
                 </span>
               </li>
               <li>
@@ -80,31 +81,45 @@ export default async function AdvertisingPage() {
           <p className="cl-foot">Developers can pause or block an ad in their game; you will see where and why in the campaign report.</p>
         </>
       ) : (
-        <section className="panel cl-panel" aria-label="Campaigns">
-          <div className="ov-table-wrap">
-            <div className="cl-row cl-head" role="row">
-              <span>Campaign</span>
-              <span>Dates</span>
-              <span>Status</span>
-              <span>Audience</span>
-              <span className="cl-num">Impressions, 30 days</span>
-              <span />
-            </div>
-            {campaigns.map((campaign) => (
-              <div className="cl-row" key={campaign.id} role="row">
-                <span className="cl-name">
-                  <CategoryIcon category={campaign.category} label={campaign.category ? categoryLabel(campaign.category) : "No category yet"} />
-                  <Link href={campaign.status.key === "draft" ? `/dashboard/advertising/new?campaign=${campaign.id}` : `/dashboard/advertising/c/${campaign.id}`}>{campaign.name}</Link>
-                </span>
-                <span className="cl-muted">{campaign.dates || "Not set"}</span>
-                <span>
-                  <span className={`ov-pill ov-${campaign.status.key}`}>{campaign.status.label}</span>
-                </span>
-                <span className="cl-muted">{campaign.audience || (campaign.bookings ? "Every game" : "Not chosen yet")}</span>
-                <span className="cl-num">{campaign.impressions > 0 ? formatCount(campaign.impressions) : "—"}</span>
-                <RowMenu id={campaign.id} name={campaign.name} draft={campaign.status.key === "draft"} paused={campaign.paused} canPause={campaign.canPause} rules={rules} />
+        <section className="cp-panel" aria-label="Campaigns">
+          <div className="cp-scroll">
+            <div className="cp-grid cp-adv">
+              <div className="cp-chead">
+                <span>Campaign</span>
+                <span>Status</span>
+                <span>Dates</span>
+                <span>Audience</span>
+                <span className="cp-num">Impressions, 30 days</span>
+                <span />
               </div>
-            ))}
+              {campaigns.map((campaign) => (
+                <div className={`cp-crow${campaign.status.key === "ended" ? " s-ended" : campaign.status.key === "paused" ? " s-paused" : ""}`} key={campaign.id}>
+                  <div className="cp-cname">
+                    <CategoryIcon category={campaign.category} label={campaign.category ? categoryLabel(campaign.category) : "No category yet"} />
+                    <div>
+                      <Link href={campaign.status.key === "draft" ? `/dashboard/advertising/new?campaign=${campaign.id}` : `/dashboard/advertising/c/${campaign.id}`}>
+                        <strong>{campaign.name}</strong>
+                      </Link>
+                      <div className="cp-meta">{campaign.category ? categoryLabel(campaign.category) : "No category yet"}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <StatusPill status={campaign.status} />
+                  </div>
+                  <div className="cp-meta">{campaign.dates || "Not set"}</div>
+                  <div className="cp-meta">{campaign.audience || (campaign.launched || campaign.bookings ? "Every game" : "Not chosen yet")}</div>
+                  <div className="cp-num">{campaign.impressions > 0 ? formatCount(campaign.impressions) : "—"}</div>
+                  <div className="cp-acts">
+                    <RowMenu id={campaign.id} name={campaign.name} draft={campaign.status.key === "draft"} paused={campaign.paused} canPause={campaign.canPause} rules={rules} />
+                  </div>
+                </div>
+              ))}
+              {Array.from({ length: Math.max(0, 4 - campaigns.length) }, (_, index) => (
+                <div className="cp-crow is-blank" key={`blank-${index}`} aria-hidden="true">
+                  <div /><div /><div /><div /><div /><div />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}

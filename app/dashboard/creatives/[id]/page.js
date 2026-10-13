@@ -13,8 +13,11 @@ import CreativeDialog from "./creative-dialog";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creative" };
 
-export default async function CreativeFormatsPage({ params }) {
+export default async function CreativeFormatsPage({ params, searchParams }) {
   const { id } = await params;
+  const query = await searchParams;
+  // The new-campaign wizard sends people here to add pictures and wants them back afterwards.
+  const back = typeof query?.back === "string" && query.back.startsWith("/dashboard/advertising/new") ? query.back : "";
   const me = await getMember();
   if (!me) notFound();
   const { service, user } = me;
@@ -115,6 +118,7 @@ export default async function CreativeFormatsPage({ params }) {
           missingPlacements={coverage?.missingPlacements ?? 0}
           audience={audience ? { targeting: audience.targeting, catalog } : null}
           audienceMissing={audienceMissing}
+          backTo={back}
 
         />
       </>

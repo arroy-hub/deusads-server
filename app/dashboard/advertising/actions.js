@@ -14,6 +14,7 @@ import { describeBooking } from "../../../lib/bookings-data";
 import { notify, notifyMany } from "../../../lib/notify";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { parseTargeting } from "../../../lib/targeting";
+import { syncCampaign } from "../../../lib/campaign-sync";
 
 const MISSING = "Run migration 0009 in the Supabase SQL editor first.";
 const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
@@ -159,6 +160,53 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
   revalidatePath("/dashboard/advertising");
   revalidatePath("/dashboard/admin/bookings");
   return { ok: true, count: fresh.length, skipped: placements.length - fresh.length, ...outcome };
+}
+
+/**
+ * Start a campaign by audience. The campaign remembers who it is for, which creative runs and when, and books every
+ * open placement in a game that fits, now and whenever such a placement appears. With no matching game yet it simply
+ * waits (status Waiting). Advertisers only; the creative must be theirs and not rejected.
+ */
+export async function launchCampaign({ campaignId, campaignName, creativeId, targeting, startsOn, endsOn }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const { service, user } = me;
+
+  const range = parseDateRange(startsOn, endsOn);
+  if (range.error) return { error: range.error };
+  const audience = parseTargeting(targeting ?? null);
+  if (audience.error) return { error: audience.error };
+
+  const { data: creative } = await service.from("creatives").select("id, status").eq("id", String(creativeId ?? "")).eq("owner_id", user.id).maybeSingle();
+  if (!creative) return { error: "Pick one of your creatives." };
+  if (creative.status === "rejected") return { error: "That creative was rejected. Upload another one." };
+
+  const plan = { creativeId: creative.id, mode: "audience", placementIds: [], startsOn: range.startsOn ?? "", endsOn: range.endsOn ?? "", launched: true };
+  let id = "";
+  if (campaignId) {
+    const campaign = await ownCampaign(me, campaignId);
+    if (!campaign) return { error: "Unknown campaign." };
+    const fields = { targeting: audience.value, plan };
+    const name = cleanCampaignName(campaignName);
+    if (name) fields.name = name;
+    const { error } = await service.from("campaigns").update(fields).eq("id", campaign.id);
+    if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+    if (error) return { error: "Could not start the campaign. Try again." };
+    id = campaign.id;
+  } else {
+    const name = cleanCampaignName(campaignName);
+    if (!name) return { error: "Name the campaign." };
+    const { data, error } = await service.from("campaigns").insert({ advertiser_id: user.id, name, targeting: audience.value, plan }).select("id").single();
+    if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+    if (bookingsMissing(error)) return { error: MISSING };
+    if (error || !data) return { error: "Could not create the campaign." };
+    id = data.id;
+  }
+
+  const result = await syncCampaign(service, id).catch(() => ({ skipped: "error" }));
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, id, booked: result.booked ?? 0, waiting: result.waiting ?? 0 };
 }
 
 /** Withdraw a booking; a live one stops showing at once. Only its advertiser can. */
@@ -342,6 +390,8 @@ export async function setCampaignAudience({ campaignId, targeting }) {
   if (isSchemaOutdated(error)) return { error: RULES_MISSING };
   if (error) return { error: "Could not save. Try again." };
 
+  // A campaign started by audience books the games that now fit.
+  await syncCampaign(me.service, campaign.id).catch(() => null);
   revalidatePath("/dashboard", "layout");
   return { ok: true, targeting: parsed.value };
 }

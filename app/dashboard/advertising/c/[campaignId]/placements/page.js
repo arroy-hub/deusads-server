@@ -47,15 +47,12 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
         <div>
           <h2>{report.audience ? "Chosen by audience" : "Every game"}</h2>
           <p>
-            {report.audience ? `${report.audience}. ` : ""}Placements opened later are not added automatically.
+            {report.audience ? `${report.audience}. ` : ""}New games that fit are added automatically.
           </p>
         </div>
         <div className="cp-aud-actions">
           <Link href={`/dashboard/advertising/c/${campaignId}/settings`} className="button button-quiet">
             Change audience
-          </Link>
-          <Link href={`/dashboard/advertising/new?campaign=${campaignId}`} className="button">
-            Add placements
           </Link>
         </div>
       </section>

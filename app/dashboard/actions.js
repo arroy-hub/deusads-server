@@ -2,6 +2,8 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { syncAllCampaigns } from "../../lib/campaign-sync";
 import { userClient } from "../../lib/supabase-server";
 import { isSchemaOutdated, serviceClient } from "../../lib/api";
 import { isCategory } from "../../lib/categories";
@@ -14,6 +16,17 @@ import { validateProfile } from "../../lib/targeting";
 // security boundary: a forged value is rejected by the database.
 
 const MAX_BYTES = 8 * 1024 * 1024;
+
+/** After a game changes what it is or opens a placement, campaigns started by audience pick up what now fits. Runs after the response. */
+function resyncCampaigns() {
+  after(async () => {
+    try {
+      await syncAllCampaigns(serviceClient());
+    } catch {
+      // the daily run catches up
+    }
+  });
+}
 
 /** One client and one auth round-trip per action. */
 async function session() {
@@ -74,6 +87,7 @@ export async function saveGame({ gameId, name, genres, platforms, languages }) {
   if (isSchemaOutdated(error)) return { error: NEEDS_TARGETING_MIGRATION };
   if (error || !data) return { error: "Could not save. Try again." };
 
+  if (withProfile) resyncCampaigns();
   revalidatePath("/dashboard", "layout");
   return { ok: true, name: clean, value: withProfile ? described.value : null };
 }
@@ -461,6 +475,7 @@ export async function setPlacementOpen({ placementId, open }) {
   }
   if (!data?.length) return { error: "Placement not found." };
 
+  if (open) resyncCampaigns();
   revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
