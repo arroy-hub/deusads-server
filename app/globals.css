@@ -6115,3 +6115,22 @@ th.num .sort-button {
 .org-drag-ghost span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .org-drag-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--signal); color: #fff; font-size: 0.75rem; }
 .org-undo { margin-left: 0.75rem; }
+
+/* Placement name just typed: dimmed until the server's list carries it */
+.org-name-btn.is-pending { opacity: 0.5; cursor: progress; }
+/* Dropping a card between two others: a bar on the side it will land */
+.org-cell { position: relative; }
+.org-cell.is-drop-before::before,
+.org-cell.is-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--ink);
+  z-index: 3;
+  pointer-events: none;
+}
+.org-cell.is-drop-before::before { left: -9px; }
+.org-cell.is-drop-after::after { right: -9px; }

@@ -275,7 +275,7 @@ async function connectionOf(db, gameId, lastSignalAt) {
  * Null when the database does not have the migration yet, or a read fails: the tab then falls back to the plain list.
  */
 async function loadOrganization(db, gameId, rows) {
-  const [meta, folders, off, places, placeViews, placementViews] = await Promise.all([
+  const [meta, folders, off, places, placeViews, placementViews, order] = await Promise.all([
     db
       .from("placements")
       .select("id, shared, enabled, folder_id, tags, place_type, place_type_suggested, first_seen_at")
@@ -286,6 +286,8 @@ async function loadOrganization(db, gameId, rows) {
     db.from("placement_places").select("id, placement_id, scene, path").eq("game_id", gameId).is("removed_at", null),
     db.rpc("game_place_stats", { p_game_id: gameId, p_days: ANALYTICS_DAYS }),
     db.rpc("game_placement_stats", { p_game_id: gameId, p_days: ANALYTICS_DAYS }),
+    // The developer's own order (migration 0025). Kept apart: without the migration only this read fails, not the tab.
+    db.from("placements").select("id, sort_index").eq("game_id", gameId).is("removed_at", null),
   ]);
 
   const failure = meta.error ?? folders.error ?? off.error ?? places.error;
@@ -295,6 +297,7 @@ async function loadOrganization(db, gameId, rows) {
   }
 
   const metaOf = new Map((meta.data ?? []).map((row) => [row.id, row]));
+  const orderOf = new Map((order.error ? [] : order.data ?? []).map((row) => [row.id, row.sort_index]));
   const viewsOfPlace = new Map((placeViews.error ? [] : placeViews.data ?? []).map((row) => [row.place_id, Number(row.impressions)]));
   const viewsOfPlacement = new Map((placementViews.error ? [] : placementViews.data ?? []).map((row) => [row.placement_id, Number(row.impressions)]));
   const placesOf = new Map();
@@ -322,6 +325,7 @@ async function loadOrganization(db, gameId, rows) {
       suggestedType: m.place_type_suggested ?? null,
       format: known ? formatLabel(known) : null,
       firstSeenAt: m.first_seen_at ?? null,
+      sortIndex: orderOf.get(row.id) ?? null,
       places: where.sort((a, b) => `${a.scene}/${a.path}`.localeCompare(`${b.scene}/${b.path}`)),
       hasAds: (row.assignments ?? []).some((assignment) => assignment.active),
       views: viewsOfPlacement.get(row.id) ?? 0,

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } from "../../../../lib/placement-view";
 import { addressOf, locateUrl } from "../../../../lib/unity-link";
-import { changeTags, renamePlacement, setPlaceType } from "../../placement-actions";
+import { changeTags, setPlaceType } from "../../placement-actions";
 
 // What the Placements tab adds to a placement's own card (the picture editor): the handle (grip, or a tick
 // box while editing), the name you rename by clicking it, the "⋮" menu, the on/off switch, and the row of chips
@@ -111,7 +111,6 @@ export function CardStatus({ placementId }) {
 /** The name at the top of the card. Click it and the field opens right there; Enter or a click elsewhere saves, Escape cancels. */
 export function CardName({ placementId, label }) {
   const org = useOrg(placementId);
-  const { message, setMessage, run, pending } = useAction();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(label);
   const finished = useRef(false);
@@ -125,21 +124,16 @@ export function CardName({ placementId, label }) {
   const { item } = org;
   function open() {
     finished.current = false;
-    setMessage(null);
     setName(item.label);
     setEditing(true);
   }
   function save() {
-    if (finished.current || pending) return;
-    const next = name.trim();
-    if (next === "" || next === item.label) {
-      finished.current = true;
-      return setEditing(false);
-    }
+    if (finished.current) return;
     finished.current = true;
-    run(renamePlacement({ placementId: item.id, label: next }), () => setEditing(false), () => {
-      finished.current = false;
-    });
+    const next = name.trim();
+    setEditing(false);
+    // The new name shows at once, dimmed, until the list from the server carries it.
+    if (next !== "" && next !== item.label) org.renameItem(item.id, next);
   }
   return (
     <div className="org-name">
@@ -149,7 +143,6 @@ export function CardName({ placementId, label }) {
           value={name}
           maxLength={120}
           autoFocus
-          disabled={pending}
           aria-label="Placement name"
           data-nodrag="1"
           onFocus={(event) => event.target.select()}
@@ -159,21 +152,22 @@ export function CardName({ placementId, label }) {
             if (event.key === "Enter") {
               event.preventDefault();
               save();
-            } else if (event.key === "Escape" && !pending) {
+            } else if (event.key === "Escape") {
               finished.current = true;
               setEditing(false);
             }
           }}
         />
       ) : (
-        <button type="button" className="org-name-btn" title="Click to rename" onClick={open}>
+        <button
+          type="button"
+          className={`org-name-btn${item.labelPending ? " is-pending" : ""}`}
+          title={item.labelPending ? "Saving the new name…" : "Click to rename"}
+          aria-busy={item.labelPending ? true : undefined}
+          onClick={open}
+        >
           {item.label}
         </button>
-      )}
-      {message?.kind === "error" && (
-        <span role="alert" className="error org-name-error">
-          {message.text}
-        </span>
       )}
     </div>
   );

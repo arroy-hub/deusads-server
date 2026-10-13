@@ -104,7 +104,7 @@ assert.equal(f.hasUndetermined, true);
 // --- saved views
 assert.equal(cleanView({ name: "  " }), null);
 assert.deepEqual(cleanView({ name: "Empty ones", groupBy: "nonsense", sortBy: "x", filters: { status: "empty", bogus: "y", q: 5 } }), {
-  name: "Empty ones", groupBy: "folder", sortBy: "name", filters: { status: "empty" },
+  name: "Empty ones", groupBy: "folder", sortBy: "manual", filters: { status: "empty" },
 });
 let views = withView([], { name: "A", groupBy: "tag" });
 views = withView(views, { name: "B" });
@@ -114,4 +114,9 @@ let many = [];
 for (let i = 0; i < 30; i += 1) many = withView(many, { name: `v${i}` });
 assert.equal(many.length, 20, "at most 20 saved views");
 
+{
+  const a = { id: "a", label: "Alpha", sortIndex: 2 }, b = { id: "b", label: "Beta", sortIndex: 0 }, c = { id: "c", label: "Cargo" }, d = { id: "d", label: "Delta", sortIndex: 1 }, e = { id: "e", label: "Apex" };
+  assert.deepEqual(sortItems([a, b, c, d, e], "manual").map((x) => x.id), ["b", "d", "a", "e", "c"], "own order first, unordered ones after by name");
+  assert.deepEqual(sortItems([c, e], "manual").map((x) => x.id), ["e", "c"], "without any order: by name");
+}
 console.log("placement view: all checks passed");

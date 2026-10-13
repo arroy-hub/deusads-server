@@ -20,6 +20,8 @@ import {
   createFolder,
   deleteFolder,
   movePlacements,
+  renamePlacement,
+  reorderPlacements,
   renameFolder,
   setFolderEnabled,
   setPlaceType,
@@ -48,18 +50,30 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const [pending, startTransition] = useTransition();
   // What the person just did, shown at once while the server catches up. Dropped when fresh data arrives or an action fails.
   const [shownNow, setShownNow] = useState(emptyShownNow);
+  // Names just typed: shown (dimmed) until the server's own list carries them, so the old name never flashes back.
+  const [renames, setRenames] = useState(() => new Map());
+  const serverLabels = useRef(new Map());
+  serverLabels.current = new Map(serverItems.map((item) => [item.id, item.label]));
   useEffect(() => {
     setShownNow(emptyShownNow());
   }, [serverItems, serverFolders, serverOffScenes]);
+  useEffect(() => {
+    setRenames((current) => {
+      const left = [...current].filter(([id, label]) => serverLabels.current.get(id) !== label);
+      return left.length === current.size ? current : new Map(left);
+    });
+  }, [serverItems]);
   const items = useMemo(() => {
-    if (!shownNow.enabled.size && !shownNow.folderOf.size) return serverItems;
+    if (!shownNow.enabled.size && !shownNow.folderOf.size && !shownNow.order.size && !renames.size) return serverItems;
     return serverItems.map((item) => {
       let next = item;
+      if (renames.has(item.id)) next = { ...next, label: renames.get(item.id), labelPending: true };
+      if (shownNow.order.has(item.id)) next = { ...next, sortIndex: shownNow.order.get(item.id) };
       if (shownNow.enabled.has(item.id)) next = { ...next, enabled: shownNow.enabled.get(item.id) };
       if (shownNow.folderOf.has(item.id)) next = { ...next, folderId: shownNow.folderOf.get(item.id) };
       return next;
     });
-  }, [serverItems, shownNow.enabled, shownNow.folderOf]);
+  }, [serverItems, shownNow.enabled, shownNow.folderOf, shownNow.order, renames]);
   const folders = useMemo(() => {
     const base = shownNow.folderEnabled.size ? serverFolders.map((folder) => (shownNow.folderEnabled.has(folder.id) ? { ...folder, enabled: shownNow.folderEnabled.get(folder.id) } : folder)) : serverFolders;
     return shownNow.folders.length ? [...base, ...shownNow.folders.filter((added) => !base.some((folder) => folder.name === added.name))].sort((a, b) => a.name.localeCompare(b.name)) : base;
@@ -76,7 +90,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState({});
   const [groupBy, setGroupBy] = useState("folder");
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("manual");
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [groupOpen, setGroupOpen] = useState(() => new Map()); // key -> true | false, once the person chose
@@ -213,14 +227,61 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     for (const [folderId, ids] of byFolder) run(movePlacements({ gameId, ids, folderId }), undefined, forget);
   }
 
+  // A new placement name: shown at once but dimmed, until the server's list really carries it.
+  function renameItem(id, label) {
+    setRenames((current) => new Map(current).set(id, label));
+    const drop = () => setRenames((current) => (current.has(id) ? new Map([...current].filter(([key]) => key !== id)) : current));
+    run(renamePlacement({ placementId: id, label }), () => {
+      // the fresh list normally arrives with the answer; if it did not carry the name, say so instead of showing it for ever
+      setTimeout(() => {
+        if (serverLabels.current.get(id) !== label) {
+          drop();
+          setNotice({ kind: "error", text: "The new name was not applied. Try again." });
+        }
+      }, 4000);
+    }, drop);
+  }
+
+  // Dropping on a card puts the dragged ones before or after it; the whole list of that folder is saved in that order.
+  function dropItems(ids, folderId, slot) {
+    const group = groups.find((entry) => (folderId === null ? entry.key === "none" : entry.folderId === folderId));
+    if (!slot || !group || ids.includes(slot.cardId)) return moveItems(ids, folderId);
+    const current = group.items.map((item) => item.id);
+    const rest = current.filter((id) => !ids.includes(id));
+    const at = rest.indexOf(slot.cardId);
+    if (at < 0) return moveItems(ids, folderId);
+    const list = [...rest.slice(0, at + (slot.before ? 0 : 1)), ...ids, ...rest.slice(at + (slot.before ? 0 : 1))];
+    const changedFolder = ids.map((id) => itemById.get(id)).filter((item) => item && (item.folderId ?? null) !== folderId);
+    if (changedFolder.length === 0 && list.every((id, index) => id === current[index])) return;
+    const before = changedFolder.map((item) => [item.id, item.folderId ?? null]);
+    setSortBy("manual");
+    setShownNow((now) => ({
+      ...now,
+      folderOf: new Map([...now.folderOf, ...changedFolder.map((item) => [item.id, folderId])]),
+      order: new Map([...now.order, ...list.map((id, index) => [id, index])]),
+    }));
+    const place = folderId ? folders.find((folder) => folder.id === folderId) : null;
+    const what = changedFolder.length === 1 ? `“${changedFolder[0].label}”` : `${changedFolder.length} placements`;
+    const text = place ? `${what} moved to “${place.name}”` : `${what} taken out of the folder`;
+    run(reorderPlacements({ gameId, folderId, ids: list }), () => changedFolder.length > 0 && setNotice({ kind: "note", text, undo: () => undoMove(before) }), forget);
+  }
+
   // ---- dragging a card by its top row, the way Explorer drags files: onto a folder, or out of all folders
   const latest = useRef(null);
-  latest.current = { groupBy, editing, selected, itemById, groups, moveItems, isOpen, setGroupOpen, keyOf };
+  latest.current = { groupBy, editing, selected, itemById, groups, moveItems, dropItems, isOpen, setGroupOpen, keyOf };
   useEffect(() => {
     let candidate = null;
     let springKey = null;
     let springTimer = 0;
     const groupAt = (x, y) => document.elementFromPoint(x, y)?.closest?.("[data-group]")?.getAttribute("data-group") ?? null;
+    // the card under the pointer, and whether the pointer is in its left half (drop before it) or right half (after it)
+    const slotAt = (x, y, ids) => {
+      const cell = document.elementFromPoint(x, y)?.closest?.("[data-card]");
+      const cardId = cell?.getAttribute("data-card");
+      if (!cell || ids.includes(cardId)) return null;
+      const box = cell.getBoundingClientRect();
+      return { cardId, before: x < box.left + box.width / 2 };
+    };
     function spring(group) {
       const live = latest.current;
       const target = group && group !== "none" ? live.groups.find((entry) => entry.kind === "folder" && entry.folderId === group) : null;
@@ -244,9 +305,10 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       }
       const over = groupAt(event.clientX, event.clientY);
       spring(over);
+      candidate.slot = slotAt(event.clientX, event.clientY, candidate.ids);
       if (event.clientY < 90) window.scrollBy(0, -16);
       else if (event.clientY > window.innerHeight - 90) window.scrollBy(0, 16);
-      setDrag({ ids: candidate.ids, label: candidate.label, x: event.clientX, y: event.clientY, over });
+      setDrag({ ids: candidate.ids, label: candidate.label, x: event.clientX, y: event.clientY, over, slot: candidate.slot });
     }
     function finish(event, drop) {
       window.removeEventListener("pointermove", move);
@@ -266,7 +328,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       if (!drop) return;
       const target = groupAt(event.clientX, event.clientY);
       if (target === null) return;
-      latest.current.moveItems(done.ids, target === "none" ? null : target);
+      latest.current.dropItems(done.ids, target === "none" ? null : target, done.slot ?? null);
     }
     const up = (event) => finish(event, true);
     const cancel = (event) => finish(event, false);
@@ -294,6 +356,18 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     };
   }, []);
   const dragIds = useMemo(() => new Set(drag?.ids ?? []), [drag]);
+
+  // A press anywhere outside the new-folder panel closes it (not while the folder is being saved).
+  const newFolderOpen = newFolder !== null;
+  useEffect(() => {
+    if (!newFolderOpen || pending) return undefined;
+    function outside(event) {
+      if (event.target.closest?.(".org-newfolder")) return;
+      setNewFolder(null);
+    }
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [newFolderOpen, pending]);
 
   const chosen = [...selected];
   const toggleSelected = (id) =>
@@ -423,7 +497,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   }
 
   const orgValue = useMemo(
-    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy, pop, setPop, togglePop, say, moveItems, dragIds }),
+    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy, pop, setPop, togglePop, say, moveItems, renameItem, dragIds }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [gameId, itemById, ctx, editing, selected, busy, pop, dragIds]
   );
@@ -699,6 +773,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               ctx={ctx}
               onJump={jumpHome}
               dragIds={dragIds}
+              slot={drag?.slot ?? null}
             />
           );
 
@@ -857,7 +932,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
 }
 
 /** The cards of one group; a placement shown in an earlier group is only pointed to here. */
-function Cards({ group, limit, onMore, home, onJump, dragIds }) {
+function Cards({ group, limit, onMore, home, onJump, dragIds, slot }) {
   const list = group.items.slice(0, limit);
   const rest = group.items.length - list.length;
   return (
@@ -877,7 +952,7 @@ function Cards({ group, limit, onMore, home, onJump, dragIds }) {
             );
           }
           return (
-            <div className={`org-cell${dragIds.has(item.id) ? " is-dragging" : ""}`} id={`plc-${item.id}`} data-card={item.id} key={item.id}>
+            <div className={`org-cell${dragIds.has(item.id) ? " is-dragging" : ""}${slot?.cardId === item.id ? (slot.before ? " is-drop-before" : " is-drop-after") : ""}`} id={`plc-${item.id}`} data-card={item.id} key={item.id}>
               {item.card}
             </div>
           );
@@ -898,7 +973,7 @@ function Cards({ group, limit, onMore, home, onJump, dragIds }) {
 }
 
 function emptyShownNow() {
-  return { enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [], folderOf: new Map() };
+  return { enabled: new Map(), folderEnabled: new Map(), scenes: new Map(), folders: [], folderOf: new Map(), order: new Map() };
 }
 
 function rectOf(node) {
