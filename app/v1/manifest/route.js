@@ -15,6 +15,7 @@ import { choosePictures } from "../../../lib/manifest-pick";
 import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
 import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
+import { campaignMayServe } from "../../../lib/campaign-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -122,8 +123,12 @@ export const GET = guarded(async function GET(request) {
       controls
     );
 
+  // What the campaigns themselves decide (migration 0026): paused, their own audience, games they skip.
+  const campaignRules = await loadCampaignRules(db, game, servable);
+  const campaignAllows = (item) => item.source !== "booking" || !campaignRules || campaignMayServe(campaignRules.ruleOf.get(item.assignmentId), game.id, campaignRules.profile);
+
   const placements = rotate(
-    servable.filter((item) => !suspended.has(item.advertiserId) && !disabled.has(item.placementId) && allowed(item))
+    servable.filter((item) => !suspended.has(item.advertiserId) && !disabled.has(item.placementId) && allowed(item) && campaignAllows(item))
   ).map(({ row }) => ({
     id: row.placements.external_id,
     creativeId: row.creatives.id,
@@ -177,6 +182,48 @@ async function loadControls(db, game, items) {
     blocked: blockedCategories(categoryRows),
     campaignOf: new Map((bookings ?? []).map((booking) => [booking.assignment_id, booking.campaign_id])),
   };
+}
+
+/**
+ * The rules of the campaigns behind the booked items (migration 0026): { ruleOf: Map(assignmentId -> rule), profile }.
+ * Null when there is nothing to check or the table is missing; a read failure must not hide ads, and the manifest
+ * is asked again at the next start.
+ */
+async function loadCampaignRules(db, game, items) {
+  const assignmentIds = [...new Set(items.filter((item) => item.source === "booking").map((item) => item.assignmentId).filter(Boolean))];
+  if (!assignmentIds.length) return null;
+
+  const { data: bookings, error: bookingsError } = await db.from("bookings").select("assignment_id, campaign_id").in("assignment_id", assignmentIds);
+  if (bookingsError) {
+    logDbError("manifest campaign bookings", bookingsError);
+    return null;
+  }
+  const campaignIds = [...new Set((bookings ?? []).map((booking) => booking.campaign_id))];
+  if (!campaignIds.length) return null;
+
+  const { data: campaigns, error: campaignsError } = await db.from("campaigns").select("id, targeting, paused_at").in("id", campaignIds);
+  if (campaignsError) {
+    if (isSchemaOutdated(campaignsError)) warnSchemaOutdated("GET /v1/manifest", "0026_campaign_rules.sql");
+    else logDbError("manifest campaigns", campaignsError);
+    return null;
+  }
+  const { data: skipped, error: skippedError } = await db.from("campaign_excluded_games").select("campaign_id").eq("game_id", game.id).in("campaign_id", campaignIds);
+  if (skippedError) {
+    logDbError("manifest skipped games", skippedError);
+    return null;
+  }
+
+  const skippedBy = new Set((skipped ?? []).map((row) => row.campaign_id));
+  const ruleOfCampaign = new Map(
+    (campaigns ?? []).map((campaign) => [
+      campaign.id,
+      { pausedAt: campaign.paused_at, targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set() },
+    ])
+  );
+  const ruleOf = new Map((bookings ?? []).map((booking) => [booking.assignment_id, ruleOfCampaign.get(booking.campaign_id)]));
+  // The game's description is read only when some campaign has an audience.
+  const profile = [...ruleOfCampaign.values()].some((rule) => rule.targeting != null) ? await loadProfile(db, game) : null;
+  return { ruleOf, profile };
 }
 
 /**

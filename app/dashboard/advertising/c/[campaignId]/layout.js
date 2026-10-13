@@ -7,6 +7,7 @@ import { categoryLabel } from "../../../../../lib/categories";
 import { StatusPill } from "../../../advertiser-overview";
 import CategoryIcon from "../../category-icon";
 import CampaignTabs from "./campaign-tabs";
+import { PauseButton } from "../../campaign-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,12 @@ export default async function CampaignLayout({ children, params }) {
           </div>
           {details.length > 0 && <p className="muted-line" style={{ marginTop: 6 }}>{details.join(" · ")}</p>}
         </div>
-        <Link href={`/dashboard/advertising/new?campaign=${head.id}`} className="button">
-          Add placements
-        </Link>
+        <div className="row">
+          {head.rules && head.bookings.some((booking) => booking.status === "approved" || booking.status === "pending") && <PauseButton id={head.id} paused={head.paused} />}
+          <Link href={`/dashboard/advertising/new?campaign=${head.id}`} className="button">
+            {head.bookings.length ? "Add placements" : "Continue setup"}
+          </Link>
+        </div>
       </div>
       <CampaignTabs id={head.id} creatives={head.creativeCount} />
       {children}

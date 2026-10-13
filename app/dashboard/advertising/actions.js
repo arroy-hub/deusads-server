@@ -13,9 +13,11 @@ import {
 import { describeBooking } from "../../../lib/bookings-data";
 import { notify, notifyMany } from "../../../lib/notify";
 import { canAdvertise } from "../../../lib/admin-rules";
+import { parseTargeting } from "../../../lib/targeting";
 
 const MISSING = "Run migration 0009 in the Supabase SQL editor first.";
 const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
+const RULES_MISSING = "Run migration 0026 in the Supabase SQL editor first.";
 
 /**
  * Book a creative on one or more placements. Bookings are approved automatically by
@@ -25,7 +27,7 @@ const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
  * in review waits and starts by itself when the creative is approved. Advertisers only;
  * every id from the browser is re-checked.
  */
-export async function createBooking({ campaignId, campaignName, creativeId, placementIds, startsOn, endsOn }) {
+export async function createBooking({ campaignId, campaignName, creativeId, placementIds, startsOn, endsOn, targeting }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
   if (!canAdvertise(me.role)) return { error: "Not allowed." };
@@ -73,6 +75,10 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
   const fresh = placements.filter((placement) => !requested.has(placement.id));
   if (fresh.length === 0) return { error: "This creative is already booked on all of those placements." };
 
+  // The audience chosen for the campaign (migration 0026); empty means every game. Without the migration it is not stored.
+  const audience = targeting === undefined ? undefined : parseTargeting(targeting);
+  if (audience?.error) return { error: audience.error };
+
   let campaign;
   if (campaignId) {
     const { data } = await service
@@ -83,14 +89,22 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
       .maybeSingle();
     campaign = data;
     if (!campaign) return { error: "Unknown campaign." };
+    if (audience) {
+      const stored = await service.from("campaigns").update({ targeting: audience.value }).eq("id", campaign.id);
+      if (stored.error && !isSchemaOutdated(stored.error)) return { error: "Could not save the audience. Try again." };
+    }
   } else {
     const name = cleanCampaignName(campaignName);
     if (!name) return { error: "Name the campaign." };
-    const { data, error } = await service
+    let { data, error } = await service
       .from("campaigns")
-      .insert({ advertiser_id: user.id, name })
+      .insert({ advertiser_id: user.id, name, ...(audience ? { targeting: audience.value } : {}) })
       .select("id")
       .single();
+    // Before migration 0026 a campaign has no audience of its own: it is created without one.
+    if (audience && isSchemaOutdated(error)) {
+      ({ data, error } = await service.from("campaigns").insert({ advertiser_id: user.id, name }).select("id").single());
+    }
     if (bookingsMissing(error)) return { error: MISSING };
     if (error || !data) return { error: "Could not create the campaign." };
     campaign = data;
@@ -130,6 +144,9 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     } else if (status === "rejected" || status === "cancelled") outcome.rejected += 1;
     else outcome.waiting += 1;
   }
+
+  // A saved draft has become a running campaign: its plan is no longer needed (migration 0026; harmless without it).
+  await service.from("campaigns").update({ plan: null }).eq("id", campaign.id);
 
   // Each developer hears once, however many of their placements were booked.
   await notifyMany(
@@ -279,4 +296,151 @@ export async function setCampaignDates({ campaignId, startsOn, endsOn }) {
 
   revalidatePath("/dashboard/advertising");
   return { ok: true };
+}
+
+/** One of the caller's own campaigns, or null. */
+async function ownCampaign(me, campaignId) {
+  const { data } = await me.service
+    .from("campaigns")
+    .select("id, name")
+    .eq("id", String(campaignId ?? ""))
+    .eq("advertiser_id", me.user.id)
+    .maybeSingle();
+  return data ?? null;
+}
+
+/** Pause a whole campaign (or let it run again): it stops being served everywhere, players see the change at their next launch. */
+export async function pauseCampaign({ campaignId, paused }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const campaign = await ownCampaign(me, campaignId);
+  if (!campaign) return { error: "Unknown campaign." };
+
+  const { error } = await me.service
+    .from("campaigns")
+    .update({ paused_at: paused ? new Date().toISOString() : null })
+    .eq("id", campaign.id);
+  if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+  if (error) return { error: "Could not change the campaign. Try again." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, paused: Boolean(paused) };
+}
+
+/** Set the audience of a campaign: genres, platforms, languages and genres to skip. Nothing picked means every game. */
+export async function setCampaignAudience({ campaignId, targeting }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const campaign = await ownCampaign(me, campaignId);
+  if (!campaign) return { error: "Unknown campaign." };
+
+  const parsed = parseTargeting(targeting);
+  if (parsed.error) return { error: parsed.error };
+  const { error } = await me.service.from("campaigns").update({ targeting: parsed.value }).eq("id", campaign.id);
+  if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+  if (error) return { error: "Could not save. Try again." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, targeting: parsed.value };
+}
+
+/** Stop a campaign running in one game, or let it run there again. Only games the campaign has placements in. */
+export async function excludeGame({ campaignId, gameId, excluded }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const campaign = await ownCampaign(me, campaignId);
+  if (!campaign) return { error: "Unknown campaign." };
+
+  const game = String(gameId ?? "");
+  const { data: placements } = await me.service.from("placements").select("id").eq("game_id", game);
+  const { count } = placements?.length
+    ? await me.service.from("bookings").select("id", { count: "exact", head: true }).eq("campaign_id", campaign.id).in("placement_id", placements.map((row) => row.id))
+    : { count: 0 };
+  if (!count) return { error: "This campaign has no placements in that game." };
+
+  const result = excluded
+    ? await me.service.from("campaign_excluded_games").upsert({ campaign_id: campaign.id, game_id: game })
+    : await me.service.from("campaign_excluded_games").delete().eq("campaign_id", campaign.id).eq("game_id", game);
+  if (result.error) return { error: isSchemaOutdated(result.error) || result.error.code === "42P01" ? RULES_MISSING : "Could not change the campaign. Try again." };
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+/** What a draft remembers: the creative, how placements were chosen, the filters and the placements picked by hand. */
+function cleanPlan(plan, ownCreativeIds) {
+  const creativeId = ownCreativeIds.has(String(plan?.creativeId ?? "")) ? String(plan.creativeId) : null;
+  const mode = plan?.mode === "manual" ? "manual" : "audience";
+  return { creativeId, mode, placementIds: cleanPlacementIds(plan?.placementIds ?? []), startsOn: "", endsOn: "" };
+}
+
+/**
+ * Save a campaign before it is started: its name, audience and the choices made so far. It shows in the list as a Draft
+ * and opens in the wizard where it was left. Creates the campaign, or updates the draft when `campaignId` is given.
+ */
+export async function saveDraft({ campaignId, campaignName, targeting, plan }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+
+  const name = cleanCampaignName(campaignName);
+  if (!name) return { error: "Name the campaign." };
+  const audience = parseTargeting(targeting ?? null);
+  if (audience.error) return { error: audience.error };
+
+  const { data: mine } = await me.service.from("creatives").select("id").eq("owner_id", me.user.id);
+  const fields = { name, targeting: audience.value, plan: cleanPlan(plan, new Set((mine ?? []).map((row) => row.id))) };
+
+  if (campaignId) {
+    const campaign = await ownCampaign(me, campaignId);
+    if (!campaign) return { error: "Unknown campaign." };
+    const { error } = await me.service.from("campaigns").update(fields).eq("id", campaign.id);
+    if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+    if (error) return { error: "Could not save the draft. Try again." };
+    revalidatePath("/dashboard/advertising");
+    return { ok: true, campaignId: campaign.id };
+  }
+
+  const { data, error } = await me.service.from("campaigns").insert({ advertiser_id: me.user.id, ...fields }).select("id").single();
+  if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+  if (bookingsMissing(error)) return { error: MISSING };
+  if (error || !data) return { error: "Could not save the draft. Try again." };
+  revalidatePath("/dashboard/advertising");
+  return { ok: true, campaignId: data.id };
+}
+
+/**
+ * Copy a campaign into a new draft: the same audience, creative and placements, no dates. Nothing starts until the
+ * copy is finished in the wizard.
+ */
+export async function duplicateCampaign({ campaignId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const campaign = await ownCampaign(me, campaignId);
+  if (!campaign) return { error: "Unknown campaign." };
+
+  const { data: bookings } = await me.service
+    .from("bookings")
+    .select("creative_id, placement_id, status, created_at")
+    .eq("campaign_id", campaign.id)
+    .order("created_at", { ascending: false });
+  const rows = bookings ?? [];
+  const usable = rows.filter((row) => row.status === "approved" || row.status === "pending" || row.status === "ended");
+  const source = usable.length ? usable : rows;
+  const creativeId = source[0]?.creative_id ?? null;
+  const placementIds = [...new Set(source.filter((row) => row.creative_id === creativeId).map((row) => row.placement_id))];
+
+  const copy = { advertiser_id: me.user.id, name: cleanCampaignName(`${campaign.name} (copy)`) || "Copy", plan: { creativeId, mode: "manual", placementIds, startsOn: "", endsOn: "" } };
+  const { data: original } = await me.service.from("campaigns").select("targeting").eq("id", campaign.id).maybeSingle();
+  if (original?.targeting) copy.targeting = original.targeting;
+
+  const { data, error } = await me.service.from("campaigns").insert(copy).select("id").single();
+  if (isSchemaOutdated(error)) return { error: RULES_MISSING };
+  if (error || !data) return { error: "Could not copy the campaign. Try again." };
+  revalidatePath("/dashboard/advertising");
+  return { ok: true, campaignId: data.id };
 }

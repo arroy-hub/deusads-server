@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createBooking } from "../actions";
+import { createBooking, saveDraft } from "../actions";
 import UploadForm from "../../creatives/upload-form";
 import MultiPick from "../../multi-pick";
 import { formatLabel, formatOf, pickImage } from "../../../../lib/formats";
@@ -20,17 +20,25 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
   // Creatives still in review can be booked: the booking starts when the creative is approved.
   const usable = creatives.filter((item) => item.status !== "rejected");
 
-  const [creativeId, setCreativeId] = useState(usable[0]?.id ?? "");
+  // A draft, or a copy of a campaign, opens where it was left: its creative, choices and audience come back.
+  const start = campaigns.find((item) => item.id === initialCampaignId);
+  const plan = start?.plan ?? null;
+  const planCreative = plan?.creativeId && usable.some((item) => item.id === plan.creativeId) ? plan.creativeId : "";
+  const startFilters = { genres: start?.targeting?.genres ?? [], platforms: start?.targeting?.platforms ?? [], languages: start?.targeting?.languages ?? [] };
+  const hasStartFilters = PROFILE_KEYS.some((key) => startFilters[key].length > 0);
+  const startStep = !planCreative ? 1 : plan?.mode === "manual" ? ((plan.placementIds ?? []).length > 0 ? 3 : 2) : hasStartFilters ? 3 : 2;
+
+  const [creativeId, setCreativeId] = useState(planCreative || usable[0]?.id || "");
   const [justAdded, setJustAdded] = useState("");
   const [campaignId, setCampaignId] = useState(initialCampaignId); // "" = a new campaign
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(startStep);
   const [adding, setAdding] = useState(usable.length === 0); // the upload form inside step 1
-  const [mode, setMode] = useState("audience"); // audience | manual
+  const [mode, setMode] = useState(plan?.mode === "manual" ? "manual" : "audience"); // audience | manual
   const [campaignName, setCampaignName] = useState("");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
-  const [picked, setPicked] = useState(() => new Set());
-  const [filters, setFilters] = useState({ genres: [], platforms: [], languages: [] });
+  const [picked, setPicked] = useState(() => new Set(plan?.placementIds ?? []));
+  const [filters, setFilters] = useState(startFilters);
   const [fitOnly, setFitOnly] = useState(false);
   const chosen = usable.find((item) => item.id === creativeId);
   const today = new Date().toISOString().slice(0, 10);
@@ -64,6 +72,7 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
   const audienceGames = games.filter((game) => (!aimed || fitOf(game).fits) && (!filtering || evaluate(game.profile, filters).fits));
   const audienceIds = audienceGames.flatMap((game) => game.placements.map((placement) => placement.id));
   const bookIds = mode === "audience" ? audienceIds : chosenIds;
+  const reachGames = mode === "audience" ? audienceGames : games.filter((game) => game.placements.some((placement) => chosenIds.includes(placement.id)));
 
   const needsName = !campaignId && !campaignName.trim();
   const canNext = step === 1 ? Boolean(creativeId) && !needsName : step === 2 ? bookIds.length > 0 : true;
@@ -74,6 +83,25 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
     setCreativeId(creative.id);
     setAdding(false);
     router.refresh(); // the server list now holds the new creative
+  }
+
+  const audienceTargeting = filtering ? Object.fromEntries(PROFILE_KEYS.filter((key) => filters[key].length > 0).map((key) => [key, filters[key]])) : null;
+  const campaignNameReady = Boolean(campaignId || campaignName.trim());
+
+  async function draft() {
+    if (busy || !campaignNameReady) return;
+    setBusy(true);
+    setError("");
+    const result = await saveDraft({
+      campaignId: campaignId || undefined,
+      campaignName: campaignId ? campaignLabel : campaignName,
+      targeting: audienceTargeting,
+      plan: { creativeId, mode, placementIds: mode === "manual" ? chosenIds : [] },
+    }).catch(() => ({ error: "Connection lost. Try again." }));
+    setBusy(false);
+    if (result?.error) return setError(result.error);
+    router.push("/dashboard/advertising");
+    router.refresh();
   }
 
   async function submit() {
@@ -87,6 +115,8 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
       placementIds: bookIds,
       startsOn,
       endsOn,
+      // Choosing by audience makes the filters the campaign's audience; choosing by hand leaves it as it was.
+      targeting: mode === "audience" ? audienceTargeting : undefined,
     }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setError(result.error);
@@ -310,6 +340,12 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
             <dd>
               {bookIds.length} {mode === "audience" ? "by audience" : "picked by hand"}
             </dd>
+            <dt>Reach</dt>
+            <dd>
+              {reachGames.length} of {games.length} {games.length === 1 ? "game" : "games"} open to advertisers
+              {games.length > 0 ? ` (${Math.round((reachGames.length / games.length) * 100)}%)` : ""}
+              {mode === "audience" && audienceTargeting ? ` · audience: ${targetingSummary(audienceTargeting)}` : ""}
+            </dd>
             <dt>Dates</dt>
             <dd>{startsOn || endsOn ? `${startsOn || "now"} → ${endsOn || "until stopped"}` : "Starts right away, runs until you stop it"}</dd>
           </dl>
@@ -337,6 +373,9 @@ export default function BookingForm({ creatives, campaigns, games, aimable = fal
             {busy ? "Starting…" : "Start campaign"}
           </button>
         )}
+        <button type="button" className="button button-quiet" onClick={draft} disabled={busy || !campaignNameReady} title={campaignNameReady ? undefined : "Name the campaign first"}>
+          Save as draft
+        </button>
       </div>
     </div>
   );

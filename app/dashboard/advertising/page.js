@@ -16,7 +16,7 @@ export const metadata = { title: "Campaigns" };
 export default async function AdvertisingPage() {
   const me = await getMember();
   if (!me || !canAdvertise(me.role)) notFound();
-  const { campaigns, creativeCount, error } = await loadCampaignList(me.service, me, 30);
+  const { campaigns, creativeCount, error, rules } = await loadCampaignList(me.service, me, 30);
 
   return (
     <>
@@ -59,7 +59,7 @@ export default async function AdvertisingPage() {
               <div className="cl-row" key={campaign.id} role="row">
                 <span className="cl-name">
                   <CategoryIcon category={campaign.category} label={campaign.category ? categoryLabel(campaign.category) : "No category yet"} />
-                  <Link href={`/dashboard/advertising/c/${campaign.id}`}>{campaign.name}</Link>
+                  <Link href={campaign.status.key === "draft" ? `/dashboard/advertising/new?campaign=${campaign.id}` : `/dashboard/advertising/c/${campaign.id}`}>{campaign.name}</Link>
                 </span>
                 <span className="cl-muted">{campaign.dates || "Not set"}</span>
                 <span>
@@ -67,7 +67,7 @@ export default async function AdvertisingPage() {
                 </span>
                 <span className="cl-muted">{campaign.audience || (campaign.bookings ? "Every game" : "Not chosen yet")}</span>
                 <span className="cl-num">{campaign.impressions > 0 ? formatCount(campaign.impressions) : "—"}</span>
-                <RowMenu id={campaign.id} name={campaign.name} />
+                <RowMenu id={campaign.id} name={campaign.name} draft={campaign.status.key === "draft"} paused={campaign.paused} canPause={campaign.canPause} rules={rules} />
               </div>
             ))}
           </div>

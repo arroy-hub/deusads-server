@@ -23,11 +23,17 @@ export default async function NewBookingPage({ searchParams }) {
       .eq("owner_id", user.id)
       .neq("kind", "own")
       .order("created_at", { ascending: false }),
-    service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
+    service.from("campaigns").select("id, name, targeting, plan").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     // The catalog: live placements in other people's games. Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
     catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo: me.role === "admin" }),
   ]);
+
+  // Campaign audience and draft plan come with migration 0026; without it the plain list still loads.
+  let campaignRows = campaignResult.data;
+  if (campaignResult.error && isSchemaOutdated(campaignResult.error)) {
+    ({ data: campaignRows } = await service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }));
+  }
 
   // Migration 0017 adds the safe zone and per-format images; without it the plain columns still load.
   let creativeRows = creatives;
@@ -109,7 +115,7 @@ export default async function NewBookingPage({ searchParams }) {
         Add a creative, choose where it runs, set the dates. Upload a new creative right here or pick one you already
         have; a creative in review can be booked, and the ads start when it is approved.
       </p>
-      {bookingsMissing(campaignResult.error) && (
+      {bookingsMissing(campaignResult.error) && !isSchemaOutdated(campaignResult.error) && (
         <p className="notice">
           Run <code>supabase/migrations/0009_campaigns_and_bookings.sql</code> in the Supabase SQL editor to
           turn bookings on.
@@ -128,10 +134,10 @@ export default async function NewBookingPage({ searchParams }) {
           width: item.width_px ?? null,
           height: item.height_px ?? null,
         }))}
-        campaigns={campaignResult.data ?? []}
+        campaigns={(campaignRows ?? []).map((item) => ({ id: item.id, name: item.name, targeting: item.targeting ?? null, plan: item.plan ?? null }))}
         games={[...games.values()]}
         aimable={profiled}
-        initialCampaignId={(campaignResult.data ?? []).some((item) => item.id === query?.campaign) ? query.campaign : ""}
+        initialCampaignId={(campaignRows ?? []).some((item) => item.id === query?.campaign) ? query.campaign : ""}
       />
     </>
   );

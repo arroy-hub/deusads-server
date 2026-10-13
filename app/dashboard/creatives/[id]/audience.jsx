@@ -22,7 +22,7 @@ const sameAudience = (a, b) => Object.keys(EMPTY).every((key) => [...a[key]].sor
  * advertisers (null when that is not known), so the advertiser sees at once how many games fit.
  * A booking is accepted whatever the audience is; this only decides where the ad appears.
  */
-export default function Audience({ creativeId, initial, catalog, embedded = false, onChange }) {
+export default function Audience({ creativeId, initial, catalog, embedded = false, onChange, onSave, subject = "creative" }) {
   const router = useRouter();
   const start = { ...EMPTY, ...(initial ?? {}) };
   const [audience, setAudience] = useState(start);
@@ -51,7 +51,7 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
     if (busy) return;
     setBusy(true);
     setNote(null);
-    const result = await saveTargeting({ creativeId, targeting: toTargeting(next) }).catch(() => ({ error: "Connection lost. Try again." }));
+    const result = await (onSave ?? saveTargeting)({ creativeId, targeting: toTargeting(next) }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setNote({ tone: "error", text: result.error });
     const stored = { ...EMPTY, ...(result.targeting ?? {}) };
@@ -65,7 +65,7 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
     <section className={embedded ? "settings" : "panel settings"} aria-labelledby="audience-title">
       <h2 id="audience-title">{embedded ? "Who may see it" : "Audience"}</h2>
       <p className="settings-help">
-        Choose which games may show this creative. Pick nothing and it can show in every game. Inside one
+        Choose which games may show this {subject}. Pick nothing and it can show in every game. Inside one
         list any pick is enough; across lists a game has to fit all of them. A game that has not filled in
         a list you use here does not show the creative. Bookings are accepted either way.
       </p>

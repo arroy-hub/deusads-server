@@ -6619,3 +6619,7 @@ th.num .sort-button {
 .cd-tab .tab-count { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-unsaved { color: var(--signal); font-size: 10px; }
 .cd-body > .cd-audience { flex: 1 1 100%; border-top: 0; padding-top: 0; max-width: 46rem; }
+
+.cl-menu-list .cl-menu-action { padding: 4px 6px; border-radius: 7px; font-weight: 600; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; }
+.cl-menu-list .cl-menu-action:hover { background: #f6f4f1; }
+.cl-menu-list .cl-menu-action .button { border: 0; background: none; padding: 4px 4px; width: 100%; text-align: left; font-weight: 600; }

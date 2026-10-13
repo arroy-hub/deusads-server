@@ -153,4 +153,9 @@ assert.equal(soon[0].title, "Spring ends in 3 days");
 assert.equal(daysUntil("2026-10-14", "2026-10-14"), 0);
 assert.equal(daysUntil(null, "2026-10-14"), null);
 
+// a paused campaign says so; an ended or empty one does not
+assert.equal(campaignStatus([{ status: "approved", label: "Live" }], { paused: true }).key, "paused");
+assert.equal(campaignStatus([{ status: "cancelled", label: "" }], { paused: true }).key, "ended");
+assert.equal(campaignStatus([], { paused: true }).key, "draft");
+
 console.log("advertiser-overview tests passed");

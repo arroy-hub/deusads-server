@@ -7,6 +7,7 @@ import { gameRows } from "../../../../../../lib/advertiser-overview";
 import { formatCount } from "../../../../../../lib/analytics";
 import { reportRows } from "../../../../../../lib/reports";
 import { ratioLabel } from "../../../../../../lib/surface-math";
+import ExcludeButton from "../exclude-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign placements" };
@@ -15,6 +16,7 @@ const FILTERS = [
   ["all", "All"],
   ["showing", "Showing"],
   ["held", "Paused or blocked"],
+  ["excluded", "Excluded by me"],
 ];
 
 export default async function CampaignPlacementsPage({ params, searchParams }) {
@@ -32,10 +34,11 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
     if (!placementsOf.has(booking.gameId)) placementsOf.set(booking.gameId, new Map());
     placementsOf.get(booking.gameId).set(booking.placementId, booking);
   }
+  const skipped = new Set(report.excludedGameIds ?? []);
   const isHeld = (game) => game.state === "paused" || game.state === "blocked" || game.state === "category";
   const filter = FILTERS.some(([key]) => key === query?.show) ? query.show : "all";
-  const shown = games.filter((game) => (filter === "showing" ? game.state === "showing" : filter === "held" ? isHeld(game) : true));
-  const count = (key) => games.filter((game) => (key === "showing" ? game.state === "showing" : key === "held" ? isHeld(game) : true)).length;
+  const shown = games.filter((game) => (filter === "showing" ? game.state === "showing" && !skipped.has(game.id) : filter === "held" ? isHeld(game) : filter === "excluded" ? skipped.has(game.id) : true));
+  const count = (key) => games.filter((game) => (key === "showing" ? game.state === "showing" && !skipped.has(game.id) : key === "held" ? isHeld(game) : key === "excluded" ? skipped.has(game.id) : true)).length;
   const placementTotal = [...placementsOf.values()].reduce((sum, map) => sum + map.size, 0);
 
   return (
@@ -74,7 +77,11 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
             <div className="cp-game" key={game.id}>
               <div className="cp-game-top">
                 <div className="cp-game-name">{game.game}</div>
+                {skipped.has(game.id) && <span className="ov-pill ov-paused">Excluded</span>}
                 <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
+                {report.rules && game.bookings.some((booking) => booking.status === "approved" || booking.status === "pending") && (
+                  <ExcludeButton campaignId={campaignId} gameId={game.id} excluded={skipped.has(game.id)} />
+                )}
                 <div className="cp-game-num">{game.impressions > 0 ? formatCount(game.impressions) : "—"}</div>
               </div>
               {game.note && <p className="todo-sub">{game.note}</p>}
