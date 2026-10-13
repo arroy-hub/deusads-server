@@ -6135,3 +6135,5 @@ th.num .sort-button {
 }
 .org-cell.is-drop-before::before { left: -9px; }
 .org-cell.is-drop-after::after { right: -9px; }
+.org-name-spin { margin-left: 0.5rem; }
+.org-name-btn .org-spin { margin-left: 0.5rem; }

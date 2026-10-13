@@ -52,6 +52,9 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const [shownNow, setShownNow] = useState(emptyShownNow);
   // Names just typed: shown (dimmed) until the server's own list carries them, so the old name never flashes back.
   const [renames, setRenames] = useState(() => new Map());
+  const [folderRenames, setFolderRenames] = useState(() => new Map()); // same for folder names
+  const serverFolderNames = useRef(new Map());
+  serverFolderNames.current = new Map(serverFolders.map((folder) => [folder.id, folder.name]));
   const serverLabels = useRef(new Map());
   serverLabels.current = new Map(serverItems.map((item) => [item.id, item.label]));
   useEffect(() => {
@@ -63,6 +66,12 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       return left.length === current.size ? current : new Map(left);
     });
   }, [serverItems]);
+  useEffect(() => {
+    setFolderRenames((current) => {
+      const left = [...current].filter(([id, name]) => serverFolderNames.current.get(id) !== name);
+      return left.length === current.size ? current : new Map(left);
+    });
+  }, [serverFolders]);
   const items = useMemo(() => {
     if (!shownNow.enabled.size && !shownNow.folderOf.size && !shownNow.order.size && !renames.size) return serverItems;
     return serverItems.map((item) => {
@@ -75,9 +84,10 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     });
   }, [serverItems, shownNow.enabled, shownNow.folderOf, shownNow.order, renames]);
   const folders = useMemo(() => {
-    const base = shownNow.folderEnabled.size ? serverFolders.map((folder) => (shownNow.folderEnabled.has(folder.id) ? { ...folder, enabled: shownNow.folderEnabled.get(folder.id) } : folder)) : serverFolders;
+    let base = shownNow.folderEnabled.size ? serverFolders.map((folder) => (shownNow.folderEnabled.has(folder.id) ? { ...folder, enabled: shownNow.folderEnabled.get(folder.id) } : folder)) : serverFolders;
+    if (folderRenames.size) base = base.map((folder) => (folderRenames.has(folder.id) ? { ...folder, name: folderRenames.get(folder.id) } : folder));
     return shownNow.folders.length ? [...base, ...shownNow.folders.filter((added) => !base.some((folder) => folder.name === added.name))].sort((a, b) => a.name.localeCompare(b.name)) : base;
-  }, [serverFolders, shownNow.folderEnabled, shownNow.folders]);
+  }, [serverFolders, shownNow.folderEnabled, shownNow.folders, folderRenames]);
   const offScenes = useMemo(() => {
     if (!shownNow.scenes.size) return serverOffScenes;
     const next = new Set(serverOffScenes);
@@ -501,9 +511,23 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     renameDone.current = true;
     const name = editFolder.name.trim();
     if (!name || name === editFolder.original) return setEditFolder(null);
-    run(renameFolder({ folderId: editFolder.id, name }), () => setEditFolder(null), () => {
-      renameDone.current = false;
-    });
+    // the new name shows at once, dimmed with a spinner, until the server's list carries it
+    const id = editFolder.id;
+    setFolderRenames((current) => new Map(current).set(id, name));
+    setEditFolder(null);
+    const drop = () => setFolderRenames((current) => (current.has(id) ? new Map([...current].filter(([key]) => key !== id)) : current));
+    run(
+      renameFolder({ folderId: id, name }),
+      () => {
+        setTimeout(() => {
+          if (serverFolderNames.current.get(id) !== name) {
+            drop();
+            setNotice({ kind: "error", text: "The new folder name was not applied. Try again." });
+          }
+        }, 4000);
+      },
+      drop
+    );
   }
 
   const orgValue = useMemo(
@@ -857,8 +881,15 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
                 ) : (
                   <div className="org-group-title">
                     {group.kind === "folder" ? (
-                      <button type="button" className="org-group-name org-name-btn" title="Click to rename" onClick={() => startRenameFolder(group)}>
+                      <button
+                        type="button"
+                        className={`org-group-name org-name-btn${folderRenames.has(group.folderId) ? " is-pending" : ""}`}
+                        title={folderRenames.has(group.folderId) ? "Saving the new name…" : "Click to rename"}
+                        aria-busy={folderRenames.has(group.folderId) ? true : undefined}
+                        onClick={() => startRenameFolder(group)}
+                      >
                         {group.label}
+                        {folderRenames.has(group.folderId) && <span className="org-spin org-name-spin" aria-hidden="true" />}
                       </button>
                     ) : (
                       <button type="button" className="org-group-name org-name-btn is-plain" onClick={() => setGroupOpen((current) => new Map(current).set(key, !open))} aria-expanded={open}>

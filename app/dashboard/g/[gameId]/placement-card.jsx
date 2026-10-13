@@ -167,6 +167,7 @@ export function CardName({ placementId, label }) {
           onClick={open}
         >
           {item.label}
+          {item.labelPending && <Spinner />}
         </button>
       )}
     </div>
