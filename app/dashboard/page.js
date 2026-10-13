@@ -3,17 +3,22 @@ import { redirect } from "next/navigation";
 import { getMember } from "../../lib/admin";
 import { loadBookings } from "../../lib/bookings-data";
 import { isSchemaOutdated } from "../../lib/api";
-import { developerSteps, advertiserPipeline } from "../../lib/home-rules";
+import { developerSteps } from "../../lib/home-rules";
+import { loadOverview } from "../../lib/advertiser-data";
+import { parseRange } from "../../lib/reports";
+import AdvertiserOverview from "./advertiser-overview";
 import { homeFor } from "../../lib/nav";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Home" };
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }) {
   const me = await getMember();
   if (!me) redirect("/login");
   if (me.role === "admin") redirect(homeFor("admin"));
-  return me.role === "advertiser" ? <AdvertiserHome me={me} /> : <DeveloperHome me={me} />;
+  if (me.role !== "advertiser") return <DeveloperHome me={me} />;
+  const query = await searchParams;
+  return <AdvertiserHome me={me} days={parseRange(query?.days)} />;
 }
 
 async function DeveloperHome({ me }) {
@@ -141,145 +146,7 @@ async function DeveloperHome({ me }) {
   );
 }
 
-async function AdvertiserHome({ me }) {
-  const { service, user } = me;
-  const [{ data: creatives }, { data: campaigns }, { bookings }] = await Promise.all([
-    service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id).neq("kind", "own").then((result) =>
-      isSchemaOutdated(result.error)
-        ? service.from("creatives").select("id, status, review_note, name").eq("owner_id", user.id)
-        : result
-    ),
-    service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
-    loadBookings(service, (query) => query.eq("advertiser_id", user.id)),
-  ]);
-  const pipeline = advertiserPipeline({ creatives: creatives ?? [], campaigns: campaigns ?? [], bookings });
-  const rejected = (creatives ?? []).filter((item) => item.status === "rejected");
-  const drafts = (campaigns ?? []).filter((campaign) => !bookings.some((booking) => booking.campaignId === campaign.id));
-
-  const stages = [
-    ["1 · Creatives", pipeline.creatives, `${pipeline.waitingCreatives} waiting for review`],
-    ["2 · Draft campaigns", pipeline.drafts, "No placements chosen"],
-    ["3 · Waiting", pipeline.waiting, "For creative review or start date"],
-    ["4 · Live", pipeline.live, "Showing in games now"],
-    ["5 · Finished", pipeline.finished, "See Reports"],
-  ];
-
-  return (
-    <>
-      <div className="main-head">
-        <h1>Home</h1>
-        <Link href="/dashboard/advertising/new" className="button">
-          Find placements
-        </Link>
-      </div>
-      <p className="lede">
-        Your starting point: where your creatives and bookings stand, from upload to running in a game, and what to
-        do next.
-      </p>
-
-      <section className="panel" aria-labelledby="pipeline-title">
-        <h2 id="pipeline-title">Where your ads are</h2>
-        <div className="stage-grid">
-          {stages.map(([label, count, sub]) => (
-            <div className="stage" key={label}>
-              <div className="stage-label">{label.toUpperCase()}</div>
-              <div className="stage-n">{count}</div>
-              <div className="todo-sub">{sub}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="home-grid">
-        <section className="panel" aria-labelledby="next-title">
-          <h2 id="next-title">What to do next</h2>
-          {(creatives ?? []).length === 0 && (
-            <div className="todo">
-              <div>
-                <strong>Upload your first creative</strong>
-                <div className="todo-sub">You can book it while it is reviewed; ads start once it is approved.</div>
-              </div>
-              <Link href="/dashboard/creatives" className="button">
-                Upload
-              </Link>
-            </div>
-          )}
-          {rejected.map((item) => (
-            <div className="todo" key={item.id}>
-              <div>
-                <strong>{item.name} was rejected</strong>
-                {item.review_note && <div className="todo-sub">Reason: {item.review_note}</div>}
-              </div>
-              <Link href="/dashboard/creatives" className="button button-quiet">
-                Upload a new one
-              </Link>
-            </div>
-          ))}
-          {pipeline.approvedCreatives > 0 && drafts.map((campaign) => (
-            <div className="todo" key={campaign.id}>
-              <div>
-                <strong>{campaign.name} has no placements</strong>
-                <div className="todo-sub">Pick where it should run.</div>
-              </div>
-              <Link href="/dashboard/advertising/new" className="button">
-                Find placements
-              </Link>
-            </div>
-          ))}
-          {pipeline.approvedCreatives > 0 && (campaigns ?? []).length === 0 && (
-            <div className="todo">
-              <div>
-                <strong>Your creative is approved</strong>
-                <div className="todo-sub">Choose placements to start a campaign.</div>
-              </div>
-              <Link href="/dashboard/advertising/new" className="button">
-                Find placements
-              </Link>
-            </div>
-          )}
-          {(creatives ?? []).length > 0 && rejected.length === 0 && pipeline.approvedCreatives === 0 && (
-            <p className="todo-sub">Your creatives are waiting for review. We will notify you.</p>
-          )}
-        </section>
-
-        <section className="panel" aria-labelledby="campaigns-title">
-          <h2 id="campaigns-title">Campaigns</h2>
-          {(campaigns ?? []).length === 0 ? (
-            <p className="todo-sub">No campaigns yet.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Campaign</th>
-                  <th>Status</th>
-                  <th className="num">Placements</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaigns.slice(0, 6).map((campaign) => {
-                  const mine = bookings.filter((booking) => booking.campaignId === campaign.id);
-                  const status = mine.some((booking) => booking.status === "approved" && String(booking.label).startsWith("Live"))
-                    ? "Live"
-                    : mine.some((booking) => booking.status === "pending")
-                      ? "Waiting for approval"
-                      : mine.length
-                        ? "Finished"
-                        : "Draft";
-                  return (
-                    <tr key={campaign.id}>
-                      <td>
-                        <Link href="/dashboard/advertising">{campaign.name}</Link>
-                      </td>
-                      <td>{status}</td>
-                      <td className="num">{mine.length}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </section>
-      </div>
-    </>
-  );
+async function AdvertiserHome({ me, days }) {
+  const data = await loadOverview(me.service, me, days);
+  return <AdvertiserOverview data={data} basePath="/dashboard" />;
 }

@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteCampaign, renameCampaign } from "./actions";
 
 /** A campaign's heading with rename and delete. Deleting asks first and says what goes with it. */
-export default function CampaignHead({ id, name, bookings }) {
+export default function CampaignHead({ id, name, bookings, status }) {
   const router = useRouter();
   const [mode, setMode] = useState("view"); // view | rename | delete
   const [title, setTitle] = useState(name);
@@ -44,8 +45,12 @@ export default function CampaignHead({ id, name, bookings }) {
       ) : (
         <div className="row">
           <h2 style={{ margin: 0 }}>{name}</h2>
+          {status && <span className={`ov-pill ov-${status.key}`}>{status.label}</span>}
           {mode === "view" && (
             <div className="row-actions">
+              <Link className="link-button" href={`/dashboard/advertising/c/${id}`}>
+                Report
+              </Link>
               <button className="link-button" type="button" onClick={() => setMode("rename")}>
                 Rename
               </button>

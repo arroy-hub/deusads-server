@@ -5,6 +5,8 @@ import { isSchemaOutdated } from "../../../../lib/api";
 import Audience from "./audience";
 import Workbench from "./workbench";
 import { canAdvertise } from "../../../../lib/admin-rules";
+import { FORMATS } from "../../../../lib/formats";
+import { coverageSummary, creativeShape } from "../../../../lib/advertiser-overview";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creative" };
@@ -75,6 +77,21 @@ export default async function CreativeFormatsPage({ params }) {
     }));
   }
 
+  // Which open placements this creative cannot be shown in for lack of a picture (an advertiser's view; migration 0017).
+  let coverage = null;
+  if (migrated && canAdvertise(me.role)) {
+    let shapesQuery = service.from("placements").select("aspect_ratio").eq("open_to_advertisers", true).is("removed_at", null);
+    if (me.role !== "admin") shapesQuery = shapesQuery.neq("owner_id", user.id);
+    const { data: shapes, error: shapesError } = await shapesQuery;
+    if (!shapesError) {
+      coverage = coverageSummary({
+        creative: creativeShape(creative),
+        assets: assets.map((asset) => ({ formatId: asset.formatId, aspect: asset.aspect, status: asset.status })),
+        placements: (shapes ?? []).map((row) => ({ aspect: row.aspect_ratio == null ? null : Number(row.aspect_ratio) })),
+      });
+    }
+  }
+
   return (
     <>
       <div className="main-head">
@@ -91,6 +108,26 @@ export default async function CreativeFormatsPage({ params }) {
         <p className="notice">
           Run <code>supabase/migrations/0017_ad_formats.sql</code> in the Supabase SQL editor to turn this on.
         </p>
+      )}
+      {coverage && coverage.placements > 0 && (
+        <section className="panel" aria-labelledby="coverage-title" style={{ marginBottom: "1.5rem" }}>
+          <h2 id="coverage-title">Where it can show</h2>
+          <div className="ov-cover" style={{ marginTop: "0.75rem" }}>
+            <div className="ov-cover-bar" role="img" aria-label={`${FORMATS.length - coverage.missingFormats.length} of ${FORMATS.length} formats ready`}>
+              {FORMATS.map((format) => (
+                <span key={format.id} className={coverage.missingFormats.includes(format.id) ? "is-missing" : undefined} title={format.label} />
+              ))}
+            </div>
+            <p>
+              <strong>
+                {FORMATS.length - coverage.missingFormats.length} of {FORMATS.length} formats ready.
+              </strong>{" "}
+              {coverage.missingPlacements === 0
+                ? "Every placement open to advertisers can show this creative."
+                : `Not shown in ${coverage.missingPlacements} of ${coverage.placements} open placements: no picture for ${coverage.missingLabels.join(", ")}. Cropping the main image would cut your safe zone, so upload a picture made for each missing format below.`}
+            </p>
+          </div>
+        </section>
       )}
       {migrated && (
         <Workbench

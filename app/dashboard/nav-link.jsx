@@ -7,6 +7,7 @@ import { isActive } from "../../lib/nav";
 /** One menu entry; marks itself as the current page and shows its badge. */
 const ICONS = {
   home: "M3 11l9-8 9 8M5 10v10h14V10",
+  overview: "M3 11l9-8 9 8M5 10v10h14V10",
   games: "M3 7h18v11H3zM8 11v3M6.5 12.5h3",
   requests: "M4 4h16v12H8l-4 4z",
   creatives: "M3 4h18v16H3zM3 9h18M8 14h8",

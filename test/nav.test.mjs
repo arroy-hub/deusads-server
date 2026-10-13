@@ -16,7 +16,7 @@ assert.ok(labels("admin").includes("My games"), "an admin keeps their own develo
 // an admin has the whole advertiser menu and the whole developer menu, in two labelled sections
 const adminGroups = menuFor("admin");
 const section = (heading) => adminGroups.find((group) => group.heading === heading)?.items.map((item) => item.label).join();
-assert.equal(section("As an advertiser"), labels("advertiser").filter((label) => label !== "Home").join());
+assert.equal(section("As an advertiser"), ["Overview", ...labels("advertiser").filter((label) => label !== "Home")].join(), "an admin gets the advertiser Overview as its own entry (it is the advertiser's Home)");
 assert.equal(section("As a developer"), labels("developer").filter((label) => label !== "Home").join());
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin");
