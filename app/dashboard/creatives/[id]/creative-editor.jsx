@@ -256,11 +256,12 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
             <div className="rd-ed-left">
               <div className="rd-chips" role="tablist" aria-label="Shape">
                 {shapes.map((s) => (
-                  <button key={s.id} type="button" role="tab" aria-selected={sel === s.id} className={`rd-shape-chip is-${s.kind}`} onClick={() => setSel(s.id)}>
+                  <button key={s.id} type="button" role="tab" aria-selected={sel === s.id} className={`rd-shape-chip is-${s.kind}`} title={s.kind === "own" ? (s.pending ? "Own picture, in review" : "Own picture") : s.kind === "auto" ? "Main image framed" : "No picture yet"} onClick={() => setSel(s.id)}>
                     <i />{short(s)}
                   </button>
                 ))}
               </div>
+              <p className="rd-chip-legend" aria-hidden="true"><span className="is-auto"><i />Main image framed</span><span className="is-own"><i />Own picture</span><span className="is-missing"><i />No picture yet</span></p>
               <div className={`rd-stage${over ? " is-over" : ""}`}
                 onDragOver={(e) => { if (current.kind === "missing" || current.kind === "own") { e.preventDefault(); setOver(true); } }}
                 onDragLeave={() => setOver(false)}

@@ -36,6 +36,8 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
         </span>
       </div>
 
+      {total === 0 && <p className="pf-hint" role="status">No impressions in this period yet. Bars appear here as soon as players see ads.</p>}
+
       <div className="pf-legend" aria-label="Series">
         {showAdv && (
           <span>

@@ -136,7 +136,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
               <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
               <button
                 type="button"
-                className="st-icon-change"
+                className={`st-icon-change${shownIcon ? "" : " is-empty"}`}
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
                 aria-label={shownIcon ? "Change icon" : "Add icon"}

@@ -17,7 +17,7 @@ const COLUMNS = {
   views: { label: "Impressions", numeric: true, width: 96, min: 64 },
   adv: { label: "Advertisers", numeric: true, width: 96, min: 64 },
   own: { label: "My creatives", numeric: true, width: 96, min: 64 },
-  share: { label: "Advertiser share", numeric: false, width: 150, min: 90 },
+  share: { label: "Advertiser share", numeric: false, width: 124, min: 90 },
   sessions: { label: "Sessions", numeric: true, width: 84, min: 60 },
   avg: { label: "Avg. visible", numeric: true, width: 92, min: 64 },
 };

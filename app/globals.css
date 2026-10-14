@@ -7570,3 +7570,45 @@ button.rd-samples-head:focus-visible { outline: 2px solid var(--signal); outline
 .rd-cal-day.is-on { background: var(--signal-ink); color: #fff; font-weight: 700; }
 .rd-cal-day:disabled { color: #cfc5ba; cursor: default; }
 .nw-end .wz-date-btn { margin-top: 4px; }
+
+/* ---------------------------------------------------------------- QA fixes (cabinet v2) */
+
+/* The page keeps its scrollbar lane while a pop-up is open, so the background does not shift sideways. */
+html { scrollbar-gutter: stable; }
+
+/* Pop-ups hang from a fixed top edge: when their content grows (a chip is picked, samples open) they grow
+   downwards and the main button stays where it was, instead of the whole box re-centring. */
+.modal[open],
+.rd-dialog[open] {
+  margin: max(1rem, 10vh) auto auto;
+  max-height: calc(100dvh - max(1rem, 10vh) - 1rem);
+}
+.rd-editor[open] {
+  margin-top: 1rem;
+  max-height: calc(100dvh - 2rem);
+}
+
+.rd-chip-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; font-size: 11.5px; color: var(--ink-2); }
+.rd-chip-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.rd-chip-legend i { width: 7px; height: 7px; border-radius: 50%; background: #1b8a50; }
+.rd-chip-legend .is-own i { background: #3b6fb5; }
+.rd-chip-legend .is-missing i { background: #c98a14; }
+
+/* Wizard: the date picker stays inside its card and drops under the text when there is no room; the bell does not cover the buttons. */
+.nw-opt { flex-wrap: wrap; }
+.nw-opt > .wz-date-wrap { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.nw-opt .wz-date { max-width: 100%; min-width: 0; }
+.wz-head-actions { margin-right: 56px; }
+
+/* No icon yet: the "Add icon" action is visible without hovering. */
+.st-icon-change.is-empty { align-items: flex-end; padding-bottom: 6px; font-size: 12px; font-weight: 600; color: #fff; }
+.st-icon-change.is-empty > * { opacity: 1; }
+
+/* A focused text field gets a neutral ring: the brand red next to a field reads as an error. */
+input.field:focus-visible,
+textarea.field:focus-visible,
+select.field:focus-visible,
+.rd-edit:focus-visible {
+  outline: 2px solid var(--ink-2, #55504a);
+  outline-offset: 1px;
+}

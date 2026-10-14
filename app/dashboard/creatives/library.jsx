@@ -25,7 +25,8 @@ function hint(item) {
 function Editable({ value, onSave, className = "", autoEdit = false, label }) {
   const [editing, setEditing] = useState(autoEdit);
   const [text, setText] = useState(value);
-  const done = (save) => { setEditing(false); const t = text.trim(); if (save && t && t !== value) onSave(t); else setText(value); };
+  const done = (save) => { const y = window.scrollY; setEditing(false); requestAnimationFrame(() => { if (Math.abs(window.scrollY - y) > 2) window.scrollTo(window.scrollX, y); }); // the page must not jump when the input turns back into text
+     const t = text.trim(); if (save && t && t !== value) onSave(t); else setText(value); };
   if (editing) {
     return <input className={`rd-edit ${className}`} autoFocus aria-label={label} value={text} maxLength={120} onFocus={(e) => e.target.select()} onChange={(e) => setText(e.target.value)} onBlur={() => done(true)} onKeyDown={(e) => { if (e.key === "Enter") done(true); if (e.key === "Escape") done(false); }} />;
   }

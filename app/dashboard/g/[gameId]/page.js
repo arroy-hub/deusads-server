@@ -137,6 +137,15 @@ export default async function GamePage({ params, searchParams }) {
           {tab !== "settings" && <Link href={`/dashboard/g/${game.id}?tab=settings`}>Fill it in</Link>}
         </p>
       )}
+      <nav className="tabs" aria-label="Game sections">
+        {TABS.map(([key, label]) => (
+          <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
+            {label}
+            {key === "campaigns" && newCount > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Campaigns with something new">{newCount}</span>}
+          </Link>
+        ))}
+      </nav>
+
       {tab === "placements" && (
         <p className="lede">
           The ad spaces the SDK found in your game. Add your own creatives to each one (up to 5): they show in
@@ -159,15 +168,6 @@ export default async function GamePage({ params, searchParams }) {
           on screen.
         </p>
       )}
-
-      <nav className="tabs" aria-label="Game sections">
-        {TABS.map(([key, label]) => (
-          <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
-            {label}
-            {key === "campaigns" && newCount > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Campaigns with something new">{newCount}</span>}
-          </Link>
-        ))}
-      </nav>
 
       {tab === "campaigns" && campaigns?.days && <CampaignsTab gameId={game.id} model={campaigns} />}
       {tab === "campaigns" && campaigns?.error === "migration" && (

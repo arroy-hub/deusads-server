@@ -23,6 +23,10 @@ assert.equal(campaignState({ campaignId: "c2", advertiserId: "a", category: "ret
 assert.equal(campaignState({ campaignId: "c4", advertiserId: "adv3", category: "retail", base: "active" }, ctx).key, "blockedadv");
 assert.equal(campaignState({ campaignId: "c4", advertiserId: "a", category: "gambling", base: "active" }, ctx).key, "blockedcat");
 assert.equal(campaignState({ campaignId: "c4", advertiserId: "a", category: "retail", base: "waiting" }, ctx).key, "waiting");
+// the advertiser paused the whole campaign: the developer sees it as paused by the advertiser, an ended one stays ended
+assert.equal(campaignState({ campaignId: "c4", advertiserId: "a", category: "retail", base: "active", advertiserPaused: true }, ctx).key, "advpaused");
+assert.equal(campaignState({ campaignId: "c4", advertiserId: "a", category: "retail", base: "ended", advertiserPaused: true }, ctx).key, "ended");
+assert.equal(campaignState({ campaignId: "c2", advertiserId: "a", category: "retail", base: "active", advertiserPaused: true }, ctx).key, "blocked");
 
 // serving
 const ok = { source: "booking", campaignId: "c4", advertiserId: "a", creativeId: "x", category: "retail" };

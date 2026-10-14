@@ -40,6 +40,8 @@ export default function AddGameDialog() {
   }, [open]);
 
   const complete = name.trim() !== "" && PROFILE_KEYS.every((key) => profile[key].length > 0);
+  const PART_LABELS = { genres: "a genre", platforms: "a platform", languages: "a language" };
+  const missingParts = [...(name.trim() ? [] : ["a name"]), ...PROFILE_KEYS.filter((key) => profile[key].length === 0).map((key) => PART_LABELS[key] ?? key)];
 
   function openDialog() {
     setError("");
@@ -128,7 +130,7 @@ export default function AddGameDialog() {
                 </p>
               ) : (
                 !complete &&
-                !busy && <span className="muted-line">Add a name and pick at least one genre, platform and language.</span>
+                !busy && <span className="muted-line">Still needed: {missingParts.join(", ")}.</span>
               )}
               <button className="button button-quiet" type="button" onClick={() => setOpen(false)} disabled={busy}>
                 Cancel
