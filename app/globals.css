@@ -7768,7 +7768,7 @@ select.field:focus-visible,
 .gp-top .game-title { gap: 16px; }
 .gp-top .game-title .game-icon { width: 52px; height: 52px; border-radius: 15px; font-size: 22px; }
 .gp-top .game-title h1 { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
-.gp-top .tabs { margin: 22px 0 0; gap: 28px; border-bottom: 0; }
+.gp-top .tabs { margin: 22px 0 0; gap: 28px; border-bottom: 0; overflow: visible; }
 .gp-top .tab { min-height: 0; padding: 10px 2px 12px; margin-bottom: -1px; font-size: 15px; font-weight: 600; }
 .gp-top .tab[aria-current="page"] { font-weight: 700; border-bottom-color: #c94a24; }
 .gp-work { padding: 26px 40px 0; }
