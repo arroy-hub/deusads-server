@@ -17,9 +17,13 @@ import {
 } from "../../../../lib/campaigns-view";
 import { changeAds, markSeen, reportCreative, setCategoryBlocked } from "./campaign-actions";
 
+// "started 20 Oct" only for a day that has come; a day still ahead reads "starts 20 Oct".
+const startedWord = (iso) => (iso && iso > new Date().toISOString().slice(0, 10) ? "starts" : "started");
+
 const PILL = {
   active: ["p-active", "Active"],
   paused: ["p-paused", "Paused"],
+  advpaused: ["p-paused", "Paused · advertiser"],
   blocked: ["p-blocked", "Blocked"],
   blockedcat: ["p-blocked", "Blocked · category"],
   blockedadv: ["p-blocked", "Blocked · advertiser"],
@@ -27,7 +31,7 @@ const PILL = {
   waiting: ["p-off", "Waiting"],
   ended: ["p-ended", "Ended"],
 };
-const ROW_CLASS = { paused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
+const ROW_CLASS = { paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
 const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === "blockedadv";
 
 const REASONS = ["Not suitable for my audience", "Low quality creative", "Competitor", "Misleading or inappropriate", "Other"];
@@ -111,7 +115,7 @@ export default function CampaignsTab({ gameId, model }) {
   // Every campaign with its state and figures for the chosen period.
   const campaigns = useMemo(() => {
     return model.campaigns.map((campaign) => {
-      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base }, ctx);
+      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused }, ctx);
       const creatives = campaign.creatives.map((creative) => {
         const own = ctx.controls.get(`creative:${creative.id}`);
         return { ...creative, isNew: creative.isNew && !cleared[creative.id], blocked: own?.state === "blocked", reason: own?.reason ?? "", totals: totalsFor(creative.figures, period) };
@@ -136,7 +140,7 @@ export default function CampaignsTab({ gameId, model }) {
       const key = campaign.state.key;
       if (status === "new" && !anyNew(campaign)) return false;
       if (status === "active" && key !== "active") return false;
-      if (status === "paused" && key !== "paused") return false;
+      if (status === "paused" && key !== "paused" && key !== "advpaused") return false;
       if (status === "blocked" && !isBlocked(key)) return false;
       if (status === "ended" && key !== "ended") return false;
       if (category !== "all" && campaign.category !== category) return false;
@@ -505,7 +509,7 @@ export default function CampaignsTab({ gameId, model }) {
                 const isOpen = Boolean(open[campaign.id]);
                 const tag = campaign.creatives.some((creative) => creative.isNew) ? "New creative" : campaign.isNew ? "New" : "";
                 const [pillClass, pillText] = PILL[key];
-                const stopped = key === "paused" || isBlocked(key);
+                const stopped = key === "paused" || key === "advpaused" || isBlocked(key);
                 const chart = isOpen && campaign.totals.views > 0 ? buildChart(campaign.creatives, days, { period, mode: chartMode, pick }) : null;
                 const here = noteFor(campaign.id);
                 return (
@@ -517,9 +521,10 @@ export default function CampaignsTab({ gameId, model }) {
                         <i className="cp-cti" style={iconStyle(campaign.category)} title={categoryLabel(campaign.category)} role="img" aria-label={`Category: ${categoryLabel(campaign.category)}`} />
                         <div style={{ minWidth: 0 }}>
                           <div><strong>{campaign.name}</strong> {tag && <span className="cp-tag">{tag}</span>}</div>
-                          <div className="cp-meta">{campaign.advertiser} · {categoryLabel(campaign.category)} · started {dayLabel(campaign.started)}</div>
+                          <div className="cp-meta">{campaign.advertiser} · {categoryLabel(campaign.category)} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
                           <Note value={here} />
                           {key === "blocked" && campaign.state.reason && <div className="cp-meta">Your reason: {campaign.state.reason}</div>}
+                          {key === "advpaused" && <div className="cp-meta">The advertiser paused this campaign. It shows again when they resume it.</div>}
                           {key === "blockedadv" && <div className="cp-meta">Blocked together with {campaign.advertiser}. Unblock the advertiser to change it.</div>}
                         </div>
                       </div>
@@ -542,7 +547,7 @@ export default function CampaignsTab({ gameId, model }) {
                               <div>
                                 <div className="cp-chart-title">Impressions per day</div>
                                 <div className="cp-sub">
-                                  {periodLabel} · UTC{chartMode === "creative" ? " · one bar per creative, same scale · click colours to compare" : ""}{stopped ? ` · ${key === "paused" ? "Paused" : "Blocked"} in this game now` : ""}
+                                  {periodLabel} · UTC{chartMode === "creative" ? " · one bar per creative, same scale · click colours to compare" : ""}{stopped ? ` · ${key === "advpaused" ? "Paused by the advertiser" : key === "paused" ? "Paused" : "Blocked"} in this game now` : ""}
                                 </div>
                               </div>
                               <span className="cp-spacer" />
@@ -659,7 +664,7 @@ export default function CampaignsTab({ gameId, model }) {
                   if (advBlocked?.state === "blocked") key = "blockedadv";
                   else if (liveN === group.campaigns.length) key = "active";
                   else if (liveN > 0) key = "mixed";
-                  else if (states.includes("paused")) key = "paused";
+                  else if (states.includes("paused") || states.includes("advpaused")) key = "paused";
                   else if (states.every((state) => state === "blockedcat")) key = "blockedcat";
                   else if (states.every(isBlocked)) key = "blocked";
                   else if (states.every((state) => state === "waiting")) key = "waiting";
@@ -670,13 +675,13 @@ export default function CampaignsTab({ gameId, model }) {
                   if (key === "blockedadv") parts.push("all stopped by the advertiser block");
                   else {
                     if (liveN) parts.push(`${liveN} live`);
-                    const paused = states.filter((state) => state === "paused").length;
+                    const paused = states.filter((state) => state === "paused" || state === "advpaused").length;
                     const blockedN = states.filter(isBlocked).length;
                     if (paused) parts.push(`${paused} paused`);
                     if (blockedN) parts.push(`${blockedN} blocked`);
                   }
                   const [pillClass, pillText] = PILL[key];
-                  const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused");
+                  const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused" && state !== "advpaused");
                   const here = noteForAdv(group.id);
                   return (
                     <div key={group.id}>
@@ -710,7 +715,7 @@ export default function CampaignsTab({ gameId, model }) {
                               <div className="cp-nrow" key={campaign.id}>
                                 <div>
                                   <button type="button" className="cp-lnk" title="Open in Campaigns" onClick={() => openInCampaigns(campaign)}>{campaign.name}<i>↗</i></button>
-                                  <div className="cp-meta cp-sub">{categoryLabel(campaign.category)} · started {dayLabel(campaign.started)}</div>
+                                  <div className="cp-meta cp-sub">{categoryLabel(campaign.category)} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
                                   <Note value={noteFor(campaign.id)} />
                                 </div>
                                 <div><span className={`cp-pill ${campPill}`}>{campText}</span></div>

@@ -26,7 +26,7 @@ export default async function NewBookingPage({ searchParams }) {
     service.from("campaigns").select("id, name, targeting, plan").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     // The catalog: live placements in other people's games. Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
-    catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo: me.role === "admin" }),
+    catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo: false }),
   ]);
 
   // Campaign audience and draft plan come with migration 0026; without it the plain list still loads.
@@ -70,9 +70,9 @@ export default async function NewBookingPage({ searchParams }) {
   let profiled = true;
   if (isSchemaOutdated(catalog.error)) {
     profiled = false;
-    catalog = await catalogQuery(service, user.id, { onlyOpen: true, withProfile: false, ownToo: me.role === "admin" });
+    catalog = await catalogQuery(service, user.id, { onlyOpen: true, withProfile: false, ownToo: false });
   }
-  if (isSchemaOutdated(catalog.error)) catalog = await catalogQuery(service, user.id, { onlyOpen: false, withProfile: false, ownToo: me.role === "admin" });
+  if (isSchemaOutdated(catalog.error)) catalog = await catalogQuery(service, user.id, { onlyOpen: false, withProfile: false, ownToo: false });
   const placements = catalog.data;
 
   // The audience of each creative (migration 0018); without it nothing is aimed.

@@ -196,8 +196,8 @@ export default async function GamePage({ params, searchParams }) {
         <div className="empty">
           <p style={{ margin: "0 auto 0.5rem" }}>No placements reported yet.</p>
           <p style={{ margin: "0 auto", fontSize: "0.875rem" }}>
-            In Unity, paste the API key above into Tools → DeusADS → Settings, then
-            press Send placements.
+            Copy the API key from the Settings tab of this game, paste it into Unity at
+            Tools → DeusADS → Settings, then press Send placements.
           </p>
         </div>
       ) : organization ? (

@@ -29,7 +29,7 @@ export default function CampaignHeader({ h }) {
           <StatusMenu status={h.status} name={h.name} campaignId={h.id} pausedUntil={h.pausedUntil} locked={!h.rules} />
         </div>
         <div className="rd-ch-meta">
-          <div className="rd-ch-dates"><DateRange start={h.starts || ""} end={h.ends || ""} tone={tone} paused={h.status.key === "paused"} animated={!["paused", "stopped", "ended"].includes(h.status.key)} /></div>
+          <div className="rd-ch-dates"><DateRange start={h.starts || ""} end={h.ends || ""} tone={tone} paused={h.status.key === "paused"} over={["stopped", "ended"].includes(h.status.key)} animated={!["paused", "stopped", "ended"].includes(h.status.key)} /></div>
           <span className="rd-ch-aud">{h.audience || (h.hasBookings ? "Every game" : "Audience not chosen yet")}</span>
         </div>
       </div>

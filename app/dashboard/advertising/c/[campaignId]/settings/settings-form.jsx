@@ -71,7 +71,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
       </section>
       <section className="cs-card rd-sched" aria-label="Schedule">
         <div className="rd-sched-head"><h2>Schedule</h2>{length && <span className="rd-sched-len">{length} days</span>}{!until && from && <span className="rd-sched-len">runs until you stop it</span>}</div>
-        <DateRange start={from} end={until || null} tone={tone} size="lg" paused={status.key === "paused"} animated={running} />
+        <DateRange start={from} end={until || null} tone={tone} size="lg" paused={status.key === "paused"} over={["stopped", "ended"].includes(status.key)} animated={running} />
         {hasOpen ? (
           <>
             <div className="rd-sched-inputs">
@@ -83,7 +83,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
             {bad && <p className="error" role="alert">The end date is before the start date.</p>}
             <div className="cs-extend rd-quick"><span className="ovx-muted">Extend by</span>{[7, 14, 30].map((d) => <button key={d} type="button" className="cs-pill-button" disabled={busy || !until} onClick={() => quick(d)}>+{d} days</button>)}<span className="rd-quick-sep" /><span className="ovx-muted">End in</span>{[7, 30].map((d) => <button key={d} type="button" className="cs-pill-button" disabled={busy} onClick={() => endsIn(d)}>{d === 7 ? "1 week" : "1 month"}</button>)}</div>
           </>
-        ) : <p className="settings-help">Dates are set when you add placements.</p>}
+        ) : <p className="settings-help">{["stopped", "ended"].includes(status.key) ? "This campaign has ended. Duplicate it to run again." : "Dates are set when you add placements."}</p>}
         <p className="settings-help">Days are UTC. Leave the end empty to run until you stop the campaign.</p>
         {note.text && !changed && <span className={note.tone === "error" ? "error" : "upload-done"} role="status">{note.text}</span>}
       </section>
@@ -96,7 +96,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
       )}
       {hasOpen && rules && (
         <section className="cs-card cs-rows" aria-label="Running">
-          <div className="cs-row"><div><h2>Pause or stop</h2><p>Hold the ads for a day, a week or until a date, or end the campaign for good. Players see the change at their next launch.</p></div><button type="button" className="button button-quiet" onClick={() => setPausing("pause")}><IcPause size={15} /> Pause or stop…</button></div>
+          <div className="cs-row"><div><h2>Pause or stop</h2><p>Hold the ads for a day, a week or until a date, or end the campaign for good. Players see the change at their next launch.</p></div><button type="button" className="button button-quiet" onClick={() => setPausing("pause")}><IcPause size={15} /> {status.key === "paused" ? "Resume or stop…" : "Pause or stop…"}</button></div>
         </section>
       )}
       <section className="cs-card cs-danger" aria-labelledby="del-title">

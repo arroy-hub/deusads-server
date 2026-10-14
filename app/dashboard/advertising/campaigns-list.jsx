@@ -67,7 +67,7 @@ function Row({ campaign, rules, onPause }) {
           <span className="rd-meta">{label}</span>
         </div>
       </div>
-      <div className="rd-dates"><DateRange start={campaign.starts || ""} end={campaign.ends || ""} tone={tone} paused={campaign.status.key === "paused"} animated={!["paused", "stopped", "ended"].includes(campaign.status.key)} /></div>
+      <div className="rd-dates"><DateRange start={campaign.starts || ""} end={campaign.ends || ""} tone={tone} paused={campaign.status.key === "paused"} over={["stopped", "ended"].includes(campaign.status.key)} animated={!["paused", "stopped", "ended"].includes(campaign.status.key)} /></div>
       <div className="rd-audience">{campaign.audience || (campaign.launched || campaign.bookings ? "Every game" : "Not chosen yet")}</div>
       <div className="rd-num">{campaign.impressions > 0 ? formatCount(campaign.impressions) : "—"}</div>
       <div className="rd-acts"><RowMenu campaign={campaign} rules={rules} onPause={(mode) => onPause(campaign, mode)} /></div>

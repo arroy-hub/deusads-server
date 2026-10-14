@@ -716,14 +716,20 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
 
           {empty && (
             <div className="pf-empty">
-              No placements match these filters.{" "}
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => go({ q: "", filters: { folder: [], scene: [], tag: [], type: [], format: [] } }, 0)}
-              >
-                Clear filters
-              </button>
+              {isFiltered(state) ? (
+                <>
+                  No placements match these filters.{" "}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => go({ q: "", filters: { folder: [], scene: [], tag: [], type: [], format: [] } }, 0)}
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                "No placements reported yet. They appear here after the SDK sends them."
+              )}
             </div>
           )}
         </div>

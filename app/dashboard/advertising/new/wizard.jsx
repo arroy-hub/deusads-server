@@ -87,7 +87,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   }, [library]); // eslint-disable-line react-hooks/exhaustive-deps
   const today = todayISO();
   const startsOn = startMode === "date" ? startDate : "";
-  const endsOn = endMode === "never" ? "" : endMode === "date" ? endDate : addD(startsOn || today, Number(endMode));
+  const endsOn = endMode === "never" ? "" : endMode === "date" ? endDate : addD(startsOn || today, Number(endMode) - 1);
   const targeting = chosen?.targeting ?? null;
   const filtering = ALL_KEYS.some((k) => filters[k].length > 0);
   const audienceTargeting = filtering ? Object.fromEntries(ALL_KEYS.filter((k) => filters[k].length > 0).map((k) => [k, filters[k]])) : null;

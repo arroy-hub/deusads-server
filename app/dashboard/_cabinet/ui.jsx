@@ -66,7 +66,7 @@ export function MenuItem({ icon, children, danger, onClick, hint, disabled, href
 export const MenuSep = () => <div className="rd-mi-sep" role="separator" />;
 
 /** Dates of a campaign as a bar: where it starts, where it ends, where today is. */
-export function DateRange({ start, end, tone = "#1b8a50", size = "sm", paused = false, animated = false, today = todayISO(), preview = null }) {
+export function DateRange({ start, end, tone = "#1b8a50", size = "sm", paused = false, animated = false, today = todayISO(), preview = null, over = false }) {
   const style = { "--tone": tone };
   if (!start && !end) {
     return <div className={`rd-dr is-${size} is-none`} style={style}><div className="rd-dr-top"><span className="rd-dr-empty">Not scheduled</span></div><div className="rd-dr-track" /><div className="rd-dr-note">Dates are set with the placements</div></div>;
@@ -77,6 +77,25 @@ export function DateRange({ start, end, tone = "#1b8a50", size = "sm", paused = 
         <div className="rd-dr-top"><b>{fmtDay(start, size === "lg")}</b><span className="rd-dr-arrow" aria-hidden="true">→</span><b>{end ? fmtDay(end, size === "lg") : "No end"}</b></div>
         <div className="rd-dr-track" role="img" aria-label={preview}><i className="rd-dr-fill" style={{ width: end ? "100%" : "70%", opacity: 0.45 }} />{!end && <span className="rd-dr-inf" aria-hidden="true">›</span>}</div>
         <div className="rd-dr-note">{preview}</div>
+      </div>
+    );
+  }
+  // No start day yet ("as soon as the creative is approved") or a campaign that was stopped: no day counting.
+  if (!start || over) {
+    const waiting = !start && !over;
+    const left = end ? diff(end, today) : null;
+    const note = over ? (end && diff(today, end) > 0 ? "Stopped" : end ? `Ended ${fmtDay(end)}` : "Stopped")
+      : left != null && left >= 0 ? `Starts when the creative is approved · ends ${left === 0 ? "today" : `in ${left} ${left === 1 ? "day" : "days"}`}` : "Starts when the creative is approved";
+    return (
+      <div className={`rd-dr is-${size}${end ? "" : " is-open"}${over ? " is-over" : " is-future"}${paused ? " is-paused" : ""}`} style={style}>
+        <div className="rd-dr-top">
+          <b>{waiting ? "On approval" : start ? fmtDay(start, size === "lg") : "—"}</b>
+          <span className="rd-dr-arrow" aria-hidden="true">→</span>
+          <b>{end ? fmtDay(end, size === "lg") : "No end"}</b>
+          {!end && waiting && <span className="rd-dr-len">until stopped</span>}
+        </div>
+        <div className="rd-dr-track" role="img" aria-label={note}><i className="rd-dr-fill" style={{ width: over ? "100%" : "0%" }} />{!end && <span className="rd-dr-inf" aria-hidden="true">›</span>}</div>
+        <div className="rd-dr-note">{note}</div>
       </div>
     );
   }
@@ -150,7 +169,7 @@ export function PauseDialog({ name, campaignId, initial = "pause", status = "liv
   const ref = useRef(null);
   const router = useRouter();
   const paused = status === "paused";
-  const [choice, setChoice] = useState(initial === "stop" ? "stop" : initial === "resume" ? "resume" : "3d");
+  const [choice, setChoice] = useState(initial === "stop" ? "stop" : initial === "resume" ? "resume" : paused ? "" : "3d");
   const [until, setUntil] = useState(addD(today, 10));
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -231,7 +250,7 @@ export function PauseDialog({ name, campaignId, initial = "pause", status = "liv
           ) : (
             <>
               <button type="button" className="button button-quiet" onClick={() => ref.current?.close()} disabled={busy}>Cancel</button>
-              <button type="button" className={`button${stop ? " button-danger" : ""}`} onClick={apply} disabled={busy || (choice === "date" && !until)}>{busy ? "Saving…" : stop ? "Stop campaign" : choice === "resume" ? "Resume campaign" : "Pause campaign"}</button>
+              <button type="button" className={`button${stop ? " button-danger" : ""}`} onClick={apply} disabled={busy || !choice || (choice === "date" && !until)}>{busy ? "Saving…" : stop ? "Stop campaign" : choice === "resume" ? "Resume campaign" : "Pause campaign"}</button>
             </>
           )}
         </div>

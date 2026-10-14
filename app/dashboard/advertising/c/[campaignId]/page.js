@@ -7,6 +7,7 @@ import { deliveryNote, deltaText, gameRows } from "../../../../../lib/advertiser
 import { formatCount, formatDay } from "../../../../../lib/analytics";
 import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
+import { planCreativeIds } from "../../../../../lib/campaign-plan";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign report" };
@@ -135,7 +136,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
           </div>
         </div>
         {report.creativeRows.length === 0 ? (
-          <p className="settings-help cr-pad">No creatives in this campaign yet.</p>
+          <p className="settings-help cr-pad">{planCreativeIds(report.campaign.plan).length > 0 ? "The creatives are attached. Figures appear here after their first impressions." : "No creatives in this campaign yet."}</p>
         ) : (
           <div className="ov-table-wrap">
             <table>

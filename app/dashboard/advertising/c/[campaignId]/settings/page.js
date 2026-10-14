@@ -19,7 +19,7 @@ export default async function CampaignSettingsPage({ params }) {
   let catalog = null;
   if (head.rules) {
     let openQuery = me.service.from("placements").select("game_id, games(genres, platforms, languages)").eq("open_to_advertisers", true).is("removed_at", null);
-    if (me.role !== "admin") openQuery = openQuery.neq("owner_id", me.user.id);
+    openQuery = openQuery.neq("owner_id", me.user.id); // the server never books an advertiser on their own games, admin or not
     const { data: open, error } = await openQuery;
     if (!error) {
       const byGame = new Map();
