@@ -7680,3 +7680,12 @@ select.field:focus-visible,
 .ovx-selectall { display: inline-flex; align-items: center; gap: 10px; }
 .ovx-box.is-partial { background: #fff; color: var(--ink-2); border-color: var(--ink-3); }
 .ovx-chart-note { margin: 0; padding: 0 18px 10px; }
+
+/* Overview: one small download icon with a list; New campaign with a plus */
+.dl-menu { position: relative; }
+.dl-button { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line, #e6ddd3); border-radius: 10px; background: #fff; color: var(--ink-2); cursor: pointer; }
+.dl-button:hover, .dl-button[aria-expanded="true"] { border-color: var(--signal); color: var(--signal-ink); background: #fffaf6; }
+.dl-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 180px; padding: 6px; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--line, #e6ddd3); border-radius: 10px; box-shadow: 0 8px 24px rgba(40, 30, 20, 0.14); }
+.dl-list a { padding: 9px 12px; border-radius: 7px; color: var(--ink); font-size: 14px; text-decoration: none; white-space: nowrap; }
+.dl-list a:hover { background: #fbf3ec; color: var(--signal-ink); }
+.button.button-with-icon { display: inline-flex; align-items: center; gap: 8px; }

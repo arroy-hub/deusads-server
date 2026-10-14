@@ -99,7 +99,7 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
     <div className="pg-ic pg-campaigns">
       <div className="main-head">
         <div><h1>Campaigns</h1><p className="lede">Your campaigns and where each one stands.</p></div>
-        <Link href="/dashboard/advertising/new" className="button">New campaign</Link>
+        <Link href="/dashboard/advertising/new" className="button button-with-icon"><IcPlus size={16} />New campaign</Link>
       </div>
       {error && <p className="notice">Run <code>supabase/migrations/0009_campaigns_and_bookings.sql</code> in the Supabase SQL editor to turn bookings on.</p>}
       <section className="rd-list" aria-label="Campaigns">

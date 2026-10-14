@@ -58,6 +58,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   const chosen = campaigns.filter((item) => selected.has(item.id));
   const totals = selectionTotals(chosen);
   const allOn = chosen.length === campaigns.length;
+  const hasPrevious = chosen.some((item) => item.previousDaily.some(Boolean));
   const hasSplit = !splitMissing && campaigns.some((item) => item.split);
 
   const bucket = grain === "week" ? (values) => byWeek(values, dates) : (values) => byDay(values, dates);
@@ -184,7 +185,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
             Impressions per {grain} <span className="ovx-muted">· {BREAKDOWN_TEXT[breakdown]} · {formatDay(dates[0])} – {formatDay(dates[dates.length - 1])}</span>
           </h2>
           </div>
-        <p className="ovx-hint ovx-chart-note">Choose which campaigns to show in “By campaign” below. Hover the chart for exact numbers.</p>
+        <p className="ovx-hint ovx-chart-note">Choose which campaigns to show in “By campaign” below.</p>
         <div className="ovx-controls">
           <div className="ovx-control">
             <span>Break down by</span>
@@ -213,8 +214,16 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
             <input type="checkbox" checked={marks} onChange={(event) => setMarks(event.target.checked)} />
             Show pauses and blocks
           </label>
-          <label className={`ovx-check ${breakdown !== "total" ? "is-off" : ""}`} title={breakdown !== "total" ? "Available for Total" : undefined}>
-            <input type="checkbox" checked={compare && breakdown === "total"} disabled={breakdown !== "total"} onChange={(event) => setCompare(event.target.checked)} />
+          <label className={`ovx-check ${!hasPrevious ? "is-off" : ""}`} title={!hasPrevious ? `There were no impressions in the ${days} days before this period for the selected campaigns, so there is nothing to compare with.` : breakdown !== "total" ? "Shows the chart as Total, with the previous period as a dashed line" : undefined}>
+            <input
+              type="checkbox"
+              checked={compare && breakdown === "total"}
+              disabled={!hasPrevious}
+              onChange={(event) => {
+                setCompare(event.target.checked);
+                if (event.target.checked) setBreakdown("total");
+              }}
+            />
             Compare with previous period
           </label>
         </div>

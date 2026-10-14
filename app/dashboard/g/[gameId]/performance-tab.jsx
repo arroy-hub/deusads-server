@@ -302,7 +302,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const cmp = (a, b) => (sort.key === "name" ? dir * byName(a, b) : dir * (valueFor(a, sort.key) - valueFor(b, sort.key)) || byName(a, b));
 
   const groups = useMemo(
-    () => (grouped ? [...table.groups].sort((a, b) => (a.special !== b.special ? (a.special ? 1 : -1) : a.key === "__unknown" ? 1 : b.key === "__unknown" ? -1 : cmp(a, b))) : []),
+    () => (grouped ? [...table.groups].sort((a, b) => (a.key === "__unknown" ? 1 : b.key === "__unknown" ? -1 : cmp(a, b))) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [table, source, sort]
   );
