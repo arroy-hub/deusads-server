@@ -7689,3 +7689,10 @@ select.field:focus-visible,
 .dl-list a { padding: 9px 12px; border-radius: 7px; color: var(--ink); font-size: 14px; text-decoration: none; white-space: nowrap; }
 .dl-list a:hover { background: #fbf3ec; color: var(--signal-ink); }
 .button.button-with-icon { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Rule: a block's helper text sits right under its title, with air between that pair and the rest of the block */
+.ovx-chart-head { padding: 16px 18px 2px; }
+.ovx-chart-note { margin: 0; padding: 0 18px 16px; }
+.ovx-table-head { display: block; padding: 16px 18px 16px; }
+.ovx-table-head h2 { margin: 0 0 2px; }
+.ovx-table-head .ovx-hint { display: block; }
