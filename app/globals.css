@@ -7612,3 +7612,6 @@ select.field:focus-visible,
   outline: 2px solid var(--ink-2, #55504a);
   outline-offset: 1px;
 }
+
+/* Login card: the wordmark is dark on the light card (it is white in the dark sidebar). */
+.gate-card .rail-mark { color: var(--ink); }
