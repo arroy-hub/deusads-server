@@ -10,6 +10,7 @@ import { isCategory } from "../../lib/categories";
 import { normalizeCrop } from "../../lib/surface-math";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_TYPES } from "../../lib/own-creatives";
 import { validateProfile } from "../../lib/targeting";
+import { coverValue, parseCover } from "../../lib/game-cover";
 
 // Every action writes through the user's own client, so row-level security is
 // what actually enforces ownership. The owner_id below is convenience, not the
@@ -125,6 +126,48 @@ export async function setGameIcon({ gameId, path }) {
   }
 
   revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+/**
+ * Sets a game's header picture: a colour ("preset:<id>"), a picture the browser has already put in Storage inside the
+ * user's own folder (`path`), or nothing (back to the default colour). Deletes the previous picture. Owner only,
+ * enforced by row-level security (migration 0029 adds the column).
+ */
+export async function setGameCover({ gameId, preset = null, path = null }) {
+  const id = String(gameId ?? "");
+  const { db, user } = await session();
+  if (!user) return { error: "Your session expired. Sign in again." };
+
+  let next = null;
+  if (path) {
+    const file = String(path);
+    if (!file.startsWith(`${user.id}/`) || file.includes("..") || file.length > 290) return { error: "Upload failed. Try again." };
+    next = `image:${file}`;
+  } else if (preset) {
+    next = coverValue(String(preset));
+    if (next === undefined) return { error: "That colour is not one of the choices." };
+  }
+
+  const { data: before, error: readError } = await db.from("games").select("id, cover").eq("id", id).maybeSingle();
+  if (isSchemaOutdated(readError)) return { error: "Header images need the database update (migration 0029) first." };
+  if (!before) {
+    if (path) await db.storage.from("creatives").remove([String(path)]);
+    return { error: "That game no longer exists." };
+  }
+
+  const { error } = await db.from("games").update({ cover: next }).eq("id", id);
+  if (error) {
+    if (path) await db.storage.from("creatives").remove([String(path)]);
+    return { error: "Could not save the header. Try again." };
+  }
+  const old = parseCover(before.cover);
+  if (old.kind === "image" && `image:${old.path}` !== next && old.path.startsWith(`${user.id}/`)) {
+    const { error: removeError } = await db.storage.from("creatives").remove([old.path]);
+    if (removeError) console.warn("[DeusADS] old game header not removed:", old.path, removeError.message);
+  }
+
+  revalidatePath("/dashboard/games");
   return { ok: true };
 }
 

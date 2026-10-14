@@ -89,6 +89,11 @@ export default async function DashboardLayout({ children }) {
             </Link>
             <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>
           </div>
+          <div className="rail-bell">
+            <Suspense fallback={<span className="bell-button bell-wait" aria-hidden="true" />}>
+              <Bell db={db} user={user} role={role} />
+            </Suspense>
+          </div>
         </div>
 
         {groups.map((group, index) => (
@@ -113,11 +118,6 @@ export default async function DashboardLayout({ children }) {
       </nav>
 
       <div className="content">
-        <header className="topbar">
-          <Suspense fallback={<span className="bell-button bell-wait" aria-hidden="true" />}>
-            <Bell db={db} user={user} role={role} />
-          </Suspense>
-        </header>
         <main className="main">{children}</main>
         <NavFade />
       </div>

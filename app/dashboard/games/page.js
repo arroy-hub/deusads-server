@@ -3,12 +3,12 @@ import { userClient, currentUser } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
 import { loadDigest, registerVisit } from "../../../lib/overview-data";
-import { formatCount } from "../../../lib/analytics";
 import { dayLabel } from "../../../lib/campaigns-view";
 import Digest from "./digest";
 import AddGameDialog from "../add-game-dialog";
-import GameIcon from "../game-icon";
-import SetupPanel from "./setup-panel";
+import GameCard from "./game-card";
+import { coverBackground, parseCover } from "../../../lib/game-cover";
+import { agoText } from "../../../lib/connection";
 import GamesPerformance from "./games-performance";
 import { loadGamesPerformance } from "../../../lib/games-performance";
 import { windowOf } from "../../../lib/performance-view";
@@ -58,19 +58,37 @@ export default async function GamesPage({ searchParams }) {
 
   const iconOf = (game) => (game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : "");
 
-  // Impressions in the last 7 days for each card (migration 0022); a card without the figure shows a dash.
-  const week = windowOf(7);
-  const views = new Map(
+  // What each card shows besides the name: its header (migration 0029), key, placements, campaigns and first impression.
+  const coverRows = await db.from("games").select("id, cover");
+  const coverOf = new Map(coverRows.error ? [] : (coverRows.data ?? []).map((row) => [row.id, row.cover]));
+  const keyRows = await db.from("games").select("id, api_key");
+  const keyOf = new Map(keyRows.error ? [] : (keyRows.data ?? []).map((row) => [row.id, row.api_key]));
+  const placementRows = await db.from("placements").select("id, game_id").is("removed_at", null);
+  const placementsOf = new Map();
+  const gameOfPlacement = new Map();
+  for (const row of placementRows.error ? [] : (placementRows.data ?? [])) {
+    placementsOf.set(row.game_id, (placementsOf.get(row.game_id) ?? 0) + 1);
+    gameOfPlacement.set(row.id, row.game_id);
+  }
+  // Campaigns that have an approved booking on one of the game's placements.
+  const bookingRows = await db.from("bookings").select("campaign_id, placement_id").eq("status", "approved");
+  const campaignsOf = new Map();
+  for (const row of bookingRows.error ? [] : (bookingRows.data ?? [])) {
+    const gameId = gameOfPlacement.get(row.placement_id);
+    if (!gameId) continue;
+    if (!campaignsOf.has(gameId)) campaignsOf.set(gameId, new Set());
+    campaignsOf.get(gameId).add(row.campaign_id);
+  }
+  const firstOf = new Map(
     await Promise.all(
       withConnection.map(async (game) => {
-        const { data, error } = await db.rpc("game_performance", {
-          p_game_id: game.id, p_from: week.from, p_to: week.to, p_scopes: [{ key: "all", all: true }], p_by_day: false,
-        });
-        const row = error ? null : (data ?? []).find((entry) => !entry.day);
-        return [game.id, row ? Number(row.adv ?? 0) + Number(row.own ?? 0) : null];
+        const { data } = await db.from("impressions").select("occurred_at").eq("game_id", game.id).order("occurred_at", { ascending: true }).limit(1);
+        return [game.id, data?.[0]?.occurred_at ?? null];
       })
     ).catch(() => [])
   );
+  const day = (at) => (at ? new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "");
+  const coverUrl = (path) => db.storage.from("creatives").getPublicUrl(path).data.publicUrl;
 
   const performance =
     tab === "performance" && withConnection.length > 0
@@ -86,110 +104,110 @@ export default async function GamesPage({ searchParams }) {
   const WORD = { ok: "#1f6b3a", silent: "#8a5a00", new: "#5b524a" };
   const legend = [["ok", "connected"], ["silent", "out of sync"], ["new", "not connected"]];
 
+  const cards = withConnection.map((game, index) => {
+    const mode = game.connection?.mode ?? "ok";
+    const lastSignal = signalOf.get(game.id) ?? null;
+    const cover = parseCover(coverOf.get(game.id));
+    const sub = mode === "ok" ? agoText(lastSignal, now) : mode === "silent" ? agoText(lastSignal, now) : "waiting for the SDK";
+    return {
+      id: game.id,
+      name: game.name,
+      iconUrl: iconOf(game),
+      mode,
+      label: game.connection?.label ?? "Connected",
+      sub,
+      dot: DOT[mode],
+      word: WORD[mode],
+      placements: placementsOf.get(game.id) ?? 0,
+      placementsTotal: placementsOf.get(game.id) ?? 0,
+      campaigns: campaignsOf.get(game.id)?.size ?? 0,
+      coverCss: coverBackground(coverOf.get(game.id), index, coverUrl),
+      defaultCss: coverBackground(null, index),
+      coverKind: cover.kind,
+      coverId: cover.id ?? null,
+      apiKey: keyOf.get(game.id) ?? "",
+      createdText: day(game.created_at),
+      signalText: lastSignal ? agoText(lastSignal, now) : "No signal yet",
+      firstText: day(firstOf.get(game.id)),
+    };
+  });
+
   return (
     <div className="mg">
-      <div className="mg-head">
-        <div>
-          <h1>My games</h1>
-          <p>
-            {tab === "performance"
-              ? "How often ads were shown across your games, and whose they were."
-              : "Open a game to manage its placements and see how its ads perform."}
-          </p>
-        </div>
-        <AddGameDialog />
-      </div>
-
-      <div role="tablist" aria-label="My games sections" className="mg-tabs">
-        <Link href="/dashboard/games" role="tab" aria-selected={tab === "games"} className="mg-tab">
-          Games<span className="mg-tab-count">{withConnection.length}</span>
-        </Link>
-        <Link href="/dashboard/games?tab=performance" role="tab" aria-selected={tab === "performance"} className="mg-tab">
-          Performance
-        </Link>
-      </div>
-
-      {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}
-
-      {tab === "performance" && (
-        <>
-          {performance?.model && <GamesPerformance model={performance.model} />}
-          {performance?.error === "migration" && (
-            <p className="notice">
-              Run <code>supabase/migrations/0022_game_performance.sql</code> in the Supabase SQL editor to turn Performance on.
-            </p>
-          )}
-          {performance?.error === "failed" && <p className="notice">Performance could not be loaded. Try again in a moment.</p>}
-          {!performance && <div className="empty"><p style={{ margin: "0 auto" }}>Add a game to see its performance here.</p></div>}
-        </>
-      )}
-
-      {tab === "games" &&
-        (games?.length ? (
-          <>
-            <ul className="mg-legend">
-              {legend.map(([mode, word]) => (
-                <li key={mode}>
-                  <span style={{ background: DOT[mode] }} />
-                  {count(mode)} {word}
-                </li>
-              ))}
-            </ul>
-            <div className="mg-grid">
-              {withConnection.map((game) => {
-                const mode = game.connection?.mode ?? "ok";
-                const week7 = views.get(game.id);
-                const placements = game.placements?.[0]?.count ?? 0;
-                const url = iconOf(game);
-                return (
-                  <article key={game.id} className="mg-card">
-                    <Link href={`/dashboard/g/${game.id}`} aria-label={`Open ${game.name}`} className="mg-card-link" />
-                    <div className="mg-card-top">
-                      <div className="mg-icon">
-                        <GameIcon name={game.name} url={url} />
-                        {game.connection && <span className="mg-dot" style={{ background: DOT[mode] }} role="img" aria-label={`SDK: ${game.connection.label}`} />}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <h2>{game.name}</h2>
-                        {game.connection && (
-                          <div className="mg-state">
-                            <b style={{ color: WORD[mode] }}>{game.connection.label}</b> · {game.connection.line}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mg-stats">
-                      <div>
-                        <div className="mg-num" data-zero={placements === 0}>{placements}</div>
-                        <div className="mg-cap">Placements</div>
-                      </div>
-                      <div>
-                        <div className="mg-num" data-zero={!week7}>{week7 == null ? "—" : formatCount(week7)}</div>
-                        <div className="mg-cap">Views, 7 days</div>
-                      </div>
-                    </div>
-                    {mode === "new" ? (
-                      <div className="mg-foot mg-foot-setup">
-                        <SetupPanel gameId={game.id} gameName={game.name} iconUrl={url} />
-                      </div>
-                    ) : (
-                      <div className="mg-foot">
-                        <span>Open game</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M9 6l6 6-6 6" />
-                        </svg>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div className="empty">
-            <p style={{ margin: "0 auto 1rem" }}>Add your first game to connect the Unity SDK: press “Add game” at the top.</p>
+      <div className="mg-top">
+        <div className="mg-head">
+          <div>
+            <h1>My games</h1>
+            <p>Your games, their connection and how their ads perform.</p>
           </div>
-        ))}
+        </div>
+
+        <div role="tablist" aria-label="My games sections" className="mg-tabs">
+          <Link href="/dashboard/games" role="tab" aria-selected={tab === "games"} className="mg-tab">
+            Games<span className="mg-tab-count" data-zero={withConnection.length === 0}>{withConnection.length}</span>
+          </Link>
+          <Link href="/dashboard/games?tab=performance" role="tab" aria-selected={tab === "performance"} className="mg-tab">
+            Performance
+          </Link>
+        </div>
+      </div>
+
+      <div className="mg-work">
+        {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}
+
+        {tab === "performance" && (
+          <>
+            {performance?.model && <GamesPerformance model={performance.model} />}
+            {performance?.error === "migration" && (
+              <p className="notice">
+                Run <code>supabase/migrations/0022_game_performance.sql</code> in the Supabase SQL editor to turn Performance on.
+              </p>
+            )}
+            {performance?.error === "failed" && <p className="notice">Performance could not be loaded. Try again in a moment.</p>}
+            {!performance && <div className="empty"><p style={{ margin: "0 auto" }}>Add a game to see its performance here.</p></div>}
+          </>
+        )}
+
+        {tab === "games" &&
+          (cards.length ? (
+            <>
+              <ul className="mg-legend">
+                {legend.map(([mode, word]) => (
+                  <li key={mode}>
+                    <span style={{ background: DOT[mode] }} />
+                    {count(mode)} {word}
+                  </li>
+                ))}
+              </ul>
+              <div className="mg-grid">
+                {cards.map((game) => (
+                  <GameCard key={game.id} game={game} />
+                ))}
+              </div>
+              <div>
+                <AddGameDialog />
+              </div>
+            </>
+          ) : (
+            <div className="mg-empty">
+              <div className="mg-empty-cover" />
+              <div className="mg-empty-body">
+                <span className="mg-empty-icon">
+                  <span>
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#b8421d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 7h18v11H3zM8 11v3M6.5 12.5h3" />
+                    </svg>
+                  </span>
+                </span>
+                <h2>Add your first game</h2>
+                <p>Connect a game with the Unity SDK, and its placements, campaigns and results will show up here.</p>
+                <div>
+                  <AddGameDialog />
+                </div>
+              </div>
+            </div>
+          ))}
+      </div>
     </div>
   );
 }
