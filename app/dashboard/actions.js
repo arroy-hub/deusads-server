@@ -145,7 +145,7 @@ export async function setGameCover({ gameId, preset = null, path = null }) {
     if (!file.startsWith(`${user.id}/`) || file.includes("..") || file.length > 290) return { error: "Upload failed. Try again." };
     next = `image:${file}`;
   } else if (preset) {
-    next = coverValue(String(preset));
+    next = coverValue(`preset:${String(preset)}`);
     if (next === undefined) return { error: "That colour is not one of the choices." };
   }
 

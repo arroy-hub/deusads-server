@@ -58,9 +58,7 @@ assert.equal(lines[0].text, "2 new campaigns and 1 new creative in CASTLE");
 assert.equal(lines[0].href, "/dashboard/g/g1?tab=campaigns");
 assert.equal(lines[1].text, "1 new placement found after Send placements in CASTLE");
 assert.equal(lines[2].text, "DeusADS reviewed your report on “Jackpot”: creative removed");
-assert.equal(lines.length, 4);
-assert.equal(lines[3].warn, true);
-assert.match(lines[3].text, /Hoops hasn't synced for 9 days/);
+assert.equal(lines.length, 3); // a quiet game is no longer announced here
 assert.deepEqual(buildDigest({ games: [{ id: "g1", name: "A" }], since }), []);
 
 console.log("visits-digest tests passed");
