@@ -7752,3 +7752,29 @@ select.field:focus-visible,
 .rail-bell .bell-badge { top: -6px; right: -6px; }
 .rail-bell .bell-panel { left: 0; right: auto; color: var(--ink); }
 .rail { position: relative; z-index: 30; }
+
+/* ---- one header band on Overview, Campaigns, Creatives and a game's page: white, edge to edge, apart from the work area ---- */
+.main:has(> .pg-ic), .main:has(> .gp) { padding: 0; max-width: none; }
+.pg-ic { padding-bottom: 56px; }
+.pg-ic > .main-head { margin: 0; padding: 24px 40px; background: #fff; border-bottom: 1px solid #e6ddd3; box-shadow: 0 1px 0 rgba(60, 35, 20, 0.03); align-items: center; }
+.pg-ic > .main-head h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 3px; }
+.pg-ic > .main-head .lede { font-size: 14.5px; color: #6b5f56; margin: 0; }
+.pg-ic > :not(.main-head) { margin-left: 40px; margin-right: 40px; }
+.pg-ic > .main-head + * { margin-top: 26px; }
+
+.gp { padding-bottom: 56px; }
+.gp-top { background: #fff; border-bottom: 1px solid #e6ddd3; padding: 24px 40px 0; box-shadow: 0 1px 0 rgba(60, 35, 20, 0.03); }
+.gp-top .main-head { margin: 0; align-items: center; }
+.gp-top .game-title { gap: 16px; }
+.gp-top .game-title .game-icon { width: 52px; height: 52px; border-radius: 15px; font-size: 22px; }
+.gp-top .game-title h1 { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
+.gp-top .tabs { margin: 22px 0 0; gap: 28px; border-bottom: 0; }
+.gp-top .tab { min-height: 0; padding: 10px 2px 12px; margin-bottom: -1px; font-size: 15px; font-weight: 600; }
+.gp-top .tab[aria-current="page"] { font-weight: 700; border-bottom-color: #c94a24; }
+.gp-work { padding: 26px 40px 0; }
+@media (max-width: 800px) {
+  .pg-ic > .main-head, .gp-top { padding-left: 16px; padding-right: 16px; }
+  .pg-ic > :not(.main-head) { margin-left: 16px; margin-right: 16px; }
+  .gp-work, .mg-work { padding-left: 16px; padding-right: 16px; }
+  .mg-top { padding-left: 16px; padding-right: 16px; }
+}

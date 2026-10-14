@@ -129,7 +129,8 @@ export default async function GamePage({ params, searchParams }) {
           : "";
 
   return (
-    <>
+    <div className="gp">
+      <div className="gp-top">
       <div className="main-head">
         <div className="game-title">
           <GameIcon name={game.name} url={iconUrl} size="sm">
@@ -142,13 +143,6 @@ export default async function GamePage({ params, searchParams }) {
           <h1>{game.name}</h1>
         </div>
       </div>
-      {gaps.known && gaps.missing.length > 0 && (
-        <p className="notice" style={{ marginBottom: "1rem" }}>
-          Tell advertisers what this game is: fill in its {gapWords(gaps.missing)}. Ads aimed at a genre,
-          platform or language only show in games that have said what they are.{" "}
-          {tab !== "settings" && <Link href={`/dashboard/g/${game.id}?tab=settings`}>Fill it in</Link>}
-        </p>
-      )}
       <nav className="tabs" aria-label="Game sections">
         {TABS.map(([key, label]) => (
           <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
@@ -158,6 +152,15 @@ export default async function GamePage({ params, searchParams }) {
         ))}
         <TabInfo label={TABS.find(([key]) => key === tab)?.[1] ?? "this tab"} text={tabInfo} />
       </nav>
+      </div>
+      <div className="gp-work">
+      {gaps.known && gaps.missing.length > 0 && (
+        <p className="notice" style={{ marginBottom: "1rem" }}>
+          Tell advertisers what this game is: fill in its {gapWords(gaps.missing)}. Ads aimed at a genre,
+          platform or language only show in games that have said what they are.{" "}
+          {tab !== "settings" && <Link href={`/dashboard/g/${game.id}?tab=settings`}>Fill it in</Link>}
+        </p>
+      )}
 
       {tab === "campaigns" && campaigns?.days && <CampaignsTab gameId={game.id} model={campaigns} />}
       {tab === "campaigns" && campaigns?.error === "migration" && (
@@ -231,7 +234,8 @@ export default async function GamePage({ params, searchParams }) {
           profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
         />
       )}
-    </>
+      </div>
+    </div>
   );
 }
 
