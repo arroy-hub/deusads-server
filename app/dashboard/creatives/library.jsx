@@ -17,7 +17,7 @@ function hint(item) {
   if (item.status === "rejected") return item.note ? `Reason: ${item.note}` : "Upload a corrected one.";
   if (item.status === "pending") return "Ads start once it is approved";
   const missing = item.formats.filter((f) => !f.ready);
-  if (missing.length) return `${missing.length} ${missing.length === 1 ? "shape" : "shapes"} missing: ${missing.map((f) => SHORT[f.id]).join(", ")}`;
+  if (missing.length) return `${missing.length} ${missing.length === 1 ? "shape" : "shapes"} missing`;
   return "All shapes covered";
 }
 
