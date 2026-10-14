@@ -7679,3 +7679,4 @@ select.field:focus-visible,
 .ovx-legend-more { color: var(--ink-3); }
 .ovx-selectall { display: inline-flex; align-items: center; gap: 10px; }
 .ovx-box.is-partial { background: #fff; color: var(--ink-2); border-color: var(--ink-3); }
+.ovx-chart-note { margin: 0; padding: 0 18px 10px; }

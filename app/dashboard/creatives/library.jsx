@@ -201,7 +201,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   return (
     <div className="pg-ic pg-creatives">
       <div className="main-head">
-        <div><h1>Creatives</h1><p className="lede">Your pictures and the ad shapes each one covers. Drag a creative into a folder; click a name to rename it.</p></div>
+        <div><h1>Creatives</h1><p className="lede">Your pictures and the ad shapes each one covers.</p></div>
         <button type="button" className="button" onClick={() => setAdding(true)}><IcPlus size={16} />Add creative</button>
       </div>
       {problem && <p className="error" role="alert">{problem}</p>}

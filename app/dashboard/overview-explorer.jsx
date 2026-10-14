@@ -183,8 +183,8 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <h2 id="ovx-chart-title">
             Impressions per {grain} <span className="ovx-muted">· {BREAKDOWN_TEXT[breakdown]} · {formatDay(dates[0])} – {formatDay(dates[dates.length - 1])}</span>
           </h2>
-          <span className="ovx-hint">Choose which campaigns to show in “By campaign” below. Hover the chart for exact numbers.</span>
-        </div>
+          </div>
+        <p className="ovx-hint ovx-chart-note">Choose which campaigns to show in “By campaign” below. Hover the chart for exact numbers.</p>
         <div className="ovx-controls">
           <div className="ovx-control">
             <span>Break down by</span>
@@ -319,13 +319,13 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                       <button
                         type="button"
                         role="checkbox"
-                        aria-checked={allOn ? true : chosen.length === 0 ? false : "mixed"}
+                        aria-checked={allOn}
                         aria-label={allOn ? "Clear all campaigns from the chart" : "Show all campaigns on the chart"}
-                        className={`ovx-box${chosen.length > 0 && !allOn ? " is-partial" : ""}`}
+                        className="ovx-box"
                         style={allOn ? { background: "#1c1b1a", borderColor: "#1c1b1a" } : undefined}
                         onClick={() => setSelected(allOn ? new Set() : new Set(campaigns.map((item) => item.id)))}
                       >
-                        {allOn ? "✓" : chosen.length > 0 ? "–" : ""}
+                        {allOn ? "✓" : ""}
                       </button>
                       <button type="button" className={`ovx-sort${sort.key === "name" ? " is-on" : ""}`} onClick={() => sortBy("name")}>
                         Campaign
