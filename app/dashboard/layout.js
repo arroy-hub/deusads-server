@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { userClient, currentUser } from "../../lib/supabase-server";
 import { currentRole, getMember } from "../../lib/admin";
 import { loadAttention } from "../../lib/advertiser-data";
@@ -10,19 +11,41 @@ import { adminCounts, openDisputes, unreadCount } from "../../lib/counts";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import NavLink from "./nav-link";
 import NotificationsBell from "./notifications-bell";
+import NavFade from "./nav-fade";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: { template: "%s · DeusADS", default: "DeusADS" } };
 
+/**
+ * The bell: unread count, the latest notifications and (for an advertiser) what needs action. It is the slowest part
+ * of the frame, so it fills in after the page has started to show instead of holding everything back.
+ */
+async function Bell({ db, user, role }) {
+  const [unread, latest, attention] = await Promise.all([
+    unreadCount(db, user?.id),
+    // The notifications table comes with migration 0013; without it: none.
+    user ? db.from("notifications").select("id, text, link, created_at, read_at").order("created_at", { ascending: false }).limit(15) : { data: null },
+    // An advertiser's bell also lists what needs action (rejected creatives, format gaps, limited campaigns, reports).
+    role === "advertiser"
+      ? getMember().then((me) => (me ? loadAttention(me.service, me) : [])).catch(() => [])
+      : [],
+  ]);
+  return <NotificationsBell items={latest?.data ?? []} unread={unread} attention={attention} />;
+}
+
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
-  const role = (await currentRole(db, user?.id)) ?? "developer";
-  // A suspended account sees only this notice (column from migration 0015; absent before it).
-  const { data: standing } = user
-    ? await db.from("accounts").select("suspended_at").eq("id", user.id).maybeSingle()
-    : { data: null };
+  // What the frame needs at once: asked together, not one after the other (each is a round trip to the database).
+  const [roleRow, { data: standing }, gamesResult] = await Promise.all([
+    currentRole(db, user?.id),
+    // A suspended account sees only a notice (column from migration 0015; absent before it).
+    user ? db.from("accounts").select("suspended_at").eq("id", user.id).maybeSingle() : { data: null },
+    // The icon of a game (migration 0019) shows in the menu; without it the plain list still loads.
+    db.from("games").select("id, name, icon_path").order("created_at", { ascending: true }).then(async (result) => (result.error ? db.from("games").select("id, name").order("created_at", { ascending: true }) : result)),
+  ]);
+  const role = roleRow ?? "developer";
   if (standing?.suspended_at) {
     return (
       <main className="main">
@@ -31,33 +54,17 @@ export default async function DashboardLayout({ children }) {
       </main>
     );
   }
-  // Opening any page keeps the visit alive (My games works out "since your last visit" from it).
-  await registerVisit(serviceClient(), user?.id).catch(() => null);
+  const admin = role === "admin";
+  const [, waitingAdmin, disputes, applied] = await Promise.all([
+    // Opening any page keeps the visit alive (My games works out "since your last visit" from it).
+    registerVisit(serviceClient(), user?.id).catch(() => null),
+    admin ? adminCounts(serviceClient()) : null,
+    admin ? openDisputes(serviceClient()) : 0,
+    admin ? loadAppliedVersions(serviceClient()) : null,
+  ]);
   const requests = 0; // bookings approve themselves: nothing waits for the developer
-  const unread = await unreadCount(db, user?.id);
-  // The latest notifications for the bell (the table comes with migration 0013; without it: none).
-  const { data: latest } = user
-    ? await db
-        .from("notifications")
-        .select("id, text, link, created_at, read_at")
-        .order("created_at", { ascending: false })
-        .limit(15)
-    : { data: null };
-  // An advertiser's bell also lists what needs action (rejected creatives, format gaps, limited campaigns, reports).
-  let attention = [];
-  if (role === "advertiser") {
-    const me = await getMember().catch(() => null);
-    attention = me ? await loadAttention(me.service, me).catch(() => []) : [];
-  }
-  const waitingAdmin = role === "admin" ? await adminCounts(serviceClient()) : null;
-  const disputes = role === "admin" ? await openDisputes(serviceClient()) : 0;
-  const schemaBehind = role === "admin" && !schemaVerdict(await loadAppliedVersions(serviceClient())).ok;
-  // The icon of a game (migration 0019) shows in the menu; without it the plain list still loads.
-  let { data: games, error: gamesError } = await db
-    .from("games")
-    .select("id, name, icon_path")
-    .order("created_at", { ascending: true });
-  if (gamesError) ({ data: games } = await db.from("games").select("id, name").order("created_at", { ascending: true }));
+  const schemaBehind = admin && !schemaVerdict(applied).ok;
+  const games = gamesResult.data;
 
   const groups = menuFor(
     role,
@@ -107,9 +114,12 @@ export default async function DashboardLayout({ children }) {
 
       <div className="content">
         <header className="topbar">
-          <NotificationsBell items={latest ?? []} unread={unread} attention={attention} />
+          <Suspense fallback={<span className="bell-button bell-wait" aria-hidden="true" />}>
+            <Bell db={db} user={user} role={role} />
+          </Suspense>
         </header>
         <main className="main">{children}</main>
+        <NavFade />
       </div>
     </div>
   );

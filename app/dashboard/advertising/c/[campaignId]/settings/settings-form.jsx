@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteCampaign, renameCampaign, setCampaignDates } from "../../../actions";
 import { TONE, addD, diff, fmtDay, todayISO } from "../../../../_cabinet/dates";
-import { DateRange, PauseDialog } from "../../../../_cabinet/ui";
-import { IcPause } from "../../../../_cabinet/icons";
+import { DateRange, PauseDialog, Pop } from "../../../../_cabinet/ui";
+import { IcPause, IcStop } from "../../../../_cabinet/icons";
+import { navigating } from "../../../../_cabinet/nav";
 
 /**
  * General settings of a campaign: the name and a schedule you can read at a glance (the bar, the two days, quick
@@ -18,7 +19,9 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
   const [from, setFrom] = useState(starts);
   const [until, setUntil] = useState(ends);
   const [asking, setAsking] = useState(false);
-  const [pausing, setPausing] = useState(false);
+  const [pausing, setPausing] = useState(null); // null | "pause" | "stop"
+  const delBtn = useRef(null);
+  const [why, setWhy] = useState(false); // the bubble that says a running campaign has to be stopped first
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState({ tone: "", text: "" });
 
@@ -57,6 +60,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
     const result = await deleteCampaign({ campaignId: id }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setNote({ tone: "error", text: result.error });
+    navigating();
     router.push("/dashboard/advertising");
   }
 
@@ -92,15 +96,29 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
       )}
       {hasOpen && rules && (
         <section className="cs-card cs-rows" aria-label="Running">
-          <div className="cs-row"><div><h2>Pause or stop</h2><p>Hold the ads for a day, a week or until a date, or end the campaign for good. Players see the change at their next launch.</p></div><button type="button" className="button button-quiet" onClick={() => setPausing(true)}><IcPause size={15} /> Pause or stop…</button></div>
+          <div className="cs-row"><div><h2>Pause or stop</h2><p>Hold the ads for a day, a week or until a date, or end the campaign for good. Players see the change at their next launch.</p></div><button type="button" className="button button-quiet" onClick={() => setPausing("pause")}><IcPause size={15} /> Pause or stop…</button></div>
         </section>
       )}
       <section className="cs-card cs-danger" aria-labelledby="del-title">
         <h2 id="del-title">Delete the campaign</h2>
-        <p className="settings-help">Possible only when nothing in it is running: stop it first. {closedBookings > 0 ? `The ${closedBookings} closed ${closedBookings === 1 ? "booking" : "bookings"} and their figures leave your reports.` : ""}</p>
-        {asking ? <div className="confirm-inline"><span className="confirm-text">Delete “{name}”? This cannot be undone.</span><button type="button" className="button button-danger" disabled={busy} onClick={remove}>{busy ? "Deleting…" : "Delete campaign"}</button><button type="button" className="button button-quiet" disabled={busy} onClick={() => setAsking(false)}>Keep</button></div> : <div><button type="button" className="button button-quiet" onClick={() => setAsking(true)}>Delete campaign</button></div>}
+        <p className="settings-help">A running campaign has to be stopped before it can be deleted. {closedBookings > 0 ? `The ${closedBookings} closed ${closedBookings === 1 ? "booking" : "bookings"} and their figures leave your reports.` : ""}</p>
+        {asking ? <div className="confirm-inline"><span className="confirm-text">Delete “{name}”? This cannot be undone.</span><button type="button" className="button button-danger" disabled={busy} onClick={remove}>{busy ? "Deleting…" : "Delete campaign"}</button><button type="button" className="button button-quiet" disabled={busy} onClick={() => setAsking(false)}>Keep</button></div> : (
+          <div>
+            <button ref={delBtn} type="button" className={`button button-quiet${hasOpen ? " is-blocked" : ""}`} aria-haspopup={hasOpen ? "dialog" : undefined} aria-expanded={hasOpen ? why : undefined} onClick={() => (hasOpen ? setWhy((v) => !v) : setAsking(true))}>Delete campaign</button>
+            <Pop anchor={delBtn} open={why} onClose={() => setWhy(false)} align="start" width={320} label="Why the campaign cannot be deleted yet">
+              <div className="rd-bubble" role="status">
+                <span className="rd-bubble-ic"><IcStop size={16} /></span>
+                <div>
+                  <strong>Stop the campaign first</strong>
+                  <p>“{name}” is still running, so it cannot be deleted. Stop it, then delete it.</p>
+                  {rules && <button type="button" className="button button-small button-danger" onClick={() => { setWhy(false); setPausing("stop"); }}>Stop the campaign…</button>}
+                </div>
+              </div>
+            </Pop>
+          </div>
+        )}
       </section>
-      {pausing && <PauseDialog name={name} campaignId={id} initial="pause" status={status.key} onClose={() => setPausing(false)} />}
+      {pausing && <PauseDialog name={name} campaignId={id} initial={pausing} status={status.key} onClose={() => setPausing(null)} />}
     </>
   );
 }

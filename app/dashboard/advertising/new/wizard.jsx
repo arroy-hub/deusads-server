@@ -12,6 +12,7 @@ import { FIELDS, PROFILE_KEYS, evaluate, labelOf, targetingSummary } from "../..
 import { addD, diff, fmtDay, todayISO } from "../../_cabinet/dates";
 import { CalendarPop, DatePick, DateRange, Tip } from "../../_cabinet/ui";
 import { IcCheck, IcPlus, IcWarn } from "../../_cabinet/icons";
+import { navigating } from "../../_cabinet/nav";
 
 const POPULAR_LANGUAGES = ["en", "es", "de", "fr", "ru", "pt", "zh", "ja", "ko", "it", "tr", "pl"];
 const ALL_KEYS = [...PROFILE_KEYS, "exclude_genres"];
@@ -101,6 +102,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
     const r = await saveDraft({ campaignId: campaignId || undefined, campaignName: effectiveName, targeting: audienceTargeting, plan: { creativeId, mode: "audience", placementIds: [] } }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (r?.error) return setError(r.error);
+    navigating();
     router.push("/dashboard/advertising");
     router.refresh();
   }
@@ -110,18 +112,19 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
     const r = await launchCampaign({ campaignId: campaignId || undefined, campaignName: effectiveName, creativeId, targeting: audienceTargeting, startsOn, endsOn }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (r?.error) return setError(r.error);
+    navigating();
     router.push("/dashboard/advertising");
     router.refresh();
   }
 
   /** The creative editor opens over the wizard (on the Audience tab when asked); the wizard stays as it is. */
-  async function openEditor(tab = "picture") {
+  async function openEditor(tab = "picture", shape = null) {
     if (!chosen || busy) return;
     setBusy(true); setError("");
     const r = await openCreativeEditor({ creativeId: chosen.id }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (r?.error) return setError(r.error);
-    setEditor({ data: r.editor, tab });
+    setEditor({ data: r.editor, tab, shape });
   }
 
   /** A picture was uploaded in the pop-up: it joins the library (at the top) and is picked here. */
@@ -173,6 +176,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const coveredFormats = cover.filter((r) => r.kind !== "none").length;
   const LOOKS = { r16x9: "16:9 menu board", r1x1: "1:1 sign", r9x16: "9:16 loading screen", r3x1: "3:1 banner" };
   const looks = cover.filter((r) => LOOKS[r.format.id]).map((r) => ({ id: r.format.id, label: LOOKS[r.format.id], aspect: r.format.aspect, kind: r.kind }));
+  const missing = cover.filter((r) => r.kind === "none").map((r) => ({ id: r.format.id, label: r.format.label.split(" ")[0] }));
 
   const scheduleWord = endMode === "never" ? "Until stopped" : endMode === "date" ? (endDate ? `Until ${fmtDay(endDate)}` : "Pick a date") : `${endMode} days`;
   const lengthDays = endMode === "never" ? null : endMode === "date" ? (endDate ? diff(endDate, startsOn || today) : null) : Number(endMode);
@@ -341,7 +345,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                   const h = Math.round(Math.min(180, 280 / look.aspect));
                   return (
                     <figure key={look.id}>
-                      {look.kind === "none" ? <span className="wz-look is-none" style={{ aspectRatio: String(look.aspect), height: h }}>no picture</span> : <span className="wz-look" style={{ aspectRatio: String(look.aspect), height: h, backgroundImage: chosen?.url ? `url("${chosen.url}")` : undefined }} />}
+                      {look.kind === "none" ? <span className="wz-look is-none" style={{ aspectRatio: String(look.aspect), height: h }}><button type="button" className="wz-plus" disabled={busy} aria-label={`Add a picture for the ${look.label}`} title="Add a picture for this shape" onClick={() => openEditor("picture", look.id)}><IcPlus size={20} /></button></span> : <span className="wz-look" style={{ aspectRatio: String(look.aspect), height: h, backgroundImage: chosen?.url ? `url("${chosen.url}")` : undefined }} />}
                       <figcaption>{look.label}</figcaption>
                     </figure>
                   );
@@ -354,7 +358,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                 <ul className="wz-check-list">
                   <li><span className={`wz-tick ${chosen?.status === "approved" ? "" : "is-wait"}`}>{chosen?.status === "approved" ? "✓" : "!"}</span><span>Creative <strong>{chosen?.name}</strong> {chosen?.status === "approved" ? "is approved." : "is in review. Ads start when it is approved."}</span></li>
                   <li><span className={`wz-tick ${audienceGames.length > 0 ? "" : "is-wait"}`}>{audienceGames.length > 0 ? "✓" : "!"}</span><span>{audienceGames.length > 0 ? <><strong>{audienceGames.length} of {games.length} games</strong> fit today; new ones are added automatically.</> : "No game fits yet. The campaign waits and starts showing by itself when one does."}</span></li>
-                  {missingShapes.length > 0 && <li><span className="wz-tick is-wait">!</span><span>{missingShapes.length === 1 ? "One shape has" : `${missingShapes.length} shapes have`} no picture: <strong>{missingShapes.join(", ")}</strong>.{missingPlacements > 0 ? ` The ad will not show in ${missingPlacements} of ${reachPlacements.length} placements today.` : " Placements of those shapes will not show it."}</span><button type="button" className="button button-small" disabled={busy} onClick={() => openEditor()}>Add pictures</button></li>}
+                  {missingShapes.length > 0 && <li><span className="wz-tick is-wait">!</span><span>{missingShapes.length === 1 ? "One shape has" : `${missingShapes.length} shapes have`} no picture.{missingPlacements > 0 ? ` The ad will not show in ${missingPlacements} of ${reachPlacements.length} placements today.` : " Placements of those shapes will not show it."}<span className="wz-gaps">{missing.map((m) => <button key={m.id} type="button" className="wz-gap" disabled={busy} title={`Add a picture for ${m.label}`} onClick={() => openEditor("picture", m.id)}><IcPlus size={12} />{m.label}</button>)}</span></span></li>}
                   <li><span className="wz-tick">✓</span><span>{startsOn ? `Starts ${fmtDay(startsOn)}` : "Starts when the creative is approved"}, {endsOn ? `runs until ${fmtDay(endsOn)}.` : "runs until you stop it."}</span></li>
                 </ul>
               </section>
@@ -380,7 +384,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
         </footer>
       </section>
 
-      {editor && <CreativeEditor editor={editor.data} initialTab={editor.tab} onClose={() => setEditor(null)} />}
+      {editor && <CreativeEditor editor={editor.data} initialTab={editor.tab} initialShape={editor.shape} onClose={() => setEditor(null)} />}
       {uploading && <UploadDialog title="Upload a creative" lede="A PNG or JPG under 8 MB. It joins your library and is picked here." submit="Upload and pick" onClose={() => setUploading(false)} onUploaded={uploaded} />}
     </>
   );

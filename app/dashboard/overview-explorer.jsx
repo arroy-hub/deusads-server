@@ -43,7 +43,11 @@ function deltaSeconds(now, before) {
  * with the pauses and blocks marked on it; Total can be compared with the period before.
  */
 export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false }) {
-  const [selected, setSelected] = useState(() => new Set(campaigns.filter((item) => item.impressions > 0 || item.daily.some(Boolean)).map((item) => item.id)));
+  // Ticked at the start: campaigns that show something (impressions, a mark, running). With none of those, all of them.
+  const [selected, setSelected] = useState(() => {
+    const active = campaigns.filter((item) => item.impressions > 0 || item.daily.some(Boolean) || (item.events ?? []).length > 0 || ["live", "limited"].includes(item.status?.key));
+    return new Set((active.length > 0 ? active : campaigns).map((item) => item.id));
+  });
   const [breakdown, setBreakdown] = useState("campaign");
   const [grain, setGrain] = useState("day");
   const [compare, setCompare] = useState(false);
@@ -52,6 +56,8 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   const [hover, setHover] = useState(null);
   const plot = useRef(null);
 
+  const compareOn = compare && breakdown === "total";
+  const pickBreakdown = (key) => { setBreakdown(key); if (key !== "total") setCompare(false); };
   const colorFor = useMemo(() => new Map(campaigns.map((item, index) => [item.id, colorOf(index)])), [campaigns]);
   const chosen = campaigns.filter((item) => selected.has(item.id));
   const totals = selectionTotals(chosen);
@@ -74,7 +80,9 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [breakdown, grain, compare, selected, campaigns]);
 
-  const count = lines[0]?.points.length ?? 0;
+  // A breakdown with nothing to draw (campaigns without impressions) still has its days on the axis.
+  const axis = lines[0]?.points ?? bucket(Array.from({ length: dates.length }, () => 0));
+  const count = axis.length;
   const peak = Math.max(0, ...lines.flatMap((line) => line.points.map((point) => point.value)));
   const top = niceMax(peak);
   const x = (index) => (count > 1 ? (index / (count - 1)) * W : W / 2);
@@ -120,6 +128,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
     });
   }
 
+  const previousSilent = chosen.every((item) => !item.previousDaily.some(Boolean));
   const tableRows = sortCampaigns(campaigns, sort.key, sort.dir);
   const sortBy = (key) => setSort((now) => (now.key === key ? { key, dir: now.dir === "desc" ? "asc" : "desc" } : { key, dir: key === "name" ? "asc" : "desc" }));
   const head = (key, text, right = true) => (
@@ -191,7 +200,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
               {BREAKDOWNS.map(([key, text]) => {
                 const off = (key === "creative" || key === "game" || key === "format") && !hasSplit;
                 return (
-                  <button key={key} type="button" aria-pressed={breakdown === key} disabled={off} title={off ? "Needs migration 0027_advertiser_daily_split.sql in the Supabase SQL editor" : undefined} onClick={() => setBreakdown(key)}>
+                  <button key={key} type="button" aria-pressed={breakdown === key} disabled={off} title={off ? "Needs migration 0027_advertiser_daily_split.sql in the Supabase SQL editor" : undefined} onClick={() => pickBreakdown(key)}>
                     {text}
                   </button>
                 );
@@ -211,10 +220,20 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <label className="ovx-check">
             <input type="checkbox" checked={marks} onChange={(event) => setMarks(event.target.checked)} />
             Show pauses and blocks
+            {marks && events.length === 0 && <small className="ovx-check-note">none in this period</small>}
           </label>
-          <label className={`ovx-check ${breakdown !== "total" ? "is-off" : ""}`} title={breakdown !== "total" ? "Available for Total" : undefined}>
-            <input type="checkbox" checked={compare && breakdown === "total"} disabled={breakdown !== "total"} onChange={(event) => setCompare(event.target.checked)} />
+          <label className="ovx-check">
+            <input
+              type="checkbox"
+              checked={compareOn}
+              onChange={(event) => {
+                // Comparing is a Total view: ticking it from another breakdown moves to Total.
+                if (event.target.checked) { setBreakdown("total"); setCompare(true); } else setCompare(false);
+              }}
+            />
             Compare with previous period
+            {breakdown !== "total" && <small className="ovx-check-note">switches to Total</small>}
+            {compareOn && previousSilent && <small className="ovx-check-note">no impressions before</small>}
           </label>
         </div>
 
@@ -245,6 +264,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                   />
                 ))}
               </svg>
+              {peak === 0 && <div className="ovx-plot-empty">No impressions in this period yet</div>}
               {placed.map((event, index) => (
                 <span key={`${event.date}-${index}`}>
                   <span className="ovx-mark" style={{ left: `${event.at}%`, borderLeftColor: EVENT_COLOR[event.kind] }} aria-hidden="true" />
@@ -257,7 +277,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                 <>
                   <div className="ovx-cursor" style={{ left: `${count > 1 ? (current / (count - 1)) * 100 : 50}%` }} />
                   <div className={`ovx-tip ${tipRight ? "is-right" : ""}`} style={{ left: `${count > 1 ? (current / (count - 1)) * 100 : 50}%` }} role="status">
-                    <b>{label(lines[0].points[current])}</b>
+                    <b>{label(axis[current])}</b>
                     {lines.map((line) => (
                       <div key={line.id} className="ovx-tip-row">
                         <span style={{ color: tint(line.color === "#1c1b1a" ? "#9a948b" : line.color) }}>● {line.name}</span>
@@ -280,7 +300,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
               ))}
               <div className="ovx-xaxis" aria-hidden="true">
                 {[0, 0.25, 0.5, 0.75, 1].map((step) => (
-                  <span key={step}>{formatDay(lines[0].points[Math.round(step * (count - 1))].date)}</span>
+                  <span key={step}>{formatDay(axis[Math.round(step * (count - 1))].date)}</span>
                 ))}
               </div>
             </div>
@@ -295,16 +315,10 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <span className="ovx-hint">Tick a campaign to show it on the chart above. Click a column title to sort.</span>
         </div>
         {campaigns.length === 0 ? (
-          <div className="ov-table-wrap">
-            <table className="ovx-grid-table">
-              <tbody>
-                {[0, 1, 2, 3].map((index) => (
-                  <tr key={index} className="ovx-blank">
-                    <td colSpan={6}>{index === 0 ? <>No campaigns yet. <Link href="/dashboard/advertising/new">Create your first campaign</Link></> : null}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="ovx-none">
+            <span className="ovx-none-ic" aria-hidden="true">∅</span>
+            <div><strong>No campaigns yet</strong><span>Nothing to list here until you start one.</span></div>
+            <Link href="/dashboard/advertising/new" className="button button-small">Create your first campaign</Link>
           </div>
         ) : (
           <div className="ov-table-wrap">
@@ -330,21 +344,17 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                     <tr key={item.id} className={on ? "" : "ovx-off"}>
                       <td className="ov-name">
                         <span className="ovx-namecell">
-                          {silent ? (
-                            <span className="ovx-box is-disabled" role="checkbox" aria-checked="false" aria-disabled="true" aria-label={`${item.name}: no impressions yet`} />
-                          ) : (
-                            <button
-                              type="button"
-                              role="checkbox"
-                              aria-checked={on}
-                              aria-label={`Show ${item.name} on the chart`}
-                              className="ovx-box"
-                              style={on ? { background: color, borderColor: color } : { borderColor: color }}
-                              onClick={() => toggle(item.id)}
-                            >
-                              {on ? "✓" : ""}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={on}
+                            aria-label={`Show ${item.name} on the chart`}
+                            className="ovx-box"
+                            style={on ? { background: color, borderColor: color } : { borderColor: color }}
+                            onClick={() => toggle(item.id)}
+                          >
+                            {on ? "✓" : ""}
+                          </button>
                           <CategoryIcon category={item.category} label={item.category ? categoryLabel(item.category) : "No category yet"} />
                           <Link href={`/dashboard/advertising/c/${item.id}`}>{item.name}</Link>
                           <StatusPill status={item.status} />
@@ -367,11 +377,6 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                     </tr>
                   );
                 })}
-                {Array.from({ length: Math.max(0, 4 - tableRows.length) }, (_, index) => (
-                  <tr key={`blank-${index}`} className="ovx-blank" aria-hidden="true">
-                    <td colSpan={6} />
-                  </tr>
-                ))}
                 <tr className="ovx-total">
                   <td>{allOn ? "Total" : `Selected: ${chosen.length} of ${campaigns.length}`}</td>
                   <td className="num">{formatCount(totals.impressions)}</td>

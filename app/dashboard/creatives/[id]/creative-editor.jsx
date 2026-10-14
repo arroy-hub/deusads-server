@@ -42,7 +42,7 @@ function measure(file) {
  * shapes wait here until Save. `editor` is what loadCreativeEditor returns; as a pop-up over the library it closes
  * to `backTo`, inside the new-campaign wizard it closes through `onClose`.
  */
-export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, initialTab = "picture" }) {
+export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, initialTab = "picture", initialShape = null }) {
   const { creative, assets, status, note, audience, audienceMissing, campaigns = 0, openAspects = [] } = editor;
   const router = useRouter();
   const dialog = useRef(null);
@@ -61,7 +61,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
   const [name, setName] = useState(creative.name);
   const [tab, setTab] = useState(initialTab === "audience" && audience ? "audience" : "picture");
   const [own, setOwn] = useState(() => Object.fromEntries(standard.map((a) => [a.formatId, { id: a.id, url: a.url, pending: a.status === "pending" }])));
-  const [sel, setSel] = useState(() => FORMATS.find((f) => !auto[f.id].fits && !standard.some((a) => a.formatId === f.id))?.id ?? "r16x9");
+  const [sel, setSel] = useState(() => (FORMATS.some((f) => f.id === initialShape) ? initialShape : FORMATS.find((f) => !auto[f.id].fits && !standard.some((a) => a.formatId === f.id))?.id ?? "r16x9"));
   const [crops, setCrops] = useState(() => ({ ...(editor.formatCrops ?? {}) }));
   const [dirty, setDirty] = useState(false);
   const [adjusting, setAdjusting] = useState(false);

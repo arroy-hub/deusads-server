@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { duplicateCampaign, pauseCampaign } from "./actions";
+import { navigating } from "../_cabinet/nav";
 
 /** Pause or resume a whole campaign: its ads stop (or start again) in every game at the next manifest. */
 export function PauseButton({ id, paused, small = false, full = false, onDone }) {
@@ -43,6 +44,7 @@ export function DuplicateButton({ id, small = false, as = "button", onDone }) {
     setBusy(false);
     if (result?.error) return setError(result.error);
     onDone?.();
+    navigating();
     router.push(`/dashboard/advertising/new?campaign=${result.campaignId}`);
   }
 

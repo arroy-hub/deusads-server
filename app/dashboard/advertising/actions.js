@@ -282,7 +282,7 @@ export async function deleteCampaign({ campaignId }) {
     .eq("campaign_id", id)
     .in("status", ["pending", "approved"]);
   if (openError) return { error: "Could not check the campaign. Try again." };
-  if ((count ?? 0) > 0) return { error: "Withdraw or stop its open bookings first." };
+  if ((count ?? 0) > 0) return { error: "This campaign is still running. Stop it first, then delete it." };
 
   const { error } = await me.service.from("campaigns").delete().eq("id", id).eq("advertiser_id", me.user.id);
   if (error) return { error: "Could not delete the campaign." };

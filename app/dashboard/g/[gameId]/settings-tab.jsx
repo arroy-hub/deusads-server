@@ -9,6 +9,7 @@ import MultiPick from "../../multi-pick";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
 import { FIELDS, PROFILE_KEYS } from "../../../../lib/targeting";
+import { navigating } from "../../_cabinet/nav";
 
 const FIELD_TEXT = {
   genres: { plural: "genres", hint: "Everything that describes the game." },
@@ -582,6 +583,7 @@ function DeleteGame({ gameId, name }) {
       setWorking(false);
       return setNote({ tone: "error", text: result.error });
     }
+    navigating();
     router.push("/dashboard/games");
     router.refresh();
   }

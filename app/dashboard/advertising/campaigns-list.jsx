@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import CategoryIcon from "./category-icon";
 import { categoryLabel } from "../../../lib/categories";
 import { formatCount } from "../../../lib/analytics";
+import { sortByCategory } from "../../../lib/campaign-list";
 import { TONE } from "../_cabinet/dates";
 import { DateRange, MenuItem, MenuSep, PauseDialog, Pop, Tip } from "../_cabinet/ui";
-import { IcCaret, IcCopy, IcGear, IcGrid, IcMore, IcPause, IcPlay, IcReport } from "../_cabinet/icons";
+import { IcCaret, IcCopy, IcGear, IcGrid, IcMore, IcPause, IcPlay, IcPlus, IcReport } from "../_cabinet/icons";
 import { duplicateCampaign } from "./actions";
-
-const MIN_ROWS = 10;
+import { navigating } from "../_cabinet/nav";
 
 function RowMenu({ campaign, rules, onPause }) {
   const router = useRouter();
@@ -30,6 +30,7 @@ function RowMenu({ campaign, rules, onPause }) {
     setCopying(false);
     if (result?.error) return setProblem(result.error);
     close();
+    navigating();
     router.push(`/dashboard/advertising/new?campaign=${result.campaignId}`);
   }
   return (
@@ -82,6 +83,8 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
   const [sort, setSort] = useState(null); // { key, dir }
   const campaigns = useMemo(() => {
     if (!sort) return raw;
+    // The Campaign column groups by the ad category under each name (in the order of the category list), then by name.
+    if (sort.key === "name") return sortByCategory(raw, sort.dir);
     const sign = sort.dir === "asc" ? 1 : -1;
     return [...raw].sort((a, b) => {
       const x = keyOf(a, sort.key), y = keyOf(b, sort.key);
@@ -91,7 +94,6 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
     });
   }, [raw, sort]);
   const pick = (key, first) => setSort((s) => (s?.key !== key ? { key, dir: first } : s.dir === first ? { key, dir: first === "asc" ? "desc" : "asc" } : null));
-  const blanks = Math.max(0, MIN_ROWS - campaigns.length);
   const empty = campaigns.length === 0;
   return (
     <div className="pg-ic pg-campaigns">
@@ -106,7 +108,7 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
             <div className="rd-head" role="row">
               {COLS.map(([key, label, first]) => (
                 <span key={key} className={key === "impressions" ? "rd-num" : ""} role="columnheader" aria-sort={sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                  <button type="button" className={`rd-sort${sort?.key === key ? " is-on" : ""}`} onClick={() => pick(key, first)} title={`Sort by ${label.toLowerCase()}`}>{label}<span className={`rd-sort-ic${sort?.key === key ? ` is-${sort.dir}` : ""}`} aria-hidden="true"><IcCaret size={12} /></span></button>
+                  <button type="button" className={`rd-sort${sort?.key === key ? " is-on" : ""}`} onClick={() => pick(key, first)} title={key === "name" ? "Group by ad category, then by name" : `Sort by ${label.toLowerCase()}`}>{label}<span className={`rd-sort-ic${sort?.key === key ? ` is-${sort.dir}` : ""}`} aria-hidden="true"><IcCaret size={12} /></span></button>
                 </span>
               ))}
               <span />
@@ -119,9 +121,9 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
                 <Link href="/dashboard/advertising/new" className="button">Create your first campaign</Link>
               </div>
             )}
-            {Array.from({ length: Math.max(0, blanks - (empty ? 3 : 0)) }, (_, i) => (
-              <div key={i} className="rd-row is-blank" aria-hidden="true"><div className="rd-name"><span className="rd-tile is-ghost" /><div className="rd-name-text"><i className="rd-ghost" style={{ width: `${42 + ((i * 17) % 30)}%` }} /><i className="rd-ghost is-thin" style={{ width: `${22 + ((i * 11) % 20)}%` }} /></div></div><div><i className="rd-ghost" style={{ width: "70%" }} /></div><div /><div /><div /></div>
-            ))}
+            {!empty && (
+              <Link href="/dashboard/advertising/new" className="rd-add-row"><span><IcPlus size={16} /></span>New campaign</Link>
+            )}
           </div>
         </div>
       </section>
