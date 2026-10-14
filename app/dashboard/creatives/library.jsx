@@ -37,7 +37,7 @@ function Editable({ value, onSave, className = "", autoEdit = false, label }) {
   );
 }
 
-function CardMenu({ item, folders, onMove, onRename, onDelete }) {
+function CardMenu({ item, folders, onMove, onDelete }) {
   const btn = useRef(null);
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -45,12 +45,9 @@ function CardMenu({ item, folders, onMove, onRename, onDelete }) {
     <>
       <button ref={btn} type="button" className="rd-more is-sm" aria-label={`Actions for ${item.name}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}><IcMore size={16} /></button>
       <Pop anchor={btn} open={open} onClose={close} width={220} label={`Actions for ${item.name}`}>
-        <Link role="menuitem" className="rd-mi" href={`/dashboard/creatives/${item.id}`} onClick={close}><span className="rd-mi-ic"><IcPencil /></span><span className="rd-mi-text">Edit shapes and framing</span></Link>
-        <MenuItem icon={<IcPencil />} onClick={() => { close(); onRename(); }}>Rename</MenuItem>
-        {folders.length > 0 && (<><MenuSep /><div className="rd-mi-label">Move to</div>
+        {folders.length > 0 && (<><div className="rd-mi-label">Move to</div>
           {item.folderId && <MenuItem icon={<IcFolder />} onClick={() => { close(); onMove(null); }}>Not in a folder</MenuItem>}
-          {folders.filter((f) => f.id !== item.folderId).map((f) => <MenuItem key={f.id} icon={<IcFolder />} onClick={() => { close(); onMove(f.id); }}>{f.name}</MenuItem>)}</>)}
-        <MenuSep />
+          {folders.filter((f) => f.id !== item.folderId).map((f) => <MenuItem key={f.id} icon={<IcFolder />} onClick={() => { close(); onMove(f.id); }}>{f.name}</MenuItem>)}<MenuSep /></>)}
         <MenuItem icon={<IcTrash />} danger onClick={() => { close(); onDelete(); }} disabled={item.campaigns > 0} hint={item.campaigns > 0 ? "In use: remove it from campaigns first" : undefined}>Delete</MenuItem>
       </Pop>
     </>
@@ -86,7 +83,7 @@ function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, p
       <div className="rd-card-top">
         <span className="rd-grip" draggable aria-label={`Drag ${item.name}`} title="Drag to a folder" onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); if (el.current) e.dataTransfer.setDragImage(el.current, 24, 24); setDrag(item.id); }} onDragEnd={() => { setDrag(null); setOverCard(null); }}><IcGrip size={16} /></span>
         <Editable key={rename} value={item.name} autoEdit={rename > 0} className="rd-card-name" label="Creative name" onSave={(name) => patch(item.id, { name })} />
-        <CardMenu item={item} folders={folders} onMove={(f) => move(item.id, f, null)} onRename={() => setRename((n) => n + 1)} onDelete={() => remove(item.id)} />
+        <CardMenu item={item} folders={folders} onMove={(f) => move(item.id, f, null)} onDelete={() => remove(item.id)} />
       </div>
       <Link href={`/dashboard/creatives/${item.id}`} className="rd-thumb" aria-label={`Edit ${item.name}`}>
         <img src={item.url} alt="" loading="lazy" draggable={false} />
