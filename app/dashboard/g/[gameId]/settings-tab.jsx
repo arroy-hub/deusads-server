@@ -51,6 +51,8 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   if (!title.trim()) missing.push("name");
   if (lists) for (const key of PROFILE_KEYS) if (lists[key].length === 0) missing.push(FIELDS[key].label.toLowerCase());
   const valid = missing.length === 0;
+  // A game the SDK has never talked to is not ready for advertisers, however complete its description is.
+  const waitingForSdk = link?.mode === "new";
   const filled = lists ? PROFILE_KEYS.filter((key) => lists[key].length > 0).length : 0;
 
   const shownIcon = icon.removed ? "" : icon.preview || iconUrl;
@@ -177,9 +179,9 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
           />
           <div className="st-name-line">
             {lists && (
-              <span className={`st-status ${valid ? "is-ready" : "is-open"}`}>
+              <span className={`st-status ${!valid ? "is-open" : waitingForSdk ? "is-wait" : "is-ready"}`}>
                 <span className="st-status-dot" aria-hidden="true" />
-                {valid ? "Ready for advertisers" : "Description incomplete"}
+                {!valid ? "Description incomplete" : waitingForSdk ? "Waiting for the SDK" : "Ready for advertisers"}
               </span>
             )}
             <span className="st-muted">The name and icon are what advertisers see in the catalog.</span>

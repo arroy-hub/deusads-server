@@ -56,8 +56,6 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   const [hover, setHover] = useState(null);
   const plot = useRef(null);
 
-  const compareOn = compare && breakdown === "total";
-  const pickBreakdown = (key) => { setBreakdown(key); if (key !== "total") setCompare(false); };
   const colorFor = useMemo(() => new Map(campaigns.map((item, index) => [item.id, colorOf(index)])), [campaigns]);
   const chosen = campaigns.filter((item) => selected.has(item.id));
   const totals = selectionTotals(chosen);
@@ -128,7 +126,6 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
     });
   }
 
-  const previousSilent = chosen.every((item) => !item.previousDaily.some(Boolean));
   const tableRows = sortCampaigns(campaigns, sort.key, sort.dir);
   const sortBy = (key) => setSort((now) => (now.key === key ? { key, dir: now.dir === "desc" ? "asc" : "desc" } : { key, dir: key === "name" ? "asc" : "desc" }));
   const head = (key, text, right = true) => (
@@ -200,7 +197,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
               {BREAKDOWNS.map(([key, text]) => {
                 const off = (key === "creative" || key === "game" || key === "format") && !hasSplit;
                 return (
-                  <button key={key} type="button" aria-pressed={breakdown === key} disabled={off} title={off ? "Needs migration 0027_advertiser_daily_split.sql in the Supabase SQL editor" : undefined} onClick={() => pickBreakdown(key)}>
+                  <button key={key} type="button" aria-pressed={breakdown === key} disabled={off} title={off ? "Needs migration 0027_advertiser_daily_split.sql in the Supabase SQL editor" : undefined} onClick={() => setBreakdown(key)}>
                     {text}
                   </button>
                 );
@@ -220,20 +217,10 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <label className="ovx-check">
             <input type="checkbox" checked={marks} onChange={(event) => setMarks(event.target.checked)} />
             Show pauses and blocks
-            {marks && events.length === 0 && <small className="ovx-check-note">none in this period</small>}
           </label>
-          <label className="ovx-check">
-            <input
-              type="checkbox"
-              checked={compareOn}
-              onChange={(event) => {
-                // Comparing is a Total view: ticking it from another breakdown moves to Total.
-                if (event.target.checked) { setBreakdown("total"); setCompare(true); } else setCompare(false);
-              }}
-            />
+          <label className={`ovx-check ${breakdown !== "total" ? "is-off" : ""}`} title={breakdown !== "total" ? "Available for Total" : undefined}>
+            <input type="checkbox" checked={compare && breakdown === "total"} disabled={breakdown !== "total"} onChange={(event) => setCompare(event.target.checked)} />
             Compare with previous period
-            {breakdown !== "total" && <small className="ovx-check-note">switches to Total</small>}
-            {compareOn && previousSilent && <small className="ovx-check-note">no impressions before</small>}
           </label>
         </div>
 
