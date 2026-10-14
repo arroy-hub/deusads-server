@@ -11,7 +11,7 @@ export default function AdvertiserOverview({ data, basePath }) {
   const { days } = data;
 
   return (
-    <>
+    <div className="pg-ic pg-overview">
       <div className="main-head">
         <div>
           <h1>Overview</h1>
@@ -49,6 +49,6 @@ export default function AdvertiserOverview({ data, basePath }) {
       </nav>
 
       <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} />
-    </>
+    </div>
   );
 }

@@ -8,7 +8,8 @@ import { canAdvertise } from "../../../../lib/admin-rules";
 import { FORMATS } from "../../../../lib/formats";
 import { coverageSummary, creativeShape } from "../../../../lib/advertiser-overview";
 import AdvertiserCreatives from "../advertiser-creatives";
-import CreativeDialog from "./creative-dialog";
+import CreativeEditor from "./creative-editor";
+import { loadCreativeEditor } from "../../../../lib/advertiser-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creative" };
@@ -21,6 +22,20 @@ export default async function CreativeFormatsPage({ params, searchParams }) {
   const me = await getMember();
   if (!me) notFound();
   const { service, user } = me;
+
+  // An advertiser edits a creative in a pop-up over the library.
+  if (canAdvertise(me.role)) {
+    const editor = await loadCreativeEditor(service, me, id);
+    if (!editor) notFound();
+    if (editor.migrated) {
+      return (
+        <>
+          <AdvertiserCreatives me={me} />
+          <CreativeEditor editor={editor} backTo={back} />
+        </>
+      );
+    }
+  }
 
   const read = (columns) =>
     service.from("creatives").select(columns).eq("id", id).eq("owner_id", user.id).maybeSingle();
@@ -95,34 +110,6 @@ export default async function CreativeFormatsPage({ params, searchParams }) {
         placements: (shapes ?? []).map((row) => ({ aspect: row.aspect_ratio == null ? null : Number(row.aspect_ratio) })),
       });
     }
-  }
-
-  // An advertiser sees the editor as a pop-up over the Creatives tab.
-  if (canAdvertise(me.role) && migrated) {
-    return (
-      <>
-        <AdvertiserCreatives me={me} />
-        <CreativeDialog
-          creative={{
-            id: creative.id,
-            name: creative.name,
-            url: urlOf(creative.storage_path),
-            width: creative.width_px,
-            height: creative.height_px,
-            safe: { x: creative.safe_x, y: creative.safe_y, w: creative.safe_w, h: creative.safe_h },
-          }}
-          assets={assets}
-          status={creative.status}
-          note={creative.review_note ?? ""}
-          placements={coverage?.placements ?? 0}
-          missingPlacements={coverage?.missingPlacements ?? 0}
-          audience={audience ? { targeting: audience.targeting, catalog } : null}
-          audienceMissing={audienceMissing}
-          backTo={back}
-
-        />
-      </>
-    );
   }
 
   return (

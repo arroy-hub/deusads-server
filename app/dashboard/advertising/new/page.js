@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { getMember } from "../../../../lib/admin";
 import { bookingsMissing } from "../../../../lib/booking-rules";
 import { isSchemaOutdated } from "../../../../lib/api";
-import BookingForm from "./booking-form";
+import Wizard from "./wizard";
+import { orderCreatives } from "../../../../lib/creative-library";
 import { canAdvertise } from "../../../../lib/admin-rules";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function NewBookingPage({ searchParams }) {
   const [{ data: creatives }, campaignResult, firstCatalog] = await Promise.all([
     service
       .from("creatives")
-      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h, storage_path")
+      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h, storage_path, created_at")
       .eq("owner_id", user.id)
       .neq("kind", "own")
       .order("created_at", { ascending: false }),
@@ -39,9 +40,17 @@ export default async function NewBookingPage({ searchParams }) {
   if (!creativeRows) {
     ({ data: creativeRows } = await service
       .from("creatives")
-      .select("id, name, status, width_px, height_px, storage_path")
+      .select("id, name, status, width_px, height_px, storage_path, created_at")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false }));
+  }
+  // The library order the advertiser set (migration 0028); without it the newest come first, as before.
+  if (creativeRows?.length) {
+    const { data: orderRows } = await service.from("creatives").select("id, sort_index").eq("owner_id", user.id).neq("kind", "own");
+    if (orderRows) {
+      const index = new Map(orderRows.map((row) => [row.id, row.sort_index]));
+      creativeRows = orderCreatives(creativeRows.map((row) => ({ ...row, sort_index: index.get(row.id) ?? null })));
+    }
   }
   const assetsOf = new Map();
   if (creativeRows?.length) {
@@ -110,7 +119,7 @@ export default async function NewBookingPage({ searchParams }) {
           turn bookings on.
         </p>
       )}
-      <BookingForm
+      <Wizard
         creatives={(creativeRows ?? []).map((item) => ({
           safe: item.safe_x == null ? null : { x: item.safe_x, y: item.safe_y, w: item.safe_w, h: item.safe_h },
           assets: assetsOf.get(item.id) ?? [],

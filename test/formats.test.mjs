@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { FORMATS, formatOf, aspectClose, cropKeepingSafeZone, pickImage, coverageByFormat, normalizeSafeZone } from "../lib/formats.js";
+import { FORMATS, formatOf, aspectClose, cropKeepingSafeZone, pickImage, coverageByFormat, normalizeSafeZone, framedCrop } from "../lib/formats.js";
 
 // formats from aspect ratios
 assert.equal(formatOf(16 / 9), "r16x9");
@@ -101,4 +101,17 @@ assert.equal(onWide.shown.get(onWide.servable[0].row).imageUrl, "https://cdn/A-m
 assert.equal(choosePictures([rowFor("A", "booking", 1, { width_px: null })], new Map(), url).servable.length, 1);
 // nothing servable on a placement -> the rotation gets no rows, the fallback shows
 assert.equal(choosePictures([rowFor("A", "booking", 0.56)], new Map(), url).servable.length, 0);
+// the advertiser's own framing (migration 0028) replaces the automatic crop for its format only
+const framedWide = { ...creative, formatCrops: { r16x9: { zoom: 1.5, x: 0.3, y: 0.5 } } };
+const framedPick = pickImage({ creative: framedWide, assets: [], surfaceAspect: 16 / 9 });
+assert.equal(framedPick.kind, "crop");
+assert.equal(framedPick.crop.zoom, 1.5, "framed zoom used");
+assert.ok(framedPick.crop.x >= 0.5 / 1.5 - 1e-3, "the window stays inside the image");
+assert.deepEqual(pickImage({ creative: framedWide, assets: [], surfaceAspect: 1 }).crop, pickImage({ creative, assets: [], surfaceAspect: 1 }).crop, "other formats keep the automatic crop");
+assert.equal(framedCrop({ r16x9: "nope" }, "r16x9", wide, 16 / 9), null, "garbage is ignored");
+assert.equal(framedCrop(null, "r16x9", wide, 16 / 9), null);
+const framedRow = rowFor("F", "booking", 16 / 9);
+framedRow.row.creatives.id = "F";
+const framedShown = choosePictures([framedRow], new Map(), url, new Map([["F", { r16x9: { zoom: 2, x: 0.5, y: 0.5 } }]]));
+assert.equal(framedShown.shown.get(framedShown.servable[0].row).crop.zoom, 2, "the manifest serves the framing");
 console.log("manifest pick: all checks passed");

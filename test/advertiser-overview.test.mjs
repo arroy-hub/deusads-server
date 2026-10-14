@@ -56,6 +56,8 @@ assert.equal(controlKind("This game does not show ads of this category."), "cate
 // campaign status from bookings
 const booking = (over) => ({ status: "approved", label: "Live", controlNote: "", ...over });
 assert.equal(campaignStatus([]).key, "draft");
+assert.equal(campaignStatus([], { launched: true, stopped: true }).key, "ended", "a stopped campaign is over even with no bookings");
+assert.equal(campaignStatus([booking({})], { stopped: true }).key, "ended", "and even if a booking is still marked live");
 assert.equal(campaignStatus([booking({})]).key, "live");
 assert.equal(campaignStatus([booking({ label: "Live until 1 Nov" })]).key, "live");
 const limited = campaignStatus([booking({}), booking({ controlNote: "The developer paused this campaign in this game." })]);

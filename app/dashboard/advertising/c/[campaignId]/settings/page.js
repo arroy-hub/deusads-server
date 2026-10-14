@@ -4,7 +4,7 @@ import { canAdvertise } from "../../../../../../lib/admin-rules";
 import { loadCampaignHead } from "../../../../../../lib/advertiser-data";
 import SettingsForm from "./settings-form";
 import CampaignAudience from "./campaign-audience";
-import { PauseButton, DuplicateButton } from "../../../campaign-actions";
+import { DuplicateButton } from "../../../campaign-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign settings" };
@@ -32,32 +32,17 @@ export default async function CampaignSettingsPage({ params }) {
 
   return (
     <div className="cs-wrap">
-      <SettingsForm id={head.id} name={head.name} starts={head.starts ?? ""} ends={head.ends ?? ""} hasOpen={hasOpen} closedBookings={closed} />
+      <SettingsForm id={head.id} name={head.name} starts={head.starts ?? ""} ends={head.ends ?? ""} status={head.status} hasOpen={hasOpen} closedBookings={closed} rules={head.rules} />
       {head.rules && <CampaignAudience campaignId={head.id} initial={head.targeting} catalog={catalog} />}
-      <section className="cs-card cs-rows" aria-label="Running">
+      <section className="cs-card cs-rows" aria-label="Duplicate">
         {head.rules ? (
-          <>
-            <div className="cs-row">
-              <div>
-                <h2>Duplicate the campaign</h2>
-                <p>Starts a new draft with the same creatives, audience and placements. Dates are left empty.</p>
-              </div>
-              <DuplicateButton id={head.id} />
+          <div className="cs-row">
+            <div>
+              <h2>Duplicate the campaign</h2>
+              <p>Starts a new draft with the same creatives, audience and placements. Dates are left empty.</p>
             </div>
-            {hasOpen && (
-              <div className="cs-row">
-                <div>
-                  <h2>{head.paused ? "Resume the campaign" : "Pause the campaign"}</h2>
-                  <p>
-                    {head.paused
-                      ? "The campaign is paused: its ads are not shown in any game."
-                      : "Stops it everywhere at once. Resume any time. Players see the change at their next launch."}
-                  </p>
-                </div>
-                <PauseButton id={head.id} paused={head.paused} full />
-              </div>
-            )}
-          </>
+            <DuplicateButton id={head.id} />
+          </div>
         ) : (
           <p className="notice">Pause, duplicate and the campaign audience need migration <code>0026_campaign_rules.sql</code> in the Supabase SQL editor.</p>
         )}

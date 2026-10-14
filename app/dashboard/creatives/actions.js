@@ -6,10 +6,13 @@ import { isSchemaOutdated } from "../../../lib/api";
 import { FORMATS, aspectClose, normalizeSafeZone } from "../../../lib/formats";
 import { parseTargeting } from "../../../lib/targeting";
 import { canAdvertise } from "../../../lib/admin-rules";
+import { cleanFolderName, cleanFormatCrops, moveInOrder, orderCreatives } from "../../../lib/creative-library";
+import { loadCreativeEditor } from "../../../lib/advertiser-data";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
 const MISSING_TARGETING = "Run migration 0018 in the Supabase SQL editor first.";
+const MISSING_CABINET = "Run migration 0028 in the Supabase SQL editor first.";
 
 // Writes go through the service client after an explicit ownership check: the tables
 // have no write grants for users (migration 0017).
@@ -185,4 +188,141 @@ export async function deleteAsset({ assetId }) {
 
   refresh(creative.id);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------- folders, order and framing (migration 0028)
+
+async function ownFolder(me, folderId) {
+  const { data } = await me.service
+    .from("creative_folders")
+    .select("id, name")
+    .eq("id", String(folderId ?? ""))
+    .eq("owner_id", me.user.id)
+    .maybeSingle();
+  return data;
+}
+
+const folderError = (error) => {
+  if (isSchemaOutdated(error)) return MISSING_CABINET;
+  if (error?.code === "23505") return "You already have a folder with that name.";
+  return "Could not save. Try again.";
+};
+
+/** A new folder in the caller's creative library. */
+export async function createFolder({ name }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const clean = cleanFolderName(name);
+  if (!clean) return { error: "Give the folder a name." };
+
+  const { data, error } = await me.service.from("creative_folders").insert({ owner_id: me.user.id, name: clean }).select("id, name").single();
+  if (error || !data) return { error: folderError(error) };
+
+  revalidatePath("/dashboard/creatives");
+  return { ok: true, folder: data };
+}
+
+export async function renameFolder({ folderId, name }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const clean = cleanFolderName(name);
+  if (!clean) return { error: "Give the folder a name." };
+  const folder = await ownFolder(me, folderId);
+  if (!folder) return { error: "That folder no longer exists." };
+
+  const { error } = await me.service.from("creative_folders").update({ name: clean }).eq("id", folder.id);
+  if (error) return { error: folderError(error) };
+
+  revalidatePath("/dashboard/creatives");
+  return { ok: true, name: clean };
+}
+
+/** Deletes a folder; the creatives in it stay in the library, outside any folder. */
+export async function deleteFolder({ folderId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const folder = await ownFolder(me, folderId);
+  if (!folder) return { ok: true };
+
+  const { error } = await me.service.from("creative_folders").delete().eq("id", folder.id);
+  if (error) return { error: folderError(error) };
+
+  revalidatePath("/dashboard/creatives");
+  revalidatePath("/dashboard/advertising/new");
+  return { ok: true };
+}
+
+/**
+ * Puts a creative in a folder (or out of any: folderId empty) and in front of another creative (beforeId), or last.
+ * The whole library gets its numbers again, so the order is the one the advertiser sees.
+ */
+export async function moveCreative({ creativeId, folderId, beforeId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const creative = await ownCreative(me, creativeId);
+  if (!creative) return { error: "That creative no longer exists." };
+
+  let target = null;
+  if (folderId) {
+    target = await ownFolder(me, folderId);
+    if (!target) return { error: "That folder no longer exists." };
+  }
+
+  const { data: rows, error } = await me.service
+    .from("creatives")
+    .select("id, sort_index, created_at")
+    .eq("owner_id", me.user.id)
+    .neq("kind", "own");
+  if (isSchemaOutdated(error)) return { error: MISSING_CABINET };
+  if (error) return { error: "Could not save. Try again." };
+
+  const current = orderCreatives(rows ?? []);
+  const next = moveInOrder(current.map((row) => row.id), creative.id, beforeId ? String(beforeId) : null);
+  const was = new Map(current.map((row, index) => [row.id, row.sort_index]));
+  const writes = [];
+  next.forEach((id, index) => {
+    const folder = id === creative.id ? { folder_id: target ? target.id : null } : {};
+    if (was.get(id) !== index || id === creative.id) writes.push(me.service.from("creatives").update({ sort_index: index, ...folder }).eq("id", id).eq("owner_id", me.user.id));
+  });
+  const results = await Promise.all(writes);
+  if (results.some((result) => result.error)) return { error: "Could not save. Try again." };
+
+  revalidatePath("/dashboard/creatives");
+  revalidatePath("/dashboard/advertising/new");
+  return { ok: true };
+}
+
+/**
+ * Saves how the advertiser framed the main picture for each ad shape: { r16x9: { zoom, x, y }, ... }.
+ * The whole set is replaced, so a shape left out goes back to the automatic crop.
+ */
+export async function saveFormatCrops({ creativeId, crops }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const creative = await ownCreative(me, creativeId);
+  if (!creative) return { error: "That creative no longer exists." };
+
+  const clean = cleanFormatCrops(crops);
+  const { error } = await me.service.from("creatives").update({ format_crops: clean }).eq("id", creative.id);
+  if (isSchemaOutdated(error)) return { error: MISSING_CABINET };
+  if (error) return { error: "Could not save. Try again." };
+
+  refresh(creative.id);
+  revalidatePath("/dashboard/advertising/new");
+  return { ok: true, crops: clean ?? {} };
+}
+
+/** What the creative editor needs for one creative; the new-campaign page opens the editor without leaving the wizard. */
+export async function openCreativeEditor({ creativeId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const editor = await loadCreativeEditor(me.service, me, creativeId);
+  if (!editor) return { error: "That creative no longer exists." };
+  return { ok: true, editor };
 }

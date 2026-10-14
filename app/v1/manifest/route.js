@@ -15,7 +15,7 @@ import { choosePictures } from "../../../lib/manifest-pick";
 import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
 import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
-import { campaignMayServe } from "../../../lib/campaign-rules";
+import { campaignMayServe, effectivePause } from "../../../lib/campaign-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +92,8 @@ export const GET = guarded(async function GET(request) {
   // Where no picture fits the placement's shape the pair is dropped before the
   // rotation, so the placement shows another advertiser or the developer's own creative.
   const assetsOf = await loadAssets(db, eligible);
-  const { servable, shown } = choosePictures(eligible, assetsOf, (path) => creativeUrl(db, path));
+  const cropsOf = await loadFormatCrops(db, eligible);
+  const { servable, shown } = choosePictures(eligible, assetsOf, (path) => creativeUrl(db, path), cropsOf);
   // A suspended account's ads stop being served (suspended_at comes with migration 0015).
   const owners = [...new Set(servable.map((item) => item.advertiserId).filter(Boolean))];
   let suspended = new Set();
@@ -201,7 +202,11 @@ async function loadCampaignRules(db, game, items) {
   const campaignIds = [...new Set((bookings ?? []).map((booking) => booking.campaign_id))];
   if (!campaignIds.length) return null;
 
-  const { data: campaigns, error: campaignsError } = await db.from("campaigns").select("id, targeting, paused_at").in("id", campaignIds);
+  // A pause may end by itself on a day (resume_on, migration 0028); before that migration it lasts until it is lifted.
+  let { data: campaigns, error: campaignsError } = await db.from("campaigns").select("id, targeting, paused_at, resume_on").in("id", campaignIds);
+  if (campaignsError && isSchemaOutdated(campaignsError)) {
+    ({ data: campaigns, error: campaignsError } = await db.from("campaigns").select("id, targeting, paused_at").in("id", campaignIds));
+  }
   if (campaignsError) {
     if (isSchemaOutdated(campaignsError)) warnSchemaOutdated("GET /v1/manifest", "0026_campaign_rules.sql");
     else logDbError("manifest campaigns", campaignsError);
@@ -217,7 +222,7 @@ async function loadCampaignRules(db, game, items) {
   const ruleOfCampaign = new Map(
     (campaigns ?? []).map((campaign) => [
       campaign.id,
-      { pausedAt: campaign.paused_at, targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set() },
+      { pausedAt: effectivePause(campaign.paused_at, campaign.resume_on), targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set() },
     ])
   );
   const ruleOf = new Map((bookings ?? []).map((booking) => [booking.assignment_id, ruleOfCampaign.get(booking.campaign_id)]));
@@ -314,6 +319,17 @@ async function loadAssets(db, rows) {
       storagePath: asset.storage_path,
     });
   }
+  return byCreative;
+}
+
+/** The advertiser's own framing per ad shape of the booked creatives, by creative id. Empty before migration 0028. */
+async function loadFormatCrops(db, rows) {
+  const ids = [...new Set(rows.filter((item) => item.source === "booking").map((item) => item.creativeId))];
+  const byCreative = new Map();
+  if (!ids.length) return byCreative;
+  const { data, error } = await db.from("creatives").select("id, format_crops").in("id", ids);
+  if (error) return byCreative;
+  for (const row of data ?? []) if (row.format_crops) byCreative.set(row.id, row.format_crops);
   return byCreative;
 }
 

@@ -15,6 +15,7 @@ import { notify, notifyMany } from "../../../lib/notify";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { parseTargeting } from "../../../lib/targeting";
 import { syncCampaign } from "../../../lib/campaign-sync";
+import { addToPlan, planCreativeIds, removeFromPlan } from "../../../lib/campaign-plan";
 
 const MISSING = "Run migration 0009 in the Supabase SQL editor first.";
 const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
@@ -307,12 +308,72 @@ export async function removeCreativeFromCampaign({ campaignId, creativeId }) {
     .eq("creative_id", String(creativeId ?? ""))
     .in("status", ["pending", "approved"]);
   if (error) return { error: "Could not read the bookings. Try again." };
+  // A campaign started by audience books its creatives again by itself: take this one out of its plan first.
+  const { data: current } = await me.service.from("campaigns").select("plan").eq("id", String(campaignId ?? "")).eq("advertiser_id", me.user.id).maybeSingle();
+  if (current?.plan && planCreativeIds(current.plan).includes(String(creativeId ?? ""))) {
+    await me.service.from("campaigns").update({ plan: removeFromPlan(current.plan, String(creativeId)) }).eq("id", String(campaignId));
+  }
   for (const booking of open ?? []) {
     const { error: cancelError } = await me.service.rpc("cancel_booking", { p_booking: booking.id, p_advertiser: me.user.id });
     if (cancelError) return { error: bookingErrorMessage(cancelError) };
   }
-  revalidatePath("/dashboard/advertising");
+  revalidatePath("/dashboard", "layout");
   return { ok: true, count: (open ?? []).length };
+}
+
+/**
+ * Add creatives from the library to a campaign that is already set up. A campaign started by audience books them
+ * on every fitting placement (like its first creative); a campaign with placements of its own gets them on those
+ * placements, with the same dates. A draft has no placements yet: it is finished in the wizard.
+ */
+export async function addCreativesToCampaign({ campaignId, creativeIds }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const { service, user } = me;
+
+  const { data: campaign } = await service.from("campaigns").select("id, plan").eq("id", String(campaignId ?? "")).eq("advertiser_id", user.id).maybeSingle();
+  if (!campaign) return { error: "Unknown campaign." };
+
+  const wanted = [...new Set((Array.isArray(creativeIds) ? creativeIds : []).map(String))].slice(0, 20);
+  if (wanted.length === 0) return { error: "Pick a creative." };
+  const { data: mine } = await service.from("creatives").select("id, status").in("id", wanted).eq("owner_id", user.id).neq("kind", "own");
+  if ((mine ?? []).length !== wanted.length) return { error: "Pick creatives from your library." };
+  if ((mine ?? []).some((creative) => creative.status === "rejected")) return { error: "A rejected creative cannot be added. Upload another one." };
+
+  const { data: open, error: openError } = await service
+    .from("bookings")
+    .select("creative_id, placement_id, starts_on, ends_on")
+    .eq("campaign_id", campaign.id)
+    .eq("advertiser_id", user.id)
+    .in("status", ["pending", "approved"]);
+  if (bookingsMissing(openError)) return { error: MISSING };
+  if (openError) return { error: "Could not read the campaign. Try again." };
+
+  const inside = new Set([...(open ?? []).map((row) => row.creative_id), ...planCreativeIds(campaign.plan)]);
+  const fresh = wanted.filter((id) => !inside.has(id));
+  if (fresh.length === 0) return { ok: true, added: 0 };
+
+  if (campaign.plan?.launched && campaign.plan.mode === "audience") {
+    const stored = await service.from("campaigns").update({ plan: addToPlan(campaign.plan, fresh) }).eq("id", campaign.id);
+    if (isSchemaOutdated(stored.error)) return { error: RULES_MISSING };
+    if (stored.error) return { error: "Could not add the creatives. Try again." };
+    await syncCampaign(service, campaign.id).catch(() => null);
+  } else if ((open ?? []).length > 0) {
+    const placementIds = [...new Set(open.map((row) => row.placement_id))];
+    const starts = open.map((row) => row.starts_on).filter(Boolean).sort()[0] ?? "";
+    const ends = open.map((row) => row.ends_on).filter(Boolean).sort().at(-1) ?? "";
+    const todayIso = new Date().toISOString().slice(0, 10);
+    for (const creativeId of fresh) {
+      const result = await createBooking({ campaignId: campaign.id, creativeId, placementIds, startsOn: starts >= todayIso ? starts : "", endsOn: ends >= todayIso ? ends : "" });
+      if (result?.error) return { error: result.error };
+    }
+  } else {
+    return { error: "Finish setting up this campaign first: it has no placements yet." };
+  }
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, added: fresh.length };
 }
 
 /** Change the dates of every open booking in one of the caller's campaigns (migration 0013). Empty means no start or no end. */
@@ -357,23 +418,85 @@ async function ownCampaign(me, campaignId) {
   return data ?? null;
 }
 
-/** Pause a whole campaign (or let it run again): it stops being served everywhere, players see the change at their next launch. */
-export async function pauseCampaign({ campaignId, paused }) {
+const PAUSE_UNTIL_MISSING = "Pausing until a date needs migration 0028 in the Supabase SQL editor first.";
+
+/**
+ * Pause a whole campaign (or let it run again): it stops being served everywhere, players see the change at their
+ * next launch. `until` ("YYYY-MM-DD", a day after today) makes the pause end by itself on that day; without it the
+ * campaign stays paused until it is resumed.
+ */
+export async function pauseCampaign({ campaignId, paused, until }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
   if (!canAdvertise(me.role)) return { error: "Not allowed." };
   const campaign = await ownCampaign(me, campaignId);
   if (!campaign) return { error: "Unknown campaign." };
 
-  const { error } = await me.service
-    .from("campaigns")
-    .update({ paused_at: paused ? new Date().toISOString() : null })
-    .eq("id", campaign.id);
+  let resumeOn = null;
+  if (paused && until) {
+    const day = String(until);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) return { error: "Pick a day to resume on." };
+    if (day <= new Date().toISOString().slice(0, 10)) return { error: "Pick a day after today." };
+    resumeOn = day;
+  }
+
+  const fields = { paused_at: paused ? new Date().toISOString() : null };
+  let { error } = await me.service.from("campaigns").update({ ...fields, resume_on: paused ? resumeOn : null }).eq("id", campaign.id);
+  // Before migration 0028 a pause has no end day: it still works, it just lasts until it is lifted.
+  if (isSchemaOutdated(error)) {
+    if (resumeOn) return { error: PAUSE_UNTIL_MISSING };
+    ({ error } = await me.service.from("campaigns").update(fields).eq("id", campaign.id));
+  }
   if (isSchemaOutdated(error)) return { error: RULES_MISSING };
   if (error) return { error: "Could not change the campaign. Try again." };
 
   revalidatePath("/dashboard", "layout");
-  return { ok: true, paused: Boolean(paused) };
+  return { ok: true, paused: Boolean(paused), resumeOn };
+}
+
+/**
+ * Stop a campaign for good: every booking that is still open is withdrawn (live ones stop showing at once, the
+ * developers hear about it) and a campaign started by audience is not booked again. It cannot be resumed; the
+ * advertiser duplicates it to run again.
+ */
+export async function stopCampaign({ campaignId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const { service, user } = me;
+  const campaign = await ownCampaign(me, campaignId);
+  if (!campaign) return { error: "Unknown campaign." };
+
+  // First make sure nothing new is booked, then withdraw what is open.
+  const { data: current } = await service.from("campaigns").select("plan").eq("id", campaign.id).maybeSingle();
+  const plan = { ...(current?.plan ?? {}), launched: false, stoppedAt: new Date().toISOString() };
+  const marked = await service.from("campaigns").update({ plan }).eq("id", campaign.id);
+  if (marked.error && !isSchemaOutdated(marked.error)) return { error: "Could not stop the campaign. Try again." };
+
+  const { data: open, error: openError } = await service
+    .from("bookings")
+    .select("id, developer_id, status")
+    .eq("campaign_id", campaign.id)
+    .eq("advertiser_id", user.id)
+    .in("status", ["pending", "approved"]);
+  if (bookingsMissing(openError)) return { error: MISSING };
+  if (openError) return { error: "Could not stop the campaign. Try again." };
+
+  let failed = 0;
+  const wasLive = [];
+  for (const booking of open ?? []) {
+    const { error } = await service.rpc("cancel_booking", { p_booking: booking.id, p_advertiser: user.id });
+    if (error) failed += 1;
+    else if (booking.status === "approved") wasLive.push(booking.developer_id);
+  }
+  // A paused campaign that is stopped is no longer "paused": it is over.
+  await service.from("campaigns").update({ paused_at: null }).eq("id", campaign.id);
+  if (failed > 0) return { error: `${failed} of ${(open ?? []).length} placements could not be stopped. Try again.` };
+
+  await notifyMany(service, wasLive, "An advertiser stopped a campaign that was showing in your game.", "/dashboard/games");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/admin/bookings");
+  return { ok: true, stopped: (open ?? []).length };
 }
 
 /** Set the audience of a campaign: genres, platforms, languages and genres to skip. Nothing picked means every game. */
