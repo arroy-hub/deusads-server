@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MultiPick from "../../multi-pick";
-import { saveTargeting } from "../actions";
 import { FIELDS, countFitting, hasTargeting, targetingSummary } from "../../../../lib/targeting";
 
 const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [] };
@@ -51,7 +50,7 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
     if (busy) return;
     setBusy(true);
     setNote(null);
-    const result = await (onSave ?? saveTargeting)({ creativeId, targeting: toTargeting(next) }).catch(() => ({ error: "Connection lost. Try again." }));
+    const result = await onSave({ creativeId, targeting: toTargeting(next) }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setNote({ tone: "error", text: result.error });
     const stored = { ...EMPTY, ...(result.targeting ?? {}) };

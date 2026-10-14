@@ -2,14 +2,12 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Audience from "./audience";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { FORMATS, aspectClose, cropKeepingSafeZone, formatOf } from "../../../../lib/formats";
 import { DEFAULT_CROP, MAX_ZOOM, clampCrop, hiddenPercent, imagePlacement, sameCrop } from "../../../../lib/surface-math";
-import { hasTargeting, targetingSummary } from "../../../../lib/targeting";
 import { sampleForShape } from "../../_cabinet/samples";
 import { IcCheck, IcImage, IcPlus, IcTrash, IcUpload, IcWarn } from "../../_cabinet/icons";
-import { deleteAsset, registerAsset, saveFormatCrops, saveTargeting } from "../actions";
+import { deleteAsset, registerAsset, saveFormatCrops } from "../actions";
 import { deleteCreative, renameCreative } from "../../actions";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -42,8 +40,8 @@ function measure(file) {
  * shapes wait here until Save. `editor` is what loadCreativeEditor returns; as a pop-up over the library it closes
  * to `backTo`, inside the new-campaign wizard it closes through `onClose`.
  */
-export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, initialTab = "picture", initialShape = null }) {
-  const { creative, assets, status, note, audience, audienceMissing, campaigns = 0, openAspects = [] } = editor;
+export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, initialShape = null }) {
+  const { creative, assets, status, note, campaigns = 0, openAspects = [] } = editor;
   const router = useRouter();
   const dialog = useRef(null);
   const win = useRef(null);
@@ -59,13 +57,11 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
   const standard = useMemo(() => assets.filter((a) => a.formatId && FORMATS.some((f) => f.id === a.formatId)), [assets]);
 
   const [name, setName] = useState(creative.name);
-  const [tab, setTab] = useState(initialTab === "audience" && audience ? "audience" : "picture");
   const [own, setOwn] = useState(() => Object.fromEntries(standard.map((a) => [a.formatId, { id: a.id, url: a.url, pending: a.status === "pending" }])));
   const [sel, setSel] = useState(() => (FORMATS.some((f) => f.id === initialShape) ? initialShape : FORMATS.find((f) => !auto[f.id].fits && !standard.some((a) => a.formatId === f.id))?.id ?? "r16x9"));
   const [crops, setCrops] = useState(() => ({ ...(editor.formatCrops ?? {}) }));
   const [dirty, setDirty] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
-  const [aud, setAud] = useState({ targeting: audience?.targeting ?? null, changed: false });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -181,10 +177,6 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
         const renamed = await renameCreative({ creativeId: creative.id, name });
         if (renamed?.error) return stop(renamed.error);
       }
-      if (aud.changed) {
-        const aimed = await saveTargeting({ creativeId: creative.id, targeting: aud.targeting });
-        if (aimed?.error) { setTab("audience"); return stop(aimed.error); }
-      }
       // Pictures: the ones taken away first, then the new ones (a new picture for a shape replaces the old one).
       for (const a of standard) {
         if (!own[a.formatId]) {
@@ -232,15 +224,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           <button type="button" className="modal-close" aria-label="Close" disabled={busy} onClick={() => dialog.current?.close()}>×</button>
         </div>
         {status === "rejected" && note && <p className="notice rd-ed-note">Reason: {note}. Upload a corrected creative to book it.</p>}
-        <div className="cd-tabs" role="tablist" aria-label="Creative sections">
-          <button type="button" role="tab" aria-selected={tab === "picture"} className="cd-tab" onClick={() => setTab("picture")}>Picture and shapes{missing.length > 0 && <span className="rd-tab-badge">{missing.length} to add</span>}</button>
-          {audience && <button type="button" role="tab" aria-selected={tab === "audience"} className="cd-tab" onClick={() => setTab("audience")}>Audience<span className="tab-count">{hasTargeting(aud.targeting) ? targetingSummary(aud.targeting) : "Every game"}</span>{aud.changed && <span className="cd-unsaved" aria-label="Not saved yet">●</span>}</button>}
-        </div>
-        {audienceMissing && <p className="notice rd-ed-note">Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to choose which games may show this creative.</p>}
-
-        {tab === "audience" && audience && <div className="rd-ed-scroll"><div className="cd-audience" style={{ maxWidth: "46rem" }}><Audience creativeId={creative.id} initial={audience.targeting} catalog={audience.catalog} embedded onChange={setAud} /></div></div>}
-
-        <div className="rd-ed-scroll" hidden={tab !== "picture"}>
+        <div className="rd-ed-scroll">
           {missing.length > 0 ? (
             <div className="rd-need" role="status">
               <span className="rd-need-ic"><IcWarn size={18} /></span>
@@ -321,7 +305,6 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
             </div>
           </div>
         </div>
-        {tab === "audience" && msg.text && <p className={`${msg.tone === "error" ? "error" : "upload-done"} rd-msg`} role="status" style={{ margin: "0 22px 8px" }}>{msg.text}</p>}
 
         <div className="cd-foot rd-ed-foot">
           {confirmDelete ? (
@@ -331,7 +314,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           )}
           <span className="row">
             <button type="button" className="button button-quiet" disabled={busy} onClick={() => dialog.current?.close()}>Cancel</button>
-            <button type="button" className="button" disabled={busy || !(dirty || aud.changed) || !name.trim()} aria-busy={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+            <button type="button" className="button" disabled={busy || !dirty || !name.trim()} aria-busy={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
           </span>
         </div>
       </div>

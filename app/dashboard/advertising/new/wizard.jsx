@@ -8,7 +8,7 @@ import { moveCreative, openCreativeEditor } from "../../creatives/actions";
 import UploadDialog from "../../creatives/upload-dialog";
 import CreativeEditor from "../../creatives/[id]/creative-editor";
 import { FORMATS, coverageByFormat, pickImage } from "../../../../lib/formats";
-import { FIELDS, PROFILE_KEYS, evaluate, labelOf, targetingSummary } from "../../../../lib/targeting";
+import { FIELDS, PROFILE_KEYS, evaluate, labelOf } from "../../../../lib/targeting";
 import { addD, diff, fmtDay, todayISO } from "../../_cabinet/dates";
 import { CalendarPop, DatePick, DateRange, Tip } from "../../_cabinet/ui";
 import { IcCheck, IcPlus, IcWarn } from "../../_cabinet/icons";
@@ -263,7 +263,6 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
         {step === 2 && (
           <div className="nw-body nw-where">
             <div className="nw-where-main">
-              {chosen?.targeting && aimable && <p className="audience-line" style={{ margin: 0 }}>This creative’s own audience: {targetingSummary(chosen.targeting)}. <button type="button" className="link-button" disabled={busy} onClick={() => openEditor("audience")}>Change it</button></p>}
               <div className="nw-flagrow">
                 <Tip wide align="end" content={issues.length ? <>{issues.map((it, i) => <span key={i}><b>Heads-up</b> {it.text}</span>)}</> : <><b>Everything fits</b><span>{word(audienceGames.length, "game", "games")} match today. New games that fit are added automatically while the campaign runs.</span></>}>
                   <span className={`nw-flag ${issues.length ? "is-warn" : "is-ok"}`} tabIndex={0} aria-label={issues.length ? `${issues.length} notes about the audience` : "Audience is fine"}>{issues.length ? <><IcWarn size={16} /><b>{issues.length}</b></> : <IcCheck size={16} />}</span>
@@ -384,7 +383,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
         </footer>
       </section>
 
-      {editor && <CreativeEditor editor={editor.data} initialTab={editor.tab} initialShape={editor.shape} onClose={() => setEditor(null)} />}
+      {editor && <CreativeEditor editor={editor.data} initialShape={editor.shape} onClose={() => setEditor(null)} />}
       {uploading && <UploadDialog title="Upload a creative" lede="A PNG or JPG under 8 MB. It joins your library and is picked here." submit="Upload and pick" onClose={() => setUploading(false)} onUploaded={uploaded} />}
     </>
   );
