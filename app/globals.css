@@ -6485,7 +6485,6 @@ th.num .sort-button {
 .ovx-seg button:disabled { color: #b4aea5; cursor: not-allowed; }
 .ovx-tiles { display: flex; flex-wrap: wrap; padding: 0; overflow: hidden; }
 .ovx-tile { flex: 1 1 200px; display: flex; flex-direction: column; gap: 3px; padding: 14px 18px 12px; border-top: 3px solid transparent; border-right: 1px solid #efece7; }
-.ovx-tile.is-main { border-top-color: var(--signal); background: #fdf7f5; }
 .ovx-tile-label { font-size: 12px; font-weight: 700; color: var(--ink-2); }
 .ovx-tile-value { font-size: 26px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .ovx-tile-sub { font-size: 12px; }
@@ -6678,7 +6677,7 @@ th.num .sort-button {
 .is-adv .notice { border-radius: 10px; font-size: 13px; }
 
 /* panels that sit flush (their rows carry the padding) */
-.is-adv .panel.cl-panel, .is-adv .panel.ovx-tiles, .is-adv .panel.ovx-chart, .is-adv .panel.ovx-table { padding: 0; }
+.is-adv .panel.cl-panel, .panel.ovx-tiles, .panel.ovx-chart, .panel.ovx-table { padding: 0; }
 .is-adv .bell-button { width: 38px; height: 38px; border-color: #d3cfc8; }
 .is-adv .bell-badge { min-width: 16px; height: 16px; line-height: 16px; font-size: 10.5px; padding: 0 5px; background: #b4472e; }
 .is-adv .cl-row { height: 60px; }
@@ -6711,17 +6710,16 @@ th.num .sort-button {
 .is-adv .main p { max-width: none; }
 
 /* Overview chart and table, as in the mockup */
-.is-adv .ovx-controls { padding: 0 18px 10px; }
-.is-adv .ovx-chart-head { padding: 16px 18px 12px; }
-.is-adv .ovx-check input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; display: inline-block; flex: none; }
-.is-adv .ovx-seg button, .is-adv .ovx-seg a { height: 32px; }
-.is-adv .ovx-plotwrap { display: flex; gap: 8px; padding: 6px 18px 0; }
-.is-adv .ovx-yaxis { width: 42px; height: 240px; }
-.is-adv .ovx-plot { flex: 1; min-width: 0; margin-right: 92px; height: 240px; padding-bottom: 0; position: relative; }
-.is-adv .ovx-xaxis { top: 248px; bottom: auto; }
+.ovx-controls { padding: 0 18px 10px; }
+.ovx-chart-head { padding: 16px 18px 12px; }
+.ovx-check input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; display: inline-block; flex: none; }
+.ovx-seg button, .ovx-seg a { height: 32px; }
+.ovx-plotwrap { display: flex; gap: 8px; padding: 6px 18px 0; }
+.ovx-yaxis { width: 42px; height: 240px; }
+.ovx-plot { flex: 1; min-width: 0; margin-right: 0; height: 240px; padding-bottom: 0; position: relative; }
+.ovx-xaxis { top: 248px; bottom: auto; }
 .ovx-mark { position: absolute; top: 0; height: 240px; border-left: 1.5px dashed #1c1b1a; opacity: 0.55; pointer-events: none; }
 .ovx-mark-name { position: absolute; transform: translateX(-50%); background: #1c1b1a; color: #fff; border-radius: 5px; font-size: 10.5px; font-weight: 700; padding: 1px 6px; white-space: nowrap; line-height: 16px; pointer-events: none; }
-.ovx-endname { position: absolute; right: -88px; width: 84px; font-size: 12px; font-weight: 700; line-height: 1.2; }
 .ovx-tip-row span { white-space: nowrap; }
 .ovx-namecell { display: inline-flex; align-items: center; gap: 10px; }
 .ovx-table .ov-name a { font-weight: 700; text-decoration: none; }
@@ -6736,8 +6734,8 @@ th.num .sort-button {
 .ovx-off td { opacity: 0.55; }
 .ovx-table table { min-width: 760px; }
 .ovx-box { border-width: 1.5px; }
-.is-adv .ovx-check { flex-direction: row; align-items: center; }
-.is-adv .panel.ovx-table, .is-adv .panel.ovx-tiles { overflow: hidden; }
+.ovx-check { flex-direction: row; align-items: center; }
+.panel.ovx-table, .panel.ovx-tiles { overflow: hidden; }
 
 /* ================================================================ Campaign pages: header shared by the four tabs */
 .ch { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
@@ -7668,3 +7666,16 @@ select.field:focus-visible,
 .tabs .tab-info { margin-left: auto; align-self: center; flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 99px; background: none; color: var(--ink-3); cursor: pointer; }
 .tabs .tab-info:hover, .tabs .tab-info[aria-expanded="true"] { background: var(--surface); color: var(--ink); }
 .tab-info-text { margin: 0; padding: 12px 14px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+
+/* Overview chart: the two options are plain checkboxes in a row; the lines are named by a legend, not at the line ends. */
+.ovx-check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); cursor: pointer; }
+.ovx-check input { flex: none; margin: 0; }
+.ovx-check.is-off { color: #9a948b; cursor: default; }
+.ovx-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0 18px 10px; list-style: none; font-size: 12.5px; color: var(--ink-2); }
+.ovx-legend li { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; }
+.ovx-legend li span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ovx-legend-line { flex: none; width: 18px; height: 0; border-top: 3px solid currentColor; }
+.ovx-legend-line.is-dashed { border-top-style: dashed; }
+.ovx-legend-more { color: var(--ink-3); }
+.ovx-selectall { display: inline-flex; align-items: center; gap: 10px; }
+.ovx-box.is-partial { background: #fff; color: var(--ink-2); border-color: var(--ink-3); }

@@ -7,7 +7,7 @@ import { categoryLabel } from "../../lib/categories";
 import { useMemo, useRef, useState } from "react";
 import { formatCount, formatDay, niceMax } from "../../lib/analytics";
 import { deltaText } from "../../lib/advertiser-overview";
-import { byDay, byWeek, chartEvents, colorOf, dashOf, mergeSplit, selectionTotals, sortCampaigns, spreadLabels, sumSeries, weekdayDay } from "../../lib/overview-chart";
+import { byDay, byWeek, chartEvents, colorOf, dashOf, mergeSplit, selectionTotals, sortCampaigns, sumSeries, weekdayDay } from "../../lib/overview-chart";
 
 const W = 720;
 const H = 240;
@@ -15,10 +15,8 @@ const BREAKDOWNS = [
   ["total", "Total"],
   ["campaign", "Campaign"],
   ["creative", "Creative"],
-  ["game", "Game"],
-  ["format", "Format"],
 ];
-const BREAKDOWN_TEXT = { total: "all selected campaigns", campaign: "by campaign", creative: "by creative", game: "by game", format: "by format" };
+const BREAKDOWN_TEXT = { total: "all selected campaigns", campaign: "by campaign", creative: "by creative" };
 const EVENT_COLOR = { live: "#1c1b1a", paused: "#1c1b1a", blocked: "#8a2c17" };
 
 /** A lighter tint of a colour, for text on the dark tooltip. */
@@ -39,7 +37,7 @@ function deltaSeconds(now, before) {
 /**
  * The Overview's working part, as in the approved mockup: the numbers, the impressions chart and the
  * "By campaign" table, all driven by the campaigns ticked in the table. The chart breaks the numbers
- * down by campaign, creative, game or format (the last three need migration 0027), per day or per week,
+ * down by campaign or creative (creative needs migration 0027), per day or per week,
  * with the pauses and blocks marked on it; Total can be compared with the period before.
  */
 export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false }) {
@@ -86,9 +84,6 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   const x = (index) => (count > 1 ? (index / (count - 1)) * W : W / 2);
   const y = (value) => H - (value / top) * H;
   const label = (point) => (grain === "week" ? `${formatDay(point.date)} – ${formatDay(point.to)}` : weekdayDay(point.date));
-
-  // Names at the line ends, kept apart from one another.
-  const ends = spreadLabels(lines.map((line) => y(line.points[count - 1]?.value ?? 0) - 8), 16, H - 16);
 
   // Pauses, blocks and starts of the ticked campaigns, each in the bucket its day falls in.
   const events = marks
@@ -144,7 +139,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   return (
     <>
       <section className="panel ovx-tiles" aria-label="Key numbers">
-        <div className="ovx-tile is-main">
+        <div className="ovx-tile">
           <span className="ovx-tile-label">Impressions</span>
           <span className="ovx-tile-value">{formatCount(totals.impressions)}</span>
           <span className="ovx-tile-sub">
@@ -188,14 +183,14 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <h2 id="ovx-chart-title">
             Impressions per {grain} <span className="ovx-muted">· {BREAKDOWN_TEXT[breakdown]} · {formatDay(dates[0])} – {formatDay(dates[dates.length - 1])}</span>
           </h2>
-          <span className="ovx-hint">Each line is one {breakdown === "total" ? "total" : breakdown}; choose which campaigns in “By campaign” below. Hover for exact numbers.</span>
+          <span className="ovx-hint">Choose which campaigns to show in “By campaign” below. Hover the chart for exact numbers.</span>
         </div>
         <div className="ovx-controls">
           <div className="ovx-control">
             <span>Break down by</span>
             <div className="ovx-seg" role="group" aria-label="Break down by">
               {BREAKDOWNS.map(([key, text]) => {
-                const off = (key === "creative" || key === "game" || key === "format") && !hasSplit;
+                const off = key === "creative" && !hasSplit;
                 return (
                   <button key={key} type="button" aria-pressed={breakdown === key} disabled={off} title={off ? "Needs migration 0027_advertiser_daily_split.sql in the Supabase SQL editor" : undefined} onClick={() => setBreakdown(key)}>
                     {text}
@@ -223,6 +218,18 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
             Compare with previous period
           </label>
         </div>
+
+        {chosen.length > 0 && (
+          <ul className="ovx-legend" aria-label="Lines on the chart">
+            {lines.slice(0, 8).map((line) => (
+              <li key={line.id} title={line.name}>
+                <span className={`ovx-legend-line${line.dash ? " is-dashed" : ""}`} style={{ color: line.color }} aria-hidden="true" />
+                <span>{line.name}</span>
+              </li>
+            ))}
+            {lines.length > 8 && <li className="ovx-legend-more">+{lines.length - 8} more · hover the chart for names</li>}
+          </ul>
+        )}
 
         {chosen.length === 0 ? (
           <p className="ovx-empty">No campaign is ticked. Tick one in the table below to see it here.</p>
@@ -280,11 +287,6 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
                   </div>
                 </>
               )}
-              {lines.map((line, index) => (
-                <span key={line.id} className="ovx-endname" style={{ top: ends[index], color: line.color === "#9a948b" ? "#6b665f" : line.color }}>
-                  {line.name}
-                </span>
-              ))}
               <div className="ovx-xaxis" aria-hidden="true">
                 {[0, 0.25, 0.5, 0.75, 1].map((step) => (
                   <span key={step}>{formatDay(axis[Math.round(step * (count - 1))].date)}</span>
@@ -312,7 +314,25 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
             <table className="ovx-grid-table">
               <thead>
                 <tr>
-                  {head("name", "Campaign", false)}
+                  <th aria-sort={sort.key === "name" ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}>
+                    <span className="ovx-selectall">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={allOn ? true : chosen.length === 0 ? false : "mixed"}
+                        aria-label={allOn ? "Clear all campaigns from the chart" : "Show all campaigns on the chart"}
+                        className={`ovx-box${chosen.length > 0 && !allOn ? " is-partial" : ""}`}
+                        style={allOn ? { background: "#1c1b1a", borderColor: "#1c1b1a" } : undefined}
+                        onClick={() => setSelected(allOn ? new Set() : new Set(campaigns.map((item) => item.id)))}
+                      >
+                        {allOn ? "✓" : chosen.length > 0 ? "–" : ""}
+                      </button>
+                      <button type="button" className={`ovx-sort${sort.key === "name" ? " is-on" : ""}`} onClick={() => sortBy("name")}>
+                        Campaign
+                        <span aria-hidden="true">{sort.key === "name" ? (sort.dir === "desc" ? " ▼" : " ▲") : " ↕"}</span>
+                      </button>
+                    </span>
+                  </th>
                   {head("impressions", "Impressions")}
                   {head("share", "Share", false)}
                   {head("change", `vs previous ${days} days`)}
