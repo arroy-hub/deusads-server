@@ -943,7 +943,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               {open && (
                 <div className="org-group-body">
                   {group.items.length === 0 ? (
-                    <p className="muted-line org-empty-group">Nothing in here yet. Drag a placement here, or press Edit, tick placements and choose “Move to folder…”.</p>
+                    <p className="muted-line org-empty-group">{drag ? "Drop here" : "Empty. Drag a placement here, or press Edit, tick placements and choose “Move to folder…”."}</p>
                   ) : (
                     cards
                   )}

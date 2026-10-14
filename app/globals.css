@@ -7615,3 +7615,56 @@ select.field:focus-visible,
 
 /* Login card: the wordmark is dark on the light card (it is white in the dark sidebar). */
 .gate-card .rail-mark { color: var(--ink); }
+
+/* ---------------------------------------------------------------- warm palette for folders and placements */
+/* Folders: a white card with a warm line, like the creative folders of the advertiser; the body is the warm paper tone. */
+.org-group {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(36, 29, 25, 0.04);
+}
+.org-group .org-group-head { background: #fff; }
+.org-group.is-open .org-group-head { border-bottom: 1px solid var(--line); }
+.org-group .org-group-body { background: #fbf8f4; }
+.org-group.is-off { background: #fbf8f4; border-color: #efe7de; border-left-color: #efe7de; }
+.org-group.is-off .org-group-head { background: #fbf8f4; }
+.org-group.is-off .org-group-name,
+.org-group.is-off .org-group-counts,
+.org-group.is-off .org-group-switch-label,
+.org-group.is-off .org-caret,
+.org-group.is-off .org-folder-icon { color: #b8aca0; }
+.surface.is-switched-off { background: #f6f2ed; }
+.org-chip-places { background: #efe7de; color: #4a3e36; }
+.org-chip-off { background: #efe7de; color: #4a3e36; }
+/* a selection bar and the greys of the campaigns list lose their blue cast too */
+.cp-crow.s-ended { background: #f7f3ee; }
+.cp-crow.s-inactive { background: #f3eee8; }
+.cp-crea.s-ended { background: #f3eee8; }
+.cp-crea.s-inactive { background: #efe9e2; }
+.cp-th { background: #e6ddd3; }
+.st-bar { background: #f6f2ed; border-color: #d8cabd; }
+
+/* Dragging a placement looks the way dragging a creative does in the advertiser's library:
+   the target folder turns warm with a terracotta outline, the card under the pointer shows a terracotta edge,
+   the empty zones say "Drop here", the carried card fades. */
+.org-group { transition: border-color .12s, background .12s, box-shadow .12s; }
+.org-group.is-drop { border-color: var(--signal); background: #fdf3ee; box-shadow: 0 0 0 2px rgba(201, 74, 36, 0.15); }
+.org-group.is-drop .org-group-head { background: #fdf3ee; }
+.org-group.is-drop .org-group-body { background: #fdf3ee; }
+.org-cell.is-drop-before::before,
+.org-cell.is-drop-after::after { background: var(--signal); width: 4px; }
+.org-cell.is-dragging .surface { opacity: 0.4; }
+.org-loose.is-zone { border-color: #d8cabd; }
+.org-loose.is-drop { border-color: var(--signal); background: #fdf3ee; }
+.org-empty-group { border: 1px dashed #d8cabd; border-radius: 10px; color: var(--ink-3); background: transparent; }
+.org-group.is-drop .org-empty-group { border-color: var(--signal); color: var(--signal-ink); }
+.org-drag-ghost { box-shadow: 0 8px 24px rgba(36, 29, 25, 0.22); }
+.org-grip { border-radius: 6px; cursor: grab; }
+.org-grip:hover { background: var(--surface); color: var(--ink); }
+.org-grip:active { cursor: grabbing; }
+
+/* "i" at the end of the game's tab bar: the tab's description lives in a bubble */
+.tabs .tab-info { margin-left: auto; align-self: center; flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 99px; background: none; color: var(--ink-3); cursor: pointer; }
+.tabs .tab-info:hover, .tabs .tab-info[aria-expanded="true"] { background: var(--surface); color: var(--ink); }
+.tab-info-text { margin: 0; padding: 12px 14px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }

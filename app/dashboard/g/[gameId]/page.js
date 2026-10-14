@@ -15,6 +15,7 @@ import PerformanceTab from "./performance-tab";
 import CampaignsTab from "./campaigns-tab";
 import PlacementsOrganizer from "./placements-organizer";
 import Link from "next/link";
+import TabInfo from "./tab-info";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,17 @@ export default async function GamePage({ params, searchParams }) {
   // Folders, tags, switches, places (migration 0021). Null before it: the tab then lists placements as it always did.
   const organization = tab === "placements" && rows.length > 0 ? await loadOrganization(db, gameId, rows) : null;
 
+  const tabInfo =
+    tab === "placements"
+      ? `The ad spaces the SDK found in your game. Add your own creatives to each one (up to 5): they show in turn whenever no advertiser is booked. Switch a placement on to open it to advertisers and list it in their catalog.${
+          openOf ? ` ${openCount} of ${rows.length} are open.` : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."
+        } Changes reach players the next time they start the game, no new build needed.`
+      : tab === "campaigns"
+        ? "The advertisers that booked this game. Pause or block a campaign, one creative or a whole advertiser, or a whole category. Everything here applies to this game only, nothing is cancelled, and you can take it back at any time."
+        : tab === "performance"
+          ? "How often ads were shown in this game, and whose they were. A view counts when a player had the placement on screen."
+          : "";
+
   return (
     <>
       <div className="main-head">
@@ -144,30 +156,8 @@ export default async function GamePage({ params, searchParams }) {
             {key === "campaigns" && newCount > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Campaigns with something new">{newCount}</span>}
           </Link>
         ))}
+        <TabInfo label={TABS.find(([key]) => key === tab)?.[1] ?? "this tab"} text={tabInfo} />
       </nav>
-
-      {tab === "placements" && (
-        <p className="lede">
-          The ad spaces the SDK found in your game. Add your own creatives to each one (up to 5): they show in
-          turn whenever no advertiser is booked. Switch a placement on to open it to advertisers and list it in their catalog.
-          {openOf
-            ? ` ${openCount} of ${rows.length} are open.`
-            : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."}{" "}
-          Changes reach players the next time they start the game, no new build needed.
-        </p>
-      )}
-      {tab === "campaigns" && (
-        <p className="lede">
-          The advertisers that booked this game. Pause or block a campaign, one creative or a whole advertiser, or a whole category. Everything here
-          applies to this game only, nothing is cancelled, and you can take it back at any time.
-        </p>
-      )}
-      {tab === "performance" && (
-        <p className="lede">
-          How often ads were shown in this game, and whose they were. A view counts when a player had the placement
-          on screen.
-        </p>
-      )}
 
       {tab === "campaigns" && campaigns?.days && <CampaignsTab gameId={game.id} model={campaigns} />}
       {tab === "campaigns" && campaigns?.error === "migration" && (
