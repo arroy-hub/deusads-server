@@ -116,7 +116,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
     }
 
     setBusy(false);
-    flash("Saved. Players get the changes the next time they start the game.");
+    flash("Saved.");
     router.refresh();
   }
 
@@ -124,7 +124,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   const changedParts = [nameChanged && "name", listsChanged && "description", iconChanged && "icon"].filter(Boolean);
   const barText = !valid
     ? `Still to fill in: ${missing.join(", ")}.`
-    : `Unsaved changes: ${changedParts.join(" and ")}. Players get them the next time they start the game.`;
+    : `Unsaved changes: ${changedParts.join(" and ")}.`;
 
   return (
     <div className="st">
