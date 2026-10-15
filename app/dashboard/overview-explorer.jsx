@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import CategoryIcon from "./advertising/category-icon";
+import ChartHead from "./chart-head";
 import StatusPill from "./advertising/status-pill";
 import { categoryLabel } from "../../lib/categories";
 import { useMemo, useRef, useState } from "react";
@@ -11,12 +12,6 @@ import { byDay, byWeek, chartEvents, colorOf, dashOf, mergeSplit, selectionTotal
 
 const W = 720;
 const H = 240;
-const BREAKDOWNS = [
-  ["total", "Total"],
-  ["campaign", "Campaign"],
-  ["creative", "Creative"],
-];
-const BREAKDOWN_TEXT = { total: "all selected campaigns", campaign: "by campaign", creative: "by creative" };
 const EVENT_COLOR = { live: "#1c1b1a", paused: "#1c1b1a", blocked: "#8a2c17" };
 
 /** A lighter tint of a colour, for text on the dark tooltip. */
@@ -180,53 +175,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
 
       {campaigns.length > 0 && (
       <section className="panel ovx-chart" aria-labelledby="ovx-chart-title">
-        <div className="ovx-chart-head">
-          <h2 id="ovx-chart-title">
-            Impressions per {grain} <span className="ovx-muted">· {BREAKDOWN_TEXT[breakdown]} · {formatDay(dates[0])} – {formatDay(dates[dates.length - 1])}</span>
-          </h2>
-          </div>
-        <p className="ovx-hint ovx-chart-note">Choose which campaigns to show in “By campaign” below.</p>
-        <div className="ovx-controls">
-          <div className="ovx-control">
-            <span>Break down by</span>
-            <div className="ovx-seg" role="group" aria-label="Break down by">
-              {BREAKDOWNS.map(([key, text]) => {
-                const off = key === "creative" && !hasSplit;
-                return (
-                  <button key={key} type="button" aria-pressed={breakdown === key} disabled={off} title={off ? "Needs migration 0027_advertiser_daily_split.sql in the Supabase SQL editor" : undefined} onClick={() => setBreakdown(key)}>
-                    {text}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="ovx-control">
-            <span>Per</span>
-            <div className="ovx-seg" role="group" aria-label="Granularity">
-              {[["day", "Day", false], ["week", "Week", days < 14]].map(([key, text, off]) => (
-                <button key={key} type="button" aria-pressed={grain === key} disabled={off} onClick={() => setGrain(key)}>
-                  {text}
-                </button>
-              ))}
-            </div>
-          </div>
-          <label className="ovx-check">
-            <input type="checkbox" checked={marks} onChange={(event) => setMarks(event.target.checked)} />
-            Show pauses and blocks
-          </label>
-          <label className={`ovx-check ${!hasPrevious ? "is-off" : ""}`} title={!hasPrevious ? `There were no impressions in the ${days} days before this period for the selected campaigns, so there is nothing to compare with.` : breakdown !== "total" ? "Shows the chart as Total, with the previous period as a dashed line" : undefined}>
-            <input
-              type="checkbox"
-              checked={compare && breakdown === "total"}
-              disabled={!hasPrevious}
-              onChange={(event) => {
-                setCompare(event.target.checked);
-                if (event.target.checked) setBreakdown("total");
-              }}
-            />
-            Compare with previous period
-          </label>
-        </div>
+        <ChartHead days={days} dates={dates} grain={grain} setGrain={setGrain} breakdown={breakdown} setBreakdown={setBreakdown} marks={marks} setMarks={setMarks} compare={compare} setCompare={setCompare} hasPrevious={hasPrevious} hasSplit={hasSplit} />
 
         {chosen.length > 0 && (
           <ul className="ovx-legend" aria-label="Lines on the chart">

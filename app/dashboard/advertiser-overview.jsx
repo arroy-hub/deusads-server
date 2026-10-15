@@ -1,7 +1,6 @@
 import Link from "next/link";
 import OverviewExplorer from "./overview-explorer";
 import DownloadMenu from "./download-menu";
-import { formatDay } from "../../lib/analytics";
 import { REPORT_RANGES } from "../../lib/reports";
 
 /** The status of a campaign as a small coloured tag; the colour never carries the meaning alone. */
@@ -18,7 +17,14 @@ export default function AdvertiserOverview({ data, basePath }) {
           <h1>Overview</h1>
           <p className="lede">How your ads are doing across all campaigns.</p>
         </div>
-        <div className="head-actions">
+        <div className="head-actions fl-head-actions">
+          <nav className="ovx-seg" aria-label="Period for everything below">
+            {REPORT_RANGES.map((range) => (
+              <Link key={range} href={`${basePath}?days=${range}`} aria-current={range === days ? "page" : undefined}>
+                {range} days
+              </Link>
+            ))}
+          </nav>
           <DownloadMenu days={days} />
         </div>
       </div>
@@ -29,20 +35,6 @@ export default function AdvertiserOverview({ data, basePath }) {
           Supabase SQL editor to turn the numbers on.
         </p>
       )}
-
-      <nav className="ovx-period" aria-label="Period for everything below">
-        <strong>Period</strong>
-        <div className="ovx-seg">
-          {REPORT_RANGES.map((range) => (
-            <Link key={range} href={`${basePath}?days=${range}`} aria-current={range === days ? "page" : undefined}>
-              {range} days
-            </Link>
-          ))}
-        </div>
-        <span className="ovx-muted">
-          {formatDay(data.dates[0])} – {formatDay(data.dates[data.dates.length - 1])} · compared with the {days} days before · applies to the numbers, chart and table below
-        </span>
-      </nav>
 
       <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} />
     </div>

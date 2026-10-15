@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import CategoryIcon from "./category-icon";
 import { categoryLabel } from "../../../lib/categories";
 import { formatCount } from "../../../lib/analytics";
-import { sortByCategory } from "../../../lib/campaign-list";
+import { filterCampaigns, sortByCategory } from "../../../lib/campaign-list";
+import CampaignsBar from "./campaigns-bar";
 import { TONE } from "../_cabinet/dates";
 import { DateRange, MenuItem, MenuSep, PauseDialog, Pop, Tip } from "../_cabinet/ui";
 import { IcCaret, IcCopy, IcGear, IcGrid, IcMore, IcPause, IcPlay, IcPlus, IcReport } from "../_cabinet/icons";
@@ -81,7 +82,9 @@ const keyOf = (c, k) => (k === "name" ? c.name.toLowerCase() : k === "dates" ? c
 export default function CampaignsListV2({ campaigns: raw, error = false, rules = true }) {
   const [dlg, setDlg] = useState(null);
   const [sort, setSort] = useState(null); // { key, dir }
-  const campaigns = useMemo(() => {
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState("all"); // status filter, see STATUS_GROUPS
+  const sorted = useMemo(() => {
     if (!sort) return raw;
     // The Campaign column groups by the ad category under each name (in the order of the category list), then by name.
     if (sort.key === "name") return sortByCategory(raw, sort.dir);
@@ -93,8 +96,9 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
       return (typeof x === "string" ? x.localeCompare(y) : x - y) * sign;
     });
   }, [raw, sort]);
+  const campaigns = useMemo(() => filterCampaigns(sorted, { query, group }), [sorted, query, group]);
   const pick = (key, first) => setSort((s) => (s?.key !== key ? { key, dir: first } : s.dir === first ? { key, dir: first === "asc" ? "desc" : "asc" } : null));
-  const empty = campaigns.length === 0;
+  const empty = raw.length === 0; // no campaigns at all (a filter that hides every row is not this)
   return (
     <div className="pg-ic pg-campaigns">
       <div className="main-head">
@@ -102,6 +106,7 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
         <Link href="/dashboard/advertising/new" className="button button-with-icon"><IcPlus size={16} />New campaign</Link>
       </div>
       {error && <p className="notice">Run <code>supabase/migrations/0009_campaigns_and_bookings.sql</code> in the Supabase SQL editor to turn bookings on.</p>}
+      {!empty && <CampaignsBar campaigns={raw} query={query} setQuery={setQuery} group={group} setGroup={setGroup} />}
       <section className="rd-list" aria-label="Campaigns">
         <div className="rd-scroll">
           <div className="rd-grid">
@@ -121,6 +126,7 @@ export default function CampaignsListV2({ campaigns: raw, error = false, rules =
                 <Link href="/dashboard/advertising/new" className="button">Create your first campaign</Link>
               </div>
             )}
+            {!empty && campaigns.length === 0 && <div className="fl-nomatch">No campaigns match the filters.</div>}
             {!empty && (
               <Link href="/dashboard/advertising/new" className="rd-add-row"><span><IcPlus size={16} /></span>New campaign</Link>
             )}

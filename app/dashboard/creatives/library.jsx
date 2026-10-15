@@ -4,8 +4,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import UploadDialog from "./upload-dialog";
+import LibraryBar from "./library-bar";
 import { MenuItem, MenuSep, Pop } from "../_cabinet/ui";
-import { IcCaret, IcFolder, IcFolderPlus, IcGrip, IcMore, IcPencil, IcPlus, IcTrash, IcUpload } from "../_cabinet/icons";
+import { IcCaret, IcFolder, IcGrip, IcMore, IcPencil, IcPlus, IcTrash, IcUpload } from "../_cabinet/icons";
 import { createFolder, deleteFolder, moveCreative, renameFolder } from "./actions";
 import { deleteCreative, renameCreative } from "../actions";
 
@@ -193,7 +194,6 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
     ? [...folders.map((f) => ({ ...f, kind: "folder" })), { id: "none", name: "Not in a folder", kind: "none" }]
     : [{ id: "all", name: "All creatives", kind: "flat" }];
   const itemsOf = (s) => (s.kind === "folder" ? visible.filter((i) => i.folderId === s.id) : s.kind === "none" ? visible.filter((i) => !i.folderId || !folders.some((f) => f.id === i.folderId)) : visible);
-  const outside = items.filter((i) => !i.folderId || !folders.some((f) => f.id === i.folderId)).length;
 
   return (
     <div className="pg-ic pg-creatives">
@@ -212,24 +212,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
         </div>
       ) : (
         <>
-          <div className="rd-toolbar">
-            <div className="rd-toolbar-row">
-              <input type="search" className="field rd-search" placeholder="Search by name" aria-label="Search creatives" value={q} onChange={(e) => setQ(e.target.value)} />
-              <label className="rd-sel">Group by<select className="field" value={group} onChange={(e) => setGroup(e.target.value)}><option value="folder">Folder</option><option value="none">No grouping</option></select></label>
-              <label className="rd-sel">Sort<select className="field" value={sort} onChange={(e) => setSort(e.target.value)}><option value="mine">My order</option><option value="name">Name A–Z</option><option value="status">Status</option></select></label>
-            </div>
-            <div className="rd-toolbar-row">
-              <span className="rd-filter-label">Filter</span>
-              <select className="field rd-pillsel" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">Status</option><option value="approved">Approved</option><option value="pending">In review</option><option value="rejected">Rejected</option></select>
-              <select className="field rd-pillsel" aria-label="Shapes" value={shapes} onChange={(e) => setShapes(e.target.value)}><option value="all">Shapes</option><option value="missing">Some shapes missing</option><option value="full">All shapes covered</option></select>
-              <select className="field rd-pillsel" aria-label="Folder" value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)}><option value="all">Folder</option><option value="none">Not in a folder</option>{folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
-              {filtering && <button type="button" className="link-button" onClick={() => { setQ(""); setStatus("all"); setShapes("all"); setFolderFilter("all"); }}>Clear filters</button>}
-            </div>
-          </div>
-          <div className="rd-summary">
-            <span>{folders.length} {folders.length === 1 ? "folder" : "folders"} · {outside} {outside === 1 ? "creative" : "creatives"} outside folders{filtering ? ` · ${visible.length} shown` : ""}</span>
-            <button type="button" className="button button-quiet button-small" disabled={!folderTools} title={folderTools ? undefined : "Folders need migration 0028 in the Supabase SQL editor"} onClick={addFolder}><IcFolderPlus size={16} />New folder</button>
-          </div>
+          <LibraryBar query={q} setQuery={setQ} status={status} setStatus={setStatus} shapes={shapes} setShapes={setShapes} folderFilter={folderFilter} setFolderFilter={setFolderFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort} folders={folders} filtering={filtering} clear={() => { setQ(""); setStatus("all"); setShapes("all"); setFolderFilter("all"); }} shown={visible.length} folderTools={folderTools} addFolder={addFolder} />
 
           <div className="rd-sections">
             {sections.map((s) => {
