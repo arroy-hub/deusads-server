@@ -529,7 +529,7 @@ function KeyCard({ gameId, apiKey, link }) {
         {note?.text ?? ""}
       </span>
       {link && (
-        <details className="st-details">
+        <details className="st-details" open>
           <summary>
             Connection details<span className="st-details-last">{link.last}</span>
           </summary>

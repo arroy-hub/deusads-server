@@ -8101,5 +8101,5 @@ a.gm-mi { text-decoration: none; }
 /* Settings tab: the game's card and, to the right of it, the SDK connection. */
 .st-top { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
 .st-top > .st-sdk { flex: none; width: 100%; min-width: 0; box-sizing: border-box; }
-.st-prop .ag-grid { grid-template-columns: 340px minmax(0, 1fr); }
+.st-prop .ag-grid { grid-template-columns: 380px minmax(0, 1fr); }
 @media (max-width: 1100px) { .st-top { grid-template-columns: minmax(0, 1fr); } }
