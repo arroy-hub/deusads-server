@@ -542,6 +542,15 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   return (
     <OrgContext.Provider value={orgValue}>
       <section className="org" aria-label="Placements" aria-busy={pending}>
+        <div className="org-summary">
+          <span className="org-listbar-text">
+            {groupBy === "folder"
+              ? `${folderGroups} folder${folderGroups === 1 ? "" : "s"} · ${looseCount} placement${looseCount === 1 ? "" : "s"} outside folders`
+              : `${groups.length} group${groups.length === 1 ? "" : "s"}`}
+            {visible.length !== items.length ? ` · ${visible.length} of ${items.length} match` : ""}
+          </span>
+        </div>
+        <div className="org-topline">
         <div className="org-toolbar">
           <div className="org-bar">
             <input
@@ -549,7 +558,8 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
               type="search"
               value={q}
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Search name, ID, scene, path or tag"
+              placeholder="Search…"
+              title="Search by name, ID, scene, path or tag"
               aria-label="Search placements"
             />
             <label className="org-inline">
@@ -572,35 +582,6 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
                 ))}
               </select>
             </label>
-            <div className="org-popover-wrap">
-              <button type="button" className="button button-quiet" onClick={() => setViewsOpen((value) => !value)} aria-expanded={viewsOpen}>
-                Saved views
-              </button>
-              {viewsOpen && (
-                <div className="org-popover" role="dialog" aria-label="Saved views">
-                  {views.length === 0 && <p className="muted-line">No saved views yet. A view remembers the grouping, sorting, search and filters.</p>}
-                  <ul className="org-view-list">
-                    {views.map((view) => (
-                      <li key={view.name}>
-                        <button type="button" className="link-button" onClick={() => applyView(view)}>
-                          {view.name}
-                        </button>
-                        <button type="button" className="org-x" aria-label={`Delete view ${view.name}`} onClick={() => persistViews(views.filter((entry) => entry.name !== view.name))}>
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <form className="row" onSubmit={saveView}>
-                    <input className="field" value={viewName} maxLength={40} placeholder="Name this view" onChange={(event) => setViewName(event.target.value)} aria-label="View name" />
-                    <button className="button button-small" type="submit" disabled={!viewName.trim()}>
-                      Save
-                    </button>
-                  </form>
-                  <p className="muted-line">Saved in this browser only.</p>
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="org-pills">
@@ -636,12 +617,6 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
         </div>
 
         <div className="org-listbar">
-          <span className="org-listbar-text">
-            {groupBy === "folder"
-              ? `${folderGroups} folder${folderGroups === 1 ? "" : "s"} · ${looseCount} placement${looseCount === 1 ? "" : "s"} outside folders`
-              : `${groups.length} group${groups.length === 1 ? "" : "s"}`}
-            {visible.length !== items.length ? ` · ${visible.length} of ${items.length} match` : ""}
-          </span>
           {framed.length > 0 && (
             <button type="button" className="org-iconbtn" title={allOpen ? "Collapse all" : "Expand all"} aria-label={allOpen ? "Collapse all" : "Expand all"} onClick={() => setAllOpen(!allOpen)}>
               <CollapseIcon open={allOpen} />
@@ -694,6 +669,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
             <PencilIcon />
             {editing ? "Done" : "Edit"}
           </button>
+        </div>
         </div>
 
 
@@ -1042,7 +1018,7 @@ function countStates(list, ctx) {
 
 function describeCounts(total, counts, folderOff) {
   const noun = `${total} placement${total === 1 ? "" : "s"}`;
-  if (folderOff) return `${noun} · switched off, so all are off`;
+  if (folderOff) return "Switched off";
   const parts = [noun];
   if (counts.showing) parts.push(`${counts.showing} showing`);
   if (counts.empty) parts.push(`${counts.empty} empty`);
@@ -1073,7 +1049,7 @@ function FolderIcon({ open, off }) {
 
 function CollapseIcon({ open }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={open ? "M8 4l4 4 4-4M8 20l4-4 4 4M4 12h16" : "M8 8l4-4 4 4M8 16l4 4 4-4M4 12h16"} />
     </svg>
   );
@@ -1081,7 +1057,7 @@ function CollapseIcon({ open }) {
 
 function FolderPlusIcon({ big }) {
   return (
-    <svg width={big ? 20 : 16} height={big ? 20 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={big ? 2.3 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={big ? 16 : 14} height={big ? 16 : 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={big ? 2.3 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <path d="M12 11v5M9.5 13.5h5" />
     </svg>
@@ -1090,7 +1066,7 @@ function FolderPlusIcon({ big }) {
 
 function PencilIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
     </svg>

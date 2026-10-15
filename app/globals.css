@@ -5882,21 +5882,21 @@ th.num .sort-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 42px;
-  min-width: 42px;
+  gap: 6px;
+  height: 30px;
+  min-width: 30px;
   padding: 0;
   border: 1.5px solid var(--ink);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ink);
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 .org-iconbtn:hover { background: var(--surface); }
-.org-iconbtn.org-edit { padding: 0 16px; background: var(--signal); border-color: var(--signal); color: #fff; }
+.org-iconbtn.org-edit { padding: 0 12px; background: var(--signal); border-color: var(--signal); color: #fff; }
 .org-iconbtn.org-edit:hover { background: #b8421d; }
 .org-group {
   background: #eceef1;
@@ -5906,7 +5906,7 @@ th.num .sort-button {
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(20, 22, 27, 0.06), 0 6px 16px rgba(20, 22, 27, 0.07);
 }
-.org-group .org-group-head { background: #fff; border-radius: 0; min-height: 54px; padding: 14px 18px; }
+.org-group .org-group-head { background: #fff; border-radius: 0; min-height: 38px; padding: 4px 18px; }
 .org-group.is-open .org-group-head { border-bottom: 1px solid #e0d6cb; border-radius: 0; }
 .org-group .org-group-body { background: transparent; border-radius: 0; padding: 16px 16px 18px; }
 .org-group .org-folder-icon, .org-group .org-folder-icon.is-open { color: var(--signal); }
@@ -8103,3 +8103,46 @@ a.gm-mi { text-decoration: none; }
 .st-top > .st-sdk { flex: none; width: 100%; min-width: 0; box-sizing: border-box; }
 .st-prop .ag-grid { grid-template-columns: 380px minmax(0, 1fr); }
 @media (max-width: 1100px) { .st-top { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------------------------------------------------------------- Placements: slimmer filter block, closer folders */
+.org-toolbar { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; }
+.org-toolbar .org-bar { flex: 0 0 auto; flex-wrap: nowrap; gap: 8px; }
+.org-toolbar .org-search { flex: 0 0 170px; min-width: 0; width: 170px; box-sizing: border-box; height: 30px; min-height: 0; line-height: 1; padding: 0 10px; font-size: 13px; }
+.org-toolbar .org-inline { gap: 5px; font-size: 12.5px; }
+.org-toolbar .org-inline .field { box-sizing: border-box; height: 30px; min-height: 0; padding: 0 6px; font-size: 13px; line-height: 1; }
+.org-toolbar .org-pills { flex: 1 1 auto; gap: 6px; }
+.org-toolbar .org-pill { min-height: 28px; max-width: 104px; padding: 0 0.4rem; font-size: 12.5px; }
+.org > .org-group + .org-group { margin-top: -8px; }
+
+/* the folder count on its own line above; the filter block and the buttons share one line under it */
+.org-summary { margin-bottom: -8px; font-size: 0.875rem; color: var(--ink-2); }
+.org-summary .org-listbar-text { min-width: 0; }
+.org-topline { display: flex; align-items: center; gap: 10px; }
+.org-topline .org-toolbar { flex: 1 1 auto; min-width: 0; }
+.org-topline .org-listbar { flex: none; flex-wrap: nowrap; gap: 8px; }
+
+
+/* ---- game window header: the card's picture behind the name plate and the tabs (the picture and icon are set on My games) ---- */
+.gp-top.gp-top-card { position: relative; padding: 18px 0 0; }
+.gp-cover { position: absolute; inset: 0; z-index: 0; }
+/* the picture is drawn by its height (slightly enlarged to fill 4.9:1), and dissolves to the right over a shorter distance */
+.gp-pic { position: absolute; left: 0; top: 0; height: 100%; aspect-ratio: 4.9 / 1; -webkit-mask-image: linear-gradient(to right, #000 0, #000 68%, rgba(0,0,0,0.88) 74%, rgba(0,0,0,0.68) 80%, rgba(0,0,0,0.46) 85%, rgba(0,0,0,0.26) 90%, rgba(0,0,0,0.1) 95%, rgba(0,0,0,0.02) 98.5%, transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 68%, rgba(0,0,0,0.88) 74%, rgba(0,0,0,0.68) 80%, rgba(0,0,0,0.46) 85%, rgba(0,0,0,0.26) 90%, rgba(0,0,0,0.1) 95%, rgba(0,0,0,0.02) 98.5%, transparent 100%); }
+.gp-cover::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(rgba(255,255,255,0.08), rgba(255,255,255,0.08)); }
+.gp-plate-row { position: relative; z-index: 1; display: flex; align-items: center; padding: 0 40px; }
+.gp-plate h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: #241d19; }
+.gp-top-card .tabs { position: relative; z-index: 1; margin: 12px 0 0; padding: 0 40px; }
+/* the tabs as browser tabs: each has its own backing; the open one is the colour of the work area and grows into it */
+.gp-top-card .tabs { gap: 4px; align-items: flex-end; margin: 12px 0 -1px; padding: 0 44px; }
+.gp-top-card .tabs .tab { position: relative; display: inline-flex; align-items: center; margin: 0; min-height: 40px; padding: 0 18px; border: 0; border-radius: 12px 12px 0 0;
+  background: rgba(24, 14, 9, 0.34); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #fff; font-size: 14.5px; font-weight: 600; text-shadow: 0 1px 2px rgba(20, 12, 8, 0.4); }
+.gp-top-card .tabs .tab:hover { background: rgba(24, 14, 9, 0.46); }
+.gp-top-card .tabs .tab[aria-current="page"] { z-index: 2; min-height: 42px; background: #f6f2ed; color: #241d19; font-weight: 700; text-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* the curved feet of the open tab, like in a browser: the work area flows out into the header */
+.gp-top-card .tabs .tab[aria-current="page"]::before, .gp-top-card .tabs .tab[aria-current="page"]::after { content: ""; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; }
+.gp-top-card .tabs .tab[aria-current="page"]::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, #f6f2ed 12px); }
+.gp-top-card .tabs .tab[aria-current="page"]::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, #f6f2ed 12px); }
+.gp-top-card .tabs .cp-count { text-shadow: none; }
+.gp-top-card .gm-status { text-decoration: none; }
+.gp-top-card .tabs .cp-count { text-shadow: none; }

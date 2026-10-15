@@ -9,7 +9,7 @@ import { connection } from "../../../../lib/connection";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
 import { aboutKnown } from "../../../../lib/game-about";
 import GameIcon from "../../game-icon";
-import { defaultCoverId } from "../../../../lib/game-cover";
+import { defaultCoverId, coverBackground } from "../../../../lib/game-cover";
 import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
@@ -17,9 +17,12 @@ import PerformanceTab from "./performance-tab";
 import CampaignsTab from "./campaigns-tab";
 import PlacementsOrganizer from "./placements-organizer";
 import Link from "next/link";
-import TabInfo from "./tab-info";
 
 export const dynamic = "force-dynamic";
+
+// The colours of the SDK status dot and word, as on the game's card on My games.
+const STATUS_DOT = { ok: "#3fb577", silent: "#e0a23a", new: "#9aa0a6" };
+const STATUS_WORD = { ok: "#1f6b3a", silent: "#8a5a00", new: "#5b524a" };
 
 const ANALYTICS_DAYS = 30; // views per place shown on the Placements tab
 
@@ -114,51 +117,50 @@ export default async function GamePage({ params, searchParams }) {
   // What the Settings tab's card needs: the header (migration 0029), its place in the list (it picks the default colour)
   // and the counts the card shows.
   const card = tab === "settings" ? await loadCard(db, gameId) : null;
+  // The header picture of the game's card on My games (migration 0029), shown behind the name on every tab.
+  const headerCss = await loadHeaderCss(db, gameId);
   // "Open to advertisers" needs migration 0014; without it the switch is left out.
   const { data: openRows, error: openError } =
     tab === "placements" ? await db.from("placements").select("id, open_to_advertisers").eq("game_id", gameId) : { data: [], error: null };
   const openOf = openError ? null : new Map((openRows ?? []).map((row) => [row.id, Boolean(row.open_to_advertisers)]));
-  const openCount = openOf ? rows.filter((row) => openOf.get(row.id)).length : null;
   const withPictures = rows.filter((row) => ownAssignments(row).length > 0).length;
 
   // Folders, tags, switches, places (migration 0021). Null before it: the tab then lists placements as it always did.
   const organization = tab === "placements" && rows.length > 0 ? await loadOrganization(db, gameId, rows) : null;
 
-  const tabInfo =
-    tab === "placements"
-      ? `The ad spaces the SDK found in your game. Add your own creatives to each one (up to 5): they show in turn whenever no advertiser is booked. Switch a placement on to open it to advertisers and list it in their catalog.${
-          openOf ? ` ${openCount} of ${rows.length} are open.` : " Run supabase/migrations/0014_open_to_advertisers.sql to choose which placements advertisers can book."
-        } Changes reach players the next time they start the game, no new build needed.`
-      : tab === "campaigns"
-        ? "The advertisers that booked this game. Pause or block a campaign, one creative or a whole advertiser, or a whole category. Everything here applies to this game only, nothing is cancelled, and you can take it back at any time."
-        : tab === "performance"
-          ? "How often ads were shown in this game, and whose they were. A view counts when a player had the placement on screen."
-          : "";
-
   return (
     <div className="gp">
-      <div className="gp-top">
-      <div className="main-head">
-        <div className="game-title">
-          <GameIcon name={game.name} url={iconUrl} size="sm">
-            {link && (
-              <Link href={`/dashboard/g/${game.id}?tab=settings`} className={`conn-dot conn-${link.mode}`} aria-label={`SDK: ${link.chip}`}>
-                <b />
-              </Link>
-            )}
-          </GameIcon>
-          <h1>{game.name}</h1>
+      <div className="gp-top gp-top-card">
+        {/* The picture and the icon are the ones set on the game's card on My games. */}
+        <div className="gp-cover">
+          <div className="gp-pic" style={{ background: headerCss }} />
         </div>
-      </div>
-      <nav className="tabs" aria-label="Game sections">
-        {TABS.map(([key, label]) => (
-          <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
-            {label}
-            {key === "campaigns" && newCount > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Campaigns with something new">{newCount}</span>}
-          </Link>
-        ))}
-        <TabInfo label={TABS.find(([key]) => key === tab)?.[1] ?? "this tab"} text={tabInfo} />
-      </nav>
+        <div className="gp-plate-row">
+          <div className="gm-plate gp-plate">
+            <span className="gm-icon">
+              <GameIcon name={game.name} url={iconUrl} />
+              {link && (
+                <Link href={`/dashboard/g/${game.id}?tab=settings`} className="gm-status" style={{ background: STATUS_DOT[link.mode] }} aria-label={`SDK: ${link.label}`} />
+              )}
+            </span>
+            <div>
+              <h1>{game.name}</h1>
+              {link && (
+                <div className="gm-sub">
+                  <b style={{ color: STATUS_WORD[link.mode] }}>{link.label}</b> · {link.line}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <nav className="tabs" aria-label="Game sections">
+          {TABS.map(([key, label]) => (
+            <Link key={key} href={`/dashboard/g/${game.id}?tab=${key}`} className="tab" aria-current={tab === key ? "page" : undefined}>
+              {label}
+              {key === "campaigns" && newCount > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Campaigns with something new">{newCount}</span>}
+            </Link>
+          ))}
+        </nav>
       </div>
       <div className="gp-work">
       {gaps.known && gaps.missing.length > 0 && (
@@ -435,4 +437,15 @@ async function loadCard(db, gameId) {
 
 function parseCoverUrl(value, url) {
   return typeof value === "string" && value.startsWith("image:") && value.length > 6 ? url(value.slice(6)) : "";
+}
+
+/** The CSS background of the card's header picture: the uploaded picture, the chosen colour, or the colour the card has by default. */
+async function loadHeaderCss(db, gameId) {
+  const [coverRow, games] = await Promise.all([
+    db.from("games").select("cover").eq("id", gameId).maybeSingle(),
+    db.from("games").select("id").order("created_at", { ascending: true }),
+  ]);
+  const index = Math.max(0, (games.error ? [] : games.data ?? []).findIndex((row) => row.id === gameId));
+  const value = coverRow.error ? null : coverRow.data?.cover ?? null;
+  return coverBackground(value, index, (path) => db.storage.from("creatives").getPublicUrl(path).data.publicUrl);
 }
