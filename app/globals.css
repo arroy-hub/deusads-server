@@ -8022,9 +8022,9 @@ a.gm-mi { text-decoration: none; }
 .ag-f textarea.field{min-height:84px;padding:10px 12px;resize:vertical;line-height:1.45}
 .ag-f input.field:focus,.ag-f textarea.field:focus{outline:2px solid #b8421d;outline-offset:1px}
 .ag-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.ag .multi-pick{gap:8px}
-.ag .multi-pick legend{font-size:14px}
-.ag .multi-option[aria-pressed="true"]{background:#241d19;border-color:#241d19;color:#fff}
+.ag .multi-pick, .ag-embed .multi-pick{gap:8px}
+.ag .multi-pick legend, .ag-embed .multi-pick legend{font-size:14px}
+.ag .multi-option[aria-pressed="true"], .ag-embed .multi-option[aria-pressed="true"]{background:#241d19;border-color:#241d19;color:#fff}
 .ag-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:12px;padding:14px 24px;border-top:1px solid #efe7de;background:#fff}
 .ag-foot .muted-line{flex:1 1 14rem;margin:0 auto 0 0;font-size:13px;color:#6b5f56}
 .ag-foot .ok{color:#1f6b3a}
@@ -8054,7 +8054,7 @@ a.gm-mi { text-decoration: none; }
 
 .ag-f>label{display:block}
 .req{margin-left:6px}
-.ag .multi-pick legend .req{margin-left:2px}
+.ag .multi-pick legend .req, .ag-embed .multi-pick legend .req{margin-left:2px}
 .ag-hint{margin-top:0}
 
 .ag-sw{gap:6px}.ag-swatch{width:14px;height:14px;border-width:2px;box-shadow:0 0 0 1px #d8cabd}.ag-swatch[aria-pressed="true"]{box-shadow:0 0 0 1.5px #241d19}
@@ -8062,10 +8062,10 @@ a.gm-mi { text-decoration: none; }
 .ag-sw-on{position:absolute;left:16px;top:16px;gap:8px;padding:0;background:none}
 .ag-sw-on .ag-swatch{width:16px;height:16px;border:2px solid rgba(255,255,255,.55);box-shadow:none}
 .ag-sw-on .ag-swatch[aria-pressed="true"]{border-color:#fff;box-shadow:none}
-.ag .multi-pick legend{gap:0}
-.ag .multi-pick legend .req{margin-left:6px}
-.ag .multi-pick legend .multi-count{margin-left:12px}
-.ag .multi-pick legend{width:100%;padding-bottom:8px;border-bottom:1px solid #efe7de;margin-bottom:6px}
+.ag .multi-pick legend, .ag-embed .multi-pick legend{gap:0}
+.ag .multi-pick legend .req, .ag-embed .multi-pick legend .req{margin-left:6px}
+.ag .multi-pick legend .multi-count, .ag-embed .multi-pick legend .multi-count{margin-left:12px}
+.ag .multi-pick legend, .ag-embed .multi-pick legend{width:100%;padding-bottom:8px;border-bottom:1px solid #efe7de;margin-bottom:6px}
 .ag-left .gm-body{padding-bottom:20px}
 .ag-pop{position:absolute;right:12px;top:52px;z-index:6;width:200px;padding:6px;background:#fff;border:1px solid #e6ddd3;border-radius:12px;box-shadow:0 12px 30px rgba(40,30,20,.2);display:flex;flex-direction:column}
 .ag-pop .it{border:0;background:none;width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#241d19;font:600 14px "Manrope",sans-serif}
@@ -8083,3 +8083,16 @@ a.gm-mi { text-decoration: none; }
 .st-about-text .field { width: 100%; box-sizing: border-box; }
 .st-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .st-field label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 14px; }
+
+/* Settings tab: the game's own card on the left (with the SDK connection under it), the questionnaire on the right. */
+.st-prop { overflow: hidden; }
+.st-prop-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 20px; padding: 18px 22px 16px; border-bottom: 1px solid #efe7de; }
+.st-prop-head h2 { margin: 0; font-size: 18px; font-weight: 800; }
+.st-prop-head p { margin: 4px 0 0; font-size: 13px; color: #6b5f56; max-width: 620px; }
+.st-prop .ag-grid { grid-template-columns: 380px minmax(0, 1fr); }
+.st-prop .ag-left { overflow: visible; }
+.st-prop .ag-right { overflow: visible; }
+.st-prop .ag-left .st-sdk { flex: none; width: 100%; min-width: 0; box-sizing: border-box; margin: 0; background: #fff; border-radius: 16px; }
+.st-prop .ag-left .st-key { min-width: 0; }
+.st-prop .st-icon-off { align-self: flex-start; min-height: 36px; }
+@media (max-width: 900px) { .st-prop .ag-grid { grid-template-columns: 1fr; } .st-prop .ag-left { border-right: 0; } }

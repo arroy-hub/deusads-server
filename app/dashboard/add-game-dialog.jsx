@@ -3,8 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame, setGameCover, setGameIcon } from "./actions";
-import GameIcon from "./game-icon";
-import GamePreviewDetails from "./game-preview-details";
+import GameCardPreview from "./game-card-preview";
 import MultiPick from "./multi-pick";
 import { browserClient } from "../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../lib/icon-image";
@@ -65,7 +64,6 @@ export default function AddGameDialog({ gamesCount = 0 }) {
   const [icon, setIcon] = useState(NO_PICTURE);
   const [coverPick, setCoverPick] = useState(null); // a colour id, or null for the default
   const [cover, setCover] = useState(NO_PICTURE); // an uploaded picture
-  const [coverMenu, setCoverMenu] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fileError, setFileError] = useState("");
@@ -94,16 +92,6 @@ export default function AddGameDialog({ gamesCount = 0 }) {
   useEffect(() => () => icon.preview && URL.revokeObjectURL(icon.preview), [icon.preview]);
   useEffect(() => () => cover.preview && URL.revokeObjectURL(cover.preview), [cover.preview]);
 
-  // The little menu on the header closes on a click anywhere else.
-  useEffect(() => {
-    if (!coverMenu) return undefined;
-    const away = (event) => {
-      if (!event.target.closest?.("[data-cover-menu]")) setCoverMenu(false);
-    };
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
-  }, [coverMenu]);
-
   function openDialog() {
     setError("");
     setOpen(true);
@@ -118,7 +106,6 @@ export default function AddGameDialog({ gamesCount = 0 }) {
     setIcon(NO_PICTURE);
     setCover(NO_PICTURE);
     setCoverPick(null);
-    setCoverMenu(false);
     setError("");
     setFileError("");
     if (hadGame) router.refresh();
@@ -149,8 +136,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
     try {
       const blob = await cropToStrip(file);
       setCover({ blob, preview: URL.createObjectURL(blob) });
-      setCoverMenu(false);
-    } catch {
+      } catch {
       setFileError("Could not read that picture.");
     }
   }
@@ -240,75 +226,19 @@ export default function AddGameDialog({ gamesCount = 0 }) {
             <div className="ag-grid">
               <div className="ag-left">
                 <div className="ag-cap">Preview</div>
-                <article className="gm-card">
-                  <div className="gm-cover ag-cover" style={{ background: coverCss }}>
-                    {!cover.preview && (
-                      <div className="ag-sw ag-sw-on" role="group" aria-label="Header colours">
-                        {COVERS.map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className="ag-swatch"
-                            style={{ background: item.css }}
-                            aria-label={item.name}
-                            title={item.name}
-                            aria-pressed={item.id === (coverPick ?? defaultId)}
-                            onClick={() => setCoverPick(item.id)}
-                            disabled={busy}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <span data-cover-menu>
-                      <button
-                        type="button"
-                        className="ag-cover-btn"
-                        aria-label={cover.preview ? "Change header image" : "Upload header image"}
-                        title={cover.preview ? "Change header image" : "Upload header image"}
-                        aria-haspopup={cover.preview ? "menu" : undefined}
-                        aria-expanded={cover.preview ? coverMenu : undefined}
-                        onClick={() => (cover.preview ? setCoverMenu((value) => !value) : coverFile.current?.click())}
-                        disabled={busy}
-                      >
-                        <Svg size={16}><path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 9h.01" /></Svg>
-                      </button>
-                      {coverMenu && (
-                        <div className="ag-pop" role="menu">
-                          <button type="button" className="it" role="menuitem" onClick={() => { setCoverMenu(false); coverFile.current?.click(); }}>
-                            <Svg><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></Svg>Upload another
-                          </button>
-                          <button type="button" className="it is-danger" role="menuitem" onClick={() => { setCoverMenu(false); setCover(NO_PICTURE); }}>
-                            <Svg><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></Svg>Remove picture
-                          </button>
-                        </div>
-                      )}
-                    </span>
-                  </div>
-                  <div className="gm-body">
-                    <div className="gm-plate">
-                      <span className="gm-icon">
-                        <button type="button" className="ag-iconbtn" aria-label={icon.preview ? "Change icon" : "Add icon"} onClick={() => iconFile.current?.click()} disabled={busy}>
-                          <GameIcon name={form.name || "?"} url={icon.preview} />
-                          <span className="ag-cam">
-                            <Svg size={20}><path d="M4 8h3l2-3h6l2 3h3v11H4zM12 11a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" /></Svg>
-                          </span>
-                        </button>
-                        <i className="gm-status" style={{ background: "#9aa0a6" }} role="img" aria-label="SDK: not connected" />
-                      </span>
-                      <div>
-                        <h2 className={form.name.trim() ? undefined : "ag-name-empty"}>{form.name.trim() || "Game name"}</h2>
-                        <div className="gm-sub">
-                          <b style={{ color: "#5b524a" }}>Not connected</b> · waiting for the SDK
-                        </div>
-                      </div>
-                    </div>
-                    <GamePreviewDetails form={form} />
-                    <div className="gm-chips">
-                      <span>0 placements</span>
-                      <span>0 campaigns</span>
-                    </div>
-                  </div>
-                </article>
+                <GameCardPreview
+                  form={form}
+                  iconUrl={icon.preview}
+                  coverCss={coverCss}
+                  hasPicture={Boolean(cover.preview)}
+                  colourId={coverPick ?? defaultId}
+                  onColour={setCoverPick}
+                  onIcon={() => iconFile.current?.click()}
+                  onCover={() => coverFile.current?.click()}
+                  onRemoveCover={() => setCover(NO_PICTURE)}
+                  status={{ dot: "#9aa0a6", word: "#5b524a", label: "Not connected", sub: "waiting for the SDK" }}
+                  disabled={busy}
+                />
                 {fileError && <p className="ag-err" role="alert">{fileError}</p>}
                 <input ref={iconFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
                 <input ref={coverFile} type="file" accept="image/png,image/jpeg" hidden onChange={chooseCover} />

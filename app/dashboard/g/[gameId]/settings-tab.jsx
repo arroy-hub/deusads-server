@@ -1,36 +1,42 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteGame, rotateApiKey, saveGame, setGameIcon } from "../../actions";
-import GameIcon from "../../game-icon";
-import Modal from "../../modal";
+import { deleteGame, rotateApiKey, saveGame, setGameCover, setGameIcon } from "../../actions";
+import GameCardPreview from "../../game-card-preview";
 import MultiPick from "../../multi-pick";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
 import { FIELDS, PROFILE_KEYS } from "../../../../lib/targeting";
 import { ABOUT_LISTS, parseStoreUrl } from "../../../../lib/game-about";
+import { cropToStrip } from "../../../../lib/cover-image";
+import { COVERS, COVER_MAX_BYTES, parseCover } from "../../../../lib/game-cover";
 import { navigating } from "../../_cabinet/nav";
-
-const FIELD_TEXT = {
-  genres: { plural: "genres", hint: "Everything that describes the game." },
-  platforms: { plural: "platforms", hint: "Where players can play it." },
-  languages: { plural: "languages", hint: "The languages the game is available in." },
-};
 
 const sameLists = (a, b) => PROFILE_KEYS.every((key) => [...a[key]].sort().join() === [...b[key]].sort().join());
 const NO_ICON = { blob: null, preview: "", removed: false };
 
+const NO_COVER = { pick: null, blob: null, preview: "", removed: false };
+
+// The words and colours of the card's connection line, as My games shows them.
+const STATUS = {
+  ok: { dot: "#3fb577", word: "#1f6b3a", label: "Connected" },
+  silent: { dot: "#e0a23a", word: "#8a5a00", label: "Out of sync" },
+  new: { dot: "#9aa0a6", word: "#5b524a", label: "Not connected" },
+};
+
 /**
- * Everything about one game that its owner can change. Laid out as cards: the icon and name on top, the game's
- * description (genres, platforms, languages) beside the API key, and the two actions that cannot be taken back
- * (a new key, deleting the game) kept apart from Save. Save is a bar that is on screen only while there is
- * something to save (or just after it was saved); when something is still empty it says what.
- * `profile` is null when the database does not know these lists yet (migration 0018).
+ * Everything about one game that its owner can change, laid out as the game's own card: on the left the card as it
+ * looks on My games (its icon, header and colour are changed on the card) with the SDK connection under it, on the
+ * right the questionnaire (the same as in the Add game pop-up). The two actions that cannot be taken back (a new key,
+ * deleting the game) are kept apart from Save. Save is a bar that is on screen only while there is something to save
+ * (or just after it was saved); when something is still empty it says what.
+ * `profile` is null when the database does not know these lists yet (migration 0018); `cover` is null before 0029.
  */
-export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile, about, link }) {
+export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile, about, link, cover, counts }) {
   const router = useRouter();
   const fileRef = useRef(null);
+  const coverFile = useRef(null);
   const noteTimer = useRef(null);
 
   const [title, setTitle] = useState(name);
@@ -38,17 +44,20 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   const [more, setMore] = useState(about); // store link, devices, play modes; null before migration 0031
   const [saved, setSaved] = useState({ name, lists: profile, more: about });
   const [icon, setIcon] = useState(NO_ICON); // a change waiting for Save
+  const [header, setHeader] = useState(NO_COVER); // the same, for the header of the card
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null); // { tone, text }
 
   useEffect(() => () => icon.preview && URL.revokeObjectURL(icon.preview), [icon.preview]);
+  useEffect(() => () => header.preview && URL.revokeObjectURL(header.preview), [header.preview]);
   useEffect(() => () => clearTimeout(noteTimer.current), []);
 
   const iconChanged = Boolean(icon.blob) || icon.removed;
+  const coverChanged = Boolean(header.blob) || header.removed || header.pick !== null;
   const nameChanged = title.trim() !== saved.name;
   const listsChanged = lists ? !sameLists(lists, saved.lists) : false;
   const moreChanged = more ? JSON.stringify(more) !== JSON.stringify(saved.more) : false;
-  const dirty = nameChanged || listsChanged || iconChanged || moreChanged;
+  const dirty = nameChanged || listsChanged || iconChanged || moreChanged || coverChanged;
 
   const missing = [];
   if (!title.trim()) missing.push("name");
@@ -58,9 +67,21 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   const valid = missing.length === 0;
   // A game the SDK has never talked to is not ready for advertisers, however complete its description is.
   const waitingForSdk = link?.mode === "new";
-  const filled = lists ? PROFILE_KEYS.filter((key) => lists[key].length > 0).length : 0;
 
   const shownIcon = icon.removed ? "" : icon.preview || iconUrl;
+
+  // The header: a picture (new, or the one it has), else a colour (picked, the one it has, or the default for its place).
+  const savedCover = parseCover(cover?.value);
+  const savedPicture = savedCover.kind === "image" && !header.removed && !header.blob && Boolean(cover?.url);
+  const hasPicture = Boolean(header.preview) || savedPicture;
+  const colourId = header.pick ?? (savedCover.kind === "preset" ? savedCover.id : cover?.defaultId ?? COVERS[0].id);
+  const colourCss = (COVERS.find((item) => item.id === colourId) ?? COVERS[0]).css;
+  const coverCss = header.preview
+    ? `center / cover no-repeat url("${header.preview}")`
+    : savedPicture
+      ? `center / cover no-repeat url("${cover.url}")`
+      : colourCss;
+
   const touch = () => {
     clearTimeout(noteTimer.current);
     setNote(null);
@@ -86,11 +107,27 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
     }
   }
 
+  async function chooseCover(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/png", "image/jpeg"].includes(file.type)) return setNote({ tone: "error", text: "Use a PNG or a JPG picture for the header." });
+    if (file.size > COVER_MAX_BYTES) return setNote({ tone: "error", text: "That picture is over 8 MB." });
+    try {
+      const blob = await cropToStrip(file);
+      setHeader({ pick: null, blob, preview: URL.createObjectURL(blob), removed: false });
+      touch();
+    } catch {
+      setNote({ tone: "error", text: "Could not read that picture." });
+    }
+  }
+
   function discard() {
     setTitle(saved.name);
     setLists(saved.lists);
     setMore(saved.more);
     setIcon(NO_ICON);
+    setHeader(NO_COVER);
     touch();
   }
 
@@ -126,100 +163,136 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
       setIcon(NO_ICON);
     }
 
+    if (coverChanged) {
+      const failed = await storeCover(gameId, header);
+      if (failed) {
+        setBusy(false);
+        router.refresh();
+        return setNote({ tone: "error", text: `Saved, but the header was not: ${failed}` });
+      }
+      setHeader(NO_COVER);
+    }
+
     setBusy(false);
     flash("Saved.");
     router.refresh();
   }
 
   // What the bar says while there is something to save.
-  const changedParts = [nameChanged && "name", (listsChanged || moreChanged) && "description", iconChanged && "icon"].filter(Boolean);
+  const changedParts = [
+    nameChanged && "name",
+    (listsChanged || moreChanged) && "description",
+    (iconChanged || coverChanged) && "card",
+  ].filter(Boolean);
   const barText = !valid
     ? `Still to fill in: ${missing.join(", ")}.`
-    : `Unsaved changes: ${changedParts.join(" and ")}.`;
+    : `Unsaved changes: ${changedParts.length > 1 ? `${changedParts.slice(0, -1).join(", ")} and ${changedParts.at(-1)}` : changedParts[0]}.`;
+
+  const state = STATUS[link?.mode] ?? STATUS.new;
+  const status = { ...state, sub: link && link.mode !== "new" ? link.last : "waiting for the SDK" };
+  const form = {
+    name: title,
+    genres: lists?.genres ?? [],
+    platforms: lists?.platforms ?? [],
+    languages: lists?.languages ?? [],
+    devices: more?.devices ?? [],
+    playModes: more?.playModes ?? [],
+  };
+  const setList = (key, next) => {
+    setLists({ ...lists, [key]: next });
+    touch();
+  };
+  const setMoreList = (key, next) => {
+    setMore({ ...more, [key]: next });
+    touch();
+  };
 
   return (
     <div className="st">
-      <section className="st-card st-ident" aria-label="Icon and name">
-        <div className="st-icon">
-          <GameIcon name={title || name} url={shownIcon} size="lg" />
-          {iconsReady && (
-            <>
-              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
-              <button
-                type="button"
-                className={`st-icon-change${shownIcon ? "" : " is-empty"}`}
-                onClick={() => fileRef.current?.click()}
-                disabled={busy}
-                aria-label={shownIcon ? "Change icon" : "Add icon"}
-              >
-                <CameraIcon />
-                <span>{shownIcon ? "Change" : "Add icon"}</span>
-              </button>
-              {shownIcon && (
-                <button
-                  type="button"
-                  className="st-icon-remove"
-                  aria-label="Remove icon"
-                  title="Remove icon"
-                  onClick={() => {
-                    setIcon({ blob: null, preview: "", removed: true });
-                    touch();
-                  }}
-                  disabled={busy}
-                >
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-                    <path d="M1 1l6 6M7 1L1 7" />
-                  </svg>
-                </button>
-              )}
-            </>
+      <section className="st-card st-prop ag-embed" aria-labelledby="game-card-title">
+        <div className="st-prop-head">
+          <div>
+            <h2 id="game-card-title">Your game</h2>
+            <p>The card is how the game looks on My games. Change anything here and the card follows. What advertisers see in the catalog is the name, the icon and the description.</p>
+          </div>
+          {lists && (
+            <span className={`st-status ${!valid ? "is-open" : waitingForSdk ? "is-wait" : "is-ready"}`}>
+              <span className="st-status-dot" aria-hidden="true" />
+              {!valid ? "Description incomplete" : waitingForSdk ? "Waiting for the SDK" : "Ready for advertisers"}
+            </span>
           )}
         </div>
-        <div className="st-name">
-          <label htmlFor="game-name">Game name</label>
-          <input
-            id="game-name"
-            className="st-name-input"
-            value={title}
-            onChange={(event) => {
-              setTitle(event.target.value);
-              touch();
-            }}
-            maxLength={120}
-            disabled={busy}
-          />
-          <div className="st-name-line">
-            {lists && (
-              <span className={`st-status ${!valid ? "is-open" : waitingForSdk ? "is-wait" : "is-ready"}`}>
-                <span className="st-status-dot" aria-hidden="true" />
-                {!valid ? "Description incomplete" : waitingForSdk ? "Waiting for the SDK" : "Ready for advertisers"}
-              </span>
-            )}
-            <span className="st-muted">The name and icon are what advertisers see in the catalog.</span>
-          </div>
-        </div>
-      </section>
 
-      <div className="st-cols">
-        {lists ? (
-          <section className="st-card st-about" aria-labelledby="about-title">
-            <div className="st-card-head">
-              <div>
-                <h2 id="about-title">About the game</h2>
-                <p>Advertisers aim ads at a genre, platform or language. An ad shows only in games that have said what they are.</p>
+        <div className="ag-grid">
+          <div className="ag-left">
+            <div className="ag-cap">Preview</div>
+            <GameCardPreview
+              form={form}
+              iconUrl={shownIcon}
+              coverCss={coverCss}
+              hasPicture={hasPicture}
+              colourId={colourId}
+              onColour={(id) => {
+                setHeader({ ...header, pick: id });
+                touch();
+              }}
+              onIcon={() => fileRef.current?.click()}
+              onCover={() => coverFile.current?.click()}
+              onRemoveCover={() => {
+                setHeader({ pick: null, blob: null, preview: "", removed: true });
+                touch();
+              }}
+              status={status}
+              placements={counts?.placements ?? 0}
+              campaigns={counts?.campaigns ?? 0}
+              disabled={busy}
+              coversReady={Boolean(cover)}
+              iconsReady={iconsReady}
+            />
+            {iconsReady && (
+              <>
+                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
+                {shownIcon && (
+                  <button
+                    type="button"
+                    className="st-plain st-icon-off"
+                    onClick={() => {
+                      setIcon({ blob: null, preview: "", removed: true });
+                      touch();
+                    }}
+                    disabled={busy}
+                  >
+                    Remove icon
+                  </button>
+                )}
+              </>
+            )}
+            {cover && <input ref={coverFile} type="file" accept="image/png,image/jpeg" hidden onChange={chooseCover} />}
+            <KeyCard gameId={gameId} apiKey={apiKey} link={link} />
+          </div>
+
+          <div className="ag-right">
+            <section className="ag-sec">
+              <h3>About the game</h3>
+              <div className="ag-f">
+                <label htmlFor="game-name">
+                  Game name<i className="req" title="Required" />
+                </label>
+                <input
+                  id="game-name"
+                  className="field"
+                  value={title}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                    touch();
+                  }}
+                  maxLength={120}
+                  disabled={busy}
+                  placeholder="Game name"
+                />
               </div>
-              <span className="st-progress">
-                <span className="st-bars" aria-hidden="true">
-                  {PROFILE_KEYS.map((key, index) => (
-                    <span key={key} className={index < filled ? "is-on" : ""} />
-                  ))}
-                </span>
-                {filled} of {PROFILE_KEYS.length} filled in
-              </span>
-            </div>
-            {more && (
-              <div className="st-about-text">
-                <div className="st-field">
+              {more && (
+                <div className="ag-f">
                   <label htmlFor="game-store">Store link</label>
                   <input
                     id="game-store"
@@ -236,56 +309,55 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                     disabled={busy}
                   />
                 </div>
-              </div>
-            )}
-            {PROFILE_KEYS.map((key) => (
-              <AboutRow
-                key={key}
-                label={FIELDS[key].label}
-                noun={FIELDS[key].noun}
-                nounPlural={FIELD_TEXT[key].plural}
-                hint={FIELD_TEXT[key].hint}
-                options={FIELDS[key].options}
-                value={lists[key]}
-                onChange={(next) => {
-                  setLists({ ...lists, [key]: next });
-                  touch();
-                }}
-                searchable={key === "languages"}
-                disabled={busy}
-              />
-            ))}
-            {more &&
-              [
-                ["devices", "devices"],
-                ["play_modes", "playModes"],
-              ].map(([listKey, stateKey]) => (
-                <AboutRow
-                  key={listKey}
-                  label={ABOUT_LISTS[listKey].label}
-                  noun={ABOUT_LISTS[listKey].noun}
-                  nounPlural={ABOUT_LISTS[listKey].plural}
-                  hint={listKey === "devices" ? "The headsets and screens it runs on." : "How people can play it."}
-                  options={ABOUT_LISTS[listKey].options}
-                  value={more[stateKey]}
-                  onChange={(next) => {
-                    setMore({ ...more, [stateKey]: next });
-                    touch();
-                  }}
-                  optional
-                  disabled={busy}
-                />
-              ))}
-          </section>
-        ) : (
-          <p className="notice st-about">
-            Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to describe your game for
-            advertisers.
-          </p>
-        )}
+              )}
+            </section>
 
-        <KeyCard gameId={gameId} apiKey={apiKey} link={link} />
-      </div>
+            {lists ? (
+              <section className="ag-sec">
+                <h3>Tell us more</h3>
+                <p className="ag-hint">
+                  Advertisers aim an ad at a genre, a device or a language. An ad that asks for something you have not filled in will not show in your game.
+                </p>
+                {PROFILE_KEYS.map((key) => (
+                  <MultiPick
+                    key={key}
+                    label={key === "platforms" ? "Platforms" : FIELDS[key].label}
+                    options={FIELDS[key].options}
+                    value={lists[key]}
+                    onChange={(next) => setList(key, next)}
+                    searchable={key === "languages"}
+                    disabled={busy}
+                    required
+                  />
+                ))}
+                {more && (
+                  <>
+                    <MultiPick
+                      label={ABOUT_LISTS.devices.label}
+                      options={ABOUT_LISTS.devices.options}
+                      value={more.devices}
+                      onChange={(next) => setMoreList("devices", next)}
+                      disabled={busy}
+                    />
+                    <MultiPick
+                      label={ABOUT_LISTS.play_modes.label}
+                      options={ABOUT_LISTS.play_modes.options}
+                      value={more.playModes}
+                      onChange={(next) => setMoreList("playModes", next)}
+                      disabled={busy}
+                    />
+                  </>
+                )}
+              </section>
+            ) : (
+              <p className="notice">
+                Run <code>supabase/migrations/0018_targeting.sql</code> in the Supabase SQL editor to describe your game for
+                advertisers.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
       <DeleteGame gameId={gameId} name={name} />
 
@@ -311,96 +383,6 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   );
 }
 
-/** One list of the game's description: its name (what it means shows when you point at it), what is chosen, an Add button. */
-function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, searchable, disabled, optional = false }) {
-  const [open, setOpen] = useState(false);
-  const tipId = useId();
-  const labelOf = new Map(options.map((option) => [option.id, option.label]));
-  // the order of the full list, so the tags read the same as the pop-up
-  const order = new Map(options.map((option, index) => [option.id, index]));
-  const chosen = [...value].sort((a, b) => (order.get(a) ?? 1e9) - (order.get(b) ?? 1e9));
-  const empty = chosen.length === 0;
-
-  return (
-    <div className={`st-row ${empty && !optional ? "is-empty" : ""}`}>
-      <div className="st-row-label">
-        <span className="st-tipwrap">
-          <button type="button" className="st-tipbtn" aria-describedby={tipId}>
-            {label}
-          </button>
-          <span id={tipId} role="tooltip" className="st-tipbody">
-            {hint}
-          </span>
-        </span>
-      </div>
-      <div className="st-row-values" aria-live="polite">
-        {empty && !optional && (
-          <span className="st-required">
-            <AlertIcon /> Required: add at least one
-          </span>
-        )}
-        {chosen.map((id) => (
-          <span className="st-chip" key={id}>
-            {labelOf.get(id) ?? id}
-            <button
-              type="button"
-              className="st-chip-x"
-              aria-label={`Remove ${labelOf.get(id) ?? id}`}
-              onClick={() => onChange(value.filter((item) => item !== id))}
-              disabled={disabled}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <button type="button" className="st-add" onClick={() => setOpen(true)} disabled={disabled}>
-          <PlusIcon /> {empty ? `Add ${noun}` : "Add"}
-        </button>
-      </div>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={`Add ${nounPlural}`}
-        footer={
-          <>
-            <span className="muted-line">{value.length === 0 ? "None added yet" : `${value.length} added`}</span>
-            <button type="button" className="button" onClick={() => setOpen(false)}>
-              Done
-            </button>
-          </>
-        }
-      >
-        <MultiPick label={label} options={options} value={value} onChange={onChange} searchable={searchable} />
-      </Modal>
-    </div>
-  );
-}
-
-function CameraIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M4 8h3l2-3h6l2 3h3v11H4zM12 11a3 3 0 100 6 3 3 0 000-6z" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <path d="M8 3v10M3 8h10" />
-    </svg>
-  );
-}
-
-function AlertIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v5M12 16.5v.01" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 /** Uploads the new icon (or clears it) and records it. Returns an error text, or "" when it worked. */
 async function storeIcon(gameId, icon) {
   let path = null;
@@ -416,6 +398,26 @@ async function storeIcon(gameId, icon) {
     if (error) return "the upload failed. Try again.";
   }
   const result = await setGameIcon({ gameId, path }).catch(() => ({ error: "connection lost. Try again." }));
+  return result?.error ?? "";
+}
+
+/** Uploads the header picture, or records the chosen colour (or the default). Returns an error text, or "" when it worked. */
+async function storeCover(gameId, header) {
+  let result;
+  if (header.blob) {
+    const db = browserClient();
+    const { data } = await db.auth.getSession();
+    const userId = data?.session?.user?.id;
+    if (!userId) return "your session expired. Sign in again.";
+    const path = `${userId}/game-cover-${gameId}-${Date.now()}.jpg`;
+    const { error } = await db.storage
+      .from("creatives")
+      .upload(path, header.blob, { contentType: "image/jpeg", cacheControl: "31536000", upsert: false });
+    if (error) return "the upload failed. Try again.";
+    result = await setGameCover({ gameId, path }).catch(() => ({ error: "connection lost. Try again." }));
+  } else {
+    result = await setGameCover({ gameId, preset: header.pick }).catch(() => ({ error: "connection lost. Try again." }));
+  }
   return result?.error ?? "";
 }
 

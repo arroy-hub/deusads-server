@@ -9,6 +9,7 @@ import { connection } from "../../../../lib/connection";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
 import { aboutKnown } from "../../../../lib/game-about";
 import GameIcon from "../../game-icon";
+import { defaultCoverId } from "../../../../lib/game-cover";
 import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
@@ -110,6 +111,9 @@ export default async function GamePage({ params, searchParams }) {
   const signal = await db.from("games").select("last_signal_at").eq("id", gameId).maybeSingle();
   const lastSignal = signal.data?.last_signal_at ?? null;
   const link = signal.error ? null : tab === "settings" ? await connectionOf(db, gameId, lastSignal) : connection(lastSignal);
+  // What the Settings tab's card needs: the header (migration 0029), its place in the list (it picks the default colour)
+  // and the counts the card shows.
+  const card = tab === "settings" ? await loadCard(db, gameId) : null;
   // "Open to advertisers" needs migration 0014; without it the switch is left out.
   const { data: openRows, error: openError } =
     tab === "placements" ? await db.from("placements").select("id, open_to_advertisers").eq("game_id", gameId) : { data: [], error: null };
@@ -235,6 +239,8 @@ export default async function GamePage({ params, searchParams }) {
           iconsReady={iconsReady}
           link={link}
           profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
+          cover={card?.cover ?? null}
+          counts={card?.counts ?? null}
           about={aboutKnown(game) ? { storeUrl: game.store_url ?? "", devices: game.devices, playModes: game.play_modes } : null}
         />
       )}
@@ -405,4 +411,28 @@ function ownAssignments(placement) {
 
 function trim(value) {
   return Number(value).toFixed(1).replace(/\.0$/, "");
+}
+
+/** The header of a game's card, how many placements and campaigns it shows, for the card on the Settings tab. */
+async function loadCard(db, gameId) {
+  const [coverRow, games, placements, bookings] = await Promise.all([
+    db.from("games").select("cover").eq("id", gameId).maybeSingle(),
+    db.from("games").select("id").order("created_at", { ascending: true }),
+    db.from("placements").select("id").eq("game_id", gameId).is("removed_at", null),
+    db.from("bookings").select("campaign_id, placement_id").eq("status", "approved"),
+  ]);
+  const placementIds = new Set((placements.error ? [] : placements.data ?? []).map((row) => row.id));
+  const campaigns = new Set((bookings.error ? [] : bookings.data ?? []).filter((row) => placementIds.has(row.placement_id)).map((row) => row.campaign_id));
+  const index = Math.max(0, (games.error ? [] : games.data ?? []).findIndex((row) => row.id === gameId));
+  const value = coverRow.error ? null : coverRow.data?.cover ?? null;
+  const url = (path) => db.storage.from("creatives").getPublicUrl(path).data.publicUrl;
+  return {
+    // null before migration 0029: the card then has no header controls
+    cover: coverRow.error ? null : { value, url: parseCoverUrl(value, url), defaultId: defaultCoverId(index) },
+    counts: { placements: placementIds.size, campaigns: campaigns.size },
+  };
+}
+
+function parseCoverUrl(value, url) {
+  return typeof value === "string" && value.startsWith("image:") && value.length > 6 ? url(value.slice(6)) : "";
 }
