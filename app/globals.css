@@ -7834,3 +7834,6 @@ select.field:focus-visible,
 .fl-period a { height: 26px; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
 .fl-period a:hover { color: var(--ink); }
 .fl-period a[aria-current="page"] { background: #efe7df; color: var(--ink); }
+/* Overview: the blocks sit flush, as in the approved mockup, for every role (an admin sees the same page as an advertiser) */
+.pg-overview .panel { border-radius: 10px; box-shadow: 0 1px 2px rgba(28, 27, 26, 0.05); border-color: #e3e0da; }
+.pg-overview .panel + .panel { margin-top: 0; }
