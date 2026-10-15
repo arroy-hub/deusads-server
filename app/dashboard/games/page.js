@@ -134,7 +134,7 @@ export default async function GamesPage({ searchParams }) {
 
   return (
     <div className="mg">
-      <div className="mg-top">
+      <div className="mg-top hd-top">
         <div className="mg-head">
           <div>
             <h1>My games</h1>
@@ -142,14 +142,15 @@ export default async function GamesPage({ searchParams }) {
           </div>
         </div>
 
-        <div role="tablist" aria-label="My games sections" className="mg-tabs">
-          <Link href="/dashboard/games" role="tab" aria-selected={tab === "games"} className="mg-tab">
-            Games<span className="mg-tab-count" data-zero={withConnection.length === 0}>{withConnection.length}</span>
+        <nav className="tabs" aria-label="My games sections">
+          <Link href="/dashboard/games" className="tab" aria-current={tab === "games" ? "page" : undefined}>
+            Games
+            <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{withConnection.length}</span>
           </Link>
-          <Link href="/dashboard/games?tab=performance" role="tab" aria-selected={tab === "performance"} className="mg-tab">
+          <Link href="/dashboard/games?tab=performance" className="tab" aria-current={tab === "performance" ? "page" : undefined}>
             Performance
           </Link>
-        </div>
+        </nav>
       </div>
 
       <div className="mg-work">

@@ -44,37 +44,41 @@ export default function AccountPage({ view, admin = false, countries, initialTab
         : "Your own admin account.";
 
   return (
-    <>
-      {admin && <AdminBanner view={view} say={say} />}
-      <div className="main-head">
-        <h1>{admin ? view.company || view.email : "Your account"}</h1>
-        {!admin && (
-          <button type="button" className="button button-quiet" disabled={signingOut} onClick={() => startSignOut(() => signOut())}>
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
-        )}
-      </div>
-      <p className="lede">{lede}</p>
-      {view.schemaOutdated && (
-        <p className="notice" role="status">
-          The database needs update 0030 before profile details, pictures and notification choices can be saved.
-        </p>
-      )}
-      <div className="tabs" role="tablist">
-        {tabs.map(([key, label]) => (
-          <button key={key} type="button" role="tab" className="tab" aria-selected={tab === key} aria-current={tab === key ? "page" : undefined} onClick={() => open(key)}>
-            {label}
-          </button>
-        ))}
+    <div className="gp">
+      <div className="mg-top hd-top">
+        <div className="main-head" style={{ margin: 0 }}>
+          <h1>{admin ? view.company || view.email : "Your account"}</h1>
+          {!admin && (
+            <button type="button" className="button button-quiet" disabled={signingOut} onClick={() => startSignOut(() => signOut())}>
+              {signingOut ? "Signing out…" : "Sign out"}
+            </button>
+          )}
+        </div>
+        <p className="lede" style={{ margin: "6px 0 0" }}>{lede}</p>
+        <div className="tabs" role="tablist">
+          {tabs.map(([key, label]) => (
+            <button key={key} type="button" role="tab" className="tab" aria-selected={tab === key} aria-current={tab === key ? "page" : undefined} onClick={() => open(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {tab === "profile" && <ProfileTab view={view} admin={admin} countries={countries} say={say} goSecurity={() => open("security")} />}
-      {tab === "security" && <SecurityTab view={view} admin={admin} say={say} />}
-      {tab === "notifications" && <NotificationsTab view={view} admin={admin} say={say} goSecurity={() => open("security")} />}
+      <div className="gp-work">
+        {admin && <AdminBanner view={view} say={say} />}
+        {view.schemaOutdated && (
+          <p className="notice" role="status">
+            The database needs update 0030 before profile details, pictures and notification choices can be saved.
+          </p>
+        )}
+        {tab === "profile" && <ProfileTab view={view} admin={admin} countries={countries} say={say} goSecurity={() => open("security")} />}
+        {tab === "security" && <SecurityTab view={view} admin={admin} say={say} />}
+        {tab === "notifications" && <NotificationsTab view={view} admin={admin} say={say} goSecurity={() => open("security")} />}
+      </div>
 
       <div className={`toast${toast ? " on" : ""}`} role="status" aria-live="polite">
         {toast}
       </div>
-    </>
+    </div>
   );
 }

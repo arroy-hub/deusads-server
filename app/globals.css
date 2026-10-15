@@ -8147,3 +8147,19 @@ a.gm-mi { text-decoration: none; }
 .gp-top-card .gm-status { text-decoration: none; }
 .gp-top-card .tabs .cp-count { text-shadow: none; }
 .gp-plate { margin-top: 0; }
+
+/* ---- page tabs on My games and Your account: the same browser-style tabs as the game window, on the plain white header ---- */
+.hd-top { position: relative; }
+.hd-top .tabs { display: flex; gap: 4px; align-items: flex-end; margin: 22px 0 -1px; padding: 0 0 0 4px; border: 0; overflow: visible; }
+.hd-top .tabs .tab { position: relative; display: inline-flex; align-items: center; margin: 0; min-height: 40px; padding: 0 18px; border: 0; border-radius: 12px 12px 0 0;
+  background: rgba(24, 14, 9, 0.34); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #fff; font-size: 14.5px; font-weight: 600; text-shadow: 0 1px 2px rgba(20, 12, 8, 0.4); }
+.hd-top .tabs .tab:hover { background: rgba(24, 14, 9, 0.46); }
+/* the open tab has the work area's colour and a thin raised rim on top only; a strip under it hides the header's divider line */
+.hd-top .tabs .tab[aria-current="page"] { z-index: 2; min-height: 42px; background: #f6f2ed; color: #241d19; font-weight: 700; text-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 -2px 0 rgba(36, 29, 25, 0.16), 0 -1px 1px -1px rgba(36, 29, 25, 0.5), 0 2px 0 #f6f2ed; }
+.hd-top .tabs .cp-count { text-shadow: none; }
+/* the curved feet of the open tab; they hide the divider too */
+.hd-top .tabs .tab[aria-current="page"]::before, .hd-top .tabs .tab[aria-current="page"]::after { content: ""; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; box-shadow: 0 2px 0 #f6f2ed; }
+.hd-top .tabs .tab[aria-current="page"]::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, #f6f2ed 12px); }
+.hd-top .tabs .tab[aria-current="page"]::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, #f6f2ed 12px); }
