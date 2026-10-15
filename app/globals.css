@@ -8079,6 +8079,7 @@ a.gm-mi { text-decoration: none; }
 .ag-cover-btn:disabled,.ag-iconbtn:disabled{cursor:default}
 
 /* Settings: the two text fields at the top of "About the game" */
-.st-about-text { display: grid; grid-template-columns: minmax(0, 520px); gap: 16px; padding: 4px 0 16px; }
+.st-about-text { display: grid; grid-template-columns: minmax(0, 520px); gap: 16px; padding: 4px 22px 18px; }
+.st-about-text .field { width: 100%; box-sizing: border-box; }
 .st-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .st-field label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 14px; }
