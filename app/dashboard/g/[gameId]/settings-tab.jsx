@@ -209,6 +209,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
 
   return (
     <div className="st">
+      <div className="st-top">
       <section className="st-card st-prop ag-embed" aria-labelledby="game-card-title">
         <div className="st-prop-head">
           <div>
@@ -253,7 +254,6 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
               <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
             )}
             {cover && <input ref={coverFile} type="file" accept="image/png,image/jpeg" hidden onChange={chooseCover} />}
-            <KeyCard gameId={gameId} apiKey={apiKey} link={link} />
           </div>
 
           <div className="ag-right">
@@ -343,6 +343,8 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
           </div>
         </div>
       </section>
+      <KeyCard gameId={gameId} apiKey={apiKey} link={link} />
+      </div>
 
       <DeleteGame gameId={gameId} name={name} />
 
