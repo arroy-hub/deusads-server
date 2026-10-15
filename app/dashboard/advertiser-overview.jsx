@@ -18,10 +18,10 @@ export default function AdvertiserOverview({ data, basePath }) {
           <p className="lede">How your ads are doing across all campaigns.</p>
         </div>
         <div className="head-actions fl-head-actions">
-          <nav className="ovx-seg" aria-label="Period for everything below">
+          <nav className="ovx-seg fl-period" aria-label="Period for everything below">
             {REPORT_RANGES.map((range) => (
-              <Link key={range} href={`${basePath}?days=${range}`} aria-current={range === days ? "page" : undefined}>
-                {range} days
+              <Link key={range} href={`${basePath}?days=${range}`} title={`Last ${range} days`} aria-label={`Last ${range} days`} aria-current={range === days ? "page" : undefined}>
+                {range}d
               </Link>
             ))}
           </nav>

@@ -7829,3 +7829,8 @@ select.field:focus-visible,
 .pg-overview .ovx-table-head .ovx-hint { font-size: 13px; }
 .fl-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; padding-bottom: 12px; }
 .fl-head-actions { display: flex; align-items: center; gap: 10px; }
+/* The period switch of the Overview: small and quiet, the chosen one is a soft tint, not a black block */
+.fl-period { height: 28px; border-radius: 8px; border-color: var(--line); background: transparent; }
+.fl-period a { height: 26px; padding: 0 10px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+.fl-period a:hover { color: var(--ink); }
+.fl-period a[aria-current="page"] { background: #efe7df; color: var(--ink); }
