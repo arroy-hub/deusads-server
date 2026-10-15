@@ -7837,3 +7837,12 @@ select.field:focus-visible,
 /* Overview: the blocks sit flush, as in the approved mockup, for every role (an admin sees the same page as an advertiser) */
 .pg-overview .panel { border-radius: 10px; box-shadow: 0 1px 2px rgba(28, 27, 26, 0.05); border-color: #e3e0da; }
 .pg-overview .panel + .panel { margin-top: 0; }
+
+/* Performance: sortable column headers, game picker */
+.gp-th { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; white-space: nowrap; }
+.gp-th:hover { color: #241d19; }
+.gp-arrow { opacity: 0; color: #8c7f73; }
+.gp-th:hover .gp-arrow { opacity: 0.6; }
+.is-sorted .gp-arrow { opacity: 1; color: #c94a24; }
+.gp-gamepick { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+a.gm-mi { text-decoration: none; }

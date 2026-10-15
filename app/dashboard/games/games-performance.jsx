@@ -7,6 +7,7 @@ import { formatCount } from "../../../lib/analytics";
 import { PERIODS, advShare, compactCount, figures, niceTop } from "../../../lib/performance-view";
 import { gamesQuery } from "../../../lib/games-query";
 import GameIcon from "../game-icon";
+import { Opt, PopBtn } from "../_cabinet/filters";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const BREAK = [["game", "Game"], ["placement", "Placement"], ["type", "Place type"], ["format", "Format"]];
@@ -38,6 +39,7 @@ export default function GamesPerformance({ model }) {
   const [by, setBy] = useState("game");
   const [menu, setMenu] = useState(null);
   const [asTable, setAsTable] = useState(false);
+  const [sort, setSort] = useState({ key: "views", dir: "desc" });
 
   useEffect(() => {
     setState((current) => ({ ...model.state, source: current.source }));
@@ -113,10 +115,29 @@ export default function GamesPerformance({ model }) {
         }))
         .filter((row) => matches(row.name, ...row.kids.map((k) => k.name)));
     }
-    rows.sort((a, b) => total(b.cell) - total(a.cell) || String(a.name).localeCompare(String(b.name)));
+    const value = {
+      name: (item) => String(item.name),
+      views: (item) => total(item.cell),
+      adv: (item) => item.cell.adv,
+      own: (item) => item.cell.own,
+      share: (item) => advShare(item.cell),
+      sessions: (item) => figures(item.cell, source).sessions,
+      avg: (item) => figures(item.cell, source).avgVisible ?? -1,
+    }[sort.key];
+    const sign = sort.dir === "asc" ? 1 : -1;
+    const order = (a, b) =>
+      sign * (typeof value(a) === "string" ? value(a).localeCompare(value(b), undefined, { numeric: true }) : value(a) - value(b)) ||
+      String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+    rows.sort(order);
+    for (const row of rows) row.kids.sort(order);
     const shownCell = sum(rows.length ? rows.map((row) => ({ cell: row.cell })) : []);
     return { rows, shownCell, shownPlacements: by === "game" ? rows.reduce((n, r) => n + r.kids.length, 0) : flat.length };
-  }, [model, by, needle, source]);
+  }, [model, by, needle, source, sort]);
+
+  // First click: names A–Z, figures biggest first; a second click turns it round.
+  function sortBy(key) {
+    setSort((current) => (current.key === key ? { key, dir: current.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" ? "asc" : "desc" }));
+  }
 
   function exportCsv() {
     const lines = [["Name", "Under", "Impressions", "Advertisers", "My creatives", "Sessions", "Avg. visible (s)"]];
@@ -149,8 +170,14 @@ export default function GamesPerformance({ model }) {
   const pct = (value) => `${(Math.min(value / top, 1) * 100).toFixed(2)}%`;
   const labelAt = [0, 0.25, 0.5, 0.75, 1].map((f) => days[Math.round((days.length - 1) * f)]?.date).filter(Boolean);
 
+  const pickedGames = state.games;
+  const gamesValue =
+    pickedGames.length === 0
+      ? `All ${model.gameOptions.length}`
+      : pickedGames.length === 1
+        ? model.gameOptions.find((option) => option.value === pickedGames[0])?.label ?? "1 game"
+        : `${pickedGames.length} of ${model.gameOptions.length}`;
   const filters = [
-    { key: "games", label: "Games", options: model.gameOptions, all: `All ${model.gameOptions.length}` },
     { key: "types", label: "Place type", options: model.facets.types, all: "All" },
     { key: "formats", label: "Format", options: model.facets.formats, all: "All" },
   ];
@@ -166,6 +193,14 @@ export default function GamesPerformance({ model }) {
           ))}
         </div>
         <span className="gp-sep" />
+        <PopBtn label="Games" value={gamesValue} width={280}>
+          <div className="gp-gamepick">
+            <Opt on={pickedGames.length === 0} onClick={() => go({ games: [] })} count={model.gameOptions.length}>All games</Opt>
+            {model.gameOptions.map((option) => (
+              <Opt key={option.value} on={pickedGames.includes(option.value)} onClick={() => toggle("games", option.value)}>{option.label}</Opt>
+            ))}
+          </div>
+        </PopBtn>
         {filters.map((filter) => {
           const chosen = state[filter.key];
           return (
@@ -234,7 +269,7 @@ export default function GamesPerformance({ model }) {
           <div>
             <h2>Impressions per day</h2>
             <div className="gp-small">
-              Last {model.win.days} days · {model.kpi.games} of {model.kpi.totalGames} games{peak.v > 0 ? ` · peak ${formatCount(peak.v)} on ${dayText(peak.date)}` : ""}
+              Last {model.win.days} days · {state.games.length > 0 && state.games.length <= 2 ? model.rows.map((row) => row.name).join(", ") : `${model.kpi.games} of ${model.kpi.totalGames} games`}{peak.v > 0 ? ` · peak ${formatCount(peak.v)} on ${dayText(peak.date)}` : ""}
             </div>
           </div>
           <div className="gp-legend">
@@ -319,18 +354,13 @@ export default function GamesPerformance({ model }) {
           <table className="gp-table">
             <thead>
               <tr>
-                <th scope="col">{BREAK.find(([key]) => key === by)[1]}</th>
-                <th scope="col" className="num is-sorted" aria-sort="descending">
-                  Impressions{" "}
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="#c94a24" aria-hidden="true" style={{ verticalAlign: "middle" }}>
-                    <path d="M5 8h14l-7 9z" />
-                  </svg>
-                </th>
-                <th scope="col" className="num">Advertisers</th>
-                <th scope="col" className="num">My creatives</th>
-                <th scope="col">Advertiser share</th>
-                <th scope="col" className="num">Sessions</th>
-                <th scope="col" className="num last">Avg. visible</th>
+                <Th id="name" sort={sort} onSort={sortBy}>{BREAK.find(([key]) => key === by)[1]}</Th>
+                <Th id="views" num sort={sort} onSort={sortBy}>Impressions</Th>
+                <Th id="adv" num sort={sort} onSort={sortBy}>Advertisers</Th>
+                <Th id="own" num sort={sort} onSort={sortBy}>My creatives</Th>
+                <Th id="share" sort={sort} onSort={sortBy}>Advertiser share</Th>
+                <Th id="sessions" num sort={sort} onSort={sortBy}>Sessions</Th>
+                <Th id="avg" num last sort={sort} onSort={sortBy}>Avg. visible</Th>
               </tr>
             </thead>
             <tbody>
@@ -371,6 +401,20 @@ export default function GamesPerformance({ model }) {
         {table.rows.length === 0 && <p className="gp-muted" style={{ padding: "12px 20px" }}>Nothing matches.</p>}
       </section>
     </div>
+  );
+}
+
+function Th({ id, sort, onSort, num = false, last = false, children }) {
+  const on = sort.key === id;
+  return (
+    <th scope="col" className={`${num ? "num" : ""}${last ? " last" : ""}${on ? " is-sorted" : ""}`} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className="gp-th" onClick={() => onSort(id)}>
+        {children}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="gp-arrow" style={{ transform: on && sort.dir === "asc" ? "rotate(180deg)" : "none" }}>
+          <path d="M5 8h14l-7 9z" />
+        </svg>
+      </button>
+    </th>
   );
 }
 
