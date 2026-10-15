@@ -14,7 +14,9 @@ export default async function UsersPage() {
 
   // suspended_at comes with migration 0015.
   const list = (columns) => admin.service.from("accounts").select(columns).order("created_at", { ascending: true });
-  let { data: accounts, error } = await list("id, email, company, role, created_at, suspended_at");
+  // avatar_path comes with migration 0030.
+  let { data: accounts, error } = await list("id, email, company, role, created_at, suspended_at, avatar_path");
+  if (isSchemaOutdated(error)) ({ data: accounts, error } = await list("id, email, company, role, created_at, suspended_at"));
   if (isSchemaOutdated(error)) ({ data: accounts } = await list("id, email, company, role, created_at"));
 
   // Active: owns a game, or has a campaign running now. Checked against all games and approved bookings.
@@ -38,6 +40,7 @@ export default async function UsersPage() {
     joined: String(account.created_at).slice(0, 10),
     active: active.has(account.id),
     suspended: Boolean(account.suspended_at),
+    avatarUrl: account.avatar_path ? admin.service.storage.from("creatives").getPublicUrl(account.avatar_path).data.publicUrl : null,
   }));
 
   return (
@@ -48,8 +51,8 @@ export default async function UsersPage() {
       </div>
       <p className="lede">
         Every account on the platform. Click a column title to sort. Status is <strong>active</strong> for an account
-        that has a game or a campaign running now, <strong>inactive</strong> otherwise. Here you can add a user, give
-        the admin role (not to yourself) or suspend an account, which signs it out of the dashboard and stops its ads.
+        that has a game or a campaign running now, <strong>inactive</strong> otherwise. <strong>Click a row</strong> to
+        open the account: company, picture, sign-in, role, switching it off.
       </p>
 
       <UsersTable rows={rows} selfId={admin.user.id} />

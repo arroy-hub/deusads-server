@@ -151,6 +151,7 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
       accountId: advertiserId,
       text: `${what} ${list.length > 1 && scope !== "advertiser" ? "were" : "was"} ${verb} in ${game.name}${cleanReason ? `. Reason: ${cleanReason}` : "."}`,
       link: "/dashboard/advertising",
+      type: "adv_blocked",
     });
   }
 
@@ -258,7 +259,7 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
   }
 
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report about a creative in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report about a creative in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes", "admin_reports");
 
   let block = null;
   if (alsoBlock) block = await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Reported to DeusADS", comment: "" });

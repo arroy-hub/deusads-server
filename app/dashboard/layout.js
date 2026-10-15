@@ -3,12 +3,15 @@ import { Suspense } from "react";
 import { userClient, currentUser } from "../../lib/supabase-server";
 import { currentRole, getMember } from "../../lib/admin";
 import { loadAttention } from "../../lib/advertiser-data";
-import { serviceClient } from "../../lib/api";
+import { isSchemaOutdated, serviceClient } from "../../lib/api";
 import { registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, openDisputes, unreadCount } from "../../lib/counts";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
+import { avatarUrlOf } from "../../lib/account-data";
+import { initials as initialsOf, needsAttention } from "../../lib/account-rules";
+import AccountMenu from "./account-menu";
 import NavLink from "./nav-link";
 import NotificationsBell from "./notifications-bell";
 import NavFade from "./nav-fade";
@@ -34,14 +37,22 @@ async function Bell({ db, user, role }) {
   return <NotificationsBell items={latest?.data ?? []} unread={unread} attention={attention} />;
 }
 
+/** The signed-in person's row for the frame; the picture column (0030) is left out when the database lacks it. */
+async function ownAccount(db, id) {
+  const first = await db.from("accounts").select("suspended_at, company, avatar_path").eq("id", id).maybeSingle();
+  if (!isSchemaOutdated(first.error)) return first;
+  return db.from("accounts").select("suspended_at, company").eq("id", id).maybeSingle();
+}
+
 export default async function DashboardLayout({ children }) {
   const user = await currentUser();
   const db = await userClient();
   // What the frame needs at once: asked together, not one after the other (each is a round trip to the database).
   const [roleRow, { data: standing }, gamesResult] = await Promise.all([
     currentRole(db, user?.id),
-    // A suspended account sees only a notice (column from migration 0015; absent before it).
-    user ? db.from("accounts").select("suspended_at").eq("id", user.id).maybeSingle() : { data: null },
+    // A suspended account sees only a notice (column from migration 0015; absent before it). The company
+    // and picture for the account block come with it (picture: migration 0030).
+    user ? ownAccount(db, user.id) : { data: null },
     // The icon of a game (migration 0019) shows in the menu; without it the plain list still loads.
     db.from("games").select("id, name, icon_path").order("created_at", { ascending: true }).then(async (result) => (result.error ? db.from("games").select("id, name").order("created_at", { ascending: true }) : result)),
   ]);
@@ -80,9 +91,6 @@ export default async function DashboardLayout({ children }) {
     <div className={`shell${role === "advertiser" ? " is-adv" : ""}`}>
       <nav className="rail" aria-label="Main">
         <div className="rail-brand">
-          <div className="rail-logo" aria-hidden="true">
-            D
-          </div>
           <div>
             <Link href={homeFor(role)} className="rail-mark">
               Deus<span>ADS</span>
@@ -96,6 +104,14 @@ export default async function DashboardLayout({ children }) {
           </div>
         </div>
 
+        <AccountMenu
+          company={standing?.company ?? ""}
+          email={user?.email ?? ""}
+          avatarUrl={avatarUrlOf(db, standing?.avatar_path)}
+          initials={initialsOf({ company: standing?.company, email: user?.email })}
+          attention={needsAttention({ company: standing?.company, pendingEmail: user?.new_email })}
+        />
+
         {groups.map((group, index) => (
           <div className="rail-group" key={group.heading ?? index}>
             {group.heading && <div className="rail-heading">{group.heading}</div>}
@@ -105,16 +121,6 @@ export default async function DashboardLayout({ children }) {
           </div>
         ))}
 
-        <div className="rail-group rail-switch">
-          <div className="rail-foot">
-            {role === "advertiser" && (
-              <span className="rail-avatar" aria-hidden="true">
-                {(user?.email ?? "?").slice(0, 1).toUpperCase()}
-              </span>
-            )}
-            <span className="rail-email">{user?.email}</span>
-          </div>
-        </div>
       </nav>
 
       <div className="content">

@@ -51,6 +51,7 @@ export async function reviewCreative({ creativeId, decision, note }) {
         ? `Your creative "${data.name}" was approved.`
         : `Your creative "${data.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
     link: "/dashboard/creatives",
+    type: "adv_creative_reviewed",
   });
 
   revalidatePath("/dashboard/admin");
@@ -89,6 +90,7 @@ export async function reviewAsset({ assetId, decision, note }) {
           ? `An image for "${creative.name}" was approved.`
           : `An image for "${creative.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
       link: `/dashboard/creatives/${data.creative_id}`,
+      type: "adv_creative_reviewed",
     });
   }
 
@@ -112,7 +114,7 @@ export async function setAccountRole({ accountId, role }) {
     .maybeSingle();
   if (error || !data) return { error: "Could not change the role." };
 
-  await notify(admin.service, { accountId: data.id, text: `Your account is now ${role}.`, link: "/dashboard" });
+  await notify(admin.service, { accountId: data.id, text: `Your account is now ${role}.`, link: "/dashboard", type: "account_security" });
 
   revalidatePath("/dashboard/admin/users");
   return { ok: true, role };
@@ -222,12 +224,14 @@ export async function resolveDispute({ disputeId, decision }) {
     accountId: dispute.developer_id,
     text: decision === "remove" ? `DeusADS reviewed your report: the creative "${name}" was removed.` : `DeusADS reviewed your report on "${name}" and dismissed it.`,
     link: "/dashboard/games",
+    type: "dev_report_decided",
   });
   if (decision === "remove" && creative?.owner_id) {
     await notify(admin.service, {
       accountId: creative.owner_id,
       text: `Your creative "${name}" was removed after a report: ${dispute.reason}.`,
       link: "/dashboard/creatives",
+      type: "adv_creative_removed",
     });
   }
 

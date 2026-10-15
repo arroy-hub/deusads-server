@@ -155,7 +155,8 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     service,
     goingLive,
     "A new ad is showing in your game. You can pause or block it in the game's Campaigns tab.",
-    "/dashboard/games"
+    "/dashboard/games",
+    "dev_campaign"
   );
 
   revalidatePath("/dashboard/advertising");
@@ -225,6 +226,7 @@ export async function cancelBooking({ bookingId }) {
       accountId: info.developerId,
       text: `The advertiser withdrew their booking on ${info.where}.`,
       link: "/dashboard/games",
+      type: "dev_withdrew",
     });
   }
 
@@ -493,7 +495,7 @@ export async function stopCampaign({ campaignId }) {
   await service.from("campaigns").update({ paused_at: null }).eq("id", campaign.id);
   if (failed > 0) return { error: `${failed} of ${(open ?? []).length} placements could not be stopped. Try again.` };
 
-  await notifyMany(service, wasLive, "An advertiser stopped a campaign that was showing in your game.", "/dashboard/games");
+  await notifyMany(service, wasLive, "An advertiser stopped a campaign that was showing in your game.", "/dashboard/games", "dev_withdrew");
   revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard/admin/bookings");
   return { ok: true, stopped: (open ?? []).length };

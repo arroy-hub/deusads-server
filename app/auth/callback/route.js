@@ -12,6 +12,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  // Where to go afterwards: only a path inside the dashboard (an email-change link comes back to the account page).
+  const next = searchParams.get("next");
+  const target = next && /^\/dashboard(\/|\?|$)/.test(next) && !next.startsWith("//") ? next : "/dashboard";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?notice=expired`);
@@ -26,5 +29,5 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?notice=expired`);
   }
 
-  return NextResponse.redirect(`${origin}/dashboard`);
+  return NextResponse.redirect(`${origin}${target}`);
 }
