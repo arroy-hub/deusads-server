@@ -8,6 +8,8 @@ import {
   aboutKnown,
   cleanAboutList,
   genreTags,
+  listText,
+  previewRows,
   parseAbout,
   parseStoreUrl,
 } from "../lib/game-about.js";
@@ -53,5 +55,14 @@ assert.deepEqual(genreTags(["action"]), { tags: ["Action"], more: 0 });
 assert.deepEqual(genreTags([]), { tags: [], more: 0 });
 assert.deepEqual(genreTags(undefined), { tags: [], more: 0 }, "an old row without genres");
 assert.deepEqual(genreTags(["nope"]), { tags: [], more: 0 }, "unknown ids are skipped");
+
+assert.equal(listText(DEVICES, ["quest2", "quest3", "questpro", "pico4"]), "Quest 2, Quest 3 / 3S, Quest Pro +1");
+assert.equal(listText(DEVICES, []), "");
+assert.deepEqual(
+  previewRows({ platforms: ["quest", "pico"], devices: ["pico4"], languages: ["en"], playModes: ["solo"] }),
+  [["Platforms", "Meta Quest, Pico"], ["Devices", "Pico 4"], ["Languages", "English"], ["Play modes", "Single-player"]],
+  "the platform names lose their bracket"
+);
+assert.ok(previewRows({}).every(([, text]) => text === ""), "an empty form has empty lines");
 
 console.log("game-about: ok");

@@ -121,7 +121,6 @@ export default async function GamesPage({ searchParams }) {
       placements: placementsOf.get(game.id) ?? 0,
       placementsTotal: placementsOf.get(game.id) ?? 0,
       campaigns: campaignsOf.get(game.id)?.size ?? 0,
-      genres: game.genres ?? [],
       coverCss: coverBackground(coverOf.get(game.id), index, coverUrl),
       defaultCss: coverBackground(null, index),
       coverKind: cover.kind,

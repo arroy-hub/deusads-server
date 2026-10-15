@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import GameIcon from "../game-icon";
-import GameGenres from "../game-about-view";
 import { browserClient } from "../../../lib/supabase-browser";
 import { COVERS, COVER_MAX_BYTES } from "../../../lib/game-cover";
 import { cropToStrip } from "../../../lib/cover-image";
@@ -392,7 +391,6 @@ export default function GameCard({ game }) {
             </div>
           </div>
         </div>
-        <GameGenres genres={game.genres} />
         <div className="gm-chips">
           <span>{plural(game.placements, "placement")}</span>
           <span>{plural(game.campaigns, "campaign")}</span>

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame, setGameCover, setGameIcon } from "./actions";
 import GameIcon from "./game-icon";
-import GameGenres from "./game-about-view";
+import GamePreviewDetails from "./game-preview-details";
 import MultiPick from "./multi-pick";
 import { browserClient } from "../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../lib/icon-image";
@@ -302,7 +302,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                         </div>
                       </div>
                     </div>
-                    <GameGenres genres={form.genres} placeholder />
+                    <GamePreviewDetails form={form} />
                     <div className="gm-chips">
                       <span>0 placements</span>
                       <span>0 campaigns</span>
