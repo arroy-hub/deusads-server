@@ -9,7 +9,7 @@ import MultiPick from "../../multi-pick";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
 import { FIELDS, PROFILE_KEYS } from "../../../../lib/targeting";
-import { ABOUT_LISTS, DESCRIPTION_MAX, parseStoreUrl } from "../../../../lib/game-about";
+import { ABOUT_LISTS, parseStoreUrl } from "../../../../lib/game-about";
 import { navigating } from "../../_cabinet/nav";
 
 const FIELD_TEXT = {
@@ -35,7 +35,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
 
   const [title, setTitle] = useState(name);
   const [lists, setLists] = useState(profile);
-  const [more, setMore] = useState(about); // description, store link, devices, play modes; null before migration 0031
+  const [more, setMore] = useState(about); // store link, devices, play modes; null before migration 0031
   const [saved, setSaved] = useState({ name, lists: profile, more: about });
   const [icon, setIcon] = useState(NO_ICON); // a change waiting for Save
   const [busy, setBusy] = useState(false);
@@ -110,7 +110,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
       if (result.value) setLists(result.value);
       // What was kept (the store link comes back as a full address), so the page matches the database.
       const kept = result.about
-        ? { description: result.about.description ?? "", storeUrl: result.about.store_url ?? "", devices: result.about.devices, playModes: result.about.play_modes }
+        ? { storeUrl: result.about.store_url ?? "", devices: result.about.devices, playModes: result.about.play_modes }
         : saved.more;
       setMore(kept);
       setSaved({ name: result.name, lists: result.value ?? saved.lists, more: kept });
@@ -219,24 +219,6 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
             </div>
             {more && (
               <div className="st-about-text">
-                <div className="st-field">
-                  <label htmlFor="game-description">
-                    Short description
-                    <span className="st-muted">{more.description.length} / {DESCRIPTION_MAX}</span>
-                  </label>
-                  <textarea
-                    id="game-description"
-                    className="field"
-                    value={more.description}
-                    onChange={(event) => {
-                      setMore({ ...more, description: event.target.value });
-                      touch();
-                    }}
-                    maxLength={DESCRIPTION_MAX}
-                    placeholder="One or two sentences about the game."
-                    disabled={busy}
-                  />
-                </div>
                 <div className="st-field">
                   <label htmlFor="game-store">Store link</label>
                   <input

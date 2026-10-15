@@ -4,18 +4,17 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame, setGameCover, setGameIcon } from "./actions";
 import GameIcon from "./game-icon";
-import GameAboutView from "./game-about-view";
+import GameGenres from "./game-about-view";
 import MultiPick from "./multi-pick";
 import { browserClient } from "../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../lib/icon-image";
 import { cropToStrip } from "../../lib/cover-image";
 import { COVERS, COVER_MAX_BYTES, defaultCoverId } from "../../lib/game-cover";
-import { DESCRIPTION_MAX, ABOUT_LISTS } from "../../lib/game-about";
+import { ABOUT_LISTS } from "../../lib/game-about";
 import { FIELDS, PROFILE_KEYS } from "../../lib/targeting";
 
 const EMPTY = {
   name: "",
-  description: "",
   storeUrl: "",
   genres: [],
   platforms: [],
@@ -46,7 +45,7 @@ async function upload(blob, kind, type, extension) {
 /**
  * The "Add game" button and its pop-up. Left, the card the game will have on My games, built live from what is
  * typed; its icon and header are changed on the card itself (the picture button on the header uploads one, the
- * dots pick a colour). Right, the questionnaire: the name, a line about the game, the store link, and what it is
+ * dots pick a colour). Right, the questionnaire: the name, the store link, and what it is
  * (genres, platforms, languages are required; devices and play modes are not). Advertisers aim ads at genres,
  * platforms and languages; a game that has not filled those in shows no targeted ads.
  *
@@ -205,14 +204,6 @@ export default function AddGameDialog({ gamesCount = 0 }) {
   const defaultId = defaultCoverId(gamesCount);
   const shownColour = COVERS.find((item) => item.id === (coverPick ?? defaultId)) ?? COVERS[0];
   const coverCss = cover.preview ? `center / cover no-repeat url("${cover.preview}")` : shownColour.css;
-  const preview = {
-    description: form.description,
-    genres: form.genres,
-    platforms: form.platforms,
-    languages: form.languages,
-    devices: form.devices,
-    play_modes: form.playModes,
-  };
 
   return (
     <>
@@ -311,7 +302,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                         </div>
                       </div>
                     </div>
-                    <GameAboutView game={preview} placeholder />
+                    <GameGenres genres={form.genres} placeholder />
                     <div className="gm-chips">
                       <span>0 placements</span>
                       <span>0 campaigns</span>
@@ -342,22 +333,6 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                       disabled={busy}
                       autoComplete="off"
                       required
-                    />
-                  </div>
-                  <div className="ag-f">
-                    <label htmlFor="new-game-description" className="ag-label-row">
-                      Short description
-                      <span className="ag-counter">{form.description.length} / {DESCRIPTION_MAX}</span>
-                    </label>
-                    <textarea
-                      id="new-game-description"
-                      className="field"
-                      name="description"
-                      placeholder="One or two sentences about the game."
-                      value={form.description}
-                      onChange={(event) => set({ description: event.target.value })}
-                      maxLength={DESCRIPTION_MAX}
-                      disabled={busy}
                     />
                   </div>
                   <div className="ag-f">

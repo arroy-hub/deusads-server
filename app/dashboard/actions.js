@@ -49,9 +49,8 @@ export async function createGame(formData) {
   });
   if (described.error) return { error: described.error };
 
-  // More about it (migration 0031): a line of description, the store link, devices and play modes. All optional.
+  // More about it (migration 0031): the store link, devices and play modes. All optional.
   const about = parseAbout({
-    description: formData.get("description"),
     storeUrl: formData.get("storeUrl"),
     devices: formData.getAll("devices"),
     playModes: formData.getAll("playModes"),
@@ -99,7 +98,7 @@ export async function saveGame({ gameId, name, genres, platforms, languages, abo
   const described = withProfile ? validateProfile({ genres, platforms, languages }) : { value: {} };
   if (described.error) return { error: described.error };
 
-  // The description, store link, devices and play modes (migration 0031); left alone when not sent.
+  // The store link, devices and play modes (migration 0031); left alone when not sent.
   const more = about === undefined ? { value: {} } : parseAbout(about);
   if (more.error) return { error: more.error };
 

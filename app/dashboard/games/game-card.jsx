@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import GameIcon from "../game-icon";
-import GameAboutView from "../game-about-view";
+import GameGenres from "../game-about-view";
 import { browserClient } from "../../../lib/supabase-browser";
 import { COVERS, COVER_MAX_BYTES } from "../../../lib/game-cover";
 import { cropToStrip } from "../../../lib/cover-image";
@@ -392,14 +392,14 @@ export default function GameCard({ game }) {
             </div>
           </div>
         </div>
-        <GameAboutView game={{ description: game.description, genres: game.genres, platforms: game.platforms, languages: game.languages, devices: game.devices, play_modes: game.playModes }} />
+        <GameGenres genres={game.genres} />
         <div className="gm-chips">
           <span>{plural(game.placements, "placement")}</span>
           <span>{plural(game.campaigns, "campaign")}</span>
         </div>
       </div>
-      <Link href={`/dashboard/g/${game.id}`} className="gm-link">
-        Open game
+      <Link href={game.mode === "new" ? `/dashboard/g/${game.id}?tab=settings` : `/dashboard/g/${game.id}`} className="gm-link">
+        {game.mode === "new" ? "Set up SDK" : "Open game"}
         <Chevron />
       </Link>
       {dlg === "conn" && <ConnectionDialog game={game} onClose={() => setDlg("")} />}

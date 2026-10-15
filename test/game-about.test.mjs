@@ -3,14 +3,11 @@ import assert from "node:assert/strict";
 import {
   ABOUT_KEYS,
   ABOUT_LISTS,
-  DESCRIPTION_MAX,
   DEVICES,
   PLAY_MODES,
   aboutKnown,
-  cardSummary,
   cleanAboutList,
-  cleanDescription,
-  listText,
+  genreTags,
   parseAbout,
   parseStoreUrl,
 } from "../lib/game-about.js";
@@ -28,9 +25,6 @@ assert.deepEqual(ABOUT_KEYS, ["devices", "play_modes"]);
 // --- cleaning
 assert.deepEqual(cleanAboutList(["pico4", "nope", "quest2", "pico4"], "devices"), ["quest2", "pico4"], "known ids once, in list order");
 assert.deepEqual(cleanAboutList(null, "play_modes"), []);
-assert.equal(cleanDescription("  A  fishing\n game  "), "A fishing game", "spaces and line breaks collapse");
-assert.equal(cleanDescription("x".repeat(500)).length, DESCRIPTION_MAX);
-assert.equal(cleanDescription(null), "");
 
 // --- the store link
 assert.deepEqual(parseStoreUrl(""), { value: "" });
@@ -43,9 +37,9 @@ assert.ok(parseStoreUrl(`https://a.com/${"x".repeat(400)}`).error, "too long");
 
 // --- the whole form
 const empty = parseAbout({});
-assert.deepEqual(empty.value, { description: null, store_url: null, devices: [], play_modes: [] }, "nothing is required");
-const full = parseAbout({ description: " Cast a line. ", storeUrl: "meta.com/x", devices: ["quest3", "zzz"], playModes: ["solo", "coop"] });
-assert.deepEqual(full.value, { description: "Cast a line.", store_url: "https://meta.com/x", devices: ["quest3"], play_modes: ["solo", "coop"] });
+assert.deepEqual(empty.value, { store_url: null, devices: [], play_modes: [] }, "nothing is required");
+const full = parseAbout({ storeUrl: "meta.com/x", devices: ["quest3", "zzz"], playModes: ["solo", "coop"] });
+assert.deepEqual(full.value, { store_url: "https://meta.com/x", devices: ["quest3"], play_modes: ["solo", "coop"] });
 assert.ok(parseAbout({ storeUrl: "nope" }).error, "a bad link is an error, not silently dropped");
 
 // --- old database rows
@@ -54,20 +48,10 @@ assert.equal(aboutKnown({ name: "x" }), false, "no columns, migration 0031 not a
 assert.equal(aboutKnown(null), false);
 
 // --- what the card shows
-assert.equal(listText(DEVICES, ["quest2", "quest3", "questpro", "pico4"]), "Quest 2, Quest 3 / 3S, Quest Pro +1");
-assert.equal(listText(DEVICES, []), "");
-const card = cardSummary({
-  genres: ["action", "puzzle", "racing", "casual", "rpg"],
-  platforms: ["quest", "pico"],
-  languages: ["en"],
-  devices: ["pico4"],
-  play_modes: ["solo"],
-});
-assert.deepEqual(card.tags, ["Action", "Puzzle", "Racing"]);
-assert.equal(card.more, 2);
-assert.deepEqual(card.rows, [["Platforms", "Meta Quest, Pico"], ["Devices", "Pico 4"], ["Languages", "English"], ["Play modes", "Single-player"]]);
-const bare = cardSummary({});
-assert.deepEqual(bare.tags, []);
-assert.ok(bare.rows.every(([, text]) => text === ""), "an empty game has empty lines");
+assert.deepEqual(genreTags(["action", "puzzle", "racing", "casual", "rpg"]), { tags: ["Action", "Puzzle", "Racing"], more: 2 });
+assert.deepEqual(genreTags(["action"]), { tags: ["Action"], more: 0 });
+assert.deepEqual(genreTags([]), { tags: [], more: 0 });
+assert.deepEqual(genreTags(undefined), { tags: [], more: 0 }, "an old row without genres");
+assert.deepEqual(genreTags(["nope"]), { tags: [], more: 0 }, "unknown ids are skipped");
 
 console.log("game-about: ok");

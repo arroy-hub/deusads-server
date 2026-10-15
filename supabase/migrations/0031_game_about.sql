@@ -3,7 +3,8 @@
 -- Run once in the Supabase SQL editor (or via the Supabase MCP). Safe to run again.
 -- Needs 0018 (and everything before it).
 --
---   games.description: one line about the game, up to 140 characters, shown on its card on My games.
+--   games.description: one line about the game (up to 140 characters). The app no longer shows or edits it;
+--   the column stays because the migration was already applied.
 --   games.store_url:   where the game is sold (Meta, Steam, Pico ...), kept for later automatic checks.
 --   games.devices / play_modes: lists of ids (the allowed ids live in lib/game-about.js, not here, so the
 --   lists can grow without a migration). Empty means "not filled in". None of these is used to aim an ad.

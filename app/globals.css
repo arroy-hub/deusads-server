@@ -8007,12 +8007,6 @@ a.gm-mi { text-decoration: none; }
 .ag-tags{display:flex;flex-wrap:wrap;gap:6px}
 .ag-tags span{padding:3px 9px;border-radius:99px;border:1px solid #e6ddd3;font-size:12px;font-weight:600;color:#4a3e36;background:#fff}
 .ag-tags .more{border-style:dashed;color:#8c7f73}
-.ag-desc{font-size:13px;line-height:1.5;color:#4a3e36;margin:0;max-width:none;overflow-wrap:anywhere}
-.ag-desc.ph{color:#b9aca0}
-.ag-meta{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#6b5f56}
-.ag-meta div{display:flex;gap:8px;align-items:baseline}
-.ag-meta b{color:#241d19;font-weight:700;min-width:84px}
-.ag-meta .ph{color:#b9aca0}
 .ag-sw{display:flex;gap:8px;flex-wrap:wrap}
 .ag-swatch{width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #d8cabd;cursor:pointer;padding:0}
 .ag-swatch[aria-pressed="true"]{box-shadow:0 0 0 2px #241d19}
@@ -8028,7 +8022,6 @@ a.gm-mi { text-decoration: none; }
 .ag-f textarea.field{min-height:84px;padding:10px 12px;resize:vertical;line-height:1.45}
 .ag-f input.field:focus,.ag-f textarea.field:focus{outline:2px solid #b8421d;outline-offset:1px}
 .ag-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.ag-counter{align-self:flex-end;font-size:12px;color:#8c7f73;margin-top:-2px}
 .ag .multi-pick{gap:8px}
 .ag .multi-pick legend{font-size:14px}
 .ag .multi-option[aria-pressed="true"]{background:#241d19;border-color:#241d19;color:#fff}
@@ -8075,17 +8068,13 @@ a.gm-mi { text-decoration: none; }
 .ag-pop .it svg{color:#6b5f56;flex:none}
 .ag-pop .it:hover{background:#fbf3ec;color:#b8421d}.ag-pop .it:hover svg{color:#b8421d}
 .ag-pop .it.is-danger:hover{background:#fbeceb;color:#a1281a}.ag-pop .it.is-danger:hover svg{color:#a1281a}
-.ag-counter{align-self:auto;margin:0;font-weight:500}
 
 .ag-form{display:flex;flex-direction:column;min-height:0;flex:1}
 .ag-head>div:first-child{flex:1;min-width:0}
-.ag-f>label.ag-label-row{display:flex;justify-content:space-between;align-items:baseline}
 .ag-err{color:#a1281a;font-size:13px;margin:0}
 .ag-cover-btn:disabled,.ag-iconbtn:disabled{cursor:default}
 
 /* Settings: the two text fields at the top of "About the game" */
-.st-about-text { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 4px 0 16px; }
+.st-about-text { display: grid; grid-template-columns: minmax(0, 520px); gap: 16px; padding: 4px 0 16px; }
 .st-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .st-field label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 14px; }
-.st-field textarea.field { min-height: 84px; padding: 10px 12px; resize: vertical; line-height: 1.45; font: inherit; }
-@media (max-width: 760px) { .st-about-text { grid-template-columns: 1fr; } }
