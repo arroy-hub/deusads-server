@@ -8,7 +8,7 @@ import {
   adminChangeEmail, adminSetPassword, adminSignOutEverywhere, cancelEmailChange, changePassword, deleteAccount,
   requestEmailChange, resendEmailChange, sendResetLink, signOutOthers, signOutSession,
 } from "./actions";
-import { agoLabel, deleteBlocker, emailChangeProblem, passwordProblem, sessionLabel } from "../../../lib/account-rules";
+import { agoLabel, deleteBlocker, emailChangeProblem, groupSessions, passwordProblem } from "../../../lib/account-rules";
 
 /** Inputs and an inline error; `run` returns an error text or null and the bubble closes on null. */
 function BubbleForm({ close, note, fields, submit, submitLabel, run }) {
@@ -56,7 +56,7 @@ export default function SecurityTab({ view, admin, say }) {
   const [deleting, setDeleting] = useState(false);
 
   const blocker = deleteBlocker({ role: view.role, games: view.games, runningCampaigns: view.runningCampaigns });
-  const sessions = view.sessions ?? [];
+  const sessions = groupSessions(view.sessions ?? []);
   const otherSessions = sessions.filter((item) => !item.current);
 
   // ---- admin looking at someone else: the same rows, with the powers an admin has
@@ -256,10 +256,10 @@ export default function SecurityTab({ view, admin, say }) {
           </div>
         ) : (
           sessions.map((item) => (
-            <div className="sess" key={item.id}>
+            <div className="sess" key={item.label}>
               <div className="grow">
-                <b>{item.current ? "This browser" : sessionLabel(item.userAgent)}</b>
-                {item.current ? ` · ${sessionLabel(item.userAgent)}` : ""}
+                <b>{item.current ? "This browser" : item.label}</b>
+                {item.current ? ` · ${item.label}` : ""}
                 <small>{item.current ? "now" : agoLabel(item.lastSeen)}</small>
               </div>
               {item.current ? (
@@ -269,7 +269,7 @@ export default function SecurityTab({ view, admin, say }) {
                   type="button"
                   className="button button-quiet button-small"
                   onClick={async () => {
-                    const result = await signOutSession({ sessionId: item.id }).catch(() => ({ error: "Connection lost. Try again." }));
+                    const result = await signOutSession({ sessionIds: item.ids }).catch(() => ({ error: "Connection lost. Try again." }));
                     if (result?.error) return say(result.error);
                     say("Signed out on that device");
                     router.refresh();

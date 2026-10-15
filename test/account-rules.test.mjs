@@ -1,7 +1,7 @@
 // The account page's rules. Run: node test/account-rules.test.mjs
 import assert from "node:assert/strict";
 import {
-  agoLabel, avatarPath, avatarProblem, checkProfile, cleanPhone, cleanWebsite, countryOptions, deleteBlocker,
+  groupSessions, agoLabel, avatarPath, avatarProblem, checkProfile, cleanPhone, cleanWebsite, countryOptions, deleteBlocker,
   emailChangeProblem, imageKind, initials, isEmail, needsAttention, passwordProblem, runningCampaignIds, sessionLabel,
 } from "../lib/account-rules.js";
 
@@ -117,5 +117,19 @@ assert.equal(agoLabel("2026-10-15T07:00:00Z", now), "5 h ago");
 assert.equal(agoLabel("2026-10-13T12:00:00Z", now), "2 days ago");
 assert.equal(agoLabel("2026-09-24T12:00:00Z", now), "3 weeks ago");
 assert.equal(agoLabel("2026-07-15T12:00:00Z", now), "3 months ago");
+
+const chrome = "Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537";
+const phone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Version/17 Safari/604";
+const grouped = groupSessions([
+  { id: "1", userAgent: phone, lastSeen: "2026-10-10T10:00:00Z", current: false },
+  { id: "2", userAgent: chrome, lastSeen: "2026-10-14T10:00:00Z", current: false },
+  { id: "3", userAgent: chrome, lastSeen: "2026-10-15T10:00:00Z", current: true },
+  { id: "4", userAgent: phone, lastSeen: "2026-10-12T10:00:00Z", current: false },
+]);
+assert.equal(grouped.length, 2, "the same browser on the same system is one entry");
+assert.deepEqual(grouped[0], { label: "Chrome on Windows", ids: ["2", "3"], lastSeen: "2026-10-15T10:00:00Z", current: true });
+assert.deepEqual(grouped[1].ids, ["1", "4"]);
+assert.equal(grouped[1].lastSeen, "2026-10-12T10:00:00Z");
+assert.deepEqual(groupSessions(null), []);
 
 console.log("account-rules: all checks passed");

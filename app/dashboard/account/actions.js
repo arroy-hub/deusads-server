@@ -180,12 +180,18 @@ export async function sendResetLink({ accountId }) {
   return { ok: true, email: row.email };
 }
 
-/** Signs one other device out. */
-export async function signOutSession({ sessionId }) {
+/** Signs one other device out: every sign-in it made (a device may hold several sessions). */
+export async function signOutSession({ sessionIds }) {
   const who = await resolveActor(null);
   if (who.error) return { error: who.error };
   const db = await userClient();
-  const { error } = await db.rpc("revoke_my_session", { p_id: String(sessionId ?? "") });
+  const current = await currentSessionId(db);
+  let failure = null;
+  for (const id of (sessionIds ?? []).map(String).filter((id) => id !== current)) {
+    const { error } = await db.rpc("revoke_my_session", { p_id: id });
+    if (error) failure = error;
+  }
+  const error = failure;
   if (error) return { error: isSchemaOutdated(error) || error.code === "PGRST202" ? OUTDATED : "Could not sign that device out." };
   revalidatePath("/dashboard/account");
   return { ok: true };
