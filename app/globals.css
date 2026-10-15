@@ -8086,8 +8086,8 @@ a.gm-mi { text-decoration: none; }
 
 /* Settings tab: the game's own card on the left (with the SDK connection under it), the questionnaire on the right. */
 .st-prop { overflow: hidden; }
-/* the cards stop growing at the width they have on a 1440px screen; wider screens get empty space at the sides */
-.st { width: 100%; max-width: 1084px; margin-inline: auto; }
+/* the cards stop growing at the width they have on a 1440px screen; wider screens get empty space on the right */
+.st { width: 100%; max-width: 1084px; margin-inline: 0 auto; }
 .st-prop-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 20px; padding: 18px 22px 16px; border-bottom: 1px solid #efe7de; }
 .st-prop-head h2 { margin: 0; font-size: 18px; font-weight: 800; }
 .st-prop-head p { margin: 4px 0 0; font-size: 13px; color: #6b5f56; max-width: 620px; }
