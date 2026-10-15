@@ -7,7 +7,6 @@ import { formatCount } from "../../../lib/analytics";
 import { PERIODS, advShare, compactCount, figures, niceTop } from "../../../lib/performance-view";
 import { gamesQuery } from "../../../lib/games-query";
 import GameIcon from "../game-icon";
-import { Opt, PopBtn } from "../_cabinet/filters";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const BREAK = [["game", "Game"], ["placement", "Placement"], ["type", "Place type"], ["format", "Format"]];
@@ -170,14 +169,8 @@ export default function GamesPerformance({ model }) {
   const pct = (value) => `${(Math.min(value / top, 1) * 100).toFixed(2)}%`;
   const labelAt = [0, 0.25, 0.5, 0.75, 1].map((f) => days[Math.round((days.length - 1) * f)]?.date).filter(Boolean);
 
-  const pickedGames = state.games;
-  const gamesValue =
-    pickedGames.length === 0
-      ? `All ${model.gameOptions.length}`
-      : pickedGames.length === 1
-        ? model.gameOptions.find((option) => option.value === pickedGames[0])?.label ?? "1 game"
-        : `${pickedGames.length} of ${model.gameOptions.length}`;
   const filters = [
+    { key: "games", label: "Games", options: model.gameOptions, all: `All ${model.gameOptions.length}` },
     { key: "types", label: "Place type", options: model.facets.types, all: "All" },
     { key: "formats", label: "Format", options: model.facets.formats, all: "All" },
   ];
@@ -193,14 +186,6 @@ export default function GamesPerformance({ model }) {
           ))}
         </div>
         <span className="gp-sep" />
-        <PopBtn label="Games" value={gamesValue} width={280}>
-          <div className="gp-gamepick">
-            <Opt on={pickedGames.length === 0} onClick={() => go({ games: [] })} count={model.gameOptions.length}>All games</Opt>
-            {model.gameOptions.map((option) => (
-              <Opt key={option.value} on={pickedGames.includes(option.value)} onClick={() => toggle("games", option.value)}>{option.label}</Opt>
-            ))}
-          </div>
-        </PopBtn>
         {filters.map((filter) => {
           const chosen = state[filter.key];
           return (
