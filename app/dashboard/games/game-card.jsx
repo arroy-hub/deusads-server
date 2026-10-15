@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import GameIcon from "../game-icon";
+import GameAboutView from "../game-about-view";
 import { browserClient } from "../../../lib/supabase-browser";
 import { COVERS, COVER_MAX_BYTES } from "../../../lib/game-cover";
+import { cropToStrip } from "../../../lib/cover-image";
 import { setGameCover } from "../actions";
 
 const Chevron = () => (
@@ -190,31 +192,6 @@ function KeyDialog({ game, onClose }) {
       )}
     </Modal>
   );
-}
-
-/** Crops a picked picture to the strip's shape (4:1) and returns it as a JPEG. */
-function cropToStrip(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      const width = 1200;
-      const height = 300;
-      const scale = Math.max(width / image.width, height / image.height);
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(image, (width - image.width * scale) / 2, (height - image.height * scale) / 2, image.width * scale, image.height * scale);
-      URL.revokeObjectURL(url);
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("crop"))), "image/jpeg", 0.88);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("read"));
-    };
-    image.src = url;
-  });
 }
 
 function CoverDialog({ game, onClose }) {
@@ -415,13 +392,14 @@ export default function GameCard({ game }) {
             </div>
           </div>
         </div>
+        <GameAboutView game={{ description: game.description, genres: game.genres, platforms: game.platforms, languages: game.languages, devices: game.devices, play_modes: game.playModes }} />
         <div className="gm-chips">
           <span>{plural(game.placements, "placement")}</span>
           <span>{plural(game.campaigns, "campaign")}</span>
         </div>
       </div>
-      <Link href={game.mode === "new" ? `/dashboard/g/${game.id}?tab=settings` : `/dashboard/g/${game.id}`} className="gm-link">
-        {game.mode === "new" ? "Set up SDK" : "Open game"}
+      <Link href={`/dashboard/g/${game.id}`} className="gm-link">
+        Open game
         <Chevron />
       </Link>
       {dlg === "conn" && <ConnectionDialog game={game} onClose={() => setDlg("")} />}

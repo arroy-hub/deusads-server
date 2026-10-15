@@ -9,6 +9,7 @@ import MultiPick from "../../multi-pick";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
 import { FIELDS, PROFILE_KEYS } from "../../../../lib/targeting";
+import { ABOUT_LISTS, DESCRIPTION_MAX, parseStoreUrl } from "../../../../lib/game-about";
 import { navigating } from "../../_cabinet/nav";
 
 const FIELD_TEXT = {
@@ -27,14 +28,15 @@ const NO_ICON = { blob: null, preview: "", removed: false };
  * something to save (or just after it was saved); when something is still empty it says what.
  * `profile` is null when the database does not know these lists yet (migration 0018).
  */
-export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile, link }) {
+export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady, profile, about, link }) {
   const router = useRouter();
   const fileRef = useRef(null);
   const noteTimer = useRef(null);
 
   const [title, setTitle] = useState(name);
   const [lists, setLists] = useState(profile);
-  const [saved, setSaved] = useState({ name, lists: profile });
+  const [more, setMore] = useState(about); // description, store link, devices, play modes; null before migration 0031
+  const [saved, setSaved] = useState({ name, lists: profile, more: about });
   const [icon, setIcon] = useState(NO_ICON); // a change waiting for Save
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null); // { tone, text }
@@ -45,11 +47,14 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   const iconChanged = Boolean(icon.blob) || icon.removed;
   const nameChanged = title.trim() !== saved.name;
   const listsChanged = lists ? !sameLists(lists, saved.lists) : false;
-  const dirty = nameChanged || listsChanged || iconChanged;
+  const moreChanged = more ? JSON.stringify(more) !== JSON.stringify(saved.more) : false;
+  const dirty = nameChanged || listsChanged || iconChanged || moreChanged;
 
   const missing = [];
   if (!title.trim()) missing.push("name");
   if (lists) for (const key of PROFILE_KEYS) if (lists[key].length === 0) missing.push(FIELDS[key].label.toLowerCase());
+  const storeCheck = more ? parseStoreUrl(more.storeUrl) : { value: "" };
+  if (storeCheck.error) missing.push("a valid store link");
   const valid = missing.length === 0;
   // A game the SDK has never talked to is not ready for advertisers, however complete its description is.
   const waitingForSdk = link?.mode === "new";
@@ -84,6 +89,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   function discard() {
     setTitle(saved.name);
     setLists(saved.lists);
+    setMore(saved.more);
     setIcon(NO_ICON);
     touch();
   }
@@ -94,15 +100,20 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
     setBusy(true);
     setNote(null);
 
-    if (nameChanged || listsChanged) {
-      const result = await saveGame({ gameId, name: title, ...(lists ?? {}) }).catch(() => ({ error: "Connection lost. Try again." }));
+    if (nameChanged || listsChanged || moreChanged) {
+      const result = await saveGame({ gameId, name: title, ...(lists ?? {}), ...(more ? { about: more } : {}) }).catch(() => ({ error: "Connection lost. Try again." }));
       if (result?.error) {
         setBusy(false);
         return setNote({ tone: "error", text: result.error });
       }
       setTitle(result.name);
       if (result.value) setLists(result.value);
-      setSaved({ name: result.name, lists: result.value ?? saved.lists });
+      // What was kept (the store link comes back as a full address), so the page matches the database.
+      const kept = result.about
+        ? { description: result.about.description ?? "", storeUrl: result.about.store_url ?? "", devices: result.about.devices, playModes: result.about.play_modes }
+        : saved.more;
+      setMore(kept);
+      setSaved({ name: result.name, lists: result.value ?? saved.lists, more: kept });
     }
 
     if (iconChanged) {
@@ -121,7 +132,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   }
 
   // What the bar says while there is something to save.
-  const changedParts = [nameChanged && "name", listsChanged && "description", iconChanged && "icon"].filter(Boolean);
+  const changedParts = [nameChanged && "name", (listsChanged || moreChanged) && "description", iconChanged && "icon"].filter(Boolean);
   const barText = !valid
     ? `Still to fill in: ${missing.join(", ")}.`
     : `Unsaved changes: ${changedParts.join(" and ")}.`;
@@ -206,6 +217,45 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                 {filled} of {PROFILE_KEYS.length} filled in
               </span>
             </div>
+            {more && (
+              <div className="st-about-text">
+                <div className="st-field">
+                  <label htmlFor="game-description">
+                    Short description
+                    <span className="st-muted">{more.description.length} / {DESCRIPTION_MAX}</span>
+                  </label>
+                  <textarea
+                    id="game-description"
+                    className="field"
+                    value={more.description}
+                    onChange={(event) => {
+                      setMore({ ...more, description: event.target.value });
+                      touch();
+                    }}
+                    maxLength={DESCRIPTION_MAX}
+                    placeholder="One or two sentences about the game."
+                    disabled={busy}
+                  />
+                </div>
+                <div className="st-field">
+                  <label htmlFor="game-store">Store link</label>
+                  <input
+                    id="game-store"
+                    className="field"
+                    type="url"
+                    inputMode="url"
+                    value={more.storeUrl}
+                    onChange={(event) => {
+                      setMore({ ...more, storeUrl: event.target.value });
+                      touch();
+                    }}
+                    maxLength={300}
+                    placeholder="https://www.meta.com/experiences/…"
+                    disabled={busy}
+                  />
+                </div>
+              </div>
+            )}
             {PROFILE_KEYS.map((key) => (
               <AboutRow
                 key={key}
@@ -223,6 +273,27 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                 disabled={busy}
               />
             ))}
+            {more &&
+              [
+                ["devices", "devices"],
+                ["play_modes", "playModes"],
+              ].map(([listKey, stateKey]) => (
+                <AboutRow
+                  key={listKey}
+                  label={ABOUT_LISTS[listKey].label}
+                  noun={ABOUT_LISTS[listKey].noun}
+                  nounPlural={ABOUT_LISTS[listKey].plural}
+                  hint={listKey === "devices" ? "The headsets and screens it runs on." : "How people can play it."}
+                  options={ABOUT_LISTS[listKey].options}
+                  value={more[stateKey]}
+                  onChange={(next) => {
+                    setMore({ ...more, [stateKey]: next });
+                    touch();
+                  }}
+                  optional
+                  disabled={busy}
+                />
+              ))}
           </section>
         ) : (
           <p className="notice st-about">
@@ -259,7 +330,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
 }
 
 /** One list of the game's description: its name (what it means shows when you point at it), what is chosen, an Add button. */
-function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, searchable, disabled }) {
+function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, searchable, disabled, optional = false }) {
   const [open, setOpen] = useState(false);
   const tipId = useId();
   const labelOf = new Map(options.map((option) => [option.id, option.label]));
@@ -269,7 +340,7 @@ function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, sea
   const empty = chosen.length === 0;
 
   return (
-    <div className={`st-row ${empty ? "is-empty" : ""}`}>
+    <div className={`st-row ${empty && !optional ? "is-empty" : ""}`}>
       <div className="st-row-label">
         <span className="st-tipwrap">
           <button type="button" className="st-tipbtn" aria-describedby={tipId}>
@@ -281,7 +352,7 @@ function AboutRow({ label, noun, nounPlural, hint, options, value, onChange, sea
         </span>
       </div>
       <div className="st-row-values" aria-live="polite">
-        {empty && (
+        {empty && !optional && (
           <span className="st-required">
             <AlertIcon /> Required: add at least one
           </span>

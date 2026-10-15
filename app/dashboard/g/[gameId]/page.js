@@ -7,6 +7,7 @@ import { loadPerformance } from "../../../../lib/performance-data";
 import { countNew, loadCampaigns } from "../../../../lib/campaigns-data";
 import { connection } from "../../../../lib/connection";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
+import { aboutKnown } from "../../../../lib/game-about";
 import GameIcon from "../../game-icon";
 import SettingsTab from "./settings-tab";
 import SurfaceCard from "./surface-card";
@@ -44,7 +45,9 @@ export default async function GamePage({ params, searchParams }) {
 
   // What the game is (genres, platforms, languages) comes with migration 0018, its icon with 0019.
   const readGame = (columns) => db.from("games").select(columns).eq("id", gameId).maybeSingle();
-  let { data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages, icon_path");
+  // The description, store link, devices and play modes come with migration 0031.
+  let { data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages, icon_path, description, store_url, devices, play_modes");
+  if (isSchemaOutdated(gameError)) ({ data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages, icon_path"));
   const iconsReady = !isSchemaOutdated(gameError);
   if (!iconsReady) ({ data: game, error: gameError } = await readGame("id, name, api_key, genres, platforms, languages"));
   if (isSchemaOutdated(gameError)) ({ data: game } = await readGame("id, name, api_key"));
@@ -232,6 +235,7 @@ export default async function GamePage({ params, searchParams }) {
           iconsReady={iconsReady}
           link={link}
           profile={gaps.known ? { genres: game.genres, platforms: game.platforms, languages: game.languages } : null}
+          about={aboutKnown(game) ? { description: game.description ?? "", storeUrl: game.store_url ?? "", devices: game.devices, playModes: game.play_modes } : null}
         />
       )}
       </div>

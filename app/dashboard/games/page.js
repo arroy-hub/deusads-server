@@ -61,6 +61,9 @@ export default async function GamesPage({ searchParams }) {
   // What each card shows besides the name: its header (migration 0029), key, placements, campaigns and first impression.
   const coverRows = await db.from("games").select("id, cover");
   const coverOf = new Map(coverRows.error ? [] : (coverRows.data ?? []).map((row) => [row.id, row.cover]));
+  // Description, store link, devices and play modes (migration 0031); without it the cards simply show less.
+  const aboutRows = await db.from("games").select("id, description, devices, play_modes");
+  const aboutOf = new Map(aboutRows.error ? [] : (aboutRows.data ?? []).map((row) => [row.id, row]));
   const keyRows = await db.from("games").select("id, api_key");
   const keyOf = new Map(keyRows.error ? [] : (keyRows.data ?? []).map((row) => [row.id, row.api_key]));
   const placementRows = await db.from("placements").select("id, game_id").is("removed_at", null);
@@ -121,6 +124,12 @@ export default async function GamesPage({ searchParams }) {
       placements: placementsOf.get(game.id) ?? 0,
       placementsTotal: placementsOf.get(game.id) ?? 0,
       campaigns: campaignsOf.get(game.id)?.size ?? 0,
+      description: aboutOf.get(game.id)?.description ?? "",
+      genres: game.genres ?? [],
+      platforms: game.platforms ?? [],
+      languages: game.languages ?? [],
+      devices: aboutOf.get(game.id)?.devices ?? [],
+      playModes: aboutOf.get(game.id)?.play_modes ?? [],
       coverCss: coverBackground(coverOf.get(game.id), index, coverUrl),
       defaultCss: coverBackground(null, index),
       coverKind: cover.kind,
@@ -185,7 +194,7 @@ export default async function GamesPage({ searchParams }) {
                 ))}
               </div>
               <div>
-                <AddGameDialog />
+                <AddGameDialog gamesCount={withConnection.length} />
               </div>
             </>
           ) : (
@@ -202,7 +211,7 @@ export default async function GamesPage({ searchParams }) {
                 <h2>Add your first game</h2>
                 <p>Connect a game with the Unity SDK, and its placements, campaigns and results will show up here.</p>
                 <div>
-                  <AddGameDialog />
+                  <AddGameDialog gamesCount={withConnection.length} />
                 </div>
               </div>
             </div>

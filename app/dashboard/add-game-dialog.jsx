@@ -1,33 +1,85 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createGame } from "./actions";
-import GameProfileFields from "./game-profile-fields";
-import { PROFILE_KEYS } from "../../lib/targeting";
+import { createGame, setGameCover, setGameIcon } from "./actions";
+import GameIcon from "./game-icon";
+import GameAboutView from "./game-about-view";
+import MultiPick from "./multi-pick";
+import { browserClient } from "../../lib/supabase-browser";
+import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../lib/icon-image";
+import { cropToStrip } from "../../lib/cover-image";
+import { COVERS, COVER_MAX_BYTES, defaultCoverId } from "../../lib/game-cover";
+import { DESCRIPTION_MAX, ABOUT_LISTS } from "../../lib/game-about";
+import { FIELDS, PROFILE_KEYS } from "../../lib/targeting";
 
-const EMPTY = { genres: [], platforms: [], languages: [] };
+const EMPTY = {
+  name: "",
+  description: "",
+  storeUrl: "",
+  genres: [],
+  platforms: [],
+  languages: [],
+  devices: [],
+  playModes: [],
+};
+const NO_PICTURE = { blob: null, preview: "" };
+const PART_LABELS = { genres: "a genre", platforms: "a platform", languages: "a language" };
+
+const Svg = ({ size = 16, width = 2, children }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {children}
+  </svg>
+);
+
+/** Puts the picture in the user's own folder of the `creatives` bucket. Returns { path } or { error }. */
+async function upload(blob, kind, type, extension) {
+  const db = browserClient();
+  const { data } = await db.auth.getSession();
+  const userId = data?.session?.user?.id;
+  if (!userId) return { error: "Your session expired. Sign in again." };
+  const path = `${userId}/game-${kind}-new-${Date.now()}.${extension}`;
+  const { error } = await db.storage.from("creatives").upload(path, blob, { contentType: type, cacheControl: "31536000", upsert: false });
+  return error ? { error: "The upload failed. Try again." } : { path };
+}
 
 /**
- * The "Add game" button and the pop-up it opens with the questionnaire: the game's name and what it
- * is (genres, platforms, languages). Advertisers can aim a creative at those, and a creative that
- * asks for something the game has not filled in does not show in it.
+ * The "Add game" button and its pop-up. Left, the card the game will have on My games, built live from what is
+ * typed; its icon and header are changed on the card itself (the picture button on the header uploads one, the
+ * dots pick a colour). Right, the questionnaire: the name, a line about the game, the store link, and what it is
+ * (genres, platforms, languages are required; devices and play modes are not). Advertisers aim ads at genres,
+ * platforms and languages; a game that has not filled those in shows no targeted ads.
  *
- * Closing the pop-up (Cancel, the cross, Escape) throws the draft away; it stays open while the
- * game is being saved and when saving fails, so nothing typed is lost.
+ * Closing the pop-up (Cancel, the cross, Escape, a click outside) throws the draft away. It stays open while the
+ * game is being saved and when saving fails, so nothing typed is lost. `gamesCount` is how many games there are
+ * now: the new card's default colour follows its place in the list.
  */
-export default function AddGameDialog() {
+export default function AddGameDialog({ gamesCount = 0 }) {
   const router = useRouter();
   const dialogRef = useRef(null);
   const nameRef = useRef(null);
+  const iconFile = useRef(null);
+  const coverFile = useRef(null);
+  const created = useRef(null); // the game once it exists, so a retry only redoes the pictures
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [profile, setProfile] = useState(EMPTY);
+  const [form, setForm] = useState(EMPTY);
+  const [icon, setIcon] = useState(NO_PICTURE);
+  const [coverPick, setCoverPick] = useState(null); // a colour id, or null for the default
+  const [cover, setCover] = useState(NO_PICTURE); // an uploaded picture
+  const [coverMenu, setCoverMenu] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fileError, setFileError] = useState("");
 
-  // The browser's own modal: it traps focus, dims the page and closes on Escape. A layout effect, so
-  // the box never shows up empty for a frame while it closes.
+  const set = (patch) => setForm((current) => ({ ...current, ...patch }));
+  const complete = form.name.trim() !== "" && PROFILE_KEYS.every((key) => form[key].length > 0);
+  const missing = [
+    ...(form.name.trim() ? [] : ["a name"]),
+    ...PROFILE_KEYS.filter((key) => form[key].length === 0).map((key) => PART_LABELS[key]),
+  ];
+
+  // The browser's own modal: it traps focus, dims the page and closes on Escape. A layout effect, so the box never
+  // shows up empty for a frame while it closes.
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -39,9 +91,19 @@ export default function AddGameDialog() {
     }
   }, [open]);
 
-  const complete = name.trim() !== "" && PROFILE_KEYS.every((key) => profile[key].length > 0);
-  const PART_LABELS = { genres: "a genre", platforms: "a platform", languages: "a language" };
-  const missingParts = [...(name.trim() ? [] : ["a name"]), ...PROFILE_KEYS.filter((key) => profile[key].length === 0).map((key) => PART_LABELS[key] ?? key)];
+  // Previews made with createObjectURL are let go when replaced and when the pop-up closes.
+  useEffect(() => () => icon.preview && URL.revokeObjectURL(icon.preview), [icon.preview]);
+  useEffect(() => () => cover.preview && URL.revokeObjectURL(cover.preview), [cover.preview]);
+
+  // The little menu on the header closes on a click anywhere else.
+  useEffect(() => {
+    if (!coverMenu) return undefined;
+    const away = (event) => {
+      if (!event.target.closest?.("[data-cover-menu]")) setCoverMenu(false);
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [coverMenu]);
 
   function openDialog() {
     setError("");
@@ -50,10 +112,73 @@ export default function AddGameDialog() {
 
   // Runs however the pop-up closed (button, cross, Escape, after saving): forget the draft.
   function closed() {
+    const hadGame = created.current !== null;
+    created.current = null;
     setOpen(false);
-    setName("");
-    setProfile(EMPTY);
+    setForm(EMPTY);
+    setIcon(NO_PICTURE);
+    setCover(NO_PICTURE);
+    setCoverPick(null);
+    setCoverMenu(false);
     setError("");
+    setFileError("");
+    if (hadGame) router.refresh();
+  }
+
+  async function chooseIcon(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setFileError("");
+    if (!file.type.startsWith("image/")) return setFileError("Choose a picture (PNG, JPG or WebP) for the icon.");
+    if (file.size > MAX_ICON_INPUT_BYTES) return setFileError("The icon picture is over 10 MB.");
+    try {
+      const blob = await squareIcon(file);
+      setIcon({ blob, preview: URL.createObjectURL(blob) });
+    } catch {
+      setFileError("Could not read that picture.");
+    }
+  }
+
+  async function chooseCover(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setFileError("");
+    if (!["image/png", "image/jpeg"].includes(file.type)) return setFileError("Use a PNG or a JPG picture for the header.");
+    if (file.size > COVER_MAX_BYTES) return setFileError("That picture is over 8 MB.");
+    try {
+      const blob = await cropToStrip(file);
+      setCover({ blob, preview: URL.createObjectURL(blob) });
+      setCoverMenu(false);
+    } catch {
+      setFileError("Could not read that picture.");
+    }
+  }
+
+  // The icon and the header go up after the game exists, because their files and rows belong to its id.
+  async function savePictures(gameId) {
+    if (icon.blob) {
+      const put = await upload(icon.blob, "icon", "image/png", "png");
+      if (put.error) return put.error;
+      const result = await setGameIcon({ gameId, path: put.path }).catch(() => ({ error: "Connection lost. Try again." }));
+      if (result?.error) return result.error;
+      setIcon(NO_PICTURE);
+    }
+    if (cover.blob || coverPick) {
+      let result;
+      if (cover.blob) {
+        const put = await upload(cover.blob, "cover", "image/jpeg", "jpg");
+        if (put.error) return put.error;
+        result = await setGameCover({ gameId, path: put.path }).catch(() => ({ error: "Connection lost. Try again." }));
+      } else {
+        result = await setGameCover({ gameId, preset: coverPick }).catch(() => ({ error: "Connection lost. Try again." }));
+      }
+      if (result?.error) return result.error;
+      setCover(NO_PICTURE);
+      setCoverPick(null);
+    }
+    return "";
   }
 
   async function submit(event) {
@@ -61,14 +186,33 @@ export default function AddGameDialog() {
     if (busy || !complete) return;
     setBusy(true);
     setError("");
-    const result = await createGame(new FormData(event.currentTarget)).catch(() => ({
-      error: "Connection lost. Try again.",
-    }));
+    if (!created.current) {
+      const result = await createGame(new FormData(event.currentTarget)).catch(() => ({ error: "Connection lost. Try again." }));
+      if (result?.error || !result?.id) {
+        setBusy(false);
+        return setError(result?.error ?? "Could not create the game.");
+      }
+      created.current = result.id;
+    }
+    const failed = await savePictures(created.current);
     setBusy(false);
-    if (result?.error) return setError(result.error);
+    if (failed) return setError(`The game is added, but a picture was not saved: ${failed}`);
+    created.current = null;
     setOpen(false);
     router.refresh(); // the new game appears in the list behind
   }
+
+  const defaultId = defaultCoverId(gamesCount);
+  const shownColour = COVERS.find((item) => item.id === (coverPick ?? defaultId)) ?? COVERS[0];
+  const coverCss = cover.preview ? `center / cover no-repeat url("${cover.preview}")` : shownColour.css;
+  const preview = {
+    description: form.description,
+    genres: form.genres,
+    platforms: form.platforms,
+    languages: form.languages,
+    devices: form.devices,
+    play_modes: form.playModes,
+  };
 
   return (
     <>
@@ -80,63 +224,209 @@ export default function AddGameDialog() {
       </button>
       <dialog
         ref={dialogRef}
-        className="modal"
+        className="ag"
         aria-labelledby="add-game-title"
         onClose={closed}
         onCancel={(event) => {
           if (busy) event.preventDefault(); // do not drop a game that is being saved
         }}
+        onClick={(event) => {
+          if (event.target === dialogRef.current && !busy) dialogRef.current.close();
+        }}
       >
         {open && (
-          <form className="modal-box" onSubmit={submit}>
-            <div className="modal-head">
-              <h2 id="add-game-title">Add a game</h2>
-              <button
-                className="modal-close"
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                disabled={busy}
-              >
-                ×
+          <form className="ag-form" onSubmit={submit} autoComplete="off">
+            <div className="ag-head">
+              <div>
+                <h2 id="add-game-title">Add a game</h2>
+                <p>The card on the left is how the game will look on My games. Click the icon or the picture button on the header to upload your own.</p>
+              </div>
+              <button className="ag-x" type="button" aria-label="Close" onClick={() => dialogRef.current?.close()} disabled={busy}>
+                <Svg size={18} width={2.2}><path d="M6 6l12 12M18 6L6 18" /></Svg>
               </button>
             </div>
-            <div className="modal-body stack">
-              <p className="settings-help">
-                Say what your game is. Advertisers can aim an ad at a genre, a device or a language, and an
-                ad that asks for something your game has not filled in will not show in it.
-              </p>
-              <label htmlFor="new-game-name">Game name</label>
-              <input
-                ref={nameRef}
-                id="new-game-name"
-                className="field"
-                name="name"
-                placeholder="Game name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                maxLength={120}
-                disabled={busy}
-                autoComplete="off"
-                required
-              />
-              <GameProfileFields value={profile} onChange={setProfile} disabled={busy} named />
+
+            <div className="ag-grid">
+              <div className="ag-left">
+                <div className="ag-cap">Preview</div>
+                <article className="gm-card">
+                  <div className="gm-cover ag-cover" style={{ background: coverCss }}>
+                    {!cover.preview && (
+                      <div className="ag-sw ag-sw-on" role="group" aria-label="Header colours">
+                        {COVERS.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="ag-swatch"
+                            style={{ background: item.css }}
+                            aria-label={item.name}
+                            title={item.name}
+                            aria-pressed={item.id === (coverPick ?? defaultId)}
+                            onClick={() => setCoverPick(item.id)}
+                            disabled={busy}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <span data-cover-menu>
+                      <button
+                        type="button"
+                        className="ag-cover-btn"
+                        aria-label={cover.preview ? "Change header image" : "Upload header image"}
+                        title={cover.preview ? "Change header image" : "Upload header image"}
+                        aria-haspopup={cover.preview ? "menu" : undefined}
+                        aria-expanded={cover.preview ? coverMenu : undefined}
+                        onClick={() => (cover.preview ? setCoverMenu((value) => !value) : coverFile.current?.click())}
+                        disabled={busy}
+                      >
+                        <Svg size={16}><path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 9h.01" /></Svg>
+                      </button>
+                      {coverMenu && (
+                        <div className="ag-pop" role="menu">
+                          <button type="button" className="it" role="menuitem" onClick={() => { setCoverMenu(false); coverFile.current?.click(); }}>
+                            <Svg><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></Svg>Upload another
+                          </button>
+                          <button type="button" className="it is-danger" role="menuitem" onClick={() => { setCoverMenu(false); setCover(NO_PICTURE); }}>
+                            <Svg><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></Svg>Remove picture
+                          </button>
+                        </div>
+                      )}
+                    </span>
+                  </div>
+                  <div className="gm-body">
+                    <div className="gm-plate">
+                      <span className="gm-icon">
+                        <button type="button" className="ag-iconbtn" aria-label={icon.preview ? "Change icon" : "Add icon"} onClick={() => iconFile.current?.click()} disabled={busy}>
+                          <GameIcon name={form.name || "?"} url={icon.preview} />
+                          <span className="ag-cam">
+                            <Svg size={20}><path d="M4 8h3l2-3h6l2 3h3v11H4zM12 11a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" /></Svg>
+                          </span>
+                        </button>
+                        <i className="gm-status" style={{ background: "#9aa0a6" }} role="img" aria-label="SDK: not connected" />
+                      </span>
+                      <div>
+                        <h2 className={form.name.trim() ? undefined : "ag-name-empty"}>{form.name.trim() || "Game name"}</h2>
+                        <div className="gm-sub">
+                          <b style={{ color: "#5b524a" }}>Not connected</b> · waiting for the SDK
+                        </div>
+                      </div>
+                    </div>
+                    <GameAboutView game={preview} placeholder />
+                    <div className="gm-chips">
+                      <span>0 placements</span>
+                      <span>0 campaigns</span>
+                    </div>
+                  </div>
+                </article>
+                {fileError && <p className="ag-err" role="alert">{fileError}</p>}
+                <input ref={iconFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
+                <input ref={coverFile} type="file" accept="image/png,image/jpeg" hidden onChange={chooseCover} />
+              </div>
+
+              <div className="ag-right">
+                <section className="ag-sec">
+                  <h3>About the game</h3>
+                  <div className="ag-f">
+                    <label htmlFor="new-game-name">
+                      Game name<i className="req" title="Required" />
+                    </label>
+                    <input
+                      ref={nameRef}
+                      id="new-game-name"
+                      className="field"
+                      name="name"
+                      placeholder="Game name"
+                      value={form.name}
+                      onChange={(event) => set({ name: event.target.value })}
+                      maxLength={120}
+                      disabled={busy}
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                  <div className="ag-f">
+                    <label htmlFor="new-game-description" className="ag-label-row">
+                      Short description
+                      <span className="ag-counter">{form.description.length} / {DESCRIPTION_MAX}</span>
+                    </label>
+                    <textarea
+                      id="new-game-description"
+                      className="field"
+                      name="description"
+                      placeholder="One or two sentences about the game."
+                      value={form.description}
+                      onChange={(event) => set({ description: event.target.value })}
+                      maxLength={DESCRIPTION_MAX}
+                      disabled={busy}
+                    />
+                  </div>
+                  <div className="ag-f">
+                    <label htmlFor="new-game-store">Store link</label>
+                    <input
+                      id="new-game-store"
+                      className="field"
+                      name="storeUrl"
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://www.meta.com/experiences/…"
+                      value={form.storeUrl}
+                      onChange={(event) => set({ storeUrl: event.target.value })}
+                      maxLength={300}
+                      disabled={busy}
+                    />
+                  </div>
+                </section>
+
+                <section className="ag-sec">
+                  <h3>Tell us more</h3>
+                  <p className="ag-hint">
+                    Advertisers aim an ad at a genre, a device or a language. An ad that asks for something you have not filled in will not show in your game.
+                  </p>
+                  {PROFILE_KEYS.map((key) => (
+                    <MultiPick
+                      key={key}
+                      label={key === "platforms" ? "Platforms" : FIELDS[key].label}
+                      options={FIELDS[key].options}
+                      value={form[key]}
+                      onChange={(next) => set({ [key]: next })}
+                      name={key}
+                      searchable={key === "languages"}
+                      disabled={busy}
+                      required
+                    />
+                  ))}
+                  <MultiPick
+                    label={ABOUT_LISTS.devices.label}
+                    options={ABOUT_LISTS.devices.options}
+                    value={form.devices}
+                    onChange={(next) => set({ devices: next })}
+                    name="devices"
+                    disabled={busy}
+                  />
+                  <MultiPick
+                    label={ABOUT_LISTS.play_modes.label}
+                    options={ABOUT_LISTS.play_modes.options}
+                    value={form.playModes}
+                    onChange={(next) => set({ playModes: next })}
+                    name="playModes"
+                    disabled={busy}
+                  />
+                </section>
+              </div>
             </div>
-            <div className="modal-foot">
+
+            <div className="ag-foot">
               {/* here, not under the questionnaire: the buttons are always in view, the end of a long list is not */}
               {error ? (
-                <p className="error" role="alert">
-                  {error}
-                </p>
+                <p className="error" role="alert">{error}</p>
               ) : (
-                !complete &&
-                !busy && <span className="muted-line">Still needed: {missingParts.join(", ")}.</span>
+                !busy && <span className={`muted-line${complete ? " ok" : ""}`}>{complete ? "Ready to add." : `Still needed: ${missing.join(", ")}.`}</span>
               )}
-              <button className="button button-quiet" type="button" onClick={() => setOpen(false)} disabled={busy}>
-                Cancel
+              <button className="ag-cancel" type="button" onClick={() => dialogRef.current?.close()} disabled={busy}>
+                {created.current ? "Close" : "Cancel"}
               </button>
-              <button className="button" type="submit" disabled={busy || !complete} aria-busy={busy}>
-                {busy ? "Adding…" : "Add game"}
+              <button className="ag-save" type="submit" disabled={busy || !complete} aria-busy={busy}>
+                {busy ? "Adding…" : created.current ? "Save pictures" : "Add game"}
               </button>
             </div>
           </form>

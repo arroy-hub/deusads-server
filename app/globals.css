@@ -7977,3 +7977,115 @@ a.gm-mi { text-decoration: none; }
 .users-row-click:hover td { background: #faf6f1; }
 .user-av { width: 26px; height: 26px; font-size: 11px; vertical-align: middle; margin-right: 8px; }
 @media (max-width: 1100px) { .acc-grid { grid-template-columns: 1fr; } .acc-row { grid-template-columns: 1fr; gap: 8px; } }
+
+
+/* ---------------------------------------------------------------- Add game pop-up (wide: the game's card on the left, the questionnaire on the right) */
+.ag{width:min(1080px,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);border:0;border-radius:20px;padding:0;overflow:hidden;background:#fff;color:#241d19;font-family:"Manrope",system-ui,sans-serif;box-shadow:0 24px 60px rgba(31,24,20,.35)}
+.ag[open]{display:flex;flex-direction:column}
+.ag::backdrop{background:rgba(31,24,20,.5)}
+.ag-head{display:flex;align-items:center;gap:14px;padding:20px 24px 16px;border-bottom:1px solid #efe7de}
+.ag-head h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em;flex:1}
+.ag-head p{margin:2px 0 0;font-size:13px;color:#6b5f56;max-width:none;font-weight:500}
+.ag-x{width:44px;height:44px;border:0;border-radius:10px;background:none;display:grid;place-items:center;cursor:pointer;color:#241d19}
+.ag-x:hover{background:#f6f1ea}
+.ag-grid{display:grid;grid-template-columns:360px 1fr;min-height:0;flex:1}
+.ag-left{background:#f6f1ea;padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;border-right:1px solid #efe7de}
+.ag-right{padding:22px 28px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:26px;min-width:0}
+.ag-cap{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8c7f73}
+.ag-cap em{font-style:normal;color:#b8421d;font-weight:800;margin-left:6px}
+/* the card = the real .gm-card; here its icon, header and tags can be edited in place */
+.ag-left .gm-card{min-height:0;box-shadow:0 10px 28px rgba(60,35,20,.16)}
+.ag-left .gm-card:hover{box-shadow:0 10px 28px rgba(60,35,20,.16)}
+.ag-cover{position:relative}
+.ag-cover-btn{position:absolute;right:12px;top:12px;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:0;border-radius:99px;background:rgba(36,29,25,.55);color:#fff;font:700 12.5px "Manrope",sans-serif;cursor:pointer;backdrop-filter:blur(4px)}
+.ag-cover-btn:hover{background:rgba(36,29,25,.75)}
+.ag-iconbtn{position:relative;display:block;border:0;padding:0;background:none;cursor:pointer;border-radius:14px}
+.ag-iconbtn .ag-cam{position:absolute;inset:0;border-radius:14px;background:rgba(36,29,25,.5);color:#fff;display:grid;place-items:center;opacity:0;transition:opacity .15s}
+.ag-iconbtn:hover .ag-cam,.ag-iconbtn:focus-visible .ag-cam{opacity:1}
+.ag-iconbtn img{width:56px;height:56px;border-radius:14px;object-fit:cover;display:block}
+.ag-name-empty{color:#b9aca0}
+.ag-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ag-tags span{padding:3px 9px;border-radius:99px;border:1px solid #e6ddd3;font-size:12px;font-weight:600;color:#4a3e36;background:#fff}
+.ag-tags .more{border-style:dashed;color:#8c7f73}
+.ag-desc{font-size:13px;line-height:1.5;color:#4a3e36;margin:0;max-width:none;overflow-wrap:anywhere}
+.ag-desc.ph{color:#b9aca0}
+.ag-meta{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#6b5f56}
+.ag-meta div{display:flex;gap:8px;align-items:baseline}
+.ag-meta b{color:#241d19;font-weight:700;min-width:84px}
+.ag-meta .ph{color:#b9aca0}
+.ag-sw{display:flex;gap:8px;flex-wrap:wrap}
+.ag-swatch{width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #d8cabd;cursor:pointer;padding:0}
+.ag-swatch[aria-pressed="true"]{box-shadow:0 0 0 2px #241d19}
+.ag-hint{font-size:12.5px;color:#6b5f56;line-height:1.45;margin:0;max-width:none}
+.ag-sec{display:flex;flex-direction:column;gap:14px}
+.ag-sec>h3{margin:0;font-size:14px;font-weight:800;letter-spacing:-.005em;padding-bottom:8px;border-bottom:1px solid #efe7de}
+.ag-f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ag-f>label,.ag-f legend{font-size:14px;font-weight:700;display:flex;align-items:baseline;gap:8px;padding:0}
+.ag-f .opt{font-size:12px;font-weight:500;color:#8c7f73}
+.ag-f .count{font-size:12px;font-weight:500;color:#6b5f56}
+.req{display:inline-block;width:5px;height:5px;border-radius:50%;background:#b8421d;transform:translateY(-3px)}
+.ag-f input.field,.ag-f textarea.field,.ag-f select.field{width:100%;font:500 15px "Manrope",sans-serif;padding:0 12px;border:1px solid #d8cabd;border-radius:8px;background:#fff;color:#241d19}
+.ag-f textarea.field{min-height:84px;padding:10px 12px;resize:vertical;line-height:1.45}
+.ag-f input.field:focus,.ag-f textarea.field:focus{outline:2px solid #b8421d;outline-offset:1px}
+.ag-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ag-counter{align-self:flex-end;font-size:12px;color:#8c7f73;margin-top:-2px}
+.ag .multi-pick{gap:8px}
+.ag .multi-pick legend{font-size:14px}
+.ag .multi-option[aria-pressed="true"]{background:#241d19;border-color:#241d19;color:#fff}
+.ag-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:12px;padding:14px 24px;border-top:1px solid #efe7de;background:#fff}
+.ag-foot .muted-line{flex:1 1 14rem;margin:0 auto 0 0;font-size:13px;color:#6b5f56}
+.ag-foot .ok{color:#1f6b3a}
+.ag-save{height:44px;padding:0 22px;border:0;border-radius:10px;background:#b8421d;color:#fff;font:700 14px "Manrope",sans-serif;cursor:pointer}
+.ag-save:hover:not(:disabled){background:#a63a18}
+.ag-save:disabled{background:#e6ddd3;color:#a2958a;cursor:not-allowed}
+.ag-cancel{height:44px;padding:0 18px;border-radius:10px;border:1px solid #d8cabd;background:#fff;color:#241d19;font:700 14px "Manrope",sans-serif;cursor:pointer}
+.ag-err{color:#a1281a;font-size:13px;margin:0}
+@media (max-width:860px){
+  .ag{width:calc(100vw - 1rem)}
+  .ag-grid{grid-template-columns:1fr;overflow-y:auto}
+  .ag-left,.ag-right{overflow:visible}
+  .ag-left{border-right:0;border-bottom:1px solid #efe7de}
+  .ag-2{grid-template-columns:1fr}
+}
+.ag-left>*{flex:none}
+.ag-left .gm-card>*{flex-shrink:0}
+.ag-left .gm-body{flex:none}
+.ag-left .gm-sub{white-space:normal}
+.ag-left .gm-plate{max-width:100%}
+.ag-tags .more{white-space:nowrap}
+.ag-grid{grid-template-columns:380px 1fr}
+
+.ag-f>label{display:block}
+.req{margin-left:6px}
+.ag .multi-pick legend .req{margin-left:2px}
+.ag-hint{margin-top:0}
+
+.ag-sw{gap:6px}.ag-swatch{width:14px;height:14px;border-width:2px;box-shadow:0 0 0 1px #d8cabd}.ag-swatch[aria-pressed="true"]{box-shadow:0 0 0 1.5px #241d19}
+.ag-cover-btn{width:34px;padding:0;justify-content:center}
+.ag-sw-on{position:absolute;left:16px;top:16px;gap:8px;padding:0;background:none}
+.ag-sw-on .ag-swatch{width:16px;height:16px;border:2px solid rgba(255,255,255,.55);box-shadow:none}
+.ag-sw-on .ag-swatch[aria-pressed="true"]{border-color:#fff;box-shadow:none}
+.ag .multi-pick legend{gap:0}
+.ag .multi-pick legend .req{margin-left:6px}
+.ag .multi-pick legend .multi-count{margin-left:12px}
+.ag .multi-pick legend{width:100%;padding-bottom:8px;border-bottom:1px solid #efe7de;margin-bottom:6px}
+.ag-left .gm-body{padding-bottom:20px}
+.ag-pop{position:absolute;right:12px;top:52px;z-index:6;width:200px;padding:6px;background:#fff;border:1px solid #e6ddd3;border-radius:12px;box-shadow:0 12px 30px rgba(40,30,20,.2);display:flex;flex-direction:column}
+.ag-pop .it{border:0;background:none;width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#241d19;font:600 14px "Manrope",sans-serif}
+.ag-pop .it svg{color:#6b5f56;flex:none}
+.ag-pop .it:hover{background:#fbf3ec;color:#b8421d}.ag-pop .it:hover svg{color:#b8421d}
+.ag-pop .it.is-danger:hover{background:#fbeceb;color:#a1281a}.ag-pop .it.is-danger:hover svg{color:#a1281a}
+.ag-counter{align-self:auto;margin:0;font-weight:500}
+
+.ag-form{display:flex;flex-direction:column;min-height:0;flex:1}
+.ag-head>div:first-child{flex:1;min-width:0}
+.ag-f>label.ag-label-row{display:flex;justify-content:space-between;align-items:baseline}
+.ag-err{color:#a1281a;font-size:13px;margin:0}
+.ag-cover-btn:disabled,.ag-iconbtn:disabled{cursor:default}
+
+/* Settings: the two text fields at the top of "About the game" */
+.st-about-text { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 4px 0 16px; }
+.st-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.st-field label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 14px; }
+.st-field textarea.field { min-height: 84px; padding: 10px 12px; resize: vertical; line-height: 1.45; font: inherit; }
+@media (max-width: 760px) { .st-about-text { grid-template-columns: 1fr; } }

@@ -10,6 +10,7 @@ import { isCategory } from "../../lib/categories";
 import { normalizeCrop } from "../../lib/surface-math";
 import { MAX_OWN_CREATIVES, OWN_PICTURE_TYPES } from "../../lib/own-creatives";
 import { validateProfile } from "../../lib/targeting";
+import { parseAbout } from "../../lib/game-about";
 import { coverValue, parseCover } from "../../lib/game-cover";
 
 // Every action writes through the user's own client, so row-level security is
@@ -48,17 +49,39 @@ export async function createGame(formData) {
   });
   if (described.error) return { error: described.error };
 
+  // More about it (migration 0031): a line of description, the store link, devices and play modes. All optional.
+  const about = parseAbout({
+    description: formData.get("description"),
+    storeUrl: formData.get("storeUrl"),
+    devices: formData.getAll("devices"),
+    playModes: formData.getAll("playModes"),
+  });
+  if (about.error) return { error: about.error };
+
   const { db, user } = await session();
   if (!user) return { error: "Your session expired. Sign in again." };
 
-  let { error } = await db.from("games").insert({ owner_id: user.id, name, ...described.value });
-  // Migration 0018 not applied yet: the game is created without its description.
-  if (isSchemaOutdated(error)) ({ error } = await db.from("games").insert({ owner_id: user.id, name }));
-
-  if (error) return { error: "Could not create the game." };
+  // The newest database first, then without migration 0031, then without 0018: the game is created either way.
+  const attempts = [
+    { owner_id: user.id, name, ...described.value, ...about.value },
+    { owner_id: user.id, name, ...described.value },
+    { owner_id: user.id, name },
+  ];
+  let created = null;
+  let failure = null;
+  for (const row of attempts) {
+    const { data, error } = await db.from("games").insert(row).select("id").maybeSingle();
+    if (!error && data) {
+      created = data;
+      break;
+    }
+    failure = error;
+    if (!isSchemaOutdated(error)) break;
+  }
+  if (!created) return { error: "Could not create the game." };
 
   revalidatePath("/dashboard", "layout");
-  return { ok: true };
+  return { ok: true, id: created.id };
 }
 
 /**
@@ -68,7 +91,7 @@ export async function createGame(formData) {
  * by row-level security. Changes reach players the next time they start the game. Without `genres`
  * (an older database) only the name is saved.
  */
-export async function saveGame({ gameId, name, genres, platforms, languages }) {
+export async function saveGame({ gameId, name, genres, platforms, languages, about }) {
   const clean = String(name ?? "").trim().slice(0, MAX_NAME);
   if (!clean) return { error: "Give the game a name." };
 
@@ -76,21 +99,25 @@ export async function saveGame({ gameId, name, genres, platforms, languages }) {
   const described = withProfile ? validateProfile({ genres, platforms, languages }) : { value: {} };
   if (described.error) return { error: described.error };
 
+  // The description, store link, devices and play modes (migration 0031); left alone when not sent.
+  const more = about === undefined ? { value: {} } : parseAbout(about);
+  if (more.error) return { error: more.error };
+
   const { db, user } = await session();
   if (!user) return { error: "Your session expired. Sign in again." };
 
   const { data, error } = await db
     .from("games")
-    .update({ name: clean, ...described.value })
+    .update({ name: clean, ...described.value, ...more.value })
     .eq("id", String(gameId ?? ""))
     .select("id")
     .maybeSingle();
-  if (isSchemaOutdated(error)) return { error: NEEDS_TARGETING_MIGRATION };
+  if (isSchemaOutdated(error)) return { error: about !== undefined ? "The database needs the update (migration 0031) first." : NEEDS_TARGETING_MIGRATION };
   if (error || !data) return { error: "Could not save. Try again." };
 
   if (withProfile) resyncCampaigns();
   revalidatePath("/dashboard", "layout");
-  return { ok: true, name: clean, value: withProfile ? described.value : null };
+  return { ok: true, name: clean, value: withProfile ? described.value : null, about: about === undefined ? null : more.value };
 }
 
 /**

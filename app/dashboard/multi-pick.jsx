@@ -6,7 +6,7 @@ import { useState } from "react";
  * Pick any number of options from a list: buttons that switch on and off, plus a search box for
  * long lists. With `name`, every pick is also sent as a hidden field of the surrounding form.
  */
-export default function MultiPick({ label, hint, options, value, onChange, name, searchable = false, disabled = false }) {
+export default function MultiPick({ label, hint, options, value, onChange, name, searchable = false, disabled = false, required = false }) {
   const [query, setQuery] = useState("");
   const chosen = new Set(value);
   const needle = query.trim().toLowerCase();
@@ -20,6 +20,7 @@ export default function MultiPick({ label, hint, options, value, onChange, name,
     <fieldset className="multi-pick" disabled={disabled}>
       <legend>
         {label}
+        {required && <i className="req" title="Required" />}
         {value.length > 0 && <span className="multi-count">{value.length} selected</span>}
       </legend>
       {hint && <p className="settings-help">{hint}</p>}
