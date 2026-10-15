@@ -250,22 +250,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
               iconsReady={iconsReady}
             />
             {iconsReady && (
-              <>
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
-                {shownIcon && (
-                  <button
-                    type="button"
-                    className="st-plain st-icon-off"
-                    onClick={() => {
-                      setIcon({ blob: null, preview: "", removed: true });
-                      touch();
-                    }}
-                    disabled={busy}
-                  >
-                    Remove icon
-                  </button>
-                )}
-              </>
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={chooseIcon} />
             )}
             {cover && <input ref={coverFile} type="file" accept="image/png,image/jpeg" hidden onChange={chooseCover} />}
             <KeyCard gameId={gameId} apiKey={apiKey} link={link} />
