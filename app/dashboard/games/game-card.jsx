@@ -22,6 +22,7 @@ const IcImage = ({ size }) => <Svg size={size}><path d="M4 5h16v14H4zM4 16l5-5 4
 const IcChart = ({ size }) => <Svg size={size}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Svg>;
 const IcPlug = ({ size }) => <Svg size={size}><path d="M9 7V3M15 7V3M7 7h10v5a5 5 0 01-10 0zM12 17v4" /></Svg>;
 const IcKey = ({ size, width }) => <Svg size={size} width={width}><circle cx="8" cy="15" r="4.2" /><path d="M11.2 11.8L20.5 2.5M16.5 6.5l3 3" /></Svg>;
+const IcGear = ({ size }) => <Svg size={size}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" /></Svg>;
 const IcClose = () => <Svg size={18} width={2.2}><path d="M6 6l12 12M18 6L6 18" /></Svg>;
 
 /** A modal in the browser's own <dialog>: dims the page, traps focus, closes on Escape and on a click outside the box. */
@@ -394,6 +395,7 @@ export default function GameCard({ game }) {
         {menu && (
           <div role="menu" className="gm-pop">
             <Link role="menuitem" className="gm-mi" href={`/dashboard/games?tab=performance&game=${game.id}`} onClick={() => setMenu(false)}><IcChart /><span>Performance</span></Link>
+            <Link role="menuitem" className="gm-mi" href={`/dashboard/g/${game.id}?tab=settings`} onClick={() => setMenu(false)}><IcGear /><span>Settings</span></Link>
             <button type="button" role="menuitem" className="gm-mi" onClick={() => open("img")}><IcImage /><span>Change header image</span></button>
             <button type="button" role="menuitem" className="gm-mi" onClick={() => open("conn")}><IcPlug /><span>Connection details</span></button>
             <button type="button" role="menuitem" className="gm-mi" onClick={() => open("key")}><IcKey /><span>Show key</span></button>
