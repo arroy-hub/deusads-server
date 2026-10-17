@@ -13,6 +13,8 @@ const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let organizationApplied = false;
 const organization = { placement_places: [], placement_folders: [], placement_scene_off: [] };
 let outdated = false;
+let fillMissing = false; // migration 0037 not applied: no record_manifest_fill function
+const fillLog = []; // what record_manifest_fill was asked to add, one entry per manifest request
 let interactionsMissing = false; // migration 0036 not applied: no placements.interactive, no impressions.interactions
 let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
 let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
@@ -71,6 +73,12 @@ globalThis.fetch = async (input, init = {}) => {
 
   const ok = (rows, status = 200) =>
     new Response(JSON.stringify(rows), { status, headers: { "content-type": "application/json" } });
+
+  if (table === "rpc/record_manifest_fill") {
+    if (fillMissing) return fail(404, "PGRST202", "function not found");
+    fillLog.push(body);
+    return ok(null);
+  }
 
   if (targetingMissing && /targeting|genres/.test(text)) {
     return fail(400, "42703", "column does not exist");
@@ -728,6 +736,77 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(plain.country, undefined);
 
   delete db.game_sessions;
+}
+
+// --- fill rate (migration 0037): every manifest request says what each placement got
+{
+  const savedAssignments = db.assignments.splice(0);
+  const wasOrganized = organizationApplied;
+  const own = { placements: { external_id: "a" }, creatives: { id: "c1", storage_path: "x.png", status: "approved", owner_id: "o1" }, owner_id: "o1", active: true };
+  const booked = (targeting) => ({ placements: { external_id: "a" }, creatives: { id: "bk", storage_path: "bk.png", status: "approved", owner_id: "adv1", ...(targeting ? { targeting } : {}) }, owner_id: "o1", active: true, source: "booking" });
+  const lastFill = () => fillLog[fillLog.length - 1]?.p_slots;
+  const slots = live();
+  assert.ok(slots.includes("a") && slots.length > 1, "the game has several live placements");
+
+  // nothing assigned anywhere: every slot is empty, none is invented
+  fillLog.length = 0;
+  r = await getManifest();
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.placements, []);
+  assert.equal(fillLog.length, 1, "one request, one record");
+  assert.equal(fillLog[0].p_game_id, GAME.id);
+  assert.equal(fillLog[0].p_owner, GAME.owner_id);
+  assert.deepEqual(Object.keys(lastFill()).sort(), slots, "every live placement is a slot");
+  assert.ok(Object.values(lastFill()).every((state) => state === "no_ad"));
+
+  // the developer's own creative fills its slot; the others stay empty
+  db.assignments.push(own);
+  await getManifest();
+  assert.equal(lastFill().a, "own");
+  assert.equal(lastFill()[slots.find((id) => id !== "a")], "no_ad");
+
+  // an advertiser's ad that fits wins the slot
+  db.assignments.length = 0;
+  db.assignments.push(booked({ genres: ["shooter"] }), own);
+  await getManifest();
+  assert.equal(lastFill().a, "ad");
+
+  // an ad that asks for another kind of game: the developer's creative fills in, so the slot is not empty
+  db.assignments.length = 0;
+  db.assignments.push(booked({ genres: ["horror"] }), own);
+  await getManifest();
+  assert.equal(lastFill().a, "own");
+
+  // the same without a creative of the developer's own: empty, and the reason is the audience
+  db.assignments.length = 0;
+  db.assignments.push(booked({ genres: ["horror"] }));
+  r = await getManifest();
+  assert.equal(r.body.placements.length, 0);
+  assert.equal(lastFill().a, "targeting");
+
+  // what the developer switched off is not a slot
+  organizationApplied = true;
+  const bPlacement = db.placements.find((p) => p.external_id === "b");
+  bPlacement.enabled = false;
+  await getManifest();
+  assert.ok(!("b" in lastFill()), "a switched-off placement is not counted");
+  assert.ok("a" in lastFill());
+  delete bPlacement.enabled;
+  organizationApplied = wasOrganized;
+
+  // 0037 not applied: the manifest is served as ever, nothing is recorded
+  fillMissing = true;
+  fillLog.length = 0;
+  db.assignments.length = 0;
+  db.assignments.push(own);
+  r = await getManifest();
+  fillMissing = false;
+  assert.equal(r.status, 200);
+  assert.equal(r.body.placements.length, 1);
+  assert.equal(fillLog.length, 0);
+
+  db.assignments.length = 0;
+  db.assignments.push(...savedAssignments);
 }
 
 // --- database not migrated yet: routes keep working the old way

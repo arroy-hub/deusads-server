@@ -9,6 +9,7 @@ import PerformanceChart from "./performance-chart";
 import AudiencePanel from "../../audience-panel";
 import AttentionPanel from "../../attention-panel";
 import InteractionsPanel from "../../interactions-panel";
+import FillRatePanel from "../../fill-rate-panel";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -181,6 +182,15 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             folded={folded}
             setFolded={setFolded}
             go={go}
+          />
+        )}
+
+        {!focus && (
+          <FillRatePanel
+            fill={model.fill}
+            title="Fill rate"
+            hint="Each time the game starts it asks which ad every placement shows. Placements you switched off are not counted. Works with every SDK version."
+            emptyText="No game start has been counted yet. This fills in as players start the game."
           />
         )}
 
