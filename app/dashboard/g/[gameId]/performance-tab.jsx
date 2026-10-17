@@ -10,6 +10,7 @@ import AudiencePanel from "../../audience-panel";
 import AttentionPanel from "../../attention-panel";
 import InteractionsPanel from "../../interactions-panel";
 import FillRatePanel from "../../fill-rate-panel";
+import SdkPerformancePanel from "../../sdk-performance-panel";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -208,6 +209,15 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             title="Interactions"
             hint="How often players took hold of, pressed or clicked an object that carries an ad. Only placements marked Interactive count."
             emptyText="No placement is marked Interactive yet. Turn on Interactive on the placements the player can touch (a bottle label, a poster they can grab), update the SDK to 0.11 or newer and send the placements again."
+          />
+        )}
+
+        {!focus && (
+          <SdkPerformancePanel
+            performance={model.sdk}
+            title="Game performance"
+            hint="Measured inside the game by SDK 0.11 or newer, for the sessions of this period. Only you can see this; advertisers never do."
+            emptyText="No figures yet. They arrive once players run a build with SDK 0.11 or newer."
           />
         )}
 

@@ -8,6 +8,7 @@ import {
   preflight,
   warnSchemaOutdated,
 } from "../../../lib/api";
+import { performanceFrom } from "../../../lib/sdk-performance";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,12 @@ const MAX_COUNT = 10_000;
  * Body: { sessionId, installId?, sdkVersion,
  *         impressions: [ { eventId?, placementId, creativeId, timestamp, visibleSeconds,
  *                          distance?, screenFraction?, angle?, interactions? } ],
- *         opportunities?: [ { eventId, placementId, creativeId, timestamp, count, scene?, path? } ] }
+ *         opportunities?: [ { eventId, placementId, creativeId, timestamp, count, scene?, path? } ],
+ *         performance?: { frames, seconds, slowFrames, ... } }
+ *
+ * performance (SDK 0.11+, migration 0038) is what the SDK measured since its last upload: frame times, how long
+ * creatives took to load, and its own errors. It is added to the row of the session and shown to the developer only.
+ * A batch may hold nothing but this. It is stored last, so a batch that has to be sent again never counts twice.
  *
  * From SDK 0.11 visibleSeconds is the whole length of the view and distance (metres), screenFraction (0 to 1)
  * and angle (degrees) are averages over it; opportunities are the times a banner with an ad came into view,
@@ -59,7 +65,11 @@ export const POST = guarded(async function POST(request) {
     return json({ error: `At most ${MAX_IMPRESSIONS} impressions per batch.` }, 413);
   }
   const seen = Array.isArray(body?.opportunities) ? body.opportunities.slice(0, MAX_OPPORTUNITIES) : [];
-  if (incoming.length === 0 && seen.length === 0) return json({ accepted: 0, duplicates: 0 });
+  const performance = performanceFrom(body?.performance);
+  if (incoming.length === 0 && seen.length === 0) {
+    await recordPerformance(db, game, sessionId, performance);
+    return json({ accepted: 0, duplicates: 0 });
+  }
 
   // Map the SDK's own placement IDs to rows, so an unknown ID is dropped rather
   // than silently recorded against nothing.
@@ -127,6 +137,7 @@ export const POST = guarded(async function POST(request) {
   }
 
   if (rows.length === 0) {
+    await recordPerformance(db, game, sessionId, performance);
     return json({ accepted: 0, duplicates: 0, unknownPlacements: unknown, opportunities: opportunitiesAccepted });
   }
 
@@ -209,6 +220,7 @@ export const POST = guarded(async function POST(request) {
   }
 
   const accepted = data?.length ?? 0;
+  await recordPerformance(db, game, sessionId, performance);
   return json({
     accepted,
     duplicates: rows.length - accepted,
@@ -216,6 +228,22 @@ export const POST = guarded(async function POST(request) {
     opportunities: opportunitiesAccepted,
   });
 });
+
+/**
+ * Adds the SDK's performance report to the session's row (migration 0038). Never fails the batch: the views are
+ * already stored, so a database without the function or a hiccup only costs this one report.
+ */
+async function recordPerformance(db, game, sessionId, performance) {
+  if (!performance) return;
+  try {
+    const { error } = await db.rpc("add_session_performance", { p_game_id: game.id, p_owner: game.owner_id, p_session: sessionId, p_perf: performance });
+    if (!error) return;
+    if (isSchemaOutdated(error) || error.code === "PGRST202" || error.code === "42883") warnSchemaOutdated("POST /v1/events", "0038_sdk_performance.sql");
+    else logDbError("sdk performance", error);
+  } catch (error) {
+    console.error("[DeusADS] sdk performance:", error);
+  }
+}
 
 /**
  * How a view was seen, as the columns of migration 0035: average distance (m), share of the screen (0 to 1)

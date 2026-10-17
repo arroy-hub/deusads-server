@@ -15,6 +15,8 @@ const organization = { placement_places: [], placement_folders: [], placement_sc
 let outdated = false;
 let fillMissing = false; // migration 0037 not applied: no record_manifest_fill function
 const fillLog = []; // what record_manifest_fill was asked to add, one entry per manifest request
+let perfMissing = false; // migration 0038 not applied: no add_session_performance function
+const perfLog = []; // what add_session_performance was asked to add, one entry per report
 let interactionsMissing = false; // migration 0036 not applied: no placements.interactive, no impressions.interactions
 let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
 let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
@@ -73,6 +75,12 @@ globalThis.fetch = async (input, init = {}) => {
 
   const ok = (rows, status = 200) =>
     new Response(JSON.stringify(rows), { status, headers: { "content-type": "application/json" } });
+
+  if (table === "rpc/add_session_performance") {
+    if (perfMissing) return fail(404, "PGRST202", "function not found");
+    perfLog.push(body);
+    return ok(null);
+  }
 
   if (table === "rpc/record_manifest_fill") {
     if (fillMissing) return fail(404, "PGRST202", "function not found");
@@ -807,6 +815,71 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
 
   db.assignments.length = 0;
   db.assignments.push(...savedAssignments);
+}
+
+// --- SDK performance (migration 0038): the report rides along with the batch, or goes alone
+{
+  const alone = (performance, extra = {}) => post(events, { sessionId: "perf1", sdkVersion: "0.11.0", impressions: [], performance, ...extra }).then((res) => res.json());
+  const sdkReport = { frames: 3600, seconds: 50, slowFrames: 40, hitches: 3, worstMs: 150.26, adFrames: 1800, adSeconds: 25, adSlowFrames: 30, loads: 2, loadMs: 900, loadMsMax: 600, cachedLoads: 1, cachedMs: 20, manifestLoads: 1, manifestMs: 300, uploadFailed: 1 };
+
+  // a report with nothing else in the batch is stored
+  perfLog.length = 0;
+  r = await alone(sdkReport);
+  assert.equal(r.accepted, 0);
+  assert.equal(perfLog.length, 1);
+  assert.equal(perfLog[0].p_game_id, GAME.id);
+  assert.equal(perfLog[0].p_owner, GAME.owner_id);
+  assert.equal(perfLog[0].p_session, "perf1");
+  assert.deepEqual(perfLog[0].p_perf, {
+    frames: 3600, seconds: 50, slow_frames: 40, hitches: 3, worst_ms: 150.3,
+    ad_frames: 1800, ad_seconds: 25, ad_slow_frames: 30,
+    loads: 2, load_ms: 900, load_ms_max: 600, cached_loads: 1, cached_ms: 20, manifest_loads: 1, manifest_ms: 300,
+    manifest_failed: 0, manifest_cached: 0, creative_failed: 0, creative_invalid: 0, upload_failed: 1,
+  });
+
+  // the SDK always sends the object, all zeros when it has nothing to say; that and anything unusable is not stored
+  perfLog.length = 0;
+  const zeros = Object.fromEntries(Object.keys(sdkReport).map((key) => [key, 0]));
+  await alone(zeros);
+  await alone(undefined);
+  await alone("not an object");
+  await alone({ frames: "x", seconds: {}, slowFrames: null, loads: -4 });
+  assert.equal(perfLog.length, 0);
+
+  // values are pulled in, and a part is never bigger than its whole
+  await alone({ frames: 100, seconds: 1e9, slowFrames: 500, hitches: 900, worstMs: -3, adFrames: 1000, adSeconds: 5000, adSlowFrames: 400 });
+  assert.deepEqual(
+    { ...perfLog[0].p_perf },
+    { ...perfLog[0].p_perf, frames: 100, seconds: 86400, slow_frames: 100, hitches: 100, worst_ms: 0, ad_frames: 100, ad_seconds: 5000, ad_slow_frames: 100 }
+  );
+
+  // seconds, ms and counts of something that did not happen are dropped
+  perfLog.length = 0;
+  await alone({ frames: 0, seconds: 99, loads: 0, loadMs: 500, loadMsMax: 500, creativeFailed: 2 });
+  assert.equal(perfLog[0].p_perf.seconds, 0);
+  assert.equal(perfLog[0].p_perf.load_ms, 0);
+  assert.equal(perfLog[0].p_perf.creative_failed, 2);
+
+  // with views in the same batch both are stored
+  perfLog.length = 0;
+  r = await post(events, { sessionId: "perf2", sdkVersion: "0.11.0", impressions: [imp("perf-e1")], performance: sdkReport }).then((res) => res.json());
+  assert.equal(r.accepted, 1);
+  assert.equal(perfLog.length, 1);
+  assert.equal(perfLog[0].p_session, "perf2");
+
+  // 0038 not applied: the views still count, the report is left out
+  perfMissing = true;
+  r = await post(events, { sessionId: "perf3", sdkVersion: "0.11.0", impressions: [imp("perf-e2")], performance: sdkReport }).then((res) => res.json());
+  assert.equal(r.accepted, 1);
+  r = await alone(sdkReport);
+  assert.equal(r.accepted, 0);
+  perfMissing = false;
+  assert.equal(perfLog.length, 1);
+
+  // an old SDK sends none
+  r = await post(events, { sessionId: "perf4", sdkVersion: "0.10.0", impressions: [imp("perf-e3")] }).then((res) => res.json());
+  assert.equal(r.accepted, 1);
+  assert.equal(perfLog.length, 1);
 }
 
 // --- database not migrated yet: routes keep working the old way

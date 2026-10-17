@@ -8184,3 +8184,10 @@ a.gm-mi { text-decoration: none; }
 .at-dist-row { display: flex; align-items: center; gap: 8px; }
 .at-dist-name { width: 56px; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
 .at-dist-bar { width: min(260px, 40vw); margin-right: 0; }
+
+/* Game performance panel (SDK performance, migration 0038) */
+.sp-sub {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
