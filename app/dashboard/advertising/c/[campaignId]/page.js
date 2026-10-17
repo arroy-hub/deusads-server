@@ -13,6 +13,7 @@ import AttentionPanel from "../../../attention-panel";
 import InteractionsPanel from "../../../interactions-panel";
 import FrequencyPanel from "../../../frequency-panel";
 import FatiguePanel from "../../../fatigue-panel";
+import ContextPanel from "../../../context-panel";
 import { planCreativeIds } from "../../../../../lib/campaign-plan";
 
 export const dynamic = "force-dynamic";
@@ -183,6 +184,16 @@ export default async function CampaignReportPage({ params, searchParams }) {
         title="Does attention fall with repeats?"
         hint="Time spent looking at the creative the 1st, 2nd, 3rd time the same player sees it. Needs games on SDK 0.11 or newer for the time."
         emptyText="No repeat views from identified players in this period yet."
+        wrapClass="cr-box"
+        headClass="cr-box-head"
+      />
+
+      <ContextPanel
+        context={report.minutes}
+        first="Minute of the session"
+        title="When in the session the ad was seen"
+        hint="By the time since the player started the game. Needs games on SDK 0.10 or newer for the minute and 0.11 or newer for the time seen."
+        emptyText="No views in this period yet."
         wrapClass="cr-box"
         headClass="cr-box-head"
       />

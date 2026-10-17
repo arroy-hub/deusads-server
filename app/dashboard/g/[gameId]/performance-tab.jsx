@@ -14,6 +14,7 @@ import SdkPerformancePanel from "../../sdk-performance-panel";
 import FrequencyPanel from "../../frequency-panel";
 import FatiguePanel from "../../fatigue-panel";
 import RetentionPanel from "../../retention-panel";
+import ContextPanel from "../../context-panel";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -239,6 +240,26 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             title="Do players come back?"
             hint="Share of new players who played again 1, 7 and 30 days after their first session, and how many players there are each day. Counted from the first session the SDK announced (SDK 0.10 or newer)."
             emptyText="No sessions with identified players in this period yet."
+          />
+        )}
+
+        {!focus && (
+          <ContextPanel
+            context={model.minutes}
+            first="Minute of the session"
+            title="When in the session the ads were seen"
+            hint="Advertisers' ads in this period, by the time since the session started. Needs SDK 0.10 or newer for the minute and 0.11 or newer for the time seen."
+            emptyText="No views in this period yet."
+          />
+        )}
+
+        {!focus && (
+          <ContextPanel
+            context={model.scenes}
+            first="Scene"
+            title="Where in the game the ads were seen"
+            hint="Advertisers' ads in this period, by the scene the player was in. The scene is the one your game reports for each placement."
+            emptyText="No views in this period yet."
           />
         )}
 
