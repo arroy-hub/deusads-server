@@ -9,6 +9,7 @@ import { ratio } from "../../../../../lib/performance-view";
 import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
 import AudiencePanel from "../../../audience-panel";
+import AttentionPanel from "../../../attention-panel";
 import { planCreativeIds } from "../../../../../lib/campaign-plan";
 
 export const dynamic = "force-dynamic";
@@ -147,6 +148,14 @@ export default async function CampaignReportPage({ params, searchParams }) {
         </div>
         <CampaignChart series={report.series} events={report.events} />
       </section>
+
+      <AttentionPanel
+        attention={report.attention}
+        title="How well the ad was seen"
+        hint="Measured for as long as each view lasted. Needs games on SDK 0.11 or newer."
+        wrapClass="cr-box"
+        headClass="cr-box-head"
+      />
 
       <AudiencePanel
         audience={report.players}

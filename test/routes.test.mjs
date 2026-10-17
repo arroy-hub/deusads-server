@@ -13,6 +13,7 @@ const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let organizationApplied = false;
 const organization = { placement_places: [], placement_folders: [], placement_scene_off: [] };
 let outdated = false;
+let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
 let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
 let cropMissing = false; // 0002 applied, 0003 not yet
 let targetingMissing = false; // 0017 applied, 0018 not yet
@@ -55,6 +56,9 @@ globalThis.fetch = async (input, init = {}) => {
     return fail(400, "42703", "column does not exist");
   }
   if ((outdated || cropMissing) && /crop_/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (attentionMissing && table === "impressions" && /view_distance/.test(text)) {
     return fail(400, "42703", "column does not exist");
   }
   if (contextMissing && table === "game_sessions" && /device_model|country|platform/.test(text)) {
@@ -407,6 +411,79 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   r = await sendFrom([imp(label)], "inst-" + label, bad);
   assert.equal(r.accepted, 1, "a bad install ID never sinks the batch");
   assert.equal(db.impressions.find((i) => i.event_id === label).install_id, undefined, "and is not stored");
+}
+
+// --- visibility and attention (migration 0035): how each view was seen, and the chances to be seen
+{
+  const UUID = "11111111-1111-4111-8111-111111111111";
+  const batch = async (body) => (await post(events, { sessionId: "att1", installId: INSTALL, sdkVersion: "0.11.0", impressions: [], ...body })).json();
+  const row = (id) => db.impressions.find((i) => i.event_id === id);
+
+  // a measured view keeps its length and the three averages, rounded to what the columns hold
+  r = await batch({ impressions: [imp("m1", { visibleSeconds: 7.5, distance: 2.3, screenFraction: 0.1234567, angle: 33.33 })] });
+  assert.equal(r.accepted, 1);
+  assert.equal(row("m1").visible_seconds, 7.5);
+  assert.equal(row("m1").view_distance, 2.3);
+  assert.equal(row("m1").screen_fraction, 0.1235);
+  assert.equal(row("m1").view_angle, 33.3);
+
+  // a view from an SDK before 0.11 is never taken for a measured one
+  r = await batch({ impressions: [imp("m2"), imp("m3", { distance: 0 }), imp("m4", { distance: "far" })] });
+  assert.equal(r.accepted, 3);
+  for (const id of ["m2", "m3", "m4"]) assert.equal(row(id).view_distance, undefined, id);
+
+  // values out of range are pulled in; they never sink the batch
+  r = await batch({ impressions: [imp("m5", { distance: 1e9, screenFraction: 5, angle: 500 }), imp("m6", { distance: 1, screenFraction: -1, angle: -3 })] });
+  assert.equal(r.accepted, 2);
+  assert.equal(row("m5").view_distance, 99999);
+  assert.equal(row("m5").screen_fraction, 1);
+  assert.equal(row("m5").view_angle, 180);
+  assert.equal(row("m6").screen_fraction, 0);
+  assert.equal(row("m6").view_angle, 0);
+
+  // before the table exists the opportunities are ignored and the views still count
+  const chance = (eventId, extra = {}) => ({ eventId, placementId: "a", creativeId: UUID, timestamp: 1700000000, count: 3, ...extra });
+  r = await batch({ impressions: [imp("m7", { distance: 2 })], opportunities: [chance("op0")] });
+  assert.equal(r.accepted, 1);
+  assert.equal(r.opportunities, 0);
+
+  db.ad_opportunities = [];
+  r = await batch({ opportunities: [chance("op1"), chance("op2", { count: 99999 })] });
+  assert.equal(r.accepted, 0);
+  assert.equal(r.opportunities, 2, "a batch of only chances is taken");
+  assert.equal(db.ad_opportunities.length, 2);
+  const stored = db.ad_opportunities.find((o) => o.event_id === "op1");
+  assert.equal(stored.game_id, GAME.id);
+  assert.equal(stored.owner_id, GAME.owner_id);
+  assert.equal(stored.placement_id, aId);
+  assert.equal(stored.session_id, "att1");
+  assert.equal(stored.install_id, INSTALL);
+  assert.equal(stored.opportunities, 3);
+  assert.equal(stored.own, false);
+  assert.equal(stored.occurred_at, new Date(1700000000 * 1000).toISOString());
+  assert.equal(db.ad_opportunities.find((o) => o.event_id === "op2").opportunities, 10000, "a huge count is capped");
+
+  // a retried upload changes nothing; rows that cannot be placed or counted are skipped
+  r = await batch({ opportunities: [chance("op1"), chance("bad1", { placementId: "nope" }), chance("bad2", { count: 0 }), chance(undefined), chance("bad3", { count: "x" })] });
+  assert.equal(r.opportunities, 0);
+  assert.equal(db.ad_opportunities.length, 2);
+
+  // chances of the developer's own creatives are marked
+  db.creatives.push({ id: OWN, kind: "own" });
+  r = await batch({ opportunities: [chance("own1", { creativeId: OWN })] });
+  assert.equal(r.opportunities, 1);
+  assert.equal(db.ad_opportunities.find((o) => o.event_id === "own1").own, true);
+  db.creatives.length = 0;
+
+  // 0034 in but 0035 not: the view counts, only the three figures are left out
+  attentionMissing = true;
+  r = await batch({ impressions: [imp("m8", { distance: 2, screenFraction: 0.2, angle: 10 })] });
+  attentionMissing = false;
+  assert.equal(r.accepted, 1);
+  assert.equal(row("m8").view_distance, undefined);
+  assert.equal(row("m8").visible_seconds, 1.2);
+
+  delete db.ad_opportunities;
 }
 
 // --- placement organisation (migration 0021): places, switches, views per place

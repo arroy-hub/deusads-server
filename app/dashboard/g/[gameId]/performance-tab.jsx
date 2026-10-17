@@ -7,6 +7,7 @@ import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, ratio, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
 import AudiencePanel from "../../audience-panel";
+import AttentionPanel from "../../attention-panel";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -179,6 +180,14 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             folded={folded}
             setFolded={setFolded}
             go={go}
+          />
+        )}
+
+        {!focus && (
+          <AttentionPanel
+            attention={model.attention}
+            title="How well the ads were seen"
+            hint="Advertisers' ads in this period, measured for as long as each view lasted. Needs SDK 0.11 or newer."
           />
         )}
 
