@@ -8163,3 +8163,12 @@ a.gm-mi { text-decoration: none; }
 .hd-top .tabs .tab[aria-current="page"]::before, .hd-top .tabs .tab[aria-current="page"]::after { content: ""; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; box-shadow: 0 2px 0 #f6f2ed; }
 .hd-top .tabs .tab[aria-current="page"]::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, #f6f2ed 12px); }
 .hd-top .tabs .tab[aria-current="page"]::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, #f6f2ed 12px); }
+
+/* Audience: platform, device, system, language, country (developer Performance tab and campaign report) */
+.au-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.au-title { margin: 0; font-size: 1rem; }
+.au-hint { margin: 2px 0 0; font-size: 0.8125rem; color: var(--ink-2); }
+.au-empty { margin: 0; padding: 4px 2px; font-size: 0.8125rem; color: var(--ink-2); }
+.au-bar { display: inline-block; vertical-align: middle; width: 90px; height: 8px; border-radius: 99px; background: #ece9e3; overflow: hidden; margin-right: 8px; }
+.au-bar > span { display: block; height: 100%; background: #b4472e; border-radius: 99px; }
+.au-num { font-variant-numeric: tabular-nums; font-size: 0.8125rem; }

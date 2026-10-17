@@ -13,6 +13,7 @@ const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let organizationApplied = false;
 const organization = { placement_places: [], placement_folders: [], placement_scene_off: [] };
 let outdated = false;
+let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
 let cropMissing = false; // 0002 applied, 0003 not yet
 let targetingMissing = false; // 0017 applied, 0018 not yet
 let profileReads = 0; // how often the game's own description was read
@@ -54,6 +55,9 @@ globalThis.fetch = async (input, init = {}) => {
     return fail(400, "42703", "column does not exist");
   }
   if ((outdated || cropMissing) && /crop_/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (contextMissing && table === "game_sessions" && /device_model|country|platform/.test(text)) {
     return fail(400, "42703", "column does not exist");
   }
 
@@ -553,6 +557,47 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   s = await announce({ sessionId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "wrong-key");
   assert.equal(s.status, 401);
   assert.equal(db.game_sessions.length, 2);
+
+  // player context (migration 0034): what the SDK says about the device, and the country from the request
+  const announceWith = async (body, headers = {}) => {
+    const res = await sessions.POST(
+      new Request("https://x/v1/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-deusads-key": GAME.api_key, ...headers },
+        body: JSON.stringify(body),
+      })
+    );
+    return { status: res.status, body: await res.json() };
+  };
+  s = await announceWith(
+    { sessionId: "11111111111111111111111111111111", sdkVersion: "0.11.0", platform: "Android", deviceModel: "Oculus Quest 3", os: "Android OS 12 / API-32", language: "German", appVersion: "1.4.2" },
+    { "x-vercel-ip-country": "de" }
+  );
+  assert.equal(s.body.accepted, 1);
+  const withContext = db.game_sessions.find((row) => row.session_id === "11111111111111111111111111111111");
+  assert.equal(withContext.platform, "quest");
+  assert.equal(withContext.device_model, "Oculus Quest 3");
+  assert.equal(withContext.os, "Android OS 12 / API-32");
+  assert.equal(withContext.language, "German");
+  assert.equal(withContext.app_version, "1.4.2");
+  assert.equal(withContext.country, "DE");
+  assert.ok(!JSON.stringify(withContext).includes("x-vercel"), "no request header is stored");
+
+  // an old SDK sends no context: the session is still counted, with nothing made up
+  s = await announceWith({ sessionId: "22222222222222222222222222222222", sdkVersion: "0.10.0" });
+  assert.equal(s.body.accepted, 1);
+  const bare = db.game_sessions.find((row) => row.session_id === "22222222222222222222222222222222");
+  assert.equal(bare.platform, undefined);
+  assert.equal(bare.country, undefined);
+
+  // a database without 0034 still counts the session
+  contextMissing = true;
+  s = await announceWith({ sessionId: "33333333333333333333333333333333", platform: "WindowsPlayer", deviceModel: "PC" }, { "x-vercel-ip-country": "US" });
+  contextMissing = false;
+  assert.equal(s.status, 200);
+  assert.equal(s.body.accepted, 1);
+  const plain = db.game_sessions.find((row) => row.session_id === "33333333333333333333333333333333");
+  assert.equal(plain.country, undefined);
 
   delete db.game_sessions;
 }

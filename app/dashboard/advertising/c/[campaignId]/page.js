@@ -8,6 +8,7 @@ import { formatCount, formatDay } from "../../../../../lib/analytics";
 import { ratio } from "../../../../../lib/performance-view";
 import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
+import AudiencePanel from "../../../audience-panel";
 import { planCreativeIds } from "../../../../../lib/campaign-plan";
 
 export const dynamic = "force-dynamic";
@@ -146,6 +147,15 @@ export default async function CampaignReportPage({ params, searchParams }) {
         </div>
         <CampaignChart series={report.series} events={report.events} />
       </section>
+
+      <AudiencePanel
+        audience={report.players}
+        kind="advertiser"
+        title="Who saw the ad"
+        hint="Where your impressions landed, by device. Impressions from before SDK 0.11 are listed as Unknown."
+        wrapClass="cr-box"
+        headClass="cr-box-head"
+      />
 
       <section className="cr-table-box" aria-labelledby="cr-creatives">
         <div className="cr-box-head cr-pad">

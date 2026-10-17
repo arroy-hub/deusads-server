@@ -8,6 +8,7 @@ import {
   preflight,
   warnSchemaOutdated,
 } from "../../../lib/api";
+import { playerContext } from "../../../lib/audience";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,12 @@ const HOUR_SECONDS = 3_600;
  * The SDK (0.10+) announces each play session once, when it begins, whether or not an ad is ever seen in it.
  * The dashboard counts impressions per session over these, so a session without an ad weighs in too.
  *
- * Body: { sessionId, installId?, sdkVersion?, startedAt? }   (startedAt: Unix seconds, UTC)
+ * Body: { sessionId, installId?, sdkVersion?, startedAt?,
+ *          platform?, deviceModel?, os?, language?, appVersion? }   (startedAt: Unix seconds, UTC)
+ *
+ * The last five (SDK 0.11+) describe the device and the build, never the person. The country is taken from the
+ * request (Vercel's x-vercel-ip-country); the IP address is not stored. Without migration 0034 they are left out
+ * and the session is still counted.
  *
  * Announcing the same session again changes nothing, so a retry is harmless. Needs migration 0033; before it
  * the route answers 200 and stores nothing, so an SDK that is ahead of the database does not loop on errors.
@@ -54,10 +60,16 @@ export const POST = guarded(async function POST(request) {
   const installId = cleanInstallId(body?.installId);
   if (installId) row.install_id = installId;
 
-  const { data, error: insertError } = await db
-    .from("game_sessions")
-    .upsert(row, { onConflict: "game_id,session_id", ignoreDuplicates: true })
-    .select("session_id");
+  const save = (values) =>
+    db.from("game_sessions").upsert(values, { onConflict: "game_id,session_id", ignoreDuplicates: true }).select("session_id");
+
+  const context = playerContext(body, request.headers);
+  let { data, error: insertError } = await save({ ...row, ...context });
+  if (insertError && isSchemaOutdated(insertError) && Object.keys(context).length > 0) {
+    // 0033 is in but 0034 is not: count the session, leave the player context out
+    warnSchemaOutdated("POST /v1/sessions", "0034_player_context.sql");
+    ({ data, error: insertError } = await save(row));
+  }
 
   if (insertError) {
     if (isSchemaOutdated(insertError)) {

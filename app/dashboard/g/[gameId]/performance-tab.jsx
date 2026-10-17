@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTra
 import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, ratio, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
+import AudiencePanel from "../../audience-panel";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -178,6 +179,15 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             folded={folded}
             setFolded={setFolded}
             go={go}
+          />
+        )}
+
+        {!focus && (
+          <AudiencePanel
+            audience={model.audience}
+            kind="developer"
+            title="Your players"
+            hint="Every session of the game in this period, by device. Sessions from before SDK 0.11 are listed as Unknown."
           />
         )}
       </div>
