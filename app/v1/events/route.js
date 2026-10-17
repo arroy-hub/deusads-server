@@ -19,7 +19,7 @@ const MAX_IMPRESSIONS = 1000;
  * POST /v1/events
  * Receives the impression batches the SDK sends during play and on quit.
  *
- * Body: { sessionId, sdkVersion,
+ * Body: { sessionId, installId?, sdkVersion,
  *         impressions: [ { eventId?, placementId, creativeId, timestamp, visibleSeconds } ] }
  *
  * Every row is one view of one banner. SDK 0.4+ gives each view its own eventId
@@ -40,6 +40,7 @@ export const POST = guarded(async function POST(request) {
   }
 
   const sessionId = typeof body?.sessionId === "string" ? body.sessionId.trim() : "";
+  const installId = cleanInstallId(body?.installId);
   const incoming = Array.isArray(body?.impressions) ? body.impressions : null;
 
   if (!sessionId) return json({ error: "Missing sessionId." }, 400);
@@ -93,6 +94,9 @@ export const POST = guarded(async function POST(request) {
       visible_seconds: visibleSecondsFrom(item?.visibleSeconds),
       occurred_at: unixToIso(item?.timestamp),
     };
+    // The anonymous install ID (SDK 0.9+) counts unique players; it needs migration 0032. Like the
+    // place, it is only set when there is one, so a database without the column still takes the batch.
+    if (installId) row.install_id = installId;
     // Only set when the place is known, which needs migration 0021: a database without the
     // column must not make the whole batch fall back to the old way of storing views.
     const placeId = placeIds.get(placeKey(placementId, item?.scene, item?.path));
@@ -129,13 +133,25 @@ export const POST = guarded(async function POST(request) {
     .upsert(rows, { onConflict: "game_id,event_id", ignoreDuplicates: true })
     .select("id");
 
+  if (insertError && isSchemaOutdated(insertError) && installId) {
+    // 0032 not applied yet: keep everything but the install ID.
+    warnSchemaOutdated("POST /v1/events", "0032_unique_players.sql");
+    ({ data, error: insertError } = await db
+      .from("impressions")
+      .upsert(
+        rows.map(({ install_id, ...rest }) => rest),
+        { onConflict: "game_id,event_id", ignoreDuplicates: true }
+      )
+      .select("id"));
+  }
+
   if (insertError && isSchemaOutdated(insertError)) {
     // Database not migrated yet: store as before, one row per placement per session.
     warnSchemaOutdated("POST /v1/events");
     ({ data, error: insertError } = await db
       .from("impressions")
       .upsert(
-        rows.map(({ event_id, own, place_id, ...rest }) => rest),
+        rows.map(({ event_id, own, place_id, install_id, ...rest }) => rest),
         { onConflict: "game_id,session_id,placement_id,creative_id", ignoreDuplicates: true }
       )
       .select("id"));
@@ -181,6 +197,13 @@ async function loadPlaceIds(db, game, placementIds, incoming) {
   }
   for (const place of data ?? []) byKey.set(placeKey(place.placement_id, place.scene, place.path), place.id);
   return byKey;
+}
+
+/** An install ID is a random token (a GUID with or without dashes). Anything else is ignored, never an error. */
+function cleanInstallId(value) {
+  if (typeof value !== "string") return null;
+  const id = value.trim();
+  return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : null;
 }
 
 function eventIdFor(item, sessionId) {

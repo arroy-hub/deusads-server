@@ -5,6 +5,7 @@ import { canAdvertise } from "../../../../../lib/admin-rules";
 import { loadCampaignReport } from "../../../../../lib/advertiser-data";
 import { deliveryNote, deltaText, gameRows } from "../../../../../lib/advertiser-overview";
 import { formatCount, formatDay } from "../../../../../lib/analytics";
+import { ratio } from "../../../../../lib/performance-view";
 import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
 import { planCreativeIds } from "../../../../../lib/campaign-plan";
@@ -102,6 +103,24 @@ export default async function CampaignReportPage({ params, searchParams }) {
             {showing} <span className="cr-card-of">of {games.length}</span>
           </span>
           <span className="cr-card-sub ovx-muted">{heldLine || "none held back"}</span>
+        </div>
+      </section>
+
+      <section className="cr-cards" aria-label="Reach">
+        <div className="cr-card">
+          <span className="cr-card-label">Players reached</span>
+          <span className="cr-card-value">{report.reach.players > 0 ? formatCount(report.reach.players) : "—"}</span>
+          <span className="cr-card-sub ovx-muted">{report.reach.players > 0 ? "different people who saw the ad" : "counted once games update the SDK"}</span>
+        </div>
+        <div className="cr-card">
+          <span className="cr-card-label">Impressions per session</span>
+          <span className="cr-card-value">{ratio(report.reach.perSession)}</span>
+          <span className="cr-card-sub ovx-muted">{formatCount(report.reach.sessions)} sessions with the ad</span>
+        </div>
+        <div className="cr-card">
+          <span className="cr-card-label">Impressions per player</span>
+          <span className="cr-card-value">{ratio(report.reach.perPlayer)}</span>
+          <span className="cr-card-sub ovx-muted">how often one player saw it</span>
         </div>
       </section>
 

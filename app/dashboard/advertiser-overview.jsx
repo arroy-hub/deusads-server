@@ -36,7 +36,7 @@ export default function AdvertiserOverview({ data, basePath }) {
         </p>
       )}
 
-      <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} />
+      <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} reach={data.reach ?? null} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} />
     </div>
   );
 }

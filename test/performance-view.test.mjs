@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import {
   BREAKDOWNS, NONE, UNKNOWN, advShare, assembleFocus, assembleList, buildPlan, cellFrom, chunkScopes, createScopes, dayCells,
-  compactCount, defaultBreakdown, emptyCell, facetOptions, figures, isFiltered, labelOf, membersOf, niceTop, parseParams, passes, sceneKeys, toQuery, valuesOf, windowOf,
+  compactCount, defaultBreakdown, emptyCell, facetOptions, figures, isFiltered, labelOf, membersOf, niceTop, parseParams, passes, ratio, sceneKeys, toQuery, valuesOf, windowOf,
 } from "../lib/performance-view.js";
 
 const place = (id, scene, path = "obj") => ({ id, scene, path });
@@ -56,6 +56,7 @@ for (let n = 0; n < 4000; n += 1) {
     visible: rnd() < 0.9 ? Math.round(rnd() * 900) / 100 : null,
     day: dayOf(Math.floor(rnd() * 73)), // Aug 1 to Oct 12, the window sees the last 30 days of it
     creative: `c${Math.floor(rnd() * 5)}`,
+    install: rnd() < 0.7 ? `u${Math.floor(rnd() * 150)}` : null, // older SDKs send no install ID
   });
 }
 
@@ -74,6 +75,11 @@ function evaluate(scopes, window, byDay) {
       adv_sessions: new Set(advRows.map((row) => row.session)).size,
       own_sessions: new Set(ownRows.map((row) => row.session)).size,
       adv_visible: sum(advRows), adv_visible_n: counted(advRows), own_visible: sum(ownRows), own_visible_n: counted(ownRows),
+      players: new Set(hit.map((row) => row.install).filter(Boolean)).size,
+      adv_players: new Set(advRows.map((row) => row.install).filter(Boolean)).size,
+      own_players: new Set(ownRows.map((row) => row.install).filter(Boolean)).size,
+      adv_tracked: advRows.filter((row) => row.install).length,
+      own_tracked: ownRows.filter((row) => row.install).length,
     };
   };
   for (const scope of scopes) {
@@ -189,11 +195,26 @@ assert.equal(chunkScopes([{ key: "a", members: Array.from({ length: 10 }, () => 
 assert.deepEqual(chunkScopes([]), []);
 
 // ---------------------------------------------------------------- the figures of a cell
-const cell = { adv: 6, own: 4, sessions: 7, advSessions: 5, ownSessions: 3, advVisible: 30, advVisibleN: 5, ownVisible: 10, ownVisibleN: 5 };
-assert.deepEqual(figures(cell, "all"), { views: 10, sessions: 7, avgVisible: 4 });
-assert.deepEqual(figures(cell, "adv"), { views: 6, sessions: 5, avgVisible: 6 });
-assert.deepEqual(figures(cell, "own"), { views: 4, sessions: 3, avgVisible: 2 });
-assert.deepEqual(figures(emptyCell(), "all"), { views: 0, sessions: 0, avgVisible: null }, "no timing: unknown, not 0");
+const cell = {
+  adv: 6, own: 4, sessions: 7, advSessions: 5, ownSessions: 3, advVisible: 30, advVisibleN: 5, ownVisible: 10, ownVisibleN: 5,
+  players: 4, advPlayers: 3, ownPlayers: 2, advTracked: 6, ownTracked: 2, // two of the own views come from an older SDK
+};
+assert.deepEqual(figures(cell, "all"), { views: 10, sessions: 7, players: 4, avgVisible: 4, perSession: 10 / 7, perPlayer: 2 });
+assert.deepEqual(figures(cell, "adv"), { views: 6, sessions: 5, players: 3, avgVisible: 6, perSession: 6 / 5, perPlayer: 2 });
+assert.deepEqual(figures(cell, "own"), { views: 4, sessions: 3, players: 2, avgVisible: 2, perSession: 4 / 3, perPlayer: 1 }, "views without an install ID do not count toward a player");
+assert.deepEqual(
+  figures(emptyCell(), "all"),
+  { views: 0, sessions: 0, players: 0, avgVisible: null, perSession: null, perPlayer: null },
+  "no timing, no players: unknown, not 0"
+);
+// views from SDKs before 0.9 have sessions but no players: the per-session figure works, the per-player one waits
+assert.equal(figures({ ...emptyCell(), adv: 12, advSessions: 4, sessions: 4 }, "adv").perSession, 3);
+assert.equal(figures({ ...emptyCell(), adv: 12, advSessions: 4, sessions: 4 }, "adv").perPlayer, null);
+assert.equal(ratio(10 / 7), "1.4");
+assert.equal(ratio(3), "3.0");
+assert.equal(ratio(null), "—");
+assert.equal(ratio(Number.NaN), "—");
+assert.deepEqual(cellFrom({ players: "5", adv_players: 4, own_players: 1, adv_tracked: "9", own_tracked: 2 }).advTracked, 9);
 assert.equal(figures(undefined, "adv").views, 0);
 assert.equal(advShare(cell), 60);
 assert.equal(advShare(emptyCell()), 0);
@@ -339,6 +360,8 @@ const k = everything.kpi.cell;
 assert.ok(k.advSessions <= k.sessions && k.ownSessions <= k.sessions);
 assert.ok(k.advSessions + k.ownSessions >= k.sessions, "a session can see both kinds");
 assert.ok(figures(k, "all").sessions <= figures(k, "all").views);
+assert.ok(k.players <= k.advTracked + k.ownTracked && k.advTracked + k.ownTracked <= k.adv + k.own, "players <= tracked views <= views");
+assert.ok(k.players >= Math.max(k.advPlayers, k.ownPlayers) && k.players <= k.advPlayers + k.ownPlayers, "a player seen by both sources counts once");
 assert.ok(Math.abs(figures(k, "all").avgVisible * (k.advVisibleN + k.ownVisibleN) - (k.advVisible + k.ownVisible)) < 1e-6);
 
 // a period: fewer days, fewer views, the same rules

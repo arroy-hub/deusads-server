@@ -8,6 +8,7 @@ import { categoryLabel } from "../../lib/categories";
 import { useMemo, useRef, useState } from "react";
 import { formatCount, formatDay, niceMax } from "../../lib/analytics";
 import { deltaText } from "../../lib/advertiser-overview";
+import { ratio } from "../../lib/performance-view";
 import { byDay, byWeek, chartEvents, colorOf, dashOf, mergeSplit, selectionTotals, sortCampaigns, sumSeries, weekdayDay } from "../../lib/overview-chart";
 
 const W = 720;
@@ -35,7 +36,7 @@ function deltaSeconds(now, before) {
  * down by campaign or creative (creative needs migration 0027), per day or per week,
  * with the pauses and blocks marked on it; Total can be compared with the period before.
  */
-export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false }) {
+export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false, reach = null }) {
   // Ticked at the start: campaigns that show something (impressions, a mark, running). With none of those, all of them.
   const [selected, setSelected] = useState(() => {
     const active = campaigns.filter((item) => item.impressions > 0 || item.daily.some(Boolean) || (item.events ?? []).length > 0 || ["live", "limited"].includes(item.status?.key));
@@ -53,6 +54,9 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   const chosen = campaigns.filter((item) => selected.has(item.id));
   const totals = selectionTotals(chosen);
   const allOn = chosen.length === campaigns.length;
+  // Players and sessions cannot be added up across campaigns (one person may see several), so the server counts them
+  // for all campaigns at once. That equals the selection while it holds every campaign that had views.
+  const reachOn = Boolean(reach) && campaigns.filter((item) => item.impressions > 0).every((item) => selected.has(item.id));
   const hasPrevious = chosen.some((item) => item.previousDaily.some(Boolean));
   const hasSplit = !splitMissing && campaigns.some((item) => item.split);
 
@@ -170,6 +174,21 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
           <span className="ovx-tile-label">Games reached</span>
           <span className="ovx-tile-value">{formatCount(totals.games)}</span>
           <span className="ovx-tile-sub ovx-muted">{totals.gamesBooked > 0 ? `of ${formatCount(totals.gamesBooked)} in ${allOn ? "your" : "the selected"} campaigns` : allOn ? "across all campaigns" : `in ${chosen.length} of ${campaigns.length} campaigns`}</span>
+        </div>
+        <div className="ovx-tile">
+          <span className="ovx-tile-label">Players reached</span>
+          <span className="ovx-tile-value">{reachOn && reach.players > 0 ? formatCount(reach.players) : "—"}</span>
+          <span className="ovx-tile-sub ovx-muted">{!reachOn ? "select every campaign with views" : reach.players > 0 ? "different people who saw an ad" : "counted once games update the SDK"}</span>
+        </div>
+        <div className="ovx-tile">
+          <span className="ovx-tile-label">Impressions per session</span>
+          <span className="ovx-tile-value">{reachOn ? ratio(reach.perSession) : "—"}</span>
+          <span className="ovx-tile-sub ovx-muted">{reachOn ? `${formatCount(reach.sessions)} sessions with an ad` : "select every campaign with views"}</span>
+        </div>
+        <div className="ovx-tile">
+          <span className="ovx-tile-label">Impressions per player</span>
+          <span className="ovx-tile-value">{reachOn ? ratio(reach.perPlayer) : "—"}</span>
+          <span className="ovx-tile-sub ovx-muted">{reachOn ? "how often one player saw an ad" : "select every campaign with views"}</span>
         </div>
       </section>
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { formatCount } from "../../../lib/analytics";
-import { PERIODS, advShare, compactCount, figures, niceTop } from "../../../lib/performance-view";
+import { PERIODS, advShare, compactCount, figures, niceTop, ratio } from "../../../lib/performance-view";
 import { gamesQuery } from "../../../lib/games-query";
 import GameIcon from "../game-icon";
 
@@ -236,9 +236,19 @@ export default function GamesPerformance({ model }) {
         </div>
         <div className="gp-side">
           <div>
-            <div className="gp-card-top">Sessions</div>
-            <div className="gp-big">{formatCount(shown.sessions)}</div>
-            <div className="gp-small">players who saw an ad</div>
+            <div className="gp-card-top">Players</div>
+            <div className="gp-big">{shown.players > 0 ? formatCount(shown.players) : "—"}</div>
+            <div className="gp-small">{shown.players > 0 ? "unique, summed over games" : "needs SDK 0.9 or newer"}</div>
+          </div>
+          <div>
+            <div className="gp-card-top">Per session</div>
+            <div className="gp-big">{ratio(shown.perSession)}</div>
+            <div className="gp-small">impressions in a session</div>
+          </div>
+          <div>
+            <div className="gp-card-top">Per player</div>
+            <div className="gp-big">{ratio(shown.perPlayer)}</div>
+            <div className="gp-small">impressions per player</div>
           </div>
           <div>
             <div className="gp-card-top">Avg. visible</div>

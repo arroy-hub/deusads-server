@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatCount } from "../../../../lib/analytics";
-import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, toQuery } from "../../../../lib/performance-view";
+import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, ratio, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
-const SESSIONS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
+const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
 const BY_LABEL = Object.fromEntries(BREAKDOWNS);
 const FILTER_KEYS = ["folder", "scene", "tag", "type", "format"];
 
@@ -137,9 +137,19 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
               </label>
             ))}
             <div className="pf-fig">
-              <span className="pf-src-top">Sessions</span>
-              <span className="pf-src-val">{count(kpiFigures.sessions)}</span>
-              <span className="pf-src-sub">{SESSIONS_NOTE[source]}</span>
+              <span className="pf-src-top">Players</span>
+              <span className="pf-src-val">{kpiFigures.players > 0 ? count(kpiFigures.players) : "—"}</span>
+              <span className="pf-src-sub">{kpiFigures.players > 0 ? PLAYERS_NOTE[source] : "needs SDK 0.9 or newer"}</span>
+            </div>
+            <div className="pf-fig">
+              <span className="pf-src-top">Per session</span>
+              <span className="pf-src-val">{ratio(kpiFigures.perSession)}</span>
+              <span className="pf-src-sub">impressions in a session</span>
+            </div>
+            <div className="pf-fig">
+              <span className="pf-src-top">Per player</span>
+              <span className="pf-src-val">{ratio(kpiFigures.perPlayer)}</span>
+              <span className="pf-src-sub">impressions per player</span>
             </div>
             <div className="pf-fig">
               <span className="pf-src-top">Avg. visible</span>

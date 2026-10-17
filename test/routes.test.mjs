@@ -391,6 +391,18 @@ assert.equal(db.impressions.find((i) => i.event_id === "o1").own, true);
 assert.equal(db.impressions.find((i) => i.event_id === "o2").own, false);
 db.creatives.length = 0;
 
+// the anonymous install ID (SDK 0.9+) is kept when it looks like one and ignored otherwise; the views count either way
+const sendFrom = async (list, sessionId, installId) => (await post(events, { sessionId, installId, sdkVersion: "0.9.0", impressions: list })).json();
+const INSTALL = "0123456789abcdef0123456789abcdef";
+r = await sendFrom([imp("i1")], "inst1", INSTALL);
+assert.equal(r.accepted, 1);
+assert.equal(db.impressions.find((i) => i.event_id === "i1").install_id, INSTALL);
+for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)], ["i5", ""], ["i6", undefined]]) {
+  r = await sendFrom([imp(label)], "inst-" + label, bad);
+  assert.equal(r.accepted, 1, "a bad install ID never sinks the batch");
+  assert.equal(db.impressions.find((i) => i.event_id === label).install_id, undefined, "and is not stored");
+}
+
 // --- placement organisation (migration 0021): places, switches, views per place
 {
   const baseline = live().map((id) => P(id));
