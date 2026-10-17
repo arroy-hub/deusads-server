@@ -11,6 +11,9 @@ import AttentionPanel from "../../attention-panel";
 import InteractionsPanel from "../../interactions-panel";
 import FillRatePanel from "../../fill-rate-panel";
 import SdkPerformancePanel from "../../sdk-performance-panel";
+import FrequencyPanel from "../../frequency-panel";
+import FatiguePanel from "../../fatigue-panel";
+import RetentionPanel from "../../retention-panel";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -209,6 +212,33 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             title="Interactions"
             hint="How often players took hold of, pressed or clicked an object that carries an ad. Only placements marked Interactive count."
             emptyText="No placement is marked Interactive yet. Turn on Interactive on the placements the player can touch (a bottle label, a poster they can grab), update the SDK to 0.11 or newer and send the placements again."
+          />
+        )}
+
+        {!focus && (
+          <FrequencyPanel
+            frequency={model.frequency}
+            title="How often players saw the ads"
+            hint="Advertisers' ads in this period, per player. Players are anonymous installations (SDK 0.9 or newer)."
+            emptyText="No views from identified players in this period yet."
+          />
+        )}
+
+        {!focus && (
+          <FatiguePanel
+            fatigue={model.fatigue}
+            title="Does attention fall with repeats?"
+            hint="Time spent looking at a creative the 1st, 2nd, 3rd time the same player sees it. Needs SDK 0.11 or newer for the time."
+            emptyText="No repeat views from identified players in this period yet."
+          />
+        )}
+
+        {!focus && (
+          <RetentionPanel
+            retention={model.retention}
+            title="Do players come back?"
+            hint="Share of new players who played again 1, 7 and 30 days after their first session, and how many players there are each day. Counted from the first session the SDK announced (SDK 0.10 or newer)."
+            emptyText="No sessions with identified players in this period yet."
           />
         )}
 

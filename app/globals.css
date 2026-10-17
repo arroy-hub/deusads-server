@@ -8191,3 +8191,7 @@ a.gm-mi { text-decoration: none; }
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Retention panel: players per day (migration 0039) */
+.rt-chart { display: block; width: 100%; height: 110px; }
+.rt-bar { fill: #b4472e; }
