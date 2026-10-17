@@ -1,5 +1,6 @@
 import {
   authenticateGame,
+  cleanInstallId,
   guarded,
   isSchemaOutdated,
   json,
@@ -197,13 +198,6 @@ async function loadPlaceIds(db, game, placementIds, incoming) {
   }
   for (const place of data ?? []) byKey.set(placeKey(place.placement_id, place.scene, place.path), place.id);
   return byKey;
-}
-
-/** An install ID is a random token (a GUID with or without dashes). Anything else is ignored, never an error. */
-function cleanInstallId(value) {
-  if (typeof value !== "string") return null;
-  const id = value.trim();
-  return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : null;
 }
 
 function eventIdFor(item, sessionId) {

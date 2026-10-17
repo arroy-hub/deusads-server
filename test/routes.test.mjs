@@ -145,6 +145,7 @@ await build({
     placements: "app/v1/placements/route.js",
     events: "app/v1/events/route.js",
     manifest: "app/v1/manifest/route.js",
+    sessions: "app/v1/sessions/route.js",
   },
   bundle: true,
   platform: "node",
@@ -157,6 +158,7 @@ const load = (name) => import(pathToFileURL(join(out, name + ".js")).href);
 const placements = await load("placements");
 const events = await load("events");
 const manifest = await load("manifest");
+const sessions = await load("sessions");
 
 const post = (handler, body, key = GAME.api_key) =>
   handler.POST(
@@ -501,6 +503,58 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(removedAt("Level_3", "Wall/A"), null, "an old SDK that sends no places does not wipe them");
 
   organizationApplied = false;
+}
+
+// --- session starts (migration 0033): the SDK announces each session once
+{
+  const SESSION = "0123456789abcdef0123456789abcd01";
+  const startedAt = Math.floor(Date.now() / 1000) - 60;
+  const announce = async (body, key) => {
+    const res = await post(sessions, body, key);
+    return { status: res.status, body: await res.json() };
+  };
+
+  // before the table exists: the SDK is not sent into an error loop, and nothing is stored
+  let s = await announce({ sessionId: SESSION, sdkVersion: "0.10.0", startedAt });
+  assert.equal(s.status, 200);
+  assert.equal(s.body.accepted, 0);
+
+  db.game_sessions = [];
+  s = await announce({ sessionId: SESSION, installId: INSTALL, sdkVersion: "0.10.0", startedAt });
+  assert.equal(s.status, 200);
+  assert.equal(s.body.accepted, 1);
+  assert.equal(db.game_sessions.length, 1);
+  const stored = db.game_sessions[0];
+  assert.equal(stored.game_id, GAME.id);
+  assert.equal(stored.owner_id, GAME.owner_id);
+  assert.equal(stored.session_id, SESSION);
+  assert.equal(stored.install_id, INSTALL);
+  assert.equal(stored.sdk_version, "0.10.0");
+  assert.equal(stored.started_at, new Date(startedAt * 1000).toISOString());
+
+  // announcing the same session again (a retry) changes nothing
+  s = await announce({ sessionId: SESSION, installId: INSTALL, sdkVersion: "0.10.0", startedAt });
+  assert.equal(s.body.accepted, 0);
+  assert.equal(s.body.duplicates, 1);
+  assert.equal(db.game_sessions.length, 1);
+
+  // a bad install ID never sinks the announcement; a clock far off is replaced by the time of the request
+  s = await announce({ sessionId: "fedcba9876543210fedcba9876543210", installId: "bad id!", startedAt: 5 });
+  assert.equal(s.body.accepted, 1);
+  const second = db.game_sessions.find((row) => row.session_id === "fedcba9876543210fedcba9876543210");
+  assert.equal(second.install_id, undefined);
+  assert.ok(Math.abs(Date.parse(second.started_at) - Date.now()) < 60_000, "a clock far in the past is not trusted");
+
+  // a session ID that cannot match an impression's is refused; a wrong key is refused
+  for (const bad of [undefined, "", 42, "short", "x".repeat(80), "with space 123456"]) {
+    s = await announce({ sessionId: bad, sdkVersion: "0.10.0" });
+    assert.equal(s.status, 400, "bad session ID " + String(bad));
+  }
+  s = await announce({ sessionId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "wrong-key");
+  assert.equal(s.status, 401);
+  assert.equal(db.game_sessions.length, 2);
+
+  delete db.game_sessions;
 }
 
 // --- database not migrated yet: routes keep working the old way

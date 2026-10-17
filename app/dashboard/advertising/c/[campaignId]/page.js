@@ -115,7 +115,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
         <div className="cr-card">
           <span className="cr-card-label">Impressions per session</span>
           <span className="cr-card-value">{ratio(report.reach.perSession)}</span>
-          <span className="cr-card-sub ovx-muted">{formatCount(report.reach.sessions)} sessions with the ad</span>
+          <span className="cr-card-sub ovx-muted">{formatCount(report.reach.sessions)} sessions where the ad was seen</span>
         </div>
         <div className="cr-card">
           <span className="cr-card-label">Impressions per player</span>

@@ -144,7 +144,7 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             <div className="pf-fig">
               <span className="pf-src-top">Per session</span>
               <span className="pf-src-val">{ratio(kpiFigures.perSession)}</span>
-              <span className="pf-src-sub">impressions in a session</span>
+              <span className="pf-src-sub">{kpiFigures.perSession == null ? "needs SDK 0.10 or newer" : "impressions per game session"}</span>
             </div>
             <div className="pf-fig">
               <span className="pf-src-top">Per player</span>
@@ -157,7 +157,7 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
               <span className="pf-src-sub">per view</span>
             </div>
           </div>
-          <p className="pf-hint">Click Advertisers or My creatives to count only those views, in the chart and below.</p>
+          <p className="pf-hint">Click Advertisers or My creatives to count only those views, in the chart and below. Per session counts every session of the game, also those in which no ad was seen.</p>
         </section>
 
         <PerformanceChart

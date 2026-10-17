@@ -183,7 +183,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
         <div className="ovx-tile">
           <span className="ovx-tile-label">Impressions per session</span>
           <span className="ovx-tile-value">{reachOn ? ratio(reach.perSession) : "—"}</span>
-          <span className="ovx-tile-sub ovx-muted">{reachOn ? `${formatCount(reach.sessions)} sessions with an ad` : "select every campaign with views"}</span>
+          <span className="ovx-tile-sub ovx-muted">{reachOn ? `${formatCount(reach.sessions)} sessions where an ad was seen` : "select every campaign with views"}</span>
         </div>
         <div className="ovx-tile">
           <span className="ovx-tile-label">Impressions per player</span>
