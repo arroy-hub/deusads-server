@@ -10,6 +10,7 @@ import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
 import AudiencePanel from "../../../audience-panel";
 import AttentionPanel from "../../../attention-panel";
+import InteractionsPanel from "../../../interactions-panel";
 import { planCreativeIds } from "../../../../../lib/campaign-plan";
 
 export const dynamic = "force-dynamic";
@@ -153,6 +154,15 @@ export default async function CampaignReportPage({ params, searchParams }) {
         attention={report.attention}
         title="How well the ad was seen"
         hint="Measured for as long as each view lasted. Needs games on SDK 0.11 or newer."
+        wrapClass="cr-box"
+        headClass="cr-box-head"
+      />
+
+      <InteractionsPanel
+        interactions={report.interactions}
+        title="Interactions"
+        hint="How often players took hold of, pressed or clicked the object your ad was on. Only objects the developer marked interactive count."
+        emptyText="Your ad has not run on an interactive object in this period."
         wrapClass="cr-box"
         headClass="cr-box-head"
       />

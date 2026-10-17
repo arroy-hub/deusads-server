@@ -24,7 +24,7 @@ const MAX_COUNT = 10_000;
  *
  * Body: { sessionId, installId?, sdkVersion,
  *         impressions: [ { eventId?, placementId, creativeId, timestamp, visibleSeconds,
- *                          distance?, screenFraction?, angle? } ],
+ *                          distance?, screenFraction?, angle?, interactions? } ],
  *         opportunities?: [ { eventId, placementId, creativeId, timestamp, count, scene?, path? } ] }
  *
  * From SDK 0.11 visibleSeconds is the whole length of the view and distance (metres), screenFraction (0 to 1)
@@ -155,6 +155,16 @@ export const POST = guarded(async function POST(request) {
     .upsert(rows, { onConflict: "game_id,event_id", ignoreDuplicates: true })
     .select("id");
 
+  if (insertError && isSchemaOutdated(insertError) && rows.some((row) => "interactions" in row)) {
+    // 0036 not applied yet: keep everything but the touches.
+    warnSchemaOutdated("POST /v1/events", "0036_interactions.sql");
+    for (const row of rows) delete row.interactions;
+    ({ data, error: insertError } = await db
+      .from("impressions")
+      .upsert(rows, { onConflict: "game_id,event_id", ignoreDuplicates: true })
+      .select("id"));
+  }
+
   if (insertError && isSchemaOutdated(insertError) && rows.some((row) => "view_distance" in row)) {
     // 0035 not applied yet: keep everything but how the view was seen.
     warnSchemaOutdated("POST /v1/events", "0035_visibility_attention.sql");
@@ -217,7 +227,10 @@ function attentionFrom(item) {
   if (!Number.isFinite(distance) || distance <= 0) return {};
   const fraction = Number(item?.screenFraction);
   const angle = Number(item?.angle);
+  const touches = Math.floor(Number(item?.interactions));
   return {
+    // Migration 0036: touches during the view, only on placements marked Interactive (else the SDK sends 0).
+    interactions: Number.isFinite(touches) ? Math.min(Math.max(touches, 0), 1000) : 0,
     view_distance: Math.round(Math.min(distance, 99_999) * 100) / 100,
     screen_fraction: Number.isFinite(fraction) ? Math.round(Math.min(Math.max(fraction, 0), 1) * 10_000) / 10_000 : null,
     view_angle: Number.isFinite(angle) ? Math.round(Math.min(Math.max(angle, 0), 180) * 10) / 10 : null,

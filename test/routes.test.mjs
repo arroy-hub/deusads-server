@@ -13,6 +13,7 @@ const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let organizationApplied = false;
 const organization = { placement_places: [], placement_folders: [], placement_scene_off: [] };
 let outdated = false;
+let interactionsMissing = false; // migration 0036 not applied: no placements.interactive, no impressions.interactions
 let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
 let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
 let cropMissing = false; // 0002 applied, 0003 not yet
@@ -56,6 +57,9 @@ globalThis.fetch = async (input, init = {}) => {
     return fail(400, "42703", "column does not exist");
   }
   if ((outdated || cropMissing) && /crop_/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (interactionsMissing && ((table === "placements" && /\"interactive\"/.test(text)) || (table === "impressions" && /\"interactions\"/.test(text)))) {
     return fail(400, "42703", "column does not exist");
   }
   if (attentionMissing && table === "impressions" && /view_distance/.test(text)) {
@@ -484,6 +488,53 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(row("m8").visible_seconds, 1.2);
 
   delete db.ad_opportunities;
+}
+
+// --- interactions (migration 0036): placements marked Interactive, touches during a view
+{
+  const sync = async (list) => send(list, false);
+
+  r = await sync([{ ...P("touch1"), interactive: true }, P("touch2")]);
+  assert.equal(r.status, 200);
+  assert.equal(db.placements.find((p) => p.external_id === "touch1").interactive, true);
+  assert.equal(db.placements.find((p) => p.external_id === "touch2").interactive, false, "not marked, not interactive");
+
+  // an SDK before 0.11 sends no flag: the placement is simply not interactive
+  r = await sync([P("touch1")]);
+  assert.equal(db.placements.find((p) => p.external_id === "touch1").interactive, false);
+
+  // 0036 not applied: the placements still save, without the flag
+  interactionsMissing = true;
+  r = await sync([{ ...P("touch3"), interactive: true }]);
+  interactionsMissing = false;
+  assert.equal(r.status, 200);
+  assert.ok(db.placements.find((p) => p.external_id === "touch3"), "saved without the flag");
+  assert.equal(db.placements.find((p) => p.external_id === "touch3").interactive, undefined);
+
+  const viewsWith = (list) => post(events, { sessionId: "itx1", installId: INSTALL, sdkVersion: "0.11.0", impressions: list }).then((res) => res.json());
+  const view = (id) => db.impressions.find((i) => i.event_id === id);
+
+  r = await viewsWith([
+    imp("t1", { distance: 1, screenFraction: 0.1, angle: 5, interactions: 3 }),
+    imp("t2", { distance: 1, interactions: 99999 }),
+    imp("t3", { distance: 1, interactions: -4 }),
+    imp("t4", { distance: 1, interactions: "x" }),
+    imp("t5", { interactions: 2 }),
+  ]);
+  assert.equal(r.accepted, 5);
+  assert.equal(view("t1").interactions, 3);
+  assert.equal(view("t2").interactions, 1000, "capped");
+  assert.equal(view("t3").interactions, 0);
+  assert.equal(view("t4").interactions, 0);
+  assert.equal(view("t5").interactions, undefined, "a view with no measurement is not a measured view");
+
+  // 0035 in, 0036 not: the view and its attention figures still count, only the touches are left out
+  interactionsMissing = true;
+  r = await viewsWith([imp("t6", { distance: 2, screenFraction: 0.2, angle: 10, interactions: 4 })]);
+  interactionsMissing = false;
+  assert.equal(r.accepted, 1);
+  assert.equal(view("t6").view_distance, 2);
+  assert.equal(view("t6").interactions, undefined);
 }
 
 // --- placement organisation (migration 0021): places, switches, views per place
