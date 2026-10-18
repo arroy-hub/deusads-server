@@ -7,7 +7,7 @@ import GameCardPreview from "../../game-card-preview";
 import MultiPick from "../../multi-pick";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
-import { FIELDS, PROFILE_KEYS } from "../../../../lib/targeting";
+import { FIELDS, GENRES_HINT, MAX_GAME_GENRES, PROFILE_KEYS } from "../../../../lib/targeting";
 import { ABOUT_LISTS, parseStoreUrl } from "../../../../lib/game-about";
 import { cropToStrip } from "../../../../lib/cover-image";
 import { COVERS, COVER_MAX_BYTES, parseCover } from "../../../../lib/game-cover";
@@ -64,7 +64,9 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   if (lists) for (const key of PROFILE_KEYS) if (lists[key].length === 0) missing.push(FIELDS[key].label.toLowerCase());
   const storeCheck = more ? parseStoreUrl(more.storeUrl) : { value: "" };
   if (storeCheck.error) missing.push("a valid store link");
-  const valid = missing.length === 0;
+  // A game saved before the genre limit may have more; it has to cut the list the next time it is saved.
+  const tooManyGenres = lists ? lists.genres.length > MAX_GAME_GENRES : false;
+  const valid = missing.length === 0 && !tooManyGenres;
   // A game the SDK has never talked to is not ready for advertisers, however complete its description is.
   const waitingForSdk = link?.mode === "new";
 
@@ -185,7 +187,9 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
     (iconChanged || coverChanged) && "card",
   ].filter(Boolean);
   const barText = !valid
-    ? `Still to fill in: ${missing.join(", ")}.`
+    ? missing.length > 0
+      ? `Still to fill in: ${missing.join(", ")}.`
+      : `Pick up to ${MAX_GAME_GENRES} genres.`
     : `Unsaved changes: ${changedParts.length > 1 ? `${changedParts.slice(0, -1).join(", ")} and ${changedParts.at(-1)}` : changedParts[0]}.`;
 
   const state = STATUS[link?.mode] ?? STATUS.new;
@@ -307,6 +311,8 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                   <MultiPick
                     key={key}
                     label={key === "platforms" ? "Platforms" : FIELDS[key].label}
+                    hint={key === "genres" ? GENRES_HINT : undefined}
+                    max={key === "genres" ? MAX_GAME_GENRES : undefined}
                     options={FIELDS[key].options}
                     value={lists[key]}
                     onChange={(next) => setList(key, next)}

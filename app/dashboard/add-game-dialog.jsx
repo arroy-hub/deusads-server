@@ -10,7 +10,7 @@ import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../lib/icon-image";
 import { cropToStrip } from "../../lib/cover-image";
 import { COVERS, COVER_MAX_BYTES, defaultCoverId } from "../../lib/game-cover";
 import { ABOUT_LISTS } from "../../lib/game-about";
-import { FIELDS, PROFILE_KEYS } from "../../lib/targeting";
+import { FIELDS, GENRES_HINT, MAX_GAME_GENRES, PROFILE_KEYS } from "../../lib/targeting";
 
 const EMPTY = {
   name: "",
@@ -291,6 +291,8 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                     <MultiPick
                       key={key}
                       label={key === "platforms" ? "Platforms" : FIELDS[key].label}
+                      hint={key === "genres" ? GENRES_HINT : undefined}
+                      max={key === "genres" ? MAX_GAME_GENRES : undefined}
                       options={FIELDS[key].options}
                       value={form[key]}
                       onChange={(next) => set({ [key]: next })}
