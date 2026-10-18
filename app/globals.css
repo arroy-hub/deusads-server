@@ -7759,8 +7759,8 @@ select.field:focus-visible,
 .pg-ic > .main-head { margin: 0; padding: 24px 40px; background: #fff; border-bottom: 1px solid #e6ddd3; box-shadow: 0 1px 0 rgba(60, 35, 20, 0.03); align-items: center; }
 .pg-ic > .main-head h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 3px; }
 .pg-ic > .main-head .lede { font-size: 14.5px; color: #6b5f56; margin: 0; }
-.pg-ic > :not(.main-head) { margin-left: 40px; margin-right: 40px; }
-.pg-ic > .main-head + * { margin-top: 26px; }
+.pg-ic > :not(.main-head):not(dialog) { margin-left: 40px; margin-right: 40px; }
+.pg-ic > .main-head + :not(dialog) { margin-top: 26px; }
 
 .gp { padding-bottom: 56px; }
 .gp-top { background: #fff; border-bottom: 1px solid #e6ddd3; padding: 24px 40px 0; box-shadow: 0 1px 0 rgba(60, 35, 20, 0.03); }
@@ -7774,7 +7774,7 @@ select.field:focus-visible,
 .gp-work { padding: 26px 40px 0; }
 @media (max-width: 800px) {
   .pg-ic > .main-head, .gp-top { padding-left: 16px; padding-right: 16px; }
-  .pg-ic > :not(.main-head) { margin-left: 16px; margin-right: 16px; }
+  .pg-ic > :not(.main-head):not(dialog) { margin-left: 16px; margin-right: 16px; }
   .gp-work, .mg-work { padding-left: 16px; padding-right: 16px; }
   .mg-top { padding-left: 16px; padding-right: 16px; }
 }
