@@ -8,6 +8,8 @@ import { loadOverview } from "../../lib/advertiser-data";
 import { parseRange } from "../../lib/reports";
 import AdvertiserOverview from "./advertiser-overview";
 import { homeFor } from "../../lib/nav";
+import { loadDeckLayout } from "../../lib/deck-layout-data";
+import { userClient } from "../../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Home" };
@@ -148,5 +150,6 @@ async function DeveloperHome({ me }) {
 
 async function AdvertiserHome({ me, days }) {
   const data = await loadOverview(me.service, me, days);
-  return <AdvertiserOverview data={data} basePath="/dashboard" />;
+  const deckLayout = await loadDeckLayout(await userClient(), "advertiser");
+  return <AdvertiserOverview data={data} basePath="/dashboard" deckLayout={deckLayout} />;
 }

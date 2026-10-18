@@ -7,7 +7,7 @@ import { REPORT_RANGES } from "../../lib/reports";
 export { default as StatusPill } from "./advertising/status-pill";
 
 /** The advertiser's Overview: the period, the headline numbers, the chart and the campaigns table. What needs attention lives in the bell. */
-export default function AdvertiserOverview({ data, basePath }) {
+export default function AdvertiserOverview({ data, basePath, deckLayout = null }) {
   const { days } = data;
 
   return (
@@ -36,7 +36,7 @@ export default function AdvertiserOverview({ data, basePath }) {
         </p>
       )}
 
-      <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} reach={data.reach ?? null} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} />
+      <OverviewExplorer key={days} days={days} dates={data.dates} campaigns={data.campaigns} reach={data.reach ?? null} previous={data.previous ?? null} splitMissing={Boolean(data.splitMissing)} deckLayout={deckLayout} />
     </div>
   );
 }

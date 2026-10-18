@@ -609,7 +609,7 @@ function DailyTable({ days, dev, source, o, aside, info }) {
 }
 
 /** "Advanced Data": a link under the Impressions-per-day chart that opens a board of widgets. Widgets are switched on in the Widgets menu, dragged by their grip, and resized by their edges. */
-export default function MetricsDeck({ kind, model, source = "all", days, initial = null, onChange = null }) {
+export default function MetricsDeck({ kind, model, source = "all", days, initial = null, onChange = null, scope = "Same selection as the chart." }) {
   const dev = kind === "developer";
   // the layout (open, which widgets, their sizes) comes from the account and goes back through `onChange`
   const [open, setOpenState] = useState(initial?.open ?? false);
@@ -819,7 +819,7 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
         <div id="dk-panel" className="dk-panel">
           <div className="md-head">
             <div>
-              <p className="md-sub">Same selection as the chart. Pick widgets, drag the grip to move one, pull an edge to resize.</p>
+              <p className="md-sub">{scope} Pick widgets, drag the grip to move one, pull an edge to resize.</p>
             </div>
             <div className="wm" ref={wrap}>
               <button type="button" id="wm-btn" className="wm-btn" aria-haspopup="true" aria-expanded={menu} onClick={() => setMenu(!menu)}>
