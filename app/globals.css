@@ -8646,3 +8646,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .cc-i{display:inline-grid;place-items:center;width:15px;height:15px;border:1px solid #d3c8bc;border-radius:4px;font:700 10px/1 "Manrope",sans-serif;color:#6b5f56;flex:none}
 .cs-wide .rd-noend{margin-top:31px}
 .cc-utc .ig-i{margin:0}
+/* round 35: campaign plate: the icon sits as far from the left edge as from the top and bottom; a game's own picture has no coloured tile behind it */
+.cr-top .gm-plate{padding-left:11px}
+.cr-gamecell img.game-icon{background:none}
