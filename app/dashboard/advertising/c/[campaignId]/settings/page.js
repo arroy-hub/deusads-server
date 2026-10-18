@@ -21,13 +21,14 @@ export default async function CampaignSettingsPage({ params }) {
   // The games that have opened placements, so the audience editor can say how many fit.
   let catalog = null;
   if (head.rules) {
-    let openQuery = me.service.from("placements").select("game_id, games(genres, platforms, languages)").eq("open_to_advertisers", true).is("removed_at", null);
+    let openQuery = me.service.from("placements").select("game_id, games(id, name, icon_path, genres, platforms, languages)").eq("open_to_advertisers", true).is("removed_at", null);
     openQuery = openQuery.neq("owner_id", me.user.id); // the server never books an advertiser on their own games, admin or not
     const { data: open, error } = await openQuery;
     if (!error) {
       const byGame = new Map();
       for (const row of open ?? []) if (row.games && !byGame.has(row.game_id)) byGame.set(row.game_id, row.games);
-      catalog = [...byGame.values()];
+      const urlOf = (path) => me.service.storage.from("creatives").getPublicUrl(path).data.publicUrl;
+      catalog = [...byGame.values()].map((game) => ({ ...game, iconUrl: game.icon_path ? urlOf(game.icon_path) : "" }));
     }
   }
   const hasOpen = head.bookings.some((booking) => booking.status === "pending" || booking.status === "approved");

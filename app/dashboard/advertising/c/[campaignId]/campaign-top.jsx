@@ -6,6 +6,7 @@ import CategoryIcon from "../../category-icon";
 import { REPORT_RANGES, parseRange } from "../../../../../lib/reports";
 import { categoryLabel } from "../../../../../lib/categories";
 import { TONE } from "../../../_cabinet/dates";
+import { STATUS_DOT } from "../../../../../lib/campaign-cover";
 import { DateRange, StatusMenu } from "../../../_cabinet/ui";
 
 /**
@@ -34,7 +35,7 @@ export default function CampaignTop({ h, creatives, coverCss }) {
             <span className="rd-tile is-lg cr-top-tile" style={{ "--tone": tone }}>
               <CategoryIcon category={h.category} label={h.category ? categoryLabel(h.category) : "No category yet"} />
             </span>
-            <i className="gm-status" style={{ background: tone }} role="img" aria-label={h.status.label} />
+            <i className="gm-status" style={{ background: STATUS_DOT[h.status.key] ?? "#9aa0a6" }} role="img" aria-label={h.status.label} />
           </span>
           <div>
             <h1>{h.name}</h1>

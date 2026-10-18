@@ -8,7 +8,7 @@ import { cropToStrip } from "../../../../../../lib/cover-image";
 import { COVERS, COVER_MAX_BYTES } from "../../../../../../lib/game-cover";
 import { TONE, addD, diff, fmtDay, todayISO } from "../../../../_cabinet/dates";
 import { DateRange, PauseDialog, Pop } from "../../../../_cabinet/ui";
-import { IcPause, IcStop } from "../../../../_cabinet/icons";
+import { IcStop } from "../../../../_cabinet/icons";
 import { navigating } from "../../../../_cabinet/nav";
 import { Info } from "../../../../metrics-deck";
 import CampaignCard from "./campaign-card";
@@ -120,7 +120,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
   }
 
   return (
-    <div className="cs-wide">
+    <>
       <section className="st-card st-prop ag-embed" aria-labelledby="camp-card-title">
         <div className="st-prop-head">
           <div>
@@ -171,7 +171,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
       {audience}
       {hasOpen && rules && (
         <section className="cs-card cs-rows" aria-label="Pause or stop">
-          <div className="cs-row"><div><h2>Pause or stop</h2><p>Hold the ads for a day, a week or until a date, or end the campaign for good. Players see the change at their next launch.</p></div><button type="button" className="button button-quiet" onClick={() => setPausing("pause")}><IcPause size={15} /> {status.key === "paused" ? "Resume or stop…" : "Pause or stop…"}</button></div>
+          <div className="cs-row"><div><h2>Pause or stop</h2><p>Hold the ads for a day, a week or until a date, or end the campaign for good. Players see the change at their next launch.</p></div><button type="button" className="button button-quiet" onClick={() => setPausing("pause")}>{status.key === "paused" ? "Resume or stop…" : "Pause or stop…"}</button></div>
         </section>
       )}
       {duplicate}
@@ -202,6 +202,6 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
         </div>
       </section>
       {pausing && <PauseDialog name={name} campaignId={id} initial={pausing} status={status.key} onClose={() => setPausing(null)} />}
-    </div>
+    </>
   );
 }

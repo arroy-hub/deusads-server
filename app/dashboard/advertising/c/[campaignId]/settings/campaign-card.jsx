@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import CategoryIcon from "../../../category-icon";
 import { COVERS } from "../../../../../../lib/game-cover";
 import { categoryLabel } from "../../../../../../lib/categories";
-import { TONE, diff, fmtDay } from "../../../../_cabinet/dates";
+import { TONE, diff, fmtDay, todayISO } from "../../../../_cabinet/dates";
+import { STATUS_DOT } from "../../../../../../lib/campaign-cover";
 import { DateRange } from "../../../../_cabinet/ui";
 
 /**
@@ -22,6 +23,10 @@ export default function CampaignCard({ name, from, until, status, coverCss, chip
   const tone = TONE[status.key] ?? "#8c7f73";
   const running = !["paused", "stopped", "ended"].includes(status.key);
   const length = from && until ? diff(until, from) + 1 : null;
+  // "day 28 of 56" while it runs, the length before it starts and after it ends
+  const today = todayISO();
+  const day = from && from <= today && (!until || today <= until) ? diff(today, from) + 1 : null;
+  const sub = day ? (length ? `day ${day} of ${length}` : `day ${day}`) : length ? `${length} days` : "";
   return (
     <article className="gm-card">
       <div className="gm-cover ag-cover cc-cover" style={{ background: coverCss }}>
@@ -50,11 +55,11 @@ export default function CampaignCard({ name, from, until, status, coverCss, chip
             <span className="rd-tile is-lg cr-top-tile" style={{ "--tone": tone }}>
               <CategoryIcon category={category} label={category ? categoryLabel(category) : "No category yet"} />
             </span>
-            <i className="gm-status" style={{ background: tone }} role="img" aria-label={status.label} />
+            <i className="gm-status" style={{ background: STATUS_DOT[status.key] ?? "#9aa0a6" }} role="img" aria-label={status.label} />
           </span>
           <div>
             <h2 className={name.trim() ? undefined : "ag-name-empty"}>{name.trim() || "Campaign name"}</h2>
-            <div className="gm-sub"><b style={{ color: tone }}>{status.label}</b>{length ? ` · ${length} days` : ""}</div>
+            <div className="gm-sub"><b style={{ color: tone }}>{status.label}</b>{sub ? ` · ${sub}` : ""}</div>
           </div>
         </div>
         <div className="ag-tags">
