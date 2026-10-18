@@ -4,6 +4,8 @@ import { canAdvertise } from "../../../../lib/admin-rules";
 import { loadOverview } from "../../../../lib/advertiser-data";
 import { parseRange } from "../../../../lib/reports";
 import AdvertiserOverview from "../../advertiser-overview";
+import { loadDeckLayout } from "../../../../lib/deck-layout-data";
+import { userClient } from "../../../../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Overview" };
@@ -14,5 +16,6 @@ export default async function OverviewPage({ searchParams }) {
   if (!me || !canAdvertise(me.role)) notFound();
   const query = await searchParams;
   const data = await loadOverview(me.service, me, parseRange(query?.days));
-  return <AdvertiserOverview data={data} basePath="/dashboard/advertising/overview" />;
+  const deckLayout = await loadDeckLayout(await userClient(), "advertiser");
+  return <AdvertiserOverview data={data} basePath="/dashboard/advertising/overview" deckLayout={deckLayout} />;
 }
