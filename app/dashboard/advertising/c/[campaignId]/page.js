@@ -8,6 +8,9 @@ import { formatCount, formatDay } from "../../../../../lib/analytics";
 import { ratio } from "../../../../../lib/performance-view";
 import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
+import CompareBox from "./compare-box";
+import { compareFigures } from "../../../../../lib/campaign-compare";
+import { loadGameCards } from "../../../../../lib/game-cards";
 import DeckBoard from "../../../deck-board";
 import { loadDeckLayout } from "../../../../../lib/deck-layout-data";
 import { userClient } from "../../../../../lib/supabase-server";
@@ -49,6 +52,9 @@ export default async function CampaignReportPage({ params, searchParams }) {
   const avgDelta = deltaSeconds(avgNow, previous.avgVisible);
   const hours = avgNow == null ? null : (avgNow * Number(totals.impressions)) / 3600;
   const heldLine = [paused > 0 ? `${paused} paused` : "", blocked > 0 ? `${blocked} with a blocked creative` : ""].filter(Boolean).join(" · ");
+  const cards = await loadGameCards(me.service, games);
+  const creativeRows = report.creativeRows.map((item) => ({ ...item, f: report.compare.creatives[item.id] ?? compareFigures(null) }));
+  const gameCompare = games.map((game) => ({ ...game, name: game.game, tags: report.gameTags[game.id] ?? "", card: cards[game.id], f: report.compare.games[game.id] ?? compareFigures(null) }));
   const marks = report.events.filter((event) => event.kind !== "live");
 
   return (
@@ -69,8 +75,8 @@ export default async function CampaignReportPage({ params, searchParams }) {
         </div>
       )}
 
-      <section className="cr-cards" aria-label="Key numbers">
-        <div className="cr-card">
+      <section className="cr-sum" aria-label="Key numbers">
+        <div className="cr-sum-hero">
           <span className="cr-card-label">Impressions</span>
           <span className="cr-card-value">{formatCount(totals.impressions)}</span>
           <span className="cr-card-sub">
@@ -83,7 +89,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
             )}
           </span>
         </div>
-        <div className="cr-card">
+        <div className="cr-sum-cell">
           <span className="cr-card-label">Average view time</span>
           <span className="cr-card-value">{avgNow == null ? "—" : `${avgNow.toFixed(1)} s`}</span>
           <span className="cr-card-sub">
@@ -96,32 +102,29 @@ export default async function CampaignReportPage({ params, searchParams }) {
             )}
           </span>
         </div>
-        <div className="cr-card">
+        <div className="cr-sum-cell">
           <span className="cr-card-label">Total visible time</span>
           <span className="cr-card-value">{hours == null ? "—" : `${hours.toFixed(1)} h`}</span>
           <span className="cr-card-sub ovx-muted">sum of seconds the ad was in view</span>
         </div>
-        <div className="cr-card">
+        <div className="cr-sum-cell">
           <span className="cr-card-label">Games showing now</span>
           <span className="cr-card-value">
             {showing} <span className="cr-card-of">of {games.length}</span>
           </span>
           <span className="cr-card-sub ovx-muted">{heldLine || "none held back"}</span>
         </div>
-      </section>
-
-      <section className="cr-cards" aria-label="Reach">
-        <div className="cr-card">
+        <div className="cr-sum-cell">
           <span className="cr-card-label">Players reached</span>
           <span className="cr-card-value">{report.reach.players > 0 ? formatCount(report.reach.players) : "—"}</span>
           <span className="cr-card-sub ovx-muted">{report.reach.players > 0 ? "different people who saw the ad" : "counted once games update the SDK"}</span>
         </div>
-        <div className="cr-card">
+        <div className="cr-sum-cell">
           <span className="cr-card-label">Impressions per session</span>
           <span className="cr-card-value">{ratio(report.reach.perSession)}</span>
           <span className="cr-card-sub ovx-muted">{formatCount(report.reach.sessions)} sessions where the ad was seen</span>
         </div>
-        <div className="cr-card">
+        <div className="cr-sum-cell">
           <span className="cr-card-label">Impressions per player</span>
           <span className="cr-card-value">{ratio(report.reach.perPlayer)}</span>
           <span className="cr-card-sub ovx-muted">how often one player saw it</span>
@@ -149,146 +152,56 @@ export default async function CampaignReportPage({ params, searchParams }) {
           </div>
         </div>
         <CampaignChart series={report.series} events={report.events} />
+        <DeckBoard
+          kind="advertiser"
+          model={report}
+          days={report.series.map((d) => ({ date: d.date, adv: d.impressions }))}
+          initial={deckLayout}
+        />
       </section>
 
-      <DeckBoard
-        kind="advertiser"
-        model={report}
-        days={report.series.map((d) => ({ date: d.date, adv: d.impressions }))}
-        initial={deckLayout}
+      <CompareBox
+        creatives={creativeRows}
+        games={gameCompare}
+        emptyCreatives={planCreativeIds(report.campaign.plan).length > 0 ? "The creatives are attached. Figures appear here after their first impressions." : "No creatives in this campaign yet."}
       />
 
-      <section className="cr-table-box" aria-labelledby="cr-creatives">
-        <div className="cr-box-head cr-pad">
-          <div>
-            <h2 id="cr-creatives">Which creative works better</h2>
-            <p className="ovx-hint">Creatives rotate, so you can compare them over the same days.</p>
-          </div>
+      <section className="cr-table-box cr-log" aria-labelledby="cr-log-title">
+        <div className="cr-pad">
+          <h2 id="cr-log-title">Pauses and blocks</h2>
+          <p className="ovx-hint">What developers did to this campaign, and why.</p>
         </div>
-        {report.creativeRows.length === 0 ? (
-          <p className="settings-help cr-pad">{planCreativeIds(report.campaign.plan).length > 0 ? "The creatives are attached. Figures appear here after their first impressions." : "No creatives in this campaign yet."}</p>
+        {report.log.length === 0 ? (
+          <p className="settings-help cr-pad">Nothing is paused or blocked.</p>
         ) : (
-          <div className="ov-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Creative</th>
-                  <th className="num">Impressions</th>
-                  <th style={{ width: 140 }}>Share</th>
-                  <th className="num">Avg view</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {report.creativeRows.map((item) => (
-                  <tr key={item.id}>
-                    <td className="cr-strong">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {item.url ? <img className="cr-thumb" src={item.url} alt="" /> : <span className="cr-thumb" />}
-                      {item.name}
-                    </td>
-                    <td className="num">{item.impressions > 0 ? formatCount(item.impressions) : "—"}</td>
-                    <td>
-                      <span className="ov-share">
-                        <span className="ov-bar-track" aria-hidden="true">
-                          <span className="ov-bar-fill" style={{ width: `${Math.round(item.share * 100)}%` }} />
-                        </span>
-                        <span className="num">{Math.round(item.share * 100)}%</span>
-                      </span>
-                    </td>
-                    <td className="num">{item.avgVisible == null ? "—" : `${item.avgVisible.toFixed(1)} s`}</td>
-                    <td>{item.longer && <span className="ov-pill ov-live">Longer views</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <div className="cr-split">
-        <section className="cr-table-box cr-games" aria-labelledby="cr-games">
-          <h2 id="cr-games" className="sr-only">
-            Games
-          </h2>
-          {games.length === 0 ? (
-            <p className="settings-help cr-pad">No placements in this campaign yet. Add some on the Placements tab.</p>
-          ) : (
-            <div className="ov-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Game</th>
-                    <th>Genre · Platform</th>
-                    <th>Status in game</th>
-                    <th className="num">Impressions</th>
-                    <th style={{ width: 120 }}>Share</th>
-                    <th className="num">Avg view</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {games.map((game) => (
-                    <tr key={game.id}>
-                      <td className="cr-strong">{game.game}</td>
-                      <td className="ovx-muted">{report.gameTags[game.id] || "—"}</td>
-                      <td>
-                        <span className={`ov-pill ov-${PILL[game.state] ?? "waiting"}`}>{game.label}</span>
-                      </td>
-                      <td className="num">{formatCount(game.impressions)}</td>
-                      <td>
-                        <span className="ov-share">
-                          <span className="ov-bar-track" aria-hidden="true">
-                            <span className="ov-bar-fill" style={{ width: `${Math.round(game.share * 100)}%` }} />
-                          </span>
-                          <span className="num">{Math.round(game.share * 100)}%</span>
-                        </span>
-                      </td>
-                      <td className="num">{game.avgVisible == null ? "—" : `${game.avgVisible.toFixed(1)} s`}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="cr-table-box cr-log" aria-labelledby="cr-log-title">
-          <div className="cr-pad">
-            <h2 id="cr-log-title">Pauses and blocks</h2>
-            <p className="ovx-hint">What developers did to this campaign, and why.</p>
-          </div>
-          {report.log.length === 0 ? (
-            <p className="settings-help cr-pad">Nothing is paused or blocked.</p>
-          ) : (
-            report.log.map((entry) => (
-              <div className="cr-log-item" key={entry.key}>
-                <div className="cr-log-head">
-                  <span className={`ov-pill ov-${entry.state === "paused" ? "paused" : "blocked"}`}>{entry.title}</span>
-                  {entry.at && <span className="ovx-hint">{formatDay(entry.at)}</span>}
-                </div>
-                <strong>
-                  {entry.game}
-                  {entry.what ? ` · “${entry.what}”` : ""}
-                </strong>
-                <span className="ovx-muted">{entry.reason ? `Reason from the developer: “${entry.reason}”` : "No reason given by the developer."}</span>
-                <span className="ovx-hint">
-                  {entry.title.startsWith("Creative") ? "Your other creatives still run in this game." : "Applies to this game only. Takes effect at the player’s next launch."}
-                </span>
-                {entry.title.startsWith("Creative") ? (
-                  <Link className="button button-quiet button-small" href={`/dashboard/advertising/c/${campaign.id}/creatives`}>
-                    Add another creative
-                  </Link>
-                ) : (
-                  <Link className="button button-quiet button-small" href={`/dashboard/advertising/c/${campaign.id}/settings`}>
-                    Edit audience
-                  </Link>
-                )}
+          report.log.map((entry) => (
+            <div className="cr-log-item" key={entry.key}>
+              <div className="cr-log-head">
+                <span className={`ov-pill ov-${entry.state === "paused" ? "paused" : "blocked"}`}>{entry.title}</span>
+                {entry.at && <span className="ovx-hint">{formatDay(entry.at)}</span>}
               </div>
-            ))
-          )}
-          <p className="ovx-hint cr-pad cr-log-foot">Blocks are reversible by the developer. You are notified when one is lifted.</p>
-        </section>
-      </div>
+              <strong>
+                {entry.game}
+                {entry.what ? ` · “${entry.what}”` : ""}
+              </strong>
+              <span className="ovx-muted">{entry.reason ? `Reason from the developer: “${entry.reason}”` : "No reason given by the developer."}</span>
+              <span className="ovx-hint">
+                {entry.title.startsWith("Creative") ? "Your other creatives still run in this game." : "Applies to this game only. Takes effect at the player’s next launch."}
+              </span>
+              {entry.title.startsWith("Creative") ? (
+                <Link className="button button-quiet button-small" href={`/dashboard/advertising/c/${campaign.id}/creatives`}>
+                  Add another creative
+                </Link>
+              ) : (
+                <Link className="button button-quiet button-small" href={`/dashboard/advertising/c/${campaign.id}/settings`}>
+                  Edit audience
+                </Link>
+              )}
+            </div>
+          ))
+        )}
+        <p className="ovx-hint cr-pad cr-log-foot">Blocks are reversible by the developer. You are notified when one is lifted.</p>
+      </section>
     </>
   );
 }

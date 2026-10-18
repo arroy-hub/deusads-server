@@ -36,14 +36,18 @@ export function Bubble({ anchor, label, onClose, width = 340, children }) {
  * The game's name in a list: a click opens the same card the developer sees in the game's Settings, read-only.
  * `game` is { name, iconUrl, coverCss, form, state, label, views, placements, campaigns }.
  */
-export default function GameNameButton({ game }) {
+export default function GameNameButton({ game, sub = null }) {
   const [open, setOpen] = useState(null);
   const [dot, word] = STATE_DOT[game.state] ?? STATE_DOT.showing;
   return (
     <>
       <span className="cr-gamecell">
         <GameIcon name={game.name} url={game.iconUrl} size="sm" />
-        <button type="button" className="cr-gamelink" aria-haspopup="dialog" aria-expanded={Boolean(open)} onClick={(e) => { const a = e.currentTarget; setOpen(open ? null : a); }}>{game.name}</button>
+        {sub ? (
+          <span><button type="button" className="cr-gamelink" aria-haspopup="dialog" aria-expanded={Boolean(open)} onClick={(e) => { const a = e.currentTarget; setOpen(open ? null : a); }}>{game.name}</button><span className="cr-sub">{sub}</span></span>
+        ) : (
+          <button type="button" className="cr-gamelink" aria-haspopup="dialog" aria-expanded={Boolean(open)} onClick={(e) => { const a = e.currentTarget; setOpen(open ? null : a); }}>{game.name}</button>
+        )}
       </span>
       {open && (
         <Bubble anchor={open} label={game.name} onClose={() => setOpen(null)}>
