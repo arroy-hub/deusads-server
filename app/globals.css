@@ -8661,3 +8661,4 @@ body.ig-dragging *{cursor:grabbing!important}
 
 /* Overview: the chart panel has no padding of its own, so the widget board keeps the chart head's 18px gutter */
 .ovx-chart > .dk{margin:0;padding:6px 18px 16px}
+.dk-link.is-wait{opacity:.45;cursor:default}.dk-link.is-wait:hover{text-decoration:none}
