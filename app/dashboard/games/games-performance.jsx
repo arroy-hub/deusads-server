@@ -257,7 +257,7 @@ export default function GamesPerformance({ model }) {
           </div>
         </div>
       </div>
-      <p className="gp-hint">Select Advertisers or My creatives to count only those views, in the chart and below. A view counts when a player had the placement on screen. Per session counts every session of a game, also those in which no ad was seen.</p>
+      <p className="gp-hint is-one" title="A view counts when a player had the placement on screen. Per session counts every session of a game, also those in which no ad was seen.">Select Advertisers or My creatives to count only those views. Per session counts every session, also those with no ad.</p>
 
       <section className="gp-panel" aria-label="Impressions per day">
         <div className="gp-chart-head">

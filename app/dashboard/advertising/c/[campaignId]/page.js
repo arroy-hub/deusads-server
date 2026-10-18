@@ -8,12 +8,9 @@ import { formatCount, formatDay } from "../../../../../lib/analytics";
 import { ratio } from "../../../../../lib/performance-view";
 import { parseRange, reportRows } from "../../../../../lib/reports";
 import CampaignChart from "./campaign-chart";
-import AudiencePanel from "../../../audience-panel";
-import AttentionPanel from "../../../attention-panel";
-import InteractionsPanel from "../../../interactions-panel";
-import FrequencyPanel from "../../../frequency-panel";
-import FatiguePanel from "../../../fatigue-panel";
-import ContextPanel from "../../../context-panel";
+import DeckBoard from "../../../deck-board";
+import { loadDeckLayout } from "../../../../../lib/deck-layout-data";
+import { userClient } from "../../../../../lib/supabase-server";
 import { planCreativeIds } from "../../../../../lib/campaign-plan";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +34,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
   const query = await searchParams;
   const days = parseRange(query?.days);
   const report = await loadCampaignReport(me.service, me, campaignId, days);
+  const deckLayout = await loadDeckLayout(await userClient(), "advertiser");
   if (!report) notFound();
 
   const { campaign, status, bookings, totals, previous } = report;
@@ -153,58 +151,11 @@ export default async function CampaignReportPage({ params, searchParams }) {
         <CampaignChart series={report.series} events={report.events} />
       </section>
 
-      <AttentionPanel
-        attention={report.attention}
-        title="How well the ad was seen"
-        hint="Measured for as long as each view lasted. Needs games on SDK 0.11 or newer."
-        wrapClass="cr-box"
-        headClass="cr-box-head"
-      />
-
-      <InteractionsPanel
-        interactions={report.interactions}
-        title="Interactions"
-        hint="How often players took hold of, pressed or clicked the object your ad was on. Only objects the developer marked interactive count."
-        emptyText="Your ad has not run on an interactive object in this period."
-        wrapClass="cr-box"
-        headClass="cr-box-head"
-      />
-
-      <FrequencyPanel
-        frequency={report.frequency}
-        title="How often players saw the ad"
-        hint="Per player, over the ads of this period. Players are anonymous installations (games on SDK 0.9 or newer)."
-        emptyText="No views from identified players in this period yet."
-        wrapClass="cr-box"
-        headClass="cr-box-head"
-      />
-
-      <FatiguePanel
-        fatigue={report.fatigue}
-        title="Does attention fall with repeats?"
-        hint="Time spent looking at the creative the 1st, 2nd, 3rd time the same player sees it. Needs games on SDK 0.11 or newer for the time."
-        emptyText="No repeat views from identified players in this period yet."
-        wrapClass="cr-box"
-        headClass="cr-box-head"
-      />
-
-      <ContextPanel
-        context={report.minutes}
-        first="Minute of the session"
-        title="When in the session the ad was seen"
-        hint="By the time since the player started the game. Needs games on SDK 0.10 or newer for the minute and 0.11 or newer for the time seen."
-        emptyText="No views in this period yet."
-        wrapClass="cr-box"
-        headClass="cr-box-head"
-      />
-
-      <AudiencePanel
-        audience={report.players}
+      <DeckBoard
         kind="advertiser"
-        title="Who saw the ad"
-        hint="Where your impressions landed, by device. Impressions from before SDK 0.11 are listed as Unknown."
-        wrapClass="cr-box"
-        headClass="cr-box-head"
+        model={report}
+        days={report.series.map((d) => ({ date: d.date, adv: d.impressions }))}
+        initial={deckLayout}
       />
 
       <section className="cr-table-box" aria-labelledby="cr-creatives">

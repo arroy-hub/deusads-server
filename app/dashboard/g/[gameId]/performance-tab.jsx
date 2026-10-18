@@ -6,15 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTra
 import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, ratio, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
-import AudiencePanel from "../../audience-panel";
-import AttentionPanel from "../../attention-panel";
-import InteractionsPanel from "../../interactions-panel";
-import FillRatePanel from "../../fill-rate-panel";
-import SdkPerformancePanel from "../../sdk-performance-panel";
-import FrequencyPanel from "../../frequency-panel";
-import FatiguePanel from "../../fatigue-panel";
-import RetentionPanel from "../../retention-panel";
-import ContextPanel from "../../context-panel";
+import DeckBoard from "../../deck-board";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -49,7 +41,7 @@ const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0);
  *
  * model: lib/performance-view.js assembleList() or assembleFocus().
  */
-export default function PerformanceTab({ gameId, model, defaultBy }) {
+export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -166,10 +158,11 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
               <span className="pf-src-sub">per view</span>
             </div>
           </div>
-          <p className="pf-hint">Click Advertisers or My creatives to count only those views, in the chart and below. Per session counts every session of the game, also those in which no ad was seen.</p>
+          <p className="pf-hint is-one" title="Per session counts every session of the game, also those in which no ad was seen.">Click Advertisers or My creatives to count only those views. Per session counts every session, also those with no ad.</p>
         </section>
 
         <PerformanceChart
+          advanced={<DeckBoard kind="developer" model={model} source={source} days={model.chart.days} initial={deckLayout} />}
           days={model.chart.days}
           source={source}
           subtitle={`Last ${model.win.days} days · ${scopeText}`}
@@ -187,97 +180,6 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             folded={folded}
             setFolded={setFolded}
             go={go}
-          />
-        )}
-
-        {!focus && (
-          <FillRatePanel
-            fill={model.fill}
-            title="Fill rate"
-            hint="Each time the game starts it asks which ad every placement shows. Placements you switched off are not counted. Works with every SDK version."
-            emptyText="No game start has been counted yet. This fills in as players start the game."
-          />
-        )}
-
-        {!focus && (
-          <AttentionPanel
-            attention={model.attention}
-            title="How well the ads were seen"
-            hint="Advertisers' ads in this period, measured for as long as each view lasted. Needs SDK 0.11 or newer."
-          />
-        )}
-
-        {!focus && (
-          <InteractionsPanel
-            interactions={model.interactions}
-            title="Interactions"
-            hint="How often players took hold of, pressed or clicked an object that carries an ad. Only placements marked Interactive count."
-            emptyText="No placement is marked Interactive yet. Turn on Interactive on the placements the player can touch (a bottle label, a poster they can grab), update the SDK to 0.11 or newer and send the placements again."
-          />
-        )}
-
-        {!focus && (
-          <FrequencyPanel
-            frequency={model.frequency}
-            title="How often players saw the ads"
-            hint="Advertisers' ads in this period, per player. Players are anonymous installations (SDK 0.9 or newer)."
-            emptyText="No views from identified players in this period yet."
-          />
-        )}
-
-        {!focus && (
-          <FatiguePanel
-            fatigue={model.fatigue}
-            title="Does attention fall with repeats?"
-            hint="Time spent looking at a creative the 1st, 2nd, 3rd time the same player sees it. Needs SDK 0.11 or newer for the time."
-            emptyText="No repeat views from identified players in this period yet."
-          />
-        )}
-
-        {!focus && (
-          <RetentionPanel
-            retention={model.retention}
-            title="Do players come back?"
-            hint="Share of new players who played again 1, 7 and 30 days after their first session, and how many players there are each day. Counted from the first session the SDK announced (SDK 0.10 or newer)."
-            emptyText="No sessions with identified players in this period yet."
-          />
-        )}
-
-        {!focus && (
-          <ContextPanel
-            context={model.minutes}
-            first="Minute of the session"
-            title="When in the session the ads were seen"
-            hint="Advertisers' ads in this period, by the time since the session started. Needs SDK 0.10 or newer for the minute and 0.11 or newer for the time seen."
-            emptyText="No views in this period yet."
-          />
-        )}
-
-        {!focus && (
-          <ContextPanel
-            context={model.scenes}
-            first="Scene"
-            title="Where in the game the ads were seen"
-            hint="Advertisers' ads in this period, by the scene the player was in. The scene is the one your game reports for each placement."
-            emptyText="No views in this period yet."
-          />
-        )}
-
-        {!focus && (
-          <SdkPerformancePanel
-            performance={model.sdk}
-            title="Game performance"
-            hint="Measured inside the game by SDK 0.11 or newer, for the sessions of this period. Only you can see this; advertisers never do."
-            emptyText="No figures yet. They arrive once players run a build with SDK 0.11 or newer."
-          />
-        )}
-
-        {!focus && (
-          <AudiencePanel
-            audience={model.audience}
-            kind="developer"
-            title="Your players"
-            hint="Every session of the game in this period, by device. Sessions from before SDK 0.11 are listed as Unknown."
           />
         )}
       </div>
