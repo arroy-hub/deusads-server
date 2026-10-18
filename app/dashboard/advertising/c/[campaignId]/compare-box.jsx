@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatCount } from "../../../../../lib/analytics";
 import { MIN_VIEWS } from "../../../../../lib/campaign-compare";
+import { Info } from "../../../metrics-deck";
 import GameNameButton, { Bubble } from "./game-name-button";
 
 const PILL = { showing: "live", paused: "paused", category: "paused", blocked: "blocked" };
@@ -131,8 +132,8 @@ export default function CompareBox({ creatives, games, emptyCreatives }) {
       )}
       {open && <CreativeBubble creative={open.row} anchor={open.anchor} onClose={() => setOpen(null)} />}
       <p className="ovx-hint cr-pad cr-cmp-note">
-        The best figure in each column is marked with a dot. Hover a column title to see what it counts.
-        {anyFew ? ` A dash means fewer than ${MIN_VIEWS} views, too few for a share to mean anything.` : ""}
+        <Info title="Reading the table" text={`Hover a column title to see what it counts.${anyFew ? ` A dash means fewer than ${MIN_VIEWS} views, too few for a share to mean anything.` : ""}`} />
+        <span>The best figure in each column is marked with a dot.</span>
       </p>
     </section>
   );

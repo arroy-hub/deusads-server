@@ -8649,3 +8649,6 @@ body.ig-dragging *{cursor:grabbing!important}
 /* round 35: campaign plate: the icon sits as far from the left edge as from the top and bottom; a game's own picture has no coloured tile behind it */
 .cr-top .gm-plate{padding-left:11px}
 .cr-gamecell img.game-icon{background:none}
+.cr-cmp-note{display:flex;align-items:center;gap:8px}
+.cr-cmp-note .ig-i{margin:0}
+.cr-cmp-note span{white-space:nowrap}
