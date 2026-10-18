@@ -8658,3 +8658,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .cr-cmp-note{display:flex;align-items:center;gap:8px}
 .cr-cmp-note .ig-i{margin:0}
 .cr-cmp-note span{white-space:nowrap}
+
+/* Overview: the chart panel has no padding of its own, so the widget board keeps the chart head's 18px gutter */
+.ovx-chart > .dk{margin:0;padding:6px 18px 16px}
