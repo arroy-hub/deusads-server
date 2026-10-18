@@ -12,7 +12,7 @@ import { compactCount, figures, niceTop } from "../../../../lib/performance-view
  *
  * days: [{ date, adv, own, sessions, advSessions, ownSessions, … }] oldest first.
  */
-export default function PerformanceChart({ days, source, title = "Impressions per day", subtitle }) {
+export default function PerformanceChart({ days, source, title = "Impressions per day", subtitle, advanced = null }) {
   const [active, setActive] = useState(null);
   const showAdv = source !== "own";
   const showOwn = source !== "adv";
@@ -124,7 +124,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
           <span>{formatDay(days[days.length - 1].date)}</span>
         </div>
 
-        <details className="pf-details">
+        {advanced ? advanced : (<details className="pf-details">
           <summary>Show as table</summary>
           <div className="pf-mini" role="table" aria-label={title}>
             <div className="pf-mini-row pf-mini-head" role="row">
@@ -142,7 +142,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
               </div>
             ))}
           </div>
-        </details>
+        </details>)}
       </figure>
     </section>
   );

@@ -8,7 +8,7 @@ import { moveCreative, openCreativeEditor } from "../../creatives/actions";
 import UploadDialog from "../../creatives/upload-dialog";
 import CreativeEditor from "../../creatives/[id]/creative-editor";
 import { FORMATS, coverageByFormat, pickImage } from "../../../../lib/formats";
-import { FIELDS, PROFILE_KEYS, evaluate, labelOf } from "../../../../lib/targeting";
+import { FIELDS, PROFILE_KEYS, evaluate, labelOf, targetingSummary } from "../../../../lib/targeting";
 import { addD, diff, fmtDay, todayISO } from "../../_cabinet/dates";
 import { CalendarPop, DatePick, DateRange, Tip } from "../../_cabinet/ui";
 import { IcCheck, IcPlus, IcWarn } from "../../_cabinet/icons";

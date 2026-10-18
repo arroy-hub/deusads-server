@@ -4,6 +4,7 @@ import { isSchemaOutdated, serviceClient } from "../../../../lib/api";
 import { cropFromRow, ratioLabel } from "../../../../lib/surface-math";
 import { formatLabel, formatOf } from "../../../../lib/formats";
 import { loadPerformance } from "../../../../lib/performance-data";
+import { loadDeckLayout } from "../../../../lib/deck-layout-data";
 import { countNew, loadCampaigns } from "../../../../lib/campaigns-data";
 import { connection } from "../../../../lib/connection";
 import { gapWords, profileGaps } from "../../../../lib/targeting";
@@ -105,6 +106,7 @@ export default async function GamePage({ params, searchParams }) {
   // What the Performance tab shows for its address; the game is the signed-in person's own (read under row-level
   // security above), which is what lets the server read the names of the creatives shown in it.
   const performance = tab === "performance" ? await loadPerformance({ db, service: serviceClient(), gameId, searchParams: query }) : null;
+  const deckLayout = tab === "performance" ? await loadDeckLayout(db, "developer") : null;
   // The Campaigns tab (migration 0023); the other tabs only need the number of new things for its badge.
   const campaigns = tab === "campaigns" ? await loadCampaigns({ db, service: serviceClient(), gameId }) : null;
   let newCount = 0;
@@ -182,7 +184,7 @@ export default async function GamePage({ params, searchParams }) {
       )}
 
       {tab === "performance" && performance?.model && (
-        <PerformanceTab gameId={game.id} model={performance.model} defaultBy={performance.defaultBy} />
+        <PerformanceTab gameId={game.id} model={performance.model} defaultBy={performance.defaultBy} deckLayout={deckLayout} />
       )}
       {tab === "performance" && performance?.error === "migration" && (
         <p className="notice">

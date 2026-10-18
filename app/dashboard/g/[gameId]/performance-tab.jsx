@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTra
 import { formatCount } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, ratio, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
+import DeckBoard from "../../deck-board";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
@@ -40,7 +41,7 @@ const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0);
  *
  * model: lib/performance-view.js assembleList() or assembleFocus().
  */
-export default function PerformanceTab({ gameId, model, defaultBy }) {
+export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -144,7 +145,7 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
             <div className="pf-fig">
               <span className="pf-src-top">Per session</span>
               <span className="pf-src-val">{ratio(kpiFigures.perSession)}</span>
-              <span className="pf-src-sub">impressions in a session</span>
+              <span className="pf-src-sub">{kpiFigures.perSession == null ? "needs SDK 0.10 or newer" : "impressions per game session"}</span>
             </div>
             <div className="pf-fig">
               <span className="pf-src-top">Per player</span>
@@ -157,10 +158,11 @@ export default function PerformanceTab({ gameId, model, defaultBy }) {
               <span className="pf-src-sub">per view</span>
             </div>
           </div>
-          <p className="pf-hint">Click Advertisers or My creatives to count only those views, in the chart and below.</p>
+          <p className="pf-hint is-one" title="Per session counts every session of the game, also those in which no ad was seen.">Click Advertisers or My creatives to count only those views. Per session counts every session, also those with no ad.</p>
         </section>
 
         <PerformanceChart
+          advanced={<DeckBoard kind="developer" model={model} source={source} days={model.chart.days} initial={deckLayout} />}
           days={model.chart.days}
           source={source}
           subtitle={`Last ${model.win.days} days · ${scopeText}`}

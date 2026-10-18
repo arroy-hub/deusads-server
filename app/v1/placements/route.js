@@ -102,6 +102,8 @@ export const POST = guarded(async function POST(request) {
       // Migration 0021. Left out of the save while the database does not have it.
       shared: item.shared !== false,
       place_type_suggested: firstSuggestion(places, item.scene),
+      // Migration 0036: the player can touch the object this placement is on (SDK 0.11+).
+      interactive: item.interactive === true,
     });
   }
 
@@ -154,12 +156,12 @@ export const POST = guarded(async function POST(request) {
     // Newest schema first; each step back drops what a missing migration added.
     const withoutRemoved = (list) => list.map(({ removed_at, ...rest }) => rest);
     const withoutOrganization = (list) => list.map(({ shared, place_type_suggested, ...rest }) => rest);
+    const withoutInteractive = (list) => list.map(({ interactive, ...rest }) => rest);
+    const current = schemaCurrent ? rows : withoutRemoved(rows);
     const attempts = [
-      { payload: schemaCurrent ? rows : withoutRemoved(rows), organized: true },
-      {
-        payload: withoutOrganization(schemaCurrent ? rows : withoutRemoved(rows)),
-        organized: false,
-      },
+      { payload: current, organized: true, migration: "0036_interactions.sql" },
+      { payload: withoutInteractive(current), organized: true, migration: "0021_placement_organization.sql" },
+      { payload: withoutOrganization(withoutInteractive(current)), organized: false, migration: null },
     ];
 
     let data;
@@ -173,7 +175,7 @@ export const POST = guarded(async function POST(request) {
         organized = attempt.organized;
         break;
       }
-      if (attempt.organized) warnSchemaOutdated("POST /v1/placements", "0021_placement_organization.sql");
+      if (attempt.migration) warnSchemaOutdated("POST /v1/placements", attempt.migration);
     }
 
     if (upsertError) {

@@ -13,6 +13,13 @@ const db = { placements: [], impressions: [], assignments: [], creatives: [] };
 let organizationApplied = false;
 const organization = { placement_places: [], placement_folders: [], placement_scene_off: [] };
 let outdated = false;
+let fillMissing = false; // migration 0037 not applied: no record_manifest_fill function
+const fillLog = []; // what record_manifest_fill was asked to add, one entry per manifest request
+let perfMissing = false; // migration 0038 not applied: no add_session_performance function
+const perfLog = []; // what add_session_performance was asked to add, one entry per report
+let interactionsMissing = false; // migration 0036 not applied: no placements.interactive, no impressions.interactions
+let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
+let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
 let cropMissing = false; // 0002 applied, 0003 not yet
 let targetingMissing = false; // 0017 applied, 0018 not yet
 let profileReads = 0; // how often the game's own description was read
@@ -56,9 +63,30 @@ globalThis.fetch = async (input, init = {}) => {
   if ((outdated || cropMissing) && /crop_/.test(text)) {
     return fail(400, "42703", "column does not exist");
   }
+  if (interactionsMissing && ((table === "placements" && /\"interactive\"/.test(text)) || (table === "impressions" && /\"interactions\"/.test(text)))) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (attentionMissing && table === "impressions" && /view_distance/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (contextMissing && table === "game_sessions" && /device_model|country|platform/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
 
   const ok = (rows, status = 200) =>
     new Response(JSON.stringify(rows), { status, headers: { "content-type": "application/json" } });
+
+  if (table === "rpc/add_session_performance") {
+    if (perfMissing) return fail(404, "PGRST202", "function not found");
+    perfLog.push(body);
+    return ok(null);
+  }
+
+  if (table === "rpc/record_manifest_fill") {
+    if (fillMissing) return fail(404, "PGRST202", "function not found");
+    fillLog.push(body);
+    return ok(null);
+  }
 
   if (targetingMissing && /targeting|genres/.test(text)) {
     return fail(400, "42703", "column does not exist");
@@ -145,6 +173,7 @@ await build({
     placements: "app/v1/placements/route.js",
     events: "app/v1/events/route.js",
     manifest: "app/v1/manifest/route.js",
+    sessions: "app/v1/sessions/route.js",
   },
   bundle: true,
   platform: "node",
@@ -157,6 +186,7 @@ const load = (name) => import(pathToFileURL(join(out, name + ".js")).href);
 const placements = await load("placements");
 const events = await load("events");
 const manifest = await load("manifest");
+const sessions = await load("sessions");
 
 const post = (handler, body, key = GAME.api_key) =>
   handler.POST(
@@ -403,6 +433,126 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(db.impressions.find((i) => i.event_id === label).install_id, undefined, "and is not stored");
 }
 
+// --- visibility and attention (migration 0035): how each view was seen, and the chances to be seen
+{
+  const UUID = "11111111-1111-4111-8111-111111111111";
+  const batch = async (body) => (await post(events, { sessionId: "att1", installId: INSTALL, sdkVersion: "0.11.0", impressions: [], ...body })).json();
+  const row = (id) => db.impressions.find((i) => i.event_id === id);
+
+  // a measured view keeps its length and the three averages, rounded to what the columns hold
+  r = await batch({ impressions: [imp("m1", { visibleSeconds: 7.5, distance: 2.3, screenFraction: 0.1234567, angle: 33.33 })] });
+  assert.equal(r.accepted, 1);
+  assert.equal(row("m1").visible_seconds, 7.5);
+  assert.equal(row("m1").view_distance, 2.3);
+  assert.equal(row("m1").screen_fraction, 0.1235);
+  assert.equal(row("m1").view_angle, 33.3);
+
+  // a view from an SDK before 0.11 is never taken for a measured one
+  r = await batch({ impressions: [imp("m2"), imp("m3", { distance: 0 }), imp("m4", { distance: "far" })] });
+  assert.equal(r.accepted, 3);
+  for (const id of ["m2", "m3", "m4"]) assert.equal(row(id).view_distance, undefined, id);
+
+  // values out of range are pulled in; they never sink the batch
+  r = await batch({ impressions: [imp("m5", { distance: 1e9, screenFraction: 5, angle: 500 }), imp("m6", { distance: 1, screenFraction: -1, angle: -3 })] });
+  assert.equal(r.accepted, 2);
+  assert.equal(row("m5").view_distance, 99999);
+  assert.equal(row("m5").screen_fraction, 1);
+  assert.equal(row("m5").view_angle, 180);
+  assert.equal(row("m6").screen_fraction, 0);
+  assert.equal(row("m6").view_angle, 0);
+
+  // before the table exists the opportunities are ignored and the views still count
+  const chance = (eventId, extra = {}) => ({ eventId, placementId: "a", creativeId: UUID, timestamp: 1700000000, count: 3, ...extra });
+  r = await batch({ impressions: [imp("m7", { distance: 2 })], opportunities: [chance("op0")] });
+  assert.equal(r.accepted, 1);
+  assert.equal(r.opportunities, 0);
+
+  db.ad_opportunities = [];
+  r = await batch({ opportunities: [chance("op1"), chance("op2", { count: 99999 })] });
+  assert.equal(r.accepted, 0);
+  assert.equal(r.opportunities, 2, "a batch of only chances is taken");
+  assert.equal(db.ad_opportunities.length, 2);
+  const stored = db.ad_opportunities.find((o) => o.event_id === "op1");
+  assert.equal(stored.game_id, GAME.id);
+  assert.equal(stored.owner_id, GAME.owner_id);
+  assert.equal(stored.placement_id, aId);
+  assert.equal(stored.session_id, "att1");
+  assert.equal(stored.install_id, INSTALL);
+  assert.equal(stored.opportunities, 3);
+  assert.equal(stored.own, false);
+  assert.equal(stored.occurred_at, new Date(1700000000 * 1000).toISOString());
+  assert.equal(db.ad_opportunities.find((o) => o.event_id === "op2").opportunities, 10000, "a huge count is capped");
+
+  // a retried upload changes nothing; rows that cannot be placed or counted are skipped
+  r = await batch({ opportunities: [chance("op1"), chance("bad1", { placementId: "nope" }), chance("bad2", { count: 0 }), chance(undefined), chance("bad3", { count: "x" })] });
+  assert.equal(r.opportunities, 0);
+  assert.equal(db.ad_opportunities.length, 2);
+
+  // chances of the developer's own creatives are marked
+  db.creatives.push({ id: OWN, kind: "own" });
+  r = await batch({ opportunities: [chance("own1", { creativeId: OWN })] });
+  assert.equal(r.opportunities, 1);
+  assert.equal(db.ad_opportunities.find((o) => o.event_id === "own1").own, true);
+  db.creatives.length = 0;
+
+  // 0034 in but 0035 not: the view counts, only the three figures are left out
+  attentionMissing = true;
+  r = await batch({ impressions: [imp("m8", { distance: 2, screenFraction: 0.2, angle: 10 })] });
+  attentionMissing = false;
+  assert.equal(r.accepted, 1);
+  assert.equal(row("m8").view_distance, undefined);
+  assert.equal(row("m8").visible_seconds, 1.2);
+
+  delete db.ad_opportunities;
+}
+
+// --- interactions (migration 0036): placements marked Interactive, touches during a view
+{
+  const sync = async (list) => send(list, false);
+
+  r = await sync([{ ...P("touch1"), interactive: true }, P("touch2")]);
+  assert.equal(r.status, 200);
+  assert.equal(db.placements.find((p) => p.external_id === "touch1").interactive, true);
+  assert.equal(db.placements.find((p) => p.external_id === "touch2").interactive, false, "not marked, not interactive");
+
+  // an SDK before 0.11 sends no flag: the placement is simply not interactive
+  r = await sync([P("touch1")]);
+  assert.equal(db.placements.find((p) => p.external_id === "touch1").interactive, false);
+
+  // 0036 not applied: the placements still save, without the flag
+  interactionsMissing = true;
+  r = await sync([{ ...P("touch3"), interactive: true }]);
+  interactionsMissing = false;
+  assert.equal(r.status, 200);
+  assert.ok(db.placements.find((p) => p.external_id === "touch3"), "saved without the flag");
+  assert.equal(db.placements.find((p) => p.external_id === "touch3").interactive, undefined);
+
+  const viewsWith = (list) => post(events, { sessionId: "itx1", installId: INSTALL, sdkVersion: "0.11.0", impressions: list }).then((res) => res.json());
+  const view = (id) => db.impressions.find((i) => i.event_id === id);
+
+  r = await viewsWith([
+    imp("t1", { distance: 1, screenFraction: 0.1, angle: 5, interactions: 3 }),
+    imp("t2", { distance: 1, interactions: 99999 }),
+    imp("t3", { distance: 1, interactions: -4 }),
+    imp("t4", { distance: 1, interactions: "x" }),
+    imp("t5", { interactions: 2 }),
+  ]);
+  assert.equal(r.accepted, 5);
+  assert.equal(view("t1").interactions, 3);
+  assert.equal(view("t2").interactions, 1000, "capped");
+  assert.equal(view("t3").interactions, 0);
+  assert.equal(view("t4").interactions, 0);
+  assert.equal(view("t5").interactions, undefined, "a view with no measurement is not a measured view");
+
+  // 0035 in, 0036 not: the view and its attention figures still count, only the touches are left out
+  interactionsMissing = true;
+  r = await viewsWith([imp("t6", { distance: 2, screenFraction: 0.2, angle: 10, interactions: 4 })]);
+  interactionsMissing = false;
+  assert.equal(r.accepted, 1);
+  assert.equal(view("t6").view_distance, 2);
+  assert.equal(view("t6").interactions, undefined);
+}
+
 // --- placement organisation (migration 0021): places, switches, views per place
 {
   const baseline = live().map((id) => P(id));
@@ -501,6 +651,235 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(removedAt("Level_3", "Wall/A"), null, "an old SDK that sends no places does not wipe them");
 
   organizationApplied = false;
+}
+
+// --- session starts (migration 0033): the SDK announces each session once
+{
+  const SESSION = "0123456789abcdef0123456789abcd01";
+  const startedAt = Math.floor(Date.now() / 1000) - 60;
+  const announce = async (body, key) => {
+    const res = await post(sessions, body, key);
+    return { status: res.status, body: await res.json() };
+  };
+
+  // before the table exists: the SDK is not sent into an error loop, and nothing is stored
+  let s = await announce({ sessionId: SESSION, sdkVersion: "0.10.0", startedAt });
+  assert.equal(s.status, 200);
+  assert.equal(s.body.accepted, 0);
+
+  db.game_sessions = [];
+  s = await announce({ sessionId: SESSION, installId: INSTALL, sdkVersion: "0.10.0", startedAt });
+  assert.equal(s.status, 200);
+  assert.equal(s.body.accepted, 1);
+  assert.equal(db.game_sessions.length, 1);
+  const stored = db.game_sessions[0];
+  assert.equal(stored.game_id, GAME.id);
+  assert.equal(stored.owner_id, GAME.owner_id);
+  assert.equal(stored.session_id, SESSION);
+  assert.equal(stored.install_id, INSTALL);
+  assert.equal(stored.sdk_version, "0.10.0");
+  assert.equal(stored.started_at, new Date(startedAt * 1000).toISOString());
+
+  // announcing the same session again (a retry) changes nothing
+  s = await announce({ sessionId: SESSION, installId: INSTALL, sdkVersion: "0.10.0", startedAt });
+  assert.equal(s.body.accepted, 0);
+  assert.equal(s.body.duplicates, 1);
+  assert.equal(db.game_sessions.length, 1);
+
+  // a bad install ID never sinks the announcement; a clock far off is replaced by the time of the request
+  s = await announce({ sessionId: "fedcba9876543210fedcba9876543210", installId: "bad id!", startedAt: 5 });
+  assert.equal(s.body.accepted, 1);
+  const second = db.game_sessions.find((row) => row.session_id === "fedcba9876543210fedcba9876543210");
+  assert.equal(second.install_id, undefined);
+  assert.ok(Math.abs(Date.parse(second.started_at) - Date.now()) < 60_000, "a clock far in the past is not trusted");
+
+  // a session ID that cannot match an impression's is refused; a wrong key is refused
+  for (const bad of [undefined, "", 42, "short", "x".repeat(80), "with space 123456"]) {
+    s = await announce({ sessionId: bad, sdkVersion: "0.10.0" });
+    assert.equal(s.status, 400, "bad session ID " + String(bad));
+  }
+  s = await announce({ sessionId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "wrong-key");
+  assert.equal(s.status, 401);
+  assert.equal(db.game_sessions.length, 2);
+
+  // player context (migration 0034): what the SDK says about the device, and the country from the request
+  const announceWith = async (body, headers = {}) => {
+    const res = await sessions.POST(
+      new Request("https://x/v1/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-deusads-key": GAME.api_key, ...headers },
+        body: JSON.stringify(body),
+      })
+    );
+    return { status: res.status, body: await res.json() };
+  };
+  s = await announceWith(
+    { sessionId: "11111111111111111111111111111111", sdkVersion: "0.11.0", platform: "Android", deviceModel: "Oculus Quest 3", os: "Android OS 12 / API-32", language: "German", appVersion: "1.4.2" },
+    { "x-vercel-ip-country": "de" }
+  );
+  assert.equal(s.body.accepted, 1);
+  const withContext = db.game_sessions.find((row) => row.session_id === "11111111111111111111111111111111");
+  assert.equal(withContext.platform, "quest");
+  assert.equal(withContext.device_model, "Oculus Quest 3");
+  assert.equal(withContext.os, "Android OS 12 / API-32");
+  assert.equal(withContext.language, "German");
+  assert.equal(withContext.app_version, "1.4.2");
+  assert.equal(withContext.country, "DE");
+  assert.ok(!JSON.stringify(withContext).includes("x-vercel"), "no request header is stored");
+
+  // an old SDK sends no context: the session is still counted, with nothing made up
+  s = await announceWith({ sessionId: "22222222222222222222222222222222", sdkVersion: "0.10.0" });
+  assert.equal(s.body.accepted, 1);
+  const bare = db.game_sessions.find((row) => row.session_id === "22222222222222222222222222222222");
+  assert.equal(bare.platform, undefined);
+  assert.equal(bare.country, undefined);
+
+  // a database without 0034 still counts the session
+  contextMissing = true;
+  s = await announceWith({ sessionId: "33333333333333333333333333333333", platform: "WindowsPlayer", deviceModel: "PC" }, { "x-vercel-ip-country": "US" });
+  contextMissing = false;
+  assert.equal(s.status, 200);
+  assert.equal(s.body.accepted, 1);
+  const plain = db.game_sessions.find((row) => row.session_id === "33333333333333333333333333333333");
+  assert.equal(plain.country, undefined);
+
+  delete db.game_sessions;
+}
+
+// --- fill rate (migration 0037): every manifest request says what each placement got
+{
+  const savedAssignments = db.assignments.splice(0);
+  const wasOrganized = organizationApplied;
+  const own = { placements: { external_id: "a" }, creatives: { id: "c1", storage_path: "x.png", status: "approved", owner_id: "o1" }, owner_id: "o1", active: true };
+  const booked = (targeting) => ({ placements: { external_id: "a" }, creatives: { id: "bk", storage_path: "bk.png", status: "approved", owner_id: "adv1", ...(targeting ? { targeting } : {}) }, owner_id: "o1", active: true, source: "booking" });
+  const lastFill = () => fillLog[fillLog.length - 1]?.p_slots;
+  const slots = live();
+  assert.ok(slots.includes("a") && slots.length > 1, "the game has several live placements");
+
+  // nothing assigned anywhere: every slot is empty, none is invented
+  fillLog.length = 0;
+  r = await getManifest();
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.placements, []);
+  assert.equal(fillLog.length, 1, "one request, one record");
+  assert.equal(fillLog[0].p_game_id, GAME.id);
+  assert.equal(fillLog[0].p_owner, GAME.owner_id);
+  assert.deepEqual(Object.keys(lastFill()).sort(), slots, "every live placement is a slot");
+  assert.ok(Object.values(lastFill()).every((state) => state === "no_ad"));
+
+  // the developer's own creative fills its slot; the others stay empty
+  db.assignments.push(own);
+  await getManifest();
+  assert.equal(lastFill().a, "own");
+  assert.equal(lastFill()[slots.find((id) => id !== "a")], "no_ad");
+
+  // an advertiser's ad that fits wins the slot
+  db.assignments.length = 0;
+  db.assignments.push(booked({ genres: ["shooter"] }), own);
+  await getManifest();
+  assert.equal(lastFill().a, "ad");
+
+  // an ad that asks for another kind of game: the developer's creative fills in, so the slot is not empty
+  db.assignments.length = 0;
+  db.assignments.push(booked({ genres: ["horror"] }), own);
+  await getManifest();
+  assert.equal(lastFill().a, "own");
+
+  // the same without a creative of the developer's own: empty, and the reason is the audience
+  db.assignments.length = 0;
+  db.assignments.push(booked({ genres: ["horror"] }));
+  r = await getManifest();
+  assert.equal(r.body.placements.length, 0);
+  assert.equal(lastFill().a, "targeting");
+
+  // what the developer switched off is not a slot
+  organizationApplied = true;
+  const bPlacement = db.placements.find((p) => p.external_id === "b");
+  bPlacement.enabled = false;
+  await getManifest();
+  assert.ok(!("b" in lastFill()), "a switched-off placement is not counted");
+  assert.ok("a" in lastFill());
+  delete bPlacement.enabled;
+  organizationApplied = wasOrganized;
+
+  // 0037 not applied: the manifest is served as ever, nothing is recorded
+  fillMissing = true;
+  fillLog.length = 0;
+  db.assignments.length = 0;
+  db.assignments.push(own);
+  r = await getManifest();
+  fillMissing = false;
+  assert.equal(r.status, 200);
+  assert.equal(r.body.placements.length, 1);
+  assert.equal(fillLog.length, 0);
+
+  db.assignments.length = 0;
+  db.assignments.push(...savedAssignments);
+}
+
+// --- SDK performance (migration 0038): the report rides along with the batch, or goes alone
+{
+  const alone = (performance, extra = {}) => post(events, { sessionId: "perf1", sdkVersion: "0.11.0", impressions: [], performance, ...extra }).then((res) => res.json());
+  const sdkReport = { frames: 3600, seconds: 50, slowFrames: 40, hitches: 3, worstMs: 150.26, adFrames: 1800, adSeconds: 25, adSlowFrames: 30, loads: 2, loadMs: 900, loadMsMax: 600, cachedLoads: 1, cachedMs: 20, manifestLoads: 1, manifestMs: 300, uploadFailed: 1 };
+
+  // a report with nothing else in the batch is stored
+  perfLog.length = 0;
+  r = await alone(sdkReport);
+  assert.equal(r.accepted, 0);
+  assert.equal(perfLog.length, 1);
+  assert.equal(perfLog[0].p_game_id, GAME.id);
+  assert.equal(perfLog[0].p_owner, GAME.owner_id);
+  assert.equal(perfLog[0].p_session, "perf1");
+  assert.deepEqual(perfLog[0].p_perf, {
+    frames: 3600, seconds: 50, slow_frames: 40, hitches: 3, worst_ms: 150.3,
+    ad_frames: 1800, ad_seconds: 25, ad_slow_frames: 30,
+    loads: 2, load_ms: 900, load_ms_max: 600, cached_loads: 1, cached_ms: 20, manifest_loads: 1, manifest_ms: 300,
+    manifest_failed: 0, manifest_cached: 0, creative_failed: 0, creative_invalid: 0, upload_failed: 1,
+  });
+
+  // the SDK always sends the object, all zeros when it has nothing to say; that and anything unusable is not stored
+  perfLog.length = 0;
+  const zeros = Object.fromEntries(Object.keys(sdkReport).map((key) => [key, 0]));
+  await alone(zeros);
+  await alone(undefined);
+  await alone("not an object");
+  await alone({ frames: "x", seconds: {}, slowFrames: null, loads: -4 });
+  assert.equal(perfLog.length, 0);
+
+  // values are pulled in, and a part is never bigger than its whole
+  await alone({ frames: 100, seconds: 1e9, slowFrames: 500, hitches: 900, worstMs: -3, adFrames: 1000, adSeconds: 5000, adSlowFrames: 400 });
+  assert.deepEqual(
+    { ...perfLog[0].p_perf },
+    { ...perfLog[0].p_perf, frames: 100, seconds: 86400, slow_frames: 100, hitches: 100, worst_ms: 0, ad_frames: 100, ad_seconds: 5000, ad_slow_frames: 100 }
+  );
+
+  // seconds, ms and counts of something that did not happen are dropped
+  perfLog.length = 0;
+  await alone({ frames: 0, seconds: 99, loads: 0, loadMs: 500, loadMsMax: 500, creativeFailed: 2 });
+  assert.equal(perfLog[0].p_perf.seconds, 0);
+  assert.equal(perfLog[0].p_perf.load_ms, 0);
+  assert.equal(perfLog[0].p_perf.creative_failed, 2);
+
+  // with views in the same batch both are stored
+  perfLog.length = 0;
+  r = await post(events, { sessionId: "perf2", sdkVersion: "0.11.0", impressions: [imp("perf-e1")], performance: sdkReport }).then((res) => res.json());
+  assert.equal(r.accepted, 1);
+  assert.equal(perfLog.length, 1);
+  assert.equal(perfLog[0].p_session, "perf2");
+
+  // 0038 not applied: the views still count, the report is left out
+  perfMissing = true;
+  r = await post(events, { sessionId: "perf3", sdkVersion: "0.11.0", impressions: [imp("perf-e2")], performance: sdkReport }).then((res) => res.json());
+  assert.equal(r.accepted, 1);
+  r = await alone(sdkReport);
+  assert.equal(r.accepted, 0);
+  perfMissing = false;
+  assert.equal(perfLog.length, 1);
+
+  // an old SDK sends none
+  r = await post(events, { sessionId: "perf4", sdkVersion: "0.10.0", impressions: [imp("perf-e3")] }).then((res) => res.json());
+  assert.equal(r.accepted, 1);
+  assert.equal(perfLog.length, 1);
 }
 
 // --- database not migrated yet: routes keep working the old way

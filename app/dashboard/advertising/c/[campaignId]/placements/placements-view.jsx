@@ -1,0 +1,86 @@
+import Link from "next/link";
+import { formatCount } from "../../../../../../lib/analytics";
+import { ratioLabel } from "../../../../../../lib/surface-math";
+import ExcludeButton from "../exclude-button";
+import GameNameButton from "../game-name-button";
+
+export const FILTERS = [
+  ["all", "All"],
+  ["showing", "Showing"],
+  ["held", "Paused or blocked"],
+  ["excluded", "Excluded by me"],
+];
+
+/** The campaign's Placements tab, drawn from what page.js has read. A plain component so it can be shown without a database. */
+export default function PlacementsView({ campaignId, report, games, shown, filter, count, placementsOf, skipped, placementTotal, cards }) {
+  return (
+    <>
+      <section className="cp-aud" aria-label="Audience">
+        <div>
+          <h2>{report.audience ? "Chosen by audience" : "Every game"}</h2>
+          <p>
+            {report.audience ? `${report.audience}. ` : ""}New games that fit are added automatically.
+          </p>
+        </div>
+        <div className="cp-aud-actions">
+          <Link href={`/dashboard/advertising/c/${campaignId}/settings`} className="button button-quiet">
+            Change audience
+          </Link>
+        </div>
+      </section>
+
+      <div className="cp-filter" role="group" aria-label="Filter">
+        {FILTERS.map(([key, label]) => (
+          <Link key={key} href={`/dashboard/advertising/c/${campaignId}/placements${key === "all" ? "" : `?show=${key}`}`} aria-current={filter === key ? "page" : undefined}>
+            {label} <span>{count(key)}</span>
+          </Link>
+        ))}
+      </div>
+
+      {games.length === 0 ? (
+        <div className="empty">
+          <p style={{ margin: "0 auto" }}>No placements in this campaign yet. Use “Add placements”.</p>
+        </div>
+      ) : (
+        <section className="panel" style={{ padding: 0 }} aria-label="Games and placements">
+          <div className="cp-sum">
+            <span>
+              {games.length} {games.length === 1 ? "game" : "games"} · {placementTotal} {placementTotal === 1 ? "placement" : "placements"}
+            </span>
+            <span>Impressions, 30 days</span>
+          </div>
+          {shown.map((game) => (
+            <div className={`cp-game${skipped.has(game.id) ? " is-excluded" : ""}`} key={game.id}>
+              <div className="cp-game-top">
+                <div className="cp-game-name">
+                  <GameNameButton game={cards[game.id]} />
+                  {report.gameTags?.[game.id] && <span className="cp-game-tags">{report.gameTags[game.id]}</span>}
+                </div>
+                {skipped.has(game.id) ? (
+                  <span className="ov-pill ov-ended">Excluded by you</span>
+                ) : (
+                  <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
+                )}
+<div className="cp-game-num">{game.impressions > 0 && !skipped.has(game.id) ? formatCount(game.impressions) : "—"}</div>
+                {report.rules && placementsOf.has(game.id) && (
+                  <ExcludeButton campaignId={campaignId} gameId={game.id} excluded={skipped.has(game.id)} />
+                )}
+              </div>
+              {game.note && <p className="todo-sub">{game.note}</p>}
+              <div className="cp-chips">
+                {[...(placementsOf.get(game.id)?.values() ?? [])].map((booking) => (
+                  <span className="cp-chip" key={booking.placementId}>
+                    {booking.placement}
+                    {booking.placementAspect ? <span className="muted num">{ratioLabel(booking.placementAspect)}</span> : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <p className="ovx-hint">Exclude a game to stop this campaign there, for example if it does not suit your brand. Unlike a developer’s block, you can undo it yourself at any time.</p>
+    </>
+  );
+}

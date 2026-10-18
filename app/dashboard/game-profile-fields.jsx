@@ -1,10 +1,10 @@
 "use client";
 
 import MultiPick from "./multi-pick";
-import { FIELDS, PROFILE_KEYS } from "../../lib/targeting";
+import { FIELDS, GENRES_HINT, MAX_GAME_GENRES, PROFILE_KEYS } from "../../lib/targeting";
 
 const HINTS = {
-  genres: "Everything that describes the game.",
+  genres: GENRES_HINT,
   platforms: "Where players can play it.",
   languages: "The languages the game is available in.",
 };
@@ -21,6 +21,7 @@ export default function GameProfileFields({ value, onChange, disabled = false, n
           key={key}
           label={FIELDS[key].label}
           hint={HINTS[key]}
+          max={key === "genres" ? MAX_GAME_GENRES : undefined}
           options={FIELDS[key].options}
           value={value[key]}
           onChange={(next) => onChange({ ...value, [key]: next })}

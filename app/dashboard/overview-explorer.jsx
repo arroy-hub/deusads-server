@@ -3,6 +3,7 @@
 import Link from "next/link";
 import CategoryIcon from "./advertising/category-icon";
 import ChartHead from "./chart-head";
+import OverviewDeck from "./overview-deck";
 import StatusPill from "./advertising/status-pill";
 import { categoryLabel } from "../../lib/categories";
 import { useMemo, useRef, useState } from "react";
@@ -36,7 +37,7 @@ function deltaSeconds(now, before) {
  * down by campaign or creative (creative needs migration 0027), per day or per week,
  * with the pauses and blocks marked on it; Total can be compared with the period before.
  */
-export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false, reach = null }) {
+export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false, reach = null, deckLayout = null }) {
   // Ticked at the start: campaigns that show something (impressions, a mark, running). With none of those, all of them.
   const [selected, setSelected] = useState(() => {
     const active = campaigns.filter((item) => item.impressions > 0 || item.daily.some(Boolean) || (item.events ?? []).length > 0 || ["live", "limited"].includes(item.status?.key));
@@ -183,7 +184,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
         <div className="ovx-tile">
           <span className="ovx-tile-label">Impressions per session</span>
           <span className="ovx-tile-value">{reachOn ? ratio(reach.perSession) : "—"}</span>
-          <span className="ovx-tile-sub ovx-muted">{reachOn ? `${formatCount(reach.sessions)} sessions with an ad` : "select every campaign with views"}</span>
+          <span className="ovx-tile-sub ovx-muted">{reachOn ? `${formatCount(reach.sessions)} sessions where an ad was seen` : "select every campaign with views"}</span>
         </div>
         <div className="ovx-tile">
           <span className="ovx-tile-label">Impressions per player</span>
@@ -272,6 +273,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
             </div>
           </div>
         )}
+        {campaigns.length > 0 && <OverviewDeck days={days} series={dates.map((date, i) => ({ date, adv: campaigns.reduce((sum, item) => sum + (item.daily[i] || 0), 0) }))} initial={deckLayout} />}
       </section>
       )}
 

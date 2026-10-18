@@ -60,6 +60,12 @@ for (let n = 0; n < 4000; n += 1) {
   });
 }
 
+// Sessions the SDK (0.10+) announced: s0..s249 also have views, s400..s449 never saw an ad. Other sessions
+// (older SDKs) were never announced.
+const startedDay = new Map();
+for (let n = 0; n < 250; n += 1) startedDay.set(`s${n}`, dayOf(Math.floor(rnd() * 73)));
+for (let n = 400; n < 450; n += 1) startedDay.set(`s${n}`, dayOf(Math.floor(rnd() * 73)));
+
 /** What game_performance() does, in JavaScript. */
 function evaluate(scopes, window, byDay) {
   const inWindow = impressions.filter((row) => row.day >= window.from && row.day <= window.to);
@@ -80,6 +86,9 @@ function evaluate(scopes, window, byDay) {
       own_players: new Set(ownRows.map((row) => row.install).filter(Boolean)).size,
       adv_tracked: advRows.filter((row) => row.install).length,
       own_tracked: ownRows.filter((row) => row.install).length,
+      game_sessions: [...startedDay.values()].filter((started) => (day ? started === day : started >= window.from && started <= window.to)).length,
+      adv_started: advRows.filter((row) => startedDay.has(row.session)).length,
+      own_started: ownRows.filter((row) => startedDay.has(row.session)).length,
     };
   };
   for (const scope of scopes) {
@@ -198,18 +207,24 @@ assert.deepEqual(chunkScopes([]), []);
 const cell = {
   adv: 6, own: 4, sessions: 7, advSessions: 5, ownSessions: 3, advVisible: 30, advVisibleN: 5, ownVisible: 10, ownVisibleN: 5,
   players: 4, advPlayers: 3, ownPlayers: 2, advTracked: 6, ownTracked: 2, // two of the own views come from an older SDK
+  gameSessions: 10, advStarted: 6, ownStarted: 2, // two own views belong to a session nobody announced
 };
-assert.deepEqual(figures(cell, "all"), { views: 10, sessions: 7, players: 4, avgVisible: 4, perSession: 10 / 7, perPlayer: 2 });
-assert.deepEqual(figures(cell, "adv"), { views: 6, sessions: 5, players: 3, avgVisible: 6, perSession: 6 / 5, perPlayer: 2 });
-assert.deepEqual(figures(cell, "own"), { views: 4, sessions: 3, players: 2, avgVisible: 2, perSession: 4 / 3, perPlayer: 1 }, "views without an install ID do not count toward a player");
+assert.deepEqual(figures(cell, "all"), { views: 10, sessions: 7, gameSessions: 10, players: 4, avgVisible: 4, perSession: 0.8, perPlayer: 2 });
+assert.deepEqual(figures(cell, "adv"), { views: 6, sessions: 5, gameSessions: 10, players: 3, avgVisible: 6, perSession: 0.6, perPlayer: 2 });
+assert.deepEqual(figures(cell, "own"), { views: 4, sessions: 3, gameSessions: 10, players: 2, avgVisible: 2, perSession: 0.2, perPlayer: 1 }, "views without an install ID do not count toward a player; views of unannounced sessions do not count per session");
 assert.deepEqual(
   figures(emptyCell(), "all"),
-  { views: 0, sessions: 0, players: 0, avgVisible: null, perSession: null, perPlayer: null },
-  "no timing, no players: unknown, not 0"
+  { views: 0, sessions: 0, gameSessions: 0, players: 0, avgVisible: null, perSession: null, perPlayer: null },
+  "no timing, no players, no announced sessions: unknown, not 0"
 );
-// views from SDKs before 0.9 have sessions but no players: the per-session figure works, the per-player one waits
-assert.equal(figures({ ...emptyCell(), adv: 12, advSessions: 4, sessions: 4 }, "adv").perSession, 3);
+// views from SDKs before 0.10 announce no session: the per-session figure waits (null), it is never made up from them
+assert.equal(figures({ ...emptyCell(), adv: 12, advSessions: 4, sessions: 4 }, "adv").perSession, null);
 assert.equal(figures({ ...emptyCell(), adv: 12, advSessions: 4, sessions: 4 }, "adv").perPlayer, null);
+// every announced session counts, also the ones in which no ad was seen
+assert.equal(figures({ ...emptyCell(), adv: 12, advStarted: 12, gameSessions: 40 }, "adv").perSession, 0.3);
+assert.equal(figures({ ...emptyCell(), gameSessions: 40 }, "adv").perSession, 0, "sessions but no ad seen: zero, not unknown");
+assert.equal(cellFrom({ game_sessions: "7", adv_started: 3, own_started: "2" }).gameSessions, 7);
+assert.equal(cellFrom({ game_sessions: "7", adv_started: 3, own_started: "2" }).ownStarted, 2);
 assert.equal(ratio(10 / 7), "1.4");
 assert.equal(ratio(3), "3.0");
 assert.equal(ratio(null), "—");
@@ -363,6 +378,13 @@ assert.ok(figures(k, "all").sessions <= figures(k, "all").views);
 assert.ok(k.players <= k.advTracked + k.ownTracked && k.advTracked + k.ownTracked <= k.adv + k.own, "players <= tracked views <= views");
 assert.ok(k.players >= Math.max(k.advPlayers, k.ownPlayers) && k.players <= k.advPlayers + k.ownPlayers, "a player seen by both sources counts once");
 assert.ok(Math.abs(figures(k, "all").avgVisible * (k.advVisibleN + k.ownVisibleN) - (k.advVisible + k.ownVisible)) < 1e-6);
+
+// per session: over every announced session of the game (also those without an ad); views of sessions nobody announced
+// are left out of the ratio
+assert.equal(k.gameSessions, [...startedDay.values()].filter((day) => day >= win.from && day <= win.to).length);
+assert.equal(k.advStarted + k.ownStarted, impressions.filter((row) => row.day >= win.from && row.day <= win.to && startedDay.has(row.session)).length);
+assert.ok(k.advStarted + k.ownStarted < k.adv + k.own, "older sessions have views that do not count per session");
+assert.equal(figures(k, "all").perSession, (k.advStarted + k.ownStarted) / k.gameSessions);
 
 // a period: fewer days, fewer views, the same rules
 const week = run(withState({ by: "folder" }), windowOf(7, now));

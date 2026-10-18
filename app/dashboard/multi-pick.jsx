@@ -5,10 +5,12 @@ import { useState } from "react";
 /**
  * Pick any number of options from a list: buttons that switch on and off, plus a search box for
  * long lists. With `name`, every pick is also sent as a hidden field of the surrounding form.
+ * With `max`, once that many are picked the others cannot be added until one is taken off.
  */
-export default function MultiPick({ label, hint, options, value, onChange, name, searchable = false, disabled = false, required = false }) {
+export default function MultiPick({ label, hint, options, value, onChange, name, searchable = false, disabled = false, required = false, max }) {
   const [query, setQuery] = useState("");
   const chosen = new Set(value);
+  const full = max != null && value.length >= max;
   const needle = query.trim().toLowerCase();
   const visible = needle
     ? options.filter((option) => option.label.toLowerCase().includes(needle) || option.id === needle)
@@ -21,7 +23,7 @@ export default function MultiPick({ label, hint, options, value, onChange, name,
       <legend>
         {label}
         {required && <i className="req" title="Required" />}
-        {value.length > 0 && <span className="multi-count">{value.length} selected</span>}
+        {value.length > 0 && <span className="multi-count">{max != null ? `${value.length} of ${max}` : `${value.length} selected`}</span>}
       </legend>
       {hint && <p className="settings-help">{hint}</p>}
       {searchable && (
@@ -45,6 +47,8 @@ export default function MultiPick({ label, hint, options, value, onChange, name,
             type="button"
             className="multi-option"
             aria-pressed={chosen.has(option.id)}
+            disabled={full && !chosen.has(option.id)}
+            title={full && !chosen.has(option.id) ? `Up to ${max}. Take one off to add another.` : undefined}
             onClick={() => toggle(option.id)}
           >
             {option.label}

@@ -16,6 +16,7 @@ import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
 import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
 import { campaignMayServe, effectivePause } from "../../../lib/campaign-rules";
+import { slotStates } from "../../../lib/fill-rate";
 
 export const dynamic = "force-dynamic";
 
@@ -128,17 +129,41 @@ export const GET = guarded(async function GET(request) {
   const campaignRules = await loadCampaignRules(db, game, servable);
   const campaignAllows = (item) => item.source !== "booking" || !campaignRules || campaignMayServe(campaignRules.ruleOf.get(item.assignmentId), game.id, campaignRules.profile);
 
-  const placements = rotate(
-    servable.filter((item) => !suspended.has(item.advertiserId) && !disabled.has(item.placementId) && allowed(item) && campaignAllows(item))
-  ).map(({ row }) => ({
+  // The same steps one at a time, so a placement left empty can be explained (migration 0037).
+  const notSuspended = servable.filter((item) => !suspended.has(item.advertiserId));
+  const notBlocked = notSuspended.filter((item) => !disabled.has(item.placementId) && allowed(item));
+  const chosen = rotate(notBlocked.filter(campaignAllows));
+  const placements = chosen.map(({ row }) => ({
     id: row.placements.external_id,
     creativeId: row.creatives.id,
     imageUrl: shown.get(row).imageUrl,
     crop: shown.get(row).crop,
   }));
 
+  await recordFill(db, game, { levels: [rows, eligible, servable, notSuspended, notBlocked], chosen, disabled });
+
   return json({ version: 1, placements, disabled: off.disabled, disabledScenes: off.disabledScenes });
 });
+
+/**
+ * Remembers what this request did for every placement of the game: an ad of an advertiser, the developer's own
+ * creative, or the reason it stayed empty (migration 0037, shown as the fill rate in the developer's Performance tab).
+ * Never fails the request: a missing table or a database hiccup only means this request is not counted.
+ */
+async function recordFill(db, game, { levels, chosen, disabled }) {
+  try {
+    const { data: live, error: liveError } = await db.from("placements").select("external_id").eq("game_id", game.id).is("removed_at", null);
+    if (liveError) return;
+    const states = slotStates({ slots: (live ?? []).map((row) => row.external_id), disabled, levels, chosen });
+    if (Object.keys(states).length === 0) return;
+    const { error: recordError } = await db.rpc("record_manifest_fill", { p_game_id: game.id, p_owner: game.owner_id, p_slots: states });
+    if (!recordError) return;
+    if (isSchemaOutdated(recordError) || recordError.code === "PGRST202" || recordError.code === "42883") warnSchemaOutdated("GET /v1/manifest", "0037_fill_rate.sql");
+    else logDbError("manifest fill", recordError);
+  } catch (error) {
+    console.error("[DeusADS] manifest fill:", error);
+  }
+}
 
 /**
  * Pauses and blocks the developer set in this game (migration 0023): { controls, blocked, campaignOf },

@@ -2,8 +2,7 @@ import { notFound } from "next/navigation";
 import { getMember } from "../../../../../lib/admin";
 import { canAdvertise } from "../../../../../lib/admin-rules";
 import { loadCampaignHead } from "../../../../../lib/advertiser-data";
-import CampaignHeader from "./campaign-header";
-import CampaignTabs from "./campaign-tabs";
+import CampaignTop from "./campaign-top";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +15,8 @@ export default async function CampaignLayout({ children, params }) {
   if (!head) notFound();
 
   return (
-    <>
-      <CampaignHeader
+    <div className="gp">
+      <CampaignTop
         h={{
           id: head.id,
           name: head.name,
@@ -30,9 +29,10 @@ export default async function CampaignLayout({ children, params }) {
           rules: head.rules,
           hasBookings: head.bookings.length > 0,
         }}
+        creatives={head.creativeCount}
+        coverCss={head.coverCss}
       />
-      <CampaignTabs id={head.id} creatives={head.creativeCount} />
-      {children}
-    </>
+      <div className="gp-work">{children}</div>
+    </div>
   );
 }

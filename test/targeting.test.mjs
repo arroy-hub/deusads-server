@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   FIELDS,
   GENRES,
+  GENRES_HINT,
   LANGUAGES,
+  MAX_GAME_GENRES,
   PLATFORMS,
   cleanList,
   cleanProfile,
@@ -54,6 +56,21 @@ assert.deepEqual(validateProfile({ genres: ["rpg"], platforms: ["ios"], language
 assert.equal(validateProfile({ genres: [], platforms: ["ios"], languages: ["de"] }).error, "Pick at least one genre.");
 assert.equal(validateProfile({ genres: ["rpg"], platforms: ["fax"], languages: ["de"] }).error, "Pick at least one platform.", "unknown ids do not count");
 assert.equal(validateProfile({ genres: ["rpg"], platforms: ["ios"] }).error, "Pick at least one language.");
+
+// --- a game claims at most four genres (a game that ticks them all would fit every campaign)
+assert.equal(MAX_GAME_GENRES, 4);
+assert.match(GENRES_HINT, /Up to 4/);
+const fourGenres = ["action", "shooter", "puzzle", "horror"];
+assert.deepEqual(validateProfile({ genres: fourGenres, platforms: ["ios"], languages: ["de"] }).value.genres, fourGenres, "four is allowed");
+assert.equal(validateProfile({ genres: [...fourGenres, "racing"], platforms: ["ios"], languages: ["de"] }).error, "Pick up to 4 genres.", "five is too many");
+assert.equal(validateProfile({ genres: GENRES.map((genre) => genre.id), platforms: ["ios"], languages: ["de"] }).error, "Pick up to 4 genres.", "every genre is too many");
+assert.equal(validateProfile({ genres: [...fourGenres, "nope"], platforms: ["ios"], languages: ["de"] }).error, undefined, "an unknown id does not count towards the limit");
+assert.equal(validateProfile({ genres: [], platforms: ["ios"], languages: ["de"] }).error, "Pick at least one genre.", "the empty list is still reported first");
+// the limit is checked when a game is saved, not when it is read: a game saved earlier with more is left as it was
+assert.deepEqual(cleanProfile({ genres: [...fourGenres, "racing", "sports"], platforms: ["ios"], languages: ["de"] }).genres.length, 6, "older games keep every genre");
+assert.ok(fitsGame({ genres: [...fourGenres, "racing", "sports"], platforms: ["ios"], languages: ["de"] }, { genres: ["sports"] }), "and still match on all of them");
+// the limit is for the game's own description only: an advertiser's audience may ask for any number
+assert.deepEqual(parseTargeting({ genres: GENRES.map((genre) => genre.id) }).value.genres.length, GENRES.length, "an audience may ask for every genre");
 
 // --- what a game row says about itself
 assert.deepEqual(profileGaps({ genres: ["rpg"], platforms: [], languages: [] }), { known: true, missing: ["platforms", "languages"] });
