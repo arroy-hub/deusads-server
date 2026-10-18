@@ -8,6 +8,8 @@ import { formatCount } from "../../../../../../lib/analytics";
 import { reportRows } from "../../../../../../lib/reports";
 import { ratioLabel } from "../../../../../../lib/surface-math";
 import ExcludeButton from "../exclude-button";
+import GameNameButton from "../game-name-button";
+import { coverBackground } from "../../../../../../lib/game-cover";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign placements" };
@@ -39,6 +41,28 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
   const filter = FILTERS.some(([key]) => key === query?.show) ? query.show : "all";
   const shown = games.filter((game) => (filter === "showing" ? game.state === "showing" && !skipped.has(game.id) : filter === "held" ? isHeld(game) : filter === "excluded" ? skipped.has(game.id) : true));
   const count = (key) => games.filter((game) => (key === "showing" ? game.state === "showing" && !skipped.has(game.id) : key === "held" ? isHeld(game) : key === "excluded" ? skipped.has(game.id) : true)).length;
+  // What each game says about itself: the card the developer sees in the game's Settings, shown read-only from the name.
+  const gameIds = games.map((game) => game.id);
+  const readGames = (columns) => (gameIds.length ? me.service.from("games").select(columns).in("id", gameIds) : Promise.resolve({ data: [], error: null }));
+  let { data: about, error: aboutError } = await readGames("id, name, genres, platforms, languages, icon_path, cover, devices, play_modes");
+  if (aboutError) ({ data: about } = await readGames("id, name, genres, platforms, languages, icon_path"));
+  const aboutOf = new Map((about ?? []).map((row) => [row.id, row]));
+  const urlOf = (path) => me.service.storage.from("creatives").getPublicUrl(path).data.publicUrl;
+  const cardOf = (game) => {
+    const row = aboutOf.get(game.id) ?? {};
+    return {
+      name: game.game,
+      iconUrl: row.icon_path ? urlOf(row.icon_path) : "",
+      coverCss: coverBackground(row.cover ?? null, Math.max(0, gameIds.indexOf(game.id)), urlOf),
+      hasPicture: typeof row.cover === "string" && row.cover.startsWith("image:"),
+      form: { name: game.game, genres: row.genres ?? [], platforms: row.platforms ?? [], languages: row.languages ?? [], devices: row.devices ?? [], playModes: row.play_modes ?? [] },
+      state: game.state,
+      label: game.label,
+      views: `${formatCount(game.impressions)} views of this campaign`,
+      placements: placementsOf.get(game.id)?.size ?? 0,
+      campaigns: 1,
+    };
+  };
   const placementTotal = [...placementsOf.values()].reduce((sum, map) => sum + map.size, 0);
 
   return (
@@ -81,7 +105,7 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
             <div className={`cp-game${skipped.has(game.id) ? " is-excluded" : ""}`} key={game.id}>
               <div className="cp-game-top">
                 <div className="cp-game-name">
-                  {game.game}
+                  <GameNameButton game={cardOf(game)} />
                   {report.gameTags?.[game.id] && <span className="cp-game-tags">{report.gameTags[game.id]}</span>}
                 </div>
                 {skipped.has(game.id) ? (

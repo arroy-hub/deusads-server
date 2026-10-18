@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { getMember } from "../../../../../lib/admin";
 import { canAdvertise } from "../../../../../lib/admin-rules";
 import { loadCampaignHead } from "../../../../../lib/advertiser-data";
-import CampaignHeader from "./campaign-header";
-import CampaignTabs from "./campaign-tabs";
+import CampaignTop from "./campaign-top";
+import { campaignCoverCss } from "../../../../../lib/campaign-cover";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +15,12 @@ export default async function CampaignLayout({ children, params }) {
   const head = await loadCampaignHead(me.service, me, campaignId);
   if (!head) notFound();
 
+  // The picture behind the plate: the campaign's own card picture once it has one (a later step), else a colour picked by its id.
+  const coverCss = campaignCoverCss(head.id);
+
   return (
-    <>
-      <CampaignHeader
+    <div className="gp">
+      <CampaignTop
         h={{
           id: head.id,
           name: head.name,
@@ -30,9 +33,10 @@ export default async function CampaignLayout({ children, params }) {
           rules: head.rules,
           hasBookings: head.bookings.length > 0,
         }}
+        creatives={head.creativeCount}
+        coverCss={coverCss}
       />
-      <CampaignTabs id={head.id} creatives={head.creativeCount} />
-      {children}
-    </>
+      <div className="gp-work">{children}</div>
+    </div>
   );
 }

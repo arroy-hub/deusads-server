@@ -8480,3 +8480,169 @@ body.ig-dragging *{cursor:grabbing!important}
 .ig-ringrow .ig-stats,.ig-ringrow .ig-stats.is-col{min-width:88px}
 .ig-ringrow .ig-ring{max-width:50%}
 
+
+/* campaign report: all key numbers in one block */
+.cr-sum{display:grid;grid-template-columns:minmax(220px,1.35fr) repeat(3,minmax(0,1fr));grid-template-rows:auto auto;background:#fff;border:1px solid var(--line,#e6ddd3);border-radius:12px;overflow:hidden}
+.cr-sum>div{display:flex;flex-direction:column;gap:2px;padding:16px 20px;min-width:0}
+.cr-sum-hero{grid-row:1/3;justify-content:center;border-right:1px solid var(--line,#e6ddd3);background:linear-gradient(180deg,#fbf6f1,#fff)}
+.cr-sum-hero .cr-card-value{font-size:3rem;line-height:1.05;letter-spacing:-.02em}
+.cr-sum-hero .cr-card-label{font-size:.8125rem}
+.cr-sum-cell:nth-child(n+5){border-top:1px solid var(--line,#e6ddd3)}
+.cr-sum-cell+.cr-sum-cell:not(:nth-child(5)){border-left:1px solid var(--line,#e6ddd3)}
+.cr-sum .cr-card-value{font-size:1.625rem}
+.cr-sum .cr-card-sub{line-height:1.35}
+@media (max-width:900px){.cr-sum{grid-template-columns:repeat(2,minmax(0,1fr))}.cr-sum-hero{grid-row:auto;grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line,#e6ddd3)}.cr-sum-cell{border-left:0!important;border-top:1px solid var(--line,#e6ddd3)}.cr-sum-cell:nth-child(even){border-left:1px solid var(--line,#e6ddd3)!important}}
+.cr-sum .cr-sum-hero .cr-card-value{font-size:3.25rem;line-height:1.05;letter-spacing:-.02em;margin:2px 0 4px}
+.cr-sum .cr-sum-hero .cr-card-sub{font-size:.875rem}
+.cr-sum .cr-sum-cell .cr-card-value{font-size:1.625rem}
+
+/* campaign: creatives and games in one comparison block */
+.cr-tabs{display:inline-flex;gap:2px;padding:3px;background:#f1ebe4;border-radius:10px;align-self:center}
+.cr-tabs button{font:inherit;font-size:.8125rem;font-weight:700;color:var(--ink-2,#6b5f56);background:none;border:0;border-radius:8px;padding:6px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.cr-tabs button span{font-size:.6875rem;font-weight:700;color:var(--ink-3,#8c7f73)}
+.cr-tabs button[aria-selected="true"]{background:#fff;color:var(--ink,#241d19);box-shadow:0 1px 3px rgba(36,29,25,.14)}
+.cr-tabs button:focus-visible{outline:2px solid var(--signal,#c94a24);outline-offset:1px}
+.cr-compare .cr-box-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.cr-cmp th{white-space:nowrap;font-size:.75rem}
+.cr-cmp td.num,.cr-cmp th.num{white-space:nowrap}
+.cr-cmp td.is-best{font-weight:700;color:#a23a17}
+.cr-cmp .cr-sub{display:block;font-weight:400;font-size:.75rem;color:var(--ink-3,#8c7f73)}
+.cr-cmp-note{margin:0;padding-top:8px;padding-bottom:12px}
+
+.cr-cmp td:first-child,.cr-cmp th:first-child{min-width:240px}
+.cr-cmp td:first-child{white-space:nowrap}
+.cr-cmp td.is-best{color:var(--ink,#241d19)}
+.cr-cmp td.is-best::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--signal,#c94a24);vertical-align:middle}
+.cr-cmp td:first-child,.cr-cmp th:first-child{min-width:190px}
+.cr-cmp td,.cr-cmp th{padding-left:10px;padding-right:10px}
+.cr-cmp td:first-child,.cr-cmp th:first-child{padding-left:16px}
+.cr-cmp td.is-best::before{margin-right:5px}
+.cr-compare ~ .cr-log{width:100%;max-width:none}
+.cr-compare ~ .cr-log{height:auto;min-height:0;align-self:start}
+.cr-cmp .ov-share{min-width:0}
+.cr-cmp td:first-child,.cr-cmp th:first-child{min-width:180px}
+/* round 23: game card from the compare table */
+.cr-gamelink{all:unset;cursor:pointer;font-weight:700;color:#241d19;border-bottom:1px dashed #b9aca0;padding-bottom:1px}
+.cr-gamelink:hover{color:#b8421d;border-bottom-color:#b8421d}
+.cr-gamelink:focus-visible{outline:2px solid #b8421d;outline-offset:3px;border-radius:3px}
+.gcd-scrim{position:fixed;inset:0;z-index:80;background:rgba(36,29,25,.45);display:grid;place-items:center;padding:20px;overflow-y:auto}
+.gcd{position:relative;width:min(380px,100%);display:flex;flex-direction:column;gap:12px}
+.gcd .gm-card{box-shadow:0 18px 48px rgba(36,29,25,.35);min-height:0}
+.gcd .gm-card:hover{box-shadow:0 18px 48px rgba(36,29,25,.35)}
+.gcd .gm-sub{white-space:normal}
+.gcd-x{position:absolute;right:10px;top:10px;z-index:3;width:32px;height:32px;border:0;border-radius:50%;background:rgba(36,29,25,.55);color:#fff;font:600 20px/1 "Manrope",sans-serif;cursor:pointer}
+.gcd-x:hover{background:rgba(36,29,25,.8)}
+.gcd-note{margin:0;font-size:12.5px;color:#f6f1ea;text-align:center;line-height:1.4}
+.gcd-scrim{background:rgba(36,29,25,.68)}
+.cr-gamelink{display:inline-block;line-height:1.25}
+.cr-cmp td .cr-gamelink+.cr-sub{display:block;margin-top:4px}
+/* round 24: bubble instead of pop-up, icon beside the game name */
+.gcd-scrim,.gcd{display:none}
+.cr-gamecell{display:inline-flex;align-items:center;gap:12px}
+.cr-gamecell .game-icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:15px;font-weight:800;background:#c94a24;color:#fff;flex:none}
+.cr-gamecell img.game-icon{object-fit:cover}
+.cr-gamecell .cr-sub{display:block;margin-top:3px}
+.gcb{position:fixed;z-index:90;width:340px;filter:drop-shadow(0 14px 30px rgba(36,29,25,.28))}
+.gcb .gm-card{min-height:0;box-shadow:none;border:1px solid #e6ddd3}
+.gcb .gm-card:hover{box-shadow:none}
+.gcb .gm-sub{white-space:normal}
+.gcb::before{content:"";position:absolute;left:calc(var(--arrow) - 8px);top:-7px;width:14px;height:14px;transform:rotate(45deg);background:#fff;border-left:1px solid #e6ddd3;border-top:1px solid #e6ddd3;z-index:3;border-radius:3px 0 0 0}
+.gcb.is-above::before{top:auto;bottom:-7px;transform:rotate(225deg)}
+.gcb .gm-chips{display:none}
+.gcb::before{display:none}
+/* round 27: sortable headers, creative bubble */
+.cr-sort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font:inherit;color:inherit;padding:2px 0;border-radius:4px}
+.cr-sort:hover{color:#241d19}
+.cr-sort:focus-visible{outline:2px solid #b8421d;outline-offset:2px}
+.cr-sort .cr-arrow{font-size:9px;line-height:1;color:#c3b6aa;width:9px;text-align:center}
+.cr-sort:hover .cr-arrow{color:#8c7f73}
+.cr-sort.is-on{color:#241d19;font-weight:800}
+.cr-sort.is-on .cr-arrow{color:#b8421d}
+.cr-cmp td .cr-gamecell .cr-gamelink{text-align:left}
+.cr-gamecell .cr-thumb{flex:none}
+.crb{background:#fff;border-radius:20px;overflow:hidden;border:1px solid #e6ddd3}
+.crb-pic{width:100%;max-height:260px;background:#f1ebe4;display:grid;place-items:center;overflow:hidden}
+.crb-pic img{width:100%;height:100%;object-fit:cover;display:block}
+.crb-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.crb-body h3{margin:0;font-size:16px;font-weight:800;letter-spacing:-.01em}
+.crb-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:#6b5f56}
+.cr-sort{position:relative}
+.cr-sort .cr-arrow{position:absolute;right:-13px;top:50%;transform:translateY(-50%);opacity:0;transition:opacity .12s}
+.cr-sort:hover .cr-arrow,.cr-sort:focus-visible .cr-arrow,.cr-sort.is-on .cr-arrow{opacity:1}
+.cr-gamecell .cr-thumb{margin:0}
+.cr-cmp td:first-child,.cr-cmp th:first-child{min-width:170px}
+.cr-cmp td,.cr-cmp th{padding-left:9px;padding-right:9px}
+.cr-cmp td:first-child,.cr-cmp th:first-child{padding-left:16px}
+.cr-cmp th:last-child .cr-arrow{right:auto;left:-13px}
+.cr-cmp th:last-child .cr-sort{margin-left:12px}
+/* round 31: campaign top set like a game's */
+.cr-top .gp-plate-row{gap:16px}
+.cr-top-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.cr-top-tile{width:56px;height:56px;border-radius:14px;display:grid;place-items:center}
+.gp-work .cr-alert:first-child{margin-top:0}
+.cr-top .rd-tile.cr-top-tile{width:56px;height:56px;border-radius:14px}
+.cr-top .rd-tile.cr-top-tile .cp-cti{width:28px;height:28px}
+.cr-top .gm-plate{align-items:center}
+.cr-top-dates{margin-top:8px}
+.cr-top-dates .rd-dr{max-width:260px}
+.cr-top-dates{margin:0 0 0 14px;padding:2px 8px 2px 22px;border-left:1px solid #efe7de;align-self:center}
+.cr-top-dates .rd-dr{min-width:220px;max-width:260px}
+.cr-top-dates{flex:none;padding-right:14px}
+.cr-top .gp-plate>div:not(.cr-top-dates){flex:1 1 auto}
+/* round 34: smaller company icon, shorter white fade, advertiser Placements and Settings */
+.cr-top .gm-icon{width:44px;height:44px}
+.cr-top .rd-tile.cr-top-tile{width:44px;height:44px;border-radius:12px}
+.cr-top .rd-tile.cr-top-tile .cp-cti{width:24px;height:24px}
+.cr-top .gm-plate{gap:10px}
+.cr-top .gp-pic{aspect-ratio:8 / 1;-webkit-mask-image:linear-gradient(to right,#000 0,#000 88%,transparent 100%);mask-image:linear-gradient(to right,#000 0,#000 88%,transparent 100%)}
+.gp-work .panel+.ovx-hint{margin-top:14px}
+/* round 35: campaign card in Settings, smoother and slightly wider fade */
+.cs-wide{max-width:none}
+.cs-wide>.cs-card,.cs-wide>.cs-bar{max-width:none}
+.cs-wide .ag-left .gm-card .cr-top-tile{width:44px;height:44px}
+.cs-wide .ag-left .gm-body .rd-dr{max-width:none}
+.cr-top .gp-pic{aspect-ratio:7 / 1;-webkit-mask-image:linear-gradient(to right,#000 0,#000 78%,rgba(0,0,0,.92) 81%,rgba(0,0,0,.78) 84%,rgba(0,0,0,.6) 87%,rgba(0,0,0,.42) 90%,rgba(0,0,0,.26) 93%,rgba(0,0,0,.12) 96%,rgba(0,0,0,.03) 98.5%,transparent 100%);mask-image:linear-gradient(to right,#000 0,#000 78%,rgba(0,0,0,.92) 81%,rgba(0,0,0,.78) 84%,rgba(0,0,0,.6) 87%,rgba(0,0,0,.42) 90%,rgba(0,0,0,.26) 93%,rgba(0,0,0,.12) 96%,rgba(0,0,0,.03) 98.5%,transparent 100%)}
+/* round 36: campaign card header is the first creative, editor of the audience, one pattern for rows, narrower blocks */
+.cs-wide{max-width:1140px}
+.cs-wide>*{max-width:none}
+.cc-cover{background-size:cover;background-position:center}
+.ag-left .gm-icon{width:56px;height:56px}
+.ag-left .gm-card .rd-tile.cr-top-tile{width:56px;height:56px;border-radius:14px}
+.ag-left .gm-card .rd-tile.cr-top-tile .cp-cti{width:30px;height:30px}
+.cc-pause{width:100%;justify-content:center}
+.cs-pill-button{color:#241d19}
+.cs-pill-button:disabled{color:#a2958a;cursor:not-allowed}
+.cs-row{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.cs-row>div{min-width:0;flex:1}
+.cs-row>.button,.cs-row>.cs-row-confirm{flex:none;margin-left:auto}
+.cs-row-confirm{display:flex;gap:8px}
+.aud-ed{display:flex;flex-direction:column;gap:18px}
+.aud-ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 32px}
+@media (max-width:900px){.aud-ed-grid{grid-template-columns:1fr}}
+.aud-ed .multi-pick{margin:0;min-width:0}
+.aud-fit{background:#f6f1ea;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.aud-fit-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.aud-fit-head b{font-size:13.5px;font-weight:700}
+.aud-fit-games{display:flex;flex-wrap:wrap;gap:8px}
+.aud-game{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #e6ddd3;border-radius:99px;padding:3px 12px 3px 4px;font-size:13px;font-weight:600}
+.aud-game .game-icon{width:24px;height:24px;border-radius:7px;font-size:12px;display:grid;place-items:center;background:#c94a24;color:#fff}
+.aud-ed-actions{display:flex;flex-wrap:wrap;gap:10px}
+.gm-card .cc-cover{height:132px}
+.cc-cover{background-size:cover}
+.aud-groups{margin:0;display:flex;flex-direction:column}
+.aud-groups>div{display:grid;grid-template-columns:170px 1fr;gap:12px;align-items:baseline;padding:12px 0;border-top:1px solid #efe7de}
+.aud-groups>div:first-child{border-top:0;padding-top:4px}
+.aud-groups dt{font-size:13px;font-weight:700;color:#4a3e36}
+.aud-groups dd{margin:0;display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:700px){.aud-groups>div{grid-template-columns:1fr;gap:6px}}
+/* round 39 */
+.cs-wide .rd-noend{display:inline-flex;flex-direction:row;align-items:center;gap:8px;align-self:flex-end;height:40px;white-space:nowrap}
+.cs-wide .rd-noend input{margin:0}
+.cc-utc{margin:auto 0 0}
+.cp-game-name .cr-gamecell{gap:10px}
+/* round 40 */
+.cs-wide .rd-noend{align-self:flex-start;margin-top:0;height:auto}
+.cc-utc{display:flex;align-items:center;gap:8px}
+.cc-i{display:inline-grid;place-items:center;width:15px;height:15px;border:1px solid #d3c8bc;border-radius:4px;font:700 10px/1 "Manrope",sans-serif;color:#6b5f56;flex:none}
+.cs-wide .rd-noend{margin-top:31px}
+.cc-utc .ig-i{margin:0}

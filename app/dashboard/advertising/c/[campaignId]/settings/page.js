@@ -5,6 +5,8 @@ import { loadCampaignHead } from "../../../../../../lib/advertiser-data";
 import SettingsForm from "./settings-form";
 import CampaignAudience from "./campaign-audience";
 import { DuplicateButton } from "../../../campaign-actions";
+import { campaignCoverCss } from "../../../../../../lib/campaign-cover";
+import { hasTargeting, labelOf } from "../../../../../../lib/targeting";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign settings" };
@@ -30,23 +32,52 @@ export default async function CampaignSettingsPage({ params }) {
   const hasOpen = head.bookings.some((booking) => booking.status === "pending" || booking.status === "approved");
   const closed = head.bookings.filter((booking) => booking.status !== "pending" && booking.status !== "approved").length;
 
+  const chips = [];
+  const targeting = hasTargeting(head.targeting) ? head.targeting : null;
+  for (const id of targeting?.genres ?? []) chips.push({ key: `g:${id}`, text: labelOf("genres", id) });
+  for (const id of targeting?.platforms ?? []) chips.push({ key: `p:${id}`, text: labelOf("platforms", id).replace(/ \(.*\)$/, "") });
+  for (const id of targeting?.languages ?? []) chips.push({ key: `l:${id}`, text: labelOf("languages", id) });
+  for (const id of targeting?.exclude_genres ?? []) chips.push({ key: `x:${id}`, text: `not ${labelOf("genres", id)}` });
+  const card = {
+    chips,
+    category: head.category,
+    creatives: head.creativeCount,
+    games: new Set(head.bookings.map((booking) => booking.gameId).filter(Boolean)).size,
+    placements: new Set(head.bookings.map((booking) => booking.placementId).filter(Boolean)).size,
+  };
+
+  const duplicate = head.rules ? (
+    <section className="cs-card cs-rows" aria-label="Duplicate">
+      <div className="cs-row">
+        <div>
+          <h2>Duplicate the campaign</h2>
+          <p>Starts a new draft with the same creatives, audience and placements. Dates are left empty.</p>
+        </div>
+        <DuplicateButton id={head.id} />
+      </div>
+    </section>
+  ) : (
+    <section className="cs-card cs-rows" aria-label="Duplicate">
+      <p className="notice">Pause, duplicate and the campaign audience need migration <code>0026_campaign_rules.sql</code> in the Supabase SQL editor.</p>
+    </section>
+  );
+
   return (
-    <div className="cs-wrap">
-      <SettingsForm id={head.id} name={head.name} starts={head.starts ?? ""} ends={head.ends ?? ""} status={head.status} hasOpen={hasOpen} closedBookings={closed} rules={head.rules} />
-      {head.rules && <CampaignAudience campaignId={head.id} initial={head.targeting} catalog={catalog} />}
-      <section className="cs-card cs-rows" aria-label="Duplicate">
-        {head.rules ? (
-          <div className="cs-row">
-            <div>
-              <h2>Duplicate the campaign</h2>
-              <p>Starts a new draft with the same creatives, audience and placements. Dates are left empty.</p>
-            </div>
-            <DuplicateButton id={head.id} />
-          </div>
-        ) : (
-          <p className="notice">Pause, duplicate and the campaign audience need migration <code>0026_campaign_rules.sql</code> in the Supabase SQL editor.</p>
-        )}
-      </section>
+    <div className="cs-wrap cs-wide">
+      <SettingsForm
+        id={head.id}
+        name={head.name}
+        starts={head.starts ?? ""}
+        ends={head.ends ?? ""}
+        status={head.status}
+        hasOpen={hasOpen}
+        closedBookings={closed}
+        rules={head.rules}
+        card={card}
+        coverCss={campaignCoverCss(head.id)}
+        audience={head.rules ? <CampaignAudience campaignId={head.id} initial={head.targeting} catalog={catalog} /> : null}
+        duplicate={duplicate}
+      />
     </div>
   );
 }
