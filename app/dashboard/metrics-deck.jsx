@@ -592,7 +592,7 @@ function DailyTable({ days, dev, source, o, aside, info }) {
   return (
     <section className="ig-card ig-s12" style={o ? { order: o } : undefined}>
       <header className="ig-card-head"><div><div className="ig-titlerow"><h3>Impressions by day</h3>{info && <Info text={info} title="Impressions by day" />}</div><p>The numbers behind the chart, newest day first</p></div>{aside}</header>
-      <div className="pf-mini ad-table" role="table" aria-label="Impressions by day">
+      <div className="pf-mini dk-table" role="table" aria-label="Impressions by day">
         <div className={`pf-mini-row pf-mini-head${dev ? "" : " is-two"}`} role="row">
           <span role="columnheader">Day (UTC)</span>
           {dev ? <><span className="pf-num" role="columnheader">Advertisers</span><span className="pf-num" role="columnheader">My creatives</span><span className="pf-num" role="columnheader">Total</span></> : <span className="pf-num" role="columnheader">Impressions</span>}
@@ -810,13 +810,13 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
   });
 
   return (
-    <div className={`ad${open ? " is-open" : ""}`}>
-      <button type="button" className="ad-link" aria-expanded={open} aria-controls="ad-panel" onClick={() => setOpen(!open)}>
+    <div className={`dk${open ? " is-open" : ""}`}>
+      <button type="button" className="dk-link" aria-expanded={open} aria-controls="dk-panel" onClick={() => setOpen(!open)}>
         Advanced Data
         <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {open && (
-        <div id="ad-panel" className="ad-panel">
+        <div id="dk-panel" className="dk-panel">
           <div className="md-head">
             <div>
               <p className="md-sub">Same selection as the chart. Pick widgets, drag the grip to move one, pull an edge to resize.</p>
