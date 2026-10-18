@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import CategoryIcon from "../../../category-icon";
+import { COVERS } from "../../../../../../lib/game-cover";
 import { categoryLabel } from "../../../../../../lib/categories";
 import { TONE, diff, fmtDay } from "../../../../_cabinet/dates";
 import { DateRange } from "../../../../_cabinet/ui";
@@ -9,13 +11,39 @@ import { DateRange } from "../../../../_cabinet/ui";
  * The campaign's own card, set like a game's card in its Settings: it is how the campaign looks in the list of campaigns,
  * drawn live from the form next to it. Its picture is the one behind the campaign's page.
  */
-export default function CampaignCard({ name, from, until, status, coverCss, chips, category, creatives, games, placements }) {
+export default function CampaignCard({ name, from, until, status, coverCss, chips, category, creatives, games, placements, header = null }) {
+  const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return undefined;
+    const away = (e) => { if (!e.target.closest?.("[data-cover-menu]")) setMenu(false); };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [menu]);
   const tone = TONE[status.key] ?? "#8c7f73";
   const running = !["paused", "stopped", "ended"].includes(status.key);
   const length = from && until ? diff(until, from) + 1 : null;
   return (
     <article className="gm-card">
-      <div className="gm-cover ag-cover cc-cover" style={{ background: coverCss }} />
+      <div className="gm-cover ag-cover cc-cover" style={{ background: coverCss }}>
+        {header && !header.hasPicture && (
+          <div className="ag-sw ag-sw-on" role="group" aria-label="Header colours">
+            {COVERS.map((item) => <button key={item.id} type="button" className="ag-swatch" style={{ background: item.css }} aria-label={item.name} title={item.name} aria-pressed={item.id === header.colourId} onClick={() => header.onColour(item.id)} />)}
+          </div>
+        )}
+        {header && (
+          <span data-cover-menu>
+            <button type="button" className="ag-cover-btn" aria-label={header.hasPicture ? "Change header image" : "Upload header image"} title={header.hasPicture ? "Change header image" : "Upload header image"} aria-haspopup={header.hasPicture ? "menu" : undefined} aria-expanded={header.hasPicture ? menu : undefined} onClick={() => (header.hasPicture ? setMenu((v) => !v) : header.onCover())}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 9h.01" /></svg>
+            </button>
+            {menu && (
+              <div className="ag-pop" role="menu">
+                <button type="button" className="it" role="menuitem" onClick={() => { setMenu(false); header.onCover(); }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16" /></svg>Upload another</button>
+                <button type="button" className="it is-danger" role="menuitem" onClick={() => { setMenu(false); header.onRemoveCover(); }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>Remove picture</button>
+              </div>
+            )}
+          </span>
+        )}
+      </div>
       <div className="gm-body">
         <div className="gm-plate">
           <span className="gm-icon">

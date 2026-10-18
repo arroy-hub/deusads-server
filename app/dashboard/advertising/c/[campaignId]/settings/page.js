@@ -5,7 +5,8 @@ import { loadCampaignHead } from "../../../../../../lib/advertiser-data";
 import SettingsForm from "./settings-form";
 import CampaignAudience from "./campaign-audience";
 import { DuplicateButton } from "../../../campaign-actions";
-import { campaignCoverCss } from "../../../../../../lib/campaign-cover";
+import { parseCover, COVERS, defaultCoverId } from "../../../../../../lib/game-cover";
+import { coverSeed } from "../../../../../../lib/campaign-cover";
 import { hasTargeting, labelOf } from "../../../../../../lib/targeting";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export default async function CampaignSettingsPage({ params }) {
   const hasOpen = head.bookings.some((booking) => booking.status === "pending" || booking.status === "approved");
   const closed = head.bookings.filter((booking) => booking.status !== "pending" && booking.status !== "approved").length;
 
+  const saved = parseCover(head.cover.value);
   const chips = [];
   const targeting = hasTargeting(head.targeting) ? head.targeting : null;
   for (const id of targeting?.genres ?? []) chips.push({ key: `g:${id}`, text: labelOf("genres", id) });
@@ -74,7 +76,13 @@ export default async function CampaignSettingsPage({ params }) {
         closedBookings={closed}
         rules={head.rules}
         card={card}
-        coverCss={campaignCoverCss(head.id)}
+        cover={{
+          ready: head.cover.ready,
+          css: head.coverCss,
+          defaultId: defaultCoverId(coverSeed(head.id)),
+          colourId: saved.kind === "preset" ? saved.id : defaultCoverId(coverSeed(head.id)),
+          imageUrl: saved.kind === "image" ? "yes" : saved.kind === "default" ? head.firstUrl : "",
+        }}
         audience={head.rules ? <CampaignAudience campaignId={head.id} initial={head.targeting} catalog={catalog} /> : null}
         duplicate={duplicate}
       />

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { isSchemaOutdated } from "../../../lib/api";
 import { getMember } from "../../../lib/admin";
+import { coverValue, parseCover } from "../../../lib/game-cover";
 import {
   bookingErrorMessage,
   bookingsMissing,
@@ -255,6 +256,50 @@ export async function renameCampaign({ campaignId, name }) {
 
   revalidatePath("/dashboard/advertising");
   return { ok: true, name: title };
+}
+
+/**
+ * Sets the picture behind a campaign's page and card: a colour ("preset:<id>"), a picture the browser has already put in
+ * Storage inside the caller's own folder (`path`), or nothing (back to the first creative's picture). Deletes the
+ * previous picture. Needs migration 0044.
+ */
+export async function setCampaignCover({ campaignId, preset = null, path = null }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (!canAdvertise(me.role)) return { error: "Not allowed." };
+  const id = String(campaignId ?? "");
+
+  let next = null;
+  if (path) {
+    const file = String(path);
+    if (!file.startsWith(`${me.user.id}/`) || file.includes("..") || file.length > 290) return { error: "Upload failed. Try again." };
+    next = `image:${file}`;
+  } else if (preset) {
+    next = coverValue(`preset:${String(preset)}`);
+    if (next === undefined) return { error: "That colour is not one of the choices." };
+  }
+
+  const drop = () => (path ? me.service.storage.from("creatives").remove([String(path)]) : null);
+  const { data: before, error: readError } = await me.service.from("campaigns").select("id, cover").eq("id", id).eq("advertiser_id", me.user.id).maybeSingle();
+  if (isSchemaOutdated(readError)) return { error: "The campaign picture needs the database update (migration 0044) first." };
+  if (!before) {
+    await drop();
+    return { error: "That campaign no longer exists." };
+  }
+  const { error } = await me.service.from("campaigns").update({ cover: next }).eq("id", id).eq("advertiser_id", me.user.id);
+  if (error) {
+    await drop();
+    return { error: "Could not save the picture. Try again." };
+  }
+  const old = parseCover(before.cover);
+  if (old.kind === "image" && `image:${old.path}` !== next && old.path.startsWith(`${me.user.id}/`)) {
+    const { error: removeError } = await me.service.storage.from("creatives").remove([old.path]);
+    if (removeError) console.warn("[DeusADS] old campaign picture not removed:", old.path, removeError.message);
+  }
+
+  revalidatePath(`/dashboard/advertising/c/${id}`, "layout");
+  revalidatePath("/dashboard/advertising");
+  return { ok: true };
 }
 
 /**
