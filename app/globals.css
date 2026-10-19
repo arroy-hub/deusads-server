@@ -8665,13 +8665,20 @@ body.ig-dragging *{cursor:grabbing!important}
 
 /* ======================================================================= admin cabinet v2 (cb-)
    Header band, filter bar, list rows, pills, icon buttons, card popups, the 60/40 table + widgets split. */
-.cb-band{background:#fff;border-bottom:1px solid var(--line);padding:22px 0 18px;margin:0 0 18px}
-.cb-band h1{display:flex;align-items:center;gap:6px;font-size:1.75rem;font-weight:800;line-height:1.15;letter-spacing:-.03em;margin:0 0 4px}
-.cb-band p{margin:0;color:var(--ink-2);font-size:.9rem;max-width:70ch}
+.main:has(> .cb-page){padding:0;max-width:none}
+.cb-page{padding-bottom:48px}
+.cb-page > :not(.cb-band){margin-left:40px;margin-right:40px}
+.cb-band{background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(60,35,20,.03);padding:24px 40px 0;margin:0 0 26px}
+.cb-band.nt{padding-bottom:22px}
+.cb-band h1{display:flex;align-items:center;gap:6px;font-size:30px;font-weight:800;line-height:1.15;letter-spacing:-.03em;margin:0 0 4px}
+.cb-band p{margin:0;color:var(--ink-2);font-size:14.5px;max-width:70ch}
 .cb-band-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px 24px}
-.cb-tabs{display:flex;gap:4px;align-items:flex-end;margin:18px 0 -19px;flex-wrap:wrap}
-.cb-tab{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 16px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:#efe9e2;color:var(--ink-2);font:600 .9rem inherit;cursor:pointer}
-.cb-tab[aria-current="page"]{background:var(--surface);color:var(--ink);font-weight:700;border-color:var(--line)}
+.cb-tabs{display:flex;gap:28px;align-items:flex-end;margin:22px 0 0;flex-wrap:wrap}
+.cb-tab{display:inline-flex;align-items:center;gap:8px;padding:10px 2px 12px;border:0;border-bottom:3px solid transparent;background:none;color:var(--ink-2);font:600 15px inherit;cursor:pointer;margin-bottom:-1px}
+.cb-tab:hover{color:var(--ink)}
+.cb-tab[aria-current="page"]{color:var(--ink);font-weight:700;border-bottom-color:var(--signal)}
+.cb-tab[aria-current="page"] .cb-cnt{background:var(--ink);color:#fff}
+@media(max-width:700px){.cb-band{padding-left:16px;padding-right:16px}.cb-page > :not(.cb-band){margin-left:16px;margin-right:16px}}
 .cb-cnt{min-width:22px;padding:0 7px;border-radius:99px;background:rgba(36,29,25,.12);font-size:.75rem;font-weight:700;text-align:center;line-height:20px}
 .cb-cnt.hot{background:var(--signal);color:#fff}
 .cb-split{display:grid;grid-template-columns:minmax(0,60fr) minmax(0,40fr);gap:16px;align-items:start}

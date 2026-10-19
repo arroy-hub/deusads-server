@@ -4,6 +4,7 @@ import { TRAFFIC_RULES, TRAFFIC_PERIODS, loadTraffic, loadTrafficSamples, period
 import { trafficWidgets, TRAFFIC_GROUPS, TRAFFIC_DEFAULTS } from "../../../../lib/admin-traffic";
 import { userClient } from "../../../../lib/supabase-server";
 import { loadDeckLayout } from "../../../../lib/deck-layout-data";
+import { Band } from "../ui";
 import TrafficView from "./traffic-view";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export default async function TrafficPage({ searchParams }) {
   if (traffic.missing) {
     return (
       <>
-        <div className="main-head"><h1>Traffic</h1></div>
+        <Band title="Traffic" />
         <p className="notice">Run <code>supabase/migrations/0040_suspicious_traffic.sql</code> in the Supabase SQL editor to turn this page on.</p>
       </>
     );

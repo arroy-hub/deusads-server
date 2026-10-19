@@ -8,5 +8,5 @@ export const maxDuration = 30;
 export default async function AdminLayout({ children }) {
   // Anyone who is not an admin gets the same page as a URL that does not exist.
   if (!(await getAdmin())) notFound();
-  return <CardsProvider>{children}</CardsProvider>;
+  return <CardsProvider><div className="cb-page">{children}</div></CardsProvider>;
 }

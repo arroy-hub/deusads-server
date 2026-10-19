@@ -66,7 +66,7 @@ export function Dropdown({ label, value, options, onChange }) {
 /** The header band: title with an optional "i" bubble, a one-line subtitle, actions on the right, optional tabs underneath. */
 export function Band({ title, info, sub, actions, tabs }) {
   return (
-    <div className="cb-band">
+    <div className={`cb-band${tabs ? "" : " nt"}`}>
       <div className="cb-band-row">
         <div>
           <h1>{title}{info && <Info title={title} text={info} />}</h1>

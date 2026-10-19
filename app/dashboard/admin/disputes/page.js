@@ -5,6 +5,7 @@ import { loadDisputeRows } from "../../../../lib/admin-cards-data";
 import { disputeWidgets, DISPUTE_GROUPS, DISPUTE_DEFAULTS } from "../../../../lib/admin-disputes";
 import { userClient } from "../../../../lib/supabase-server";
 import { loadDeckLayout } from "../../../../lib/deck-layout-data";
+import { Band } from "../ui";
 import DisputesView from "./disputes-view";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function DisputesPage() {
   if (error) {
     return (
       <>
-        <div className="main-head"><h1>Disputes</h1></div>
+        <Band title="Disputes" />
         <p className="notice">
           {isSchemaOutdated(error) || error.code === "42P01" ? (
             <>Run <code>supabase/migrations/0024_digest_signal_disputes.sql</code> in the Supabase SQL editor to turn disputes on.</>

@@ -103,7 +103,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
           <Tab current={tab === "done"} count={reviewed.length} onClick={() => setTab("done")}>Reviewed</Tab>
         </>}
       />
-      <div style={{ marginTop: 20 }}>
+      <div>
         <DeckShell kind="admin_review" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="Last 90 days. Drag the grip to move a widget.">
           <div className="cb-bar">
             <Dropdown label="Category" value={cat} onChange={setCat} options={[["all", "All categories"], ...AD_CATEGORIES.map((c) => [c.id, c.label])]} />
