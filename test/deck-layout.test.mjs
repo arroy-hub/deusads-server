@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cleanLayout, DECK_KINDS } from "../lib/deck-layout.js";
+import { cleanLayout, DECK_KINDS, isDeckKind } from "../lib/deck-layout.js";
 
 assert.deepEqual(DECK_KINDS, ["developer", "advertiser"]);
 assert.deepEqual(cleanLayout(null), { open: false, sel: null, sizes: {} });
@@ -12,4 +12,9 @@ assert.deepEqual(ok.sizes, { rep: { w: 12, h: 60 }, freq: { w: 6 } });
 assert.equal(cleanLayout({ open: "yes" }).open, false);
 assert.equal(cleanLayout({ sel: "ring" }).sel, null);
 assert.equal(cleanLayout({ sel: Array.from({ length: 100 }, (_, i) => `k${i}`) }).sel.length, 40);
+assert.equal(isDeckKind("admin_users"), true);
+assert.equal(isDeckKind("admin_"), false);
+assert.equal(isDeckKind("admin_x;drop"), false);
+assert.equal(isDeckKind("developer"), true);
+assert.equal(isDeckKind("other"), false);
 console.log("deck-layout ok");

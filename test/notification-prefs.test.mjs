@@ -9,7 +9,7 @@ assert.deepEqual(titles("admin"), ["To review", "Account"]);
 assert.deepEqual(titles("nobody"), titles("developer"), "an unknown role is treated as a developer");
 
 const rows = (role) => sectionsFor(role).flatMap((s) => s.rows.map((r) => r.type));
-assert.deepEqual(rows("developer"), ["dev_campaign", "dev_withdrew", "dev_report_decided", "dev_new_placements", "dev_game_silent", "account_security", "product_news"]);
+assert.deepEqual(rows("developer"), ["dev_campaign", "dev_withdrew", "dev_report_decided", "dev_booking_paused", "dev_new_placements", "dev_game_silent", "account_security", "product_news"]);
 assert.deepEqual(rows("admin"), ["admin_review", "admin_reports", "account_security", "product_news"]);
 assert.equal(new Set(ALL_TYPES).size, ALL_TYPES.length, "types are unique");
 for (const role of ["developer", "advertiser", "admin"]) for (const type of rows(role)) assert.ok(isKnownType(type), type);

@@ -182,27 +182,27 @@ export async function createUser({ email, password, company, role }) {
 }
 
 /**
- * Settle a developer's report about a creative (migration 0024).
- *   decision "remove"   the creative is rejected everywhere (no game serves it any more); bookings are not changed
- *   decision "dismiss"  nothing changes
- * The developer who reported it is told the outcome; on a removal the advertiser is told too.
+ * Settle a dispute (migration 0024, extended by 0045). decision: "remove" (the creative is rejected everywhere), "pause"
+ * (the booking the dispute is about stops serving, 0045) or "dismiss". `note` is the admin's note, kept on the dispute.
+ * The side that opened it is told the outcome; on a removal or a pause the other side is told too.
  */
-export async function resolveDispute({ disputeId, decision }) {
+export async function resolveDispute({ disputeId, decision, note }) {
   const admin = await getAdmin();
   if (!admin) return { error: "Not allowed." };
-  if (decision !== "remove" && decision !== "dismiss") return { error: "Unknown decision." };
+  if (!["remove", "pause", "dismiss"].includes(decision)) return { error: "Unknown decision." };
 
-  const { data: dispute, error } = await admin.service
-    .from("creative_disputes")
-    .select("id, developer_id, creative_id, reason, status, game_id")
-    .eq("id", String(disputeId ?? ""))
-    .maybeSingle();
+  let read = await admin.service.from("creative_disputes").select("id, developer_id, advertiser_id, initiator, booking_id, creative_id, reason, status, game_id").eq("id", String(disputeId ?? "")).maybeSingle();
+  const extended = !(isSchemaOutdated(read.error) || read.error?.code === "42703");
+  if (!extended) read = await admin.service.from("creative_disputes").select("id, developer_id, creative_id, reason, status, game_id").eq("id", String(disputeId ?? "")).maybeSingle();
+  const { data: dispute, error } = read;
   if (isSchemaOutdated(error) || error?.code === "42P01") return { error: "Run migration 0024 in the Supabase SQL editor first." };
   if (error || !dispute) return { error: "Report not found." };
   if (dispute.status !== "open") return { error: "This report was already settled." };
+  if (decision === "pause" && !extended) return { error: "Run migration 0045 in the Supabase SQL editor to pause bookings." };
 
   const { data: creative } = await admin.service.from("creatives").select("id, name, owner_id").eq("id", dispute.creative_id).maybeSingle();
-  const outcome = decision === "remove" ? "removed" : "dismissed";
+  const outcome = decision === "remove" ? "removed" : decision === "pause" ? "paused" : "dismissed";
+  const cleanedNote = cleanNote(note) || null;
 
   if (decision === "remove" && creative) {
     const { error: removeError } = await admin.service
@@ -212,31 +212,57 @@ export async function resolveDispute({ disputeId, decision }) {
     if (removeError) return { error: "Could not remove the creative." };
   }
 
-  const { error: saveError } = await admin.service
-    .from("creative_disputes")
-    .update({ status: "resolved", outcome, resolved_by: admin.user.id, resolved_at: new Date().toISOString() })
-    .eq("id", dispute.id)
-    .eq("status", "open");
+  let paused = 0;
+  if (decision === "pause") {
+    let ids = dispute.booking_id ? [dispute.booking_id] : [];
+    if (!ids.length) {
+      const { data: placements } = await admin.service.from("placements").select("id").eq("game_id", dispute.game_id);
+      const { data: found } = await admin.service.from("bookings").select("id").eq("creative_id", dispute.creative_id).eq("status", "approved").in("placement_id", (placements ?? []).map((p) => p.id));
+      ids = (found ?? []).map((b) => b.id);
+    }
+    if (!ids.length) return { error: "No running booking to pause for this dispute." };
+    for (const id of ids) {
+      const { error: pauseError } = await admin.service.rpc("admin_pause_booking", { p_booking: id, p_note: cleanedNote ?? `Paused after a report: ${dispute.reason}` });
+      if (pauseError) return { error: "Could not pause the booking." };
+      paused += 1;
+    }
+  }
+
+  const patch = { status: "resolved", outcome, resolved_by: admin.user.id, resolved_at: new Date().toISOString() };
+  if (extended) patch.admin_note = cleanedNote;
+  const { error: saveError } = await admin.service.from("creative_disputes").update(patch).eq("id", dispute.id).eq("status", "open");
   if (saveError) return { error: "Could not save the decision." };
+  if (extended) await admin.service.from("dispute_events").insert({ dispute_id: dispute.id, author_id: admin.user.id, side: "admin", kind: "decision", text: `${outcome}${cleanedNote ? `: ${cleanedNote}` : ""}`.slice(0, 1000) });
 
   const name = creative?.name ?? "the creative";
-  await notify(admin.service, {
-    accountId: dispute.developer_id,
-    text: decision === "remove" ? `DeusADS reviewed your report: the creative "${name}" was removed.` : `DeusADS reviewed your report on "${name}" and dismissed it.`,
-    link: "/dashboard/games",
-    type: "dev_report_decided",
-  });
-  if (decision === "remove" && creative?.owner_id) {
+  const advertiserSide = extended && dispute.initiator === "advertiser";
+  const reporter = advertiserSide ? dispute.advertiser_id : dispute.developer_id;
+  const other = advertiserSide ? dispute.developer_id : creative?.owner_id;
+  const what = decision === "remove" ? `the creative "${name}" was removed` : decision === "pause" ? `the booking of "${name}" was paused` : `your report on "${name}" was dismissed`;
+  if (reporter) await notify(admin.service, { accountId: reporter, text: `DeusADS reviewed your report: ${what}.`, link: advertiserSide ? "/dashboard/advertising" : "/dashboard/games", type: advertiserSide ? "adv_report_decided" : "dev_report_decided" });
+  if (decision !== "dismiss" && other) {
     await notify(admin.service, {
-      accountId: creative.owner_id,
-      text: `Your creative "${name}" was removed after a report: ${dispute.reason}.`,
-      link: "/dashboard/creatives",
-      type: "adv_creative_removed",
+      accountId: other,
+      text: decision === "remove" ? `Your creative "${name}" was removed after a report: ${dispute.reason}.` : `The booking of "${name}" was paused after a report: ${dispute.reason}.`,
+      link: advertiserSide ? "/dashboard/games" : "/dashboard/creatives",
+      type: decision === "remove" ? "adv_creative_removed" : advertiserSide ? "dev_booking_paused" : "adv_booking_paused",
     });
   }
 
   revalidatePath("/dashboard/admin/disputes");
+  revalidatePath("/dashboard/admin/bookings");
   revalidatePath("/dashboard/creatives");
   revalidatePath("/dashboard/games");
-  return { ok: true, outcome, name };
+  return { ok: true, outcome, name, paused };
+}
+
+/** Resume a booking an admin paused (0045). */
+export async function resumeBooking({ bookingId }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+  const { error } = await admin.service.rpc("admin_resume_booking", { p_booking: String(bookingId ?? "") });
+  if (error) return { error: "Could not resume the booking." };
+  revalidatePath("/dashboard/admin/bookings");
+  revalidatePath("/dashboard/admin/disputes");
+  return { ok: true };
 }
