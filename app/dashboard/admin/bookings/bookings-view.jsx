@@ -46,14 +46,14 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
     return [r.placement, !hide("game") && r.game, who].filter(Boolean).join(" · ");
   };
   const Row = ({ r, nested }) => (
-    <div className={`ad-lr click${nested ? " ad-nest" : ""}`} role="button" tabIndex={0} style={{ gridTemplateColumns: COLS }} onClick={() => openCard("booking", r.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCard("booking", r.id); } }}>
-      <div className="ad-who">
-        <span className="ad-th" style={{ width: 38, height: 38, backgroundImage: r.creativeUrl ? `url(${r.creativeUrl})` : undefined }} />
-        <div><strong>{r.creative}</strong><span className="ad-mute">{line(r)}</span></div>
+    <div className={`cb-lr click${nested ? " cb-nest" : ""}`} role="button" tabIndex={0} style={{ gridTemplateColumns: COLS }} onClick={() => openCard("booking", r.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCard("booking", r.id); } }}>
+      <div className="cb-who">
+        <span className="cb-th" style={{ width: 38, height: 38, backgroundImage: r.creativeUrl ? `url(${r.creativeUrl})` : undefined }} />
+        <div><strong>{r.creative}</strong><span className="cb-mute">{line(r)}</span></div>
       </div>
       <div><Pill tone={STATES[r.state].tone}>{STATES[r.state].short}</Pill></div>
-      <div className="ad-mute">{period(r.from, r.to)}</div>
-      <div className="ad-mute" style={{ textAlign: "right" }}>{fmt(r.impressions)}</div>
+      <div className="cb-mute">{period(r.from, r.to)}</div>
+      <div className="cb-mute" style={{ textAlign: "right" }}>{fmt(r.impressions)}</div>
       <span style={{ color: "var(--ink-3)" }}>›</span>
     </div>
   );
@@ -62,20 +62,20 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
     <>
       <Band title="All bookings" info="Read-only. Bookings approve themselves and developers decide what shows in their games. Group by pair, developer, advertiser or game to see who works with whom; groups with paused bookings come first." sub="Every booking on the platform. Click a row to open it." />
       <DeckShell kind="admin_bookings" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="All bookings. Drag the grip to move a widget.">
-        <div className="ad-unit">
-          <div className="ad-bar">
+        <div className="cb-unit">
+          <div className="cb-bar">
             <Dropdown label="Show" value={filter} onChange={(v) => { setFilter(v); setPages(1); }} options={STATE_FILTERS.map(([k, l]) => [k, `${l} (${rows.filter((r) => stateOk(r, k)).length})`])} />
             <Dropdown label="Group by" value={by} onChange={(v) => { setBy(v); setPages(1); }} options={Object.entries(GROUP_BY).map(([k, g]) => [k, g.label])} />
             <input type="search" placeholder="Search creative, game or company" aria-label="Search" value={query} onChange={(e) => { setQuery(e.target.value); setPages(1); }} />
-            <span className="ad-sp" />
-            <span className="ad-mute">{shown.length} of {rows.length}</span>
+            <span className="cb-sp" />
+            <span className="cb-mute">{shown.length} of {rows.length}</span>
             {def.key && <IconBtn tip={allOpen ? "Collapse all groups" : "Expand all groups"} onClick={() => setOpenKeys(allOpen ? new Set() : new Set(grouped.map((g) => g.key)))} icon={allOpen ? "collapse" : "expand"} />}
             <DeckToggle />
           </div>
           {shown.length ? (
-            <div className="ad-list" style={{ overflowX: "auto" }}>
+            <div className="cb-list" style={{ overflowX: "auto" }}>
               <div style={{ minWidth: 640 }}>
-                <div className="ad-lh" style={{ gridTemplateColumns: COLS }}>
+                <div className="cb-lh" style={{ gridTemplateColumns: COLS }}>
                   <span>{def.key ? def.label : "Booking"}</span>
                   <SortTh label="Status" k="status" sort={sort} onSort={onSort} />
                   <SortTh label="Period" k="period" sort={sort} onSort={onSort} />
@@ -87,11 +87,11 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
                   const items = sortRowsIn(g.rows);
                   return (
                     <div key={g.key}>
-                      <div className="ad-lr click" role="button" tabIndex={0} aria-expanded={isOpen} style={{ gridTemplateColumns: COLS, background: "var(--surface-2, #faf6f1)" }} onClick={() => toggle(g.key)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(g.key); } }}>
-                        <div className="ad-who"><div><strong>{isOpen ? "▾" : "▸"} {g.title}</strong><span className="ad-mute">{g.rows.length} booking{g.rows.length === 1 ? "" : "s"} · {g.games} game{g.games === 1 ? "" : "s"}</span></div></div>
+                      <div className="cb-lr click" role="button" tabIndex={0} aria-expanded={isOpen} style={{ gridTemplateColumns: COLS, background: "var(--surface-2, #faf6f1)" }} onClick={() => toggle(g.key)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(g.key); } }}>
+                        <div className="cb-who"><div><strong>{isOpen ? "▾" : "▸"} {g.title}</strong><span className="cb-mute">{g.rows.length} booking{g.rows.length === 1 ? "" : "s"} · {g.games} game{g.games === 1 ? "" : "s"}</span></div></div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{Object.entries(g.counts).sort((a, b) => STATES[a[0]].rank - STATES[b[0]].rank).map(([s, n]) => <Pill key={s} tone={STATES[s].tone} dot={false}>{n} {STATES[s].short.toLowerCase()}</Pill>)}</div>
-                        <div className="ad-mute">{period(g.from, g.to)}</div>
-                        <div className="ad-mute" style={{ textAlign: "right" }}>{fmt(g.impressions)}</div>
+                        <div className="cb-mute">{period(g.from, g.to)}</div>
+                        <div className="cb-mute" style={{ textAlign: "right" }}>{fmt(g.impressions)}</div>
                         <span />
                       </div>
                       {isOpen && items.map((r) => <Row key={r.id} r={r} nested />)}
@@ -99,9 +99,9 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
                   );
                 }) : visible.map((r) => <Row key={r.id} r={r} />)}
               </div>
-              {(def.key ? grouped.length : flat.length) > visible.length && <div style={{ padding: 12, textAlign: "center" }}><button type="button" className="ad-btn" onClick={() => setPages((p) => p + 1)}>Show more</button></div>}
+              {(def.key ? grouped.length : flat.length) > visible.length && <div style={{ padding: 12, textAlign: "center" }}><button type="button" className="cb-btn" onClick={() => setPages((p) => p + 1)}>Show more</button></div>}
             </div>
-          ) : <div className="ad-list"><div className="ad-empty">No bookings match.</div></div>}
+          ) : <div className="cb-list"><div className="cb-empty">No bookings match.</div></div>}
         </div>
       </DeckShell>
     </>

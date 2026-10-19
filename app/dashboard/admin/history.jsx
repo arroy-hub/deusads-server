@@ -18,7 +18,7 @@ export function History({ events, firstOpen = true }) {
             {i < events.length - 1 && <span style={{ position: "absolute", left: 5, top: 16, bottom: -2, width: 2, background: "var(--line)" }} />}
             <i style={{ position: "absolute", left: 0, top: 3, width: 12, height: 12, borderRadius: "50%", background: DOT[e.kind] ?? DOT.note, boxShadow: "0 0 0 3px #fff" }} />
             <div role="button" tabIndex={0} aria-expanded={on} onClick={() => toggle(i)} onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(i); } }} style={{ display: "flex", gap: 10, justifyContent: "space-between", cursor: "pointer", borderRadius: 8, margin: "-4px -8px", padding: "4px 8px" }}>
-              <span><b>{e.who}</b> · {e.text}<span className="ad-mute" style={{ display: "block" }}>{when(e.at)}</span></span>
+              <span><b>{e.who}</b> · {e.text}<span className="cb-mute" style={{ display: "block" }}>{when(e.at)}</span></span>
               <span aria-hidden="true" style={{ color: "var(--ink-3)", transform: on ? "rotate(90deg)" : "none", transition: "transform .15s" }}>›</span>
             </div>
             {on && e.facts?.length > 0 && (

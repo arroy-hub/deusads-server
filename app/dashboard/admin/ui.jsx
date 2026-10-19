@@ -26,13 +26,13 @@ export function Icon({ name, size = 16 }) {
 
 /** A status label. tone: good | warn | bad | info | (none = grey). */
 export function Pill({ tone = "", dot = true, children, title }) {
-  return <span className={`ad-pill ${tone}${dot ? "" : " nodot"}`} title={title}>{children}</span>;
+  return <span className={`cb-pill ${tone}${dot ? "" : " nodot"}`} title={title}>{children}</span>;
 }
 
 /** An icon-only button: the name shows when it is pointed at or focused. */
 export function IconBtn({ icon, tip, danger = false, onClick, disabled = false, pressed }) {
   return (
-    <button type="button" className={`ad-ib${danger ? " d" : ""}`} data-tip={tip} aria-label={tip} aria-pressed={pressed} disabled={disabled} onClick={(e) => { e.stopPropagation(); onClick?.(e); }}>
+    <button type="button" className={`cb-ib${danger ? " d" : ""}`} data-tip={tip} aria-label={tip} aria-pressed={pressed} disabled={disabled} onClick={(e) => { e.stopPropagation(); onClick?.(e); }}>
       <Icon name={icon} />
     </button>
   );
@@ -43,7 +43,7 @@ export function SortTh({ label, k, sort, onSort, align }) {
   const on = sort?.key === k;
   return (
     <span aria-sort={ariaSort(sort, k)} style={align ? { textAlign: align } : undefined}>
-      <button type="button" className={`ad-th-sort${on ? " on" : ""}`} aria-label={`Sort by ${label}`} onClick={() => onSort(k)}>
+      <button type="button" className={`cb-th-sort${on ? " on" : ""}`} aria-label={`Sort by ${label}`} onClick={() => onSort(k)}>
         {label}
         <i aria-hidden="true">{on ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}</i>
       </button>
@@ -54,7 +54,7 @@ export function SortTh({ label, k, sort, onSort, align }) {
 /** A labelled select in a pill ("Show: All accounts"). options: [[value, label], …]. */
 export function Dropdown({ label, value, options, onChange }) {
   return (
-    <label className="ad-dd">
+    <label className="cb-dd">
       <span>{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -66,24 +66,24 @@ export function Dropdown({ label, value, options, onChange }) {
 /** The header band: title with an optional "i" bubble, a one-line subtitle, actions on the right, optional tabs underneath. */
 export function Band({ title, info, sub, actions, tabs }) {
   return (
-    <div className="ad-band">
-      <div className="ad-band-row">
+    <div className="cb-band">
+      <div className="cb-band-row">
         <div>
           <h1>{title}{info && <Info title={title} text={info} />}</h1>
           {sub && <p>{sub}</p>}
         </div>
         {actions && <div style={{ display: "flex", gap: 10, alignItems: "center" }}>{actions}</div>}
       </div>
-      {tabs && <div className="ad-tabs" role="tablist">{tabs}</div>}
+      {tabs && <div className="cb-tabs" role="tablist">{tabs}</div>}
     </div>
   );
 }
 
 export function Tab({ current, count, hot, onClick, children }) {
   return (
-    <button type="button" role="tab" className="ad-tab" aria-current={current ? "page" : undefined} onClick={onClick}>
+    <button type="button" role="tab" className="cb-tab" aria-current={current ? "page" : undefined} onClick={onClick}>
       {children}
-      {count != null && <span className={`ad-cnt${hot ? " hot" : ""}`}>{count}</span>}
+      {count != null && <span className={`cb-cnt${hot ? " hot" : ""}`}>{count}</span>}
     </button>
   );
 }
@@ -101,12 +101,12 @@ export function CardPopup({ open, onClose, label, width = 920, children }) {
     else if (!open && d.open) d.close();
   }, [open]);
   return (
-    <dialog ref={ref} className="ad-pop" aria-label={label} onClose={onClose} onClick={(e) => { if (e.target === e.currentTarget || e.target.dataset?.backdrop) onClose(); }}>
+    <dialog ref={ref} className="cb-pop" aria-label={label} onClose={onClose} onClick={(e) => { if (e.target === e.currentTarget || e.target.dataset?.backdrop) onClose(); }}>
       {open && (
-        <div className="ad-pop-wrap" data-backdrop="1">
-          <div className="ad-pop-inner" style={{ "--w": `${width}px` }}>
-            <button type="button" className="ad-pop-x" aria-label="Close" onClick={onClose}>✕</button>
-            <div className="ad-pop-box">{children}</div>
+        <div className="cb-pop-wrap" data-backdrop="1">
+          <div className="cb-pop-inner" style={{ "--w": `${width}px` }}>
+            <button type="button" className="cb-pop-x" aria-label="Close" onClick={onClose}>✕</button>
+            <div className="cb-pop-box">{children}</div>
           </div>
         </div>
       )}

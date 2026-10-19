@@ -70,8 +70,8 @@ export function CardsProvider({ children }) {
     <Ctx.Provider value={api}>
       {children}
       <CardPopup open={Boolean(card)} onClose={api.close} label="Details" width={WIDTHS[card?.kind] ?? 920}>
-        {state.status === "loading" && <div className="ad-empty" style={{ background: "#fff" }}>Loading…</div>}
-        {state.status === "error" && <div className="ad-empty" style={{ background: "#fff" }}>{state.error}<div style={{ marginTop: 12 }}><button type="button" className="ad-btn" onClick={api.close}>Close</button></div></div>}
+        {state.status === "loading" && <div className="cb-empty" style={{ background: "#fff" }}>Loading…</div>}
+        {state.status === "error" && <div className="cb-empty" style={{ background: "#fff" }}>{state.error}<div style={{ marginTop: 12 }}><button type="button" className="cb-btn" onClick={api.close}>Close</button></div></div>}
         {state.status === "ready" && state.kind === "user" && <UserCard u={state.data} api={api} />}
         {state.status === "ready" && state.kind === "creative" && <CreativeCard d={state.data} api={api} />}
         {state.status === "ready" && state.kind === "booking" && <BookingCard d={state.data} api={api} />}
@@ -82,7 +82,7 @@ export function CardsProvider({ children }) {
   );
 }
 
-const Linkish = ({ onClick, children }) => <button type="button" className="ad-lnk" onClick={onClick}>{children}</button>;
+const Linkish = ({ onClick, children }) => <button type="button" className="cb-lnk" onClick={onClick}>{children}</button>;
 const statusTone = (st) => STATES[st]?.tone ?? "";
 const statusLabel = (st) => STATES[st]?.short ?? st;
 const OUTCOME_NAME = { removed: "Creative removed", paused: "Booking paused", dismissed: "Dismissed" };
@@ -94,9 +94,9 @@ function Head({ eyebrow, title, sub, pill, children }) {
     <div style={{ minWidth: 0, flex: 1 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="ad-eyebrow">{eyebrow}</div>
+          <div className="cb-eyebrow">{eyebrow}</div>
           <h2 style={{ margin: "2px 0 0", fontSize: "1.3rem" }}>{title}</h2>
-          {sub && <div className="ad-mute">{sub}</div>}
+          {sub && <div className="cb-mute">{sub}</div>}
         </div>
         {pill}
       </div>
@@ -108,22 +108,22 @@ function Head({ eyebrow, title, sub, pill, children }) {
 function Facts({ items }) {
   return (
     <dl style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "12px 18px", margin: "16px 0 0" }}>
-      {items.map(([k, v]) => <div key={k}><dt className="ad-eyebrow" style={{ fontSize: ".7rem" }}>{k}</dt><dd style={{ margin: "2px 0 0", fontWeight: 600, overflowWrap: "anywhere" }}>{v}</dd></div>)}
+      {items.map(([k, v]) => <div key={k}><dt className="cb-eyebrow" style={{ fontSize: ".7rem" }}>{k}</dt><dd style={{ margin: "2px 0 0", fontWeight: 600, overflowWrap: "anywhere" }}>{v}</dd></div>)}
     </dl>
   );
 }
 
 function RowButton({ onClick, main, sub, pill }) {
   return (
-    <button type="button" className="ad-lr click" onClick={onClick} style={{ gridTemplateColumns: "minmax(0,1fr) auto", border: "1px solid var(--line)", borderRadius: 10, minHeight: 0, padding: "9px 12px" }}>
-      <span>{main}<span className="ad-mute" style={{ display: "block" }}>{sub}</span></span>
+    <button type="button" className="cb-lr click" onClick={onClick} style={{ gridTemplateColumns: "minmax(0,1fr) auto", border: "1px solid var(--line)", borderRadius: 10, minHeight: 0, padding: "9px 12px" }}>
+      <span>{main}<span className="cb-mute" style={{ display: "block" }}>{sub}</span></span>
       {pill}
     </button>
   );
 }
 
 function Picture({ url, label }) {
-  return <div className="ad-th" role="img" aria-label={label} style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, backgroundImage: url ? `url(${url})` : undefined, backgroundColor: "#8c7f73", backgroundSize: "contain", backgroundRepeat: "no-repeat" }} />;
+  return <div className="cb-th" role="img" aria-label={label} style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, backgroundImage: url ? `url(${url})` : undefined, backgroundColor: "#8c7f73", backgroundSize: "contain", backgroundRepeat: "no-repeat" }} />;
 }
 
 /* ------------------------------------------------------------------ user */
@@ -141,43 +141,43 @@ function UserCard({ u, api }) {
   const initial = (u.company || u.email).trim().charAt(0).toUpperCase();
   return (
     <>
-      <div className="ad-pop-head" style={{ background: "#fff" }}>
-        <span className="ad-av" style={{ width: 56, height: 56, fontSize: 22, backgroundImage: u.avatarUrl ? `url(${u.avatarUrl})` : undefined }}>{u.avatarUrl ? "" : initial}</span>
+      <div className="cb-pop-head" style={{ background: "#fff" }}>
+        <span className="cb-av" style={{ width: 56, height: 56, fontSize: 22, backgroundImage: u.avatarUrl ? `url(${u.avatarUrl})` : undefined }}>{u.avatarUrl ? "" : initial}</span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="ad-eyebrow">Account · admin view</div>
+          <div className="cb-eyebrow">Account · admin view</div>
           <h2>{u.company || "No company name"}</h2>
-          <div className="ad-mute">{u.email} · joined {u.joined}</div>
+          <div className="cb-mute">{u.email} · joined {u.joined}</div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <Pill tone={u.role === "admin" ? "info" : ""} dot={false}>{ROLE_NAME[u.role]}</Pill>
           {u.suspended ? <Pill tone="warn">Switched off</Pill> : u.active ? <Pill tone="good">Active</Pill> : <Pill dot={false}>Inactive</Pill>}
         </div>
       </div>
-      <div className="ad-pop-body">
-        <div className="ad-panel">
-          <div className="ad-row"><div><b>Doing now</b></div><div>{u.doing}</div><div /></div>
-          {u.games.length > 0 && <div className="ad-row"><div><b>Games</b></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{u.games.map((g) => <Linkish key={g.id} onClick={() => api.open("game", g.id)}>{g.name}</Linkish>)}</div><div /></div>}
-          <div className="ad-row">
+      <div className="cb-pop-body">
+        <div className="cb-panel">
+          <div className="cb-row"><div><b>Doing now</b></div><div>{u.doing}</div><div /></div>
+          {u.games.length > 0 && <div className="cb-row"><div><b>Games</b></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{u.games.map((g) => <Linkish key={g.id} onClick={() => api.open("game", g.id)}>{g.name}</Linkish>)}</div><div /></div>}
+          <div className="cb-row">
             <div><b>Role</b><small>{u.self ? "You cannot change your own role." : "Takes effect at once."}</small></div>
             <div>
-              <select className="ad-fld" aria-label="Role" disabled={u.self || busy} value={u.role} onChange={(e) => run(() => setAccountRole({ accountId: u.id, role: e.target.value }))}>
+              <select className="cb-fld" aria-label="Role" disabled={u.self || busy} value={u.role} onChange={(e) => run(() => setAccountRole({ accountId: u.id, role: e.target.value }))}>
                 {Object.entries(ROLE_NAME).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </div>
             <div />
           </div>
-          <div className="ad-row">
+          <div className="cb-row">
             <div><b>Account</b><small>Company, picture, sign-in and notifications are on the full account page.</small></div>
-            <div><Link className="ad-lnk" href={`/dashboard/admin/users/${u.id}`}>Open full account →</Link></div>
+            <div><Link className="cb-lnk" href={`/dashboard/admin/users/${u.id}`}>Open full account →</Link></div>
             <div />
           </div>
         </div>
-        {error && <p className="ad-err" role="alert" style={{ marginTop: 10 }}>{error}</p>}
+        {error && <p className="cb-err" role="alert" style={{ marginTop: 10 }}>{error}</p>}
       </div>
-      <div className="ad-pop-foot">
-        <span className="ad-mute">{u.role === "admin" ? "Admins cannot be switched off." : u.suspended ? "Switched off: cannot sign in, ads stopped." : ""}</span>
+      <div className="cb-pop-foot">
+        <span className="cb-mute">{u.role === "admin" ? "Admins cannot be switched off." : u.suspended ? "Switched off: cannot sign in, ads stopped." : ""}</span>
         <span style={{ flex: 1 }} />
-        <button type="button" className="ad-btn" disabled={busy || u.self || u.role === "admin"} onClick={() => run(() => setSuspended({ accountId: u.id, suspended: !u.suspended }))}>{u.suspended ? "Switch on" : "Switch off"}</button>
+        <button type="button" className="cb-btn" disabled={busy || u.self || u.role === "admin"} onClick={() => run(() => setSuspended({ accountId: u.id, suspended: !u.suspended }))}>{u.suspended ? "Switch on" : "Switch off"}</button>
       </div>
     </>
   );
@@ -212,14 +212,14 @@ function CreativeCard({ d, api }) {
           <Facts items={[["Advertiser", row.ownerId ? <Linkish onClick={() => api.open("user", row.ownerId)}>{row.owner}</Linkish> : row.owner], ["Contact", row.email || "—"], ["Size", row.size], ["Uploaded", row.created]]} />
         </Head>
       </div>
-      <div className="ad-note"><b>Now:</b> {row.out === "waiting" ? "Waiting for review." : row.out === "approved" ? "Approved and reaching the SDK." : `Rejected${row.note ? `: ${row.note}` : "."}`} {d.bookings.length} booking{d.bookings.length === 1 ? "" : "s"}, {d.openDisputes} open dispute{d.openDisputes === 1 ? "" : "s"}.</div>
-      <div className="ad-pop-body">
+      <div className="cb-note"><b>Now:</b> {row.out === "waiting" ? "Waiting for review." : row.out === "approved" ? "Approved and reaching the SDK." : `Rejected${row.note ? `: ${row.note}` : "."}`} {d.bookings.length} booking{d.bookings.length === 1 ? "" : "s"}, {d.openDisputes} open dispute{d.openDisputes === 1 ? "" : "s"}.</div>
+      <div className="cb-pop-body">
         <h3 style={{ margin: "4px 0 10px", fontSize: ".9rem" }}>Where it runs</h3>
         {d.bookings.length ? (
           <div style={{ display: "grid", gap: 8 }}>
             {d.bookings.map((b) => <RowButton key={b.id} onClick={() => api.open("booking", b.id)} main={<><b>{b.game}</b> · {b.placement}</>} sub={`${b.advertiser} → ${b.developer} · ${b.dates || "No dates"}`} pill={<Pill tone={statusTone(b.state)}>{statusLabel(b.state)}</Pill>} />)}
           </div>
-        ) : <p className="ad-mute" style={{ margin: 0 }}>Not booked anywhere yet.</p>}
+        ) : <p className="cb-mute" style={{ margin: 0 }}>Not booked anywhere yet.</p>}
         {d.disputes.length > 0 && (
           <>
             <h3 style={{ margin: "18px 0 10px", fontSize: ".9rem" }}>Disputes about it</h3>
@@ -228,28 +228,28 @@ function CreativeCard({ d, api }) {
             </div>
           </>
         )}
-        <h3 style={{ margin: "18px 0 10px", fontSize: ".9rem" }}>History <span className="ad-mute" style={{ fontWeight: 400 }}>· click a step for details</span></h3>
+        <h3 style={{ margin: "18px 0 10px", fontSize: ".9rem" }}>History <span className="cb-mute" style={{ fontWeight: 400 }}>· click a step for details</span></h3>
         <History events={d.events} />
       </div>
-      <div className="ad-pop-foot">
+      <div className="cb-pop-foot">
         {row.out === "waiting" && row.kind === "creative" ? (
           rejecting ? (
             <>
-              <input className="ad-fld" style={{ flex: 1, minWidth: 200 }} placeholder={`Reason shown to ${row.owner}`} aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
-              <button type="button" className="ad-btn d" disabled={busy} onClick={() => decide("rejected")}>Reject creative</button>
-              <button type="button" className="ad-btn" onClick={() => setRejecting(false)}>Cancel</button>
+              <input className="cb-fld" style={{ flex: 1, minWidth: 200 }} placeholder={`Reason shown to ${row.owner}`} aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+              <button type="button" className="cb-btn d" disabled={busy} onClick={() => decide("rejected")}>Reject creative</button>
+              <button type="button" className="cb-btn" onClick={() => setRejecting(false)}>Cancel</button>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", width: "100%" }}>
-                {SUGGESTIONS.map((s) => <button key={s} type="button" className="ad-btn" style={{ minHeight: 26, padding: "0 10px", fontWeight: 500 }} onClick={() => setReason(s)}>{s}</button>)}
+                {SUGGESTIONS.map((s) => <button key={s} type="button" className="cb-btn" style={{ minHeight: 26, padding: "0 10px", fontWeight: 500 }} onClick={() => setReason(s)}>{s}</button>)}
               </div>
             </>
           ) : (
             <>
-              <button type="button" className="ad-btn main" disabled={busy} onClick={() => decide("approved")}>Approve</button>
-              <button type="button" className="ad-btn" onClick={() => setRejecting(true)}>Reject…</button>
+              <button type="button" className="cb-btn main" disabled={busy} onClick={() => decide("approved")}>Approve</button>
+              <button type="button" className="cb-btn" onClick={() => setRejecting(true)}>Reject…</button>
             </>
           )
-        ) : <span className="ad-mute">Reviewed. To take an approved creative off the platform, use a dispute.</span>}
-        {error && <span className="ad-err" role="alert">{error}</span>}
+        ) : <span className="cb-mute">Reviewed. To take an approved creative off the platform, use a dispute.</span>}
+        {error && <span className="cb-err" role="alert">{error}</span>}
       </div>
     </>
   );
@@ -275,8 +275,8 @@ function BookingCard({ d, api }) {
           {b.progress != null && <div style={{ marginTop: 12, height: 6, borderRadius: 99, background: "#ece5dd", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: `${b.progress}%`, background: b.state === "paused" ? "#b87400" : b.state === "ended" ? "#b8ada1" : "#1b8a50" }} /></div>}
         </Head>
       </div>
-      <div className="ad-note"><b>Now:</b> {d.now}</div>
-      <div className="ad-pop-body">
+      <div className="cb-note"><b>Now:</b> {d.now}</div>
+      <div className="cb-pop-body">
         {d.disputes.length > 0 && (
           <>
             <h3 style={{ margin: "4px 0 10px", fontSize: ".9rem" }}>Disputes about this booking</h3>
@@ -285,10 +285,10 @@ function BookingCard({ d, api }) {
             </div>
           </>
         )}
-        <h3 style={{ margin: `${d.disputes.length ? 18 : 4}px 0 10px`, fontSize: ".9rem" }}>History <span className="ad-mute" style={{ fontWeight: 400 }}>· click a step for details</span></h3>
+        <h3 style={{ margin: `${d.disputes.length ? 18 : 4}px 0 10px`, fontSize: ".9rem" }}>History <span className="cb-mute" style={{ fontWeight: 400 }}>· click a step for details</span></h3>
         <History events={d.events} />
       </div>
-      <div className="ad-pop-foot"><span className="ad-mute">A booking is made between the advertiser and the developer. To pause one, use a dispute.</span></div>
+      <div className="cb-pop-foot"><span className="cb-mute">A booking is made between the advertiser and the developer. To pause one, use a dispute.</span></div>
     </>
   );
 }
@@ -312,12 +312,12 @@ function GameCard({ g, api }) {
         <button type="button" className="gm-link" onClick={() => api.open("user", g.developer.id)}>Developer: {g.developer.name}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
       </article>
       <div style={{ padding: "16px 24px 22px", background: "var(--surface)", borderTop: "1px solid var(--line)" }}>
-        {g.facts.length > 0 && <div className="ad-mute">{g.facts.join(" · ")}</div>}
+        {g.facts.length > 0 && <div className="cb-mute">{g.facts.join(" · ")}</div>}
         <h3 style={{ margin: "14px 0 8px", fontSize: ".9rem" }}>Bookings</h3>
-        {g.bookings.length ? <div style={{ display: "grid", gap: 8 }}>{g.bookings.map((b) => <RowButton key={b.id} onClick={() => api.open("booking", b.id)} main={b.creative} sub={`${b.advertiser} · ${b.placement}`} pill={<Pill tone={statusTone(b.state)}>{statusLabel(b.state)}</Pill>} />)}</div> : <p className="ad-mute" style={{ margin: 0 }}>No bookings.</p>}
+        {g.bookings.length ? <div style={{ display: "grid", gap: 8 }}>{g.bookings.map((b) => <RowButton key={b.id} onClick={() => api.open("booking", b.id)} main={b.creative} sub={`${b.advertiser} · ${b.placement}`} pill={<Pill tone={statusTone(b.state)}>{statusLabel(b.state)}</Pill>} />)}</div> : <p className="cb-mute" style={{ margin: 0 }}>No bookings.</p>}
         <h3 style={{ margin: "14px 0 8px", fontSize: ".9rem" }}>Disputes</h3>
-        {g.disputes.length ? <div style={{ display: "grid", gap: 8 }}>{g.disputes.map((x) => <RowButton key={x.id} onClick={() => api.open("dispute", x.id)} main={x.reason} sub={`From ${x.initiator} · ${x.when}`} pill={<Pill tone={disputeTone(x)}>{disputeLabel(x)}</Pill>} />)}</div> : <p className="ad-mute" style={{ margin: 0 }}>No disputes.</p>}
-        <div style={{ marginTop: 14 }}><Link className="ad-btn" href={`/dashboard/admin/traffic?game=${g.id}`}>Show in Traffic</Link></div>
+        {g.disputes.length ? <div style={{ display: "grid", gap: 8 }}>{g.disputes.map((x) => <RowButton key={x.id} onClick={() => api.open("dispute", x.id)} main={x.reason} sub={`From ${x.initiator} · ${x.when}`} pill={<Pill tone={disputeTone(x)}>{disputeLabel(x)}</Pill>} />)}</div> : <p className="cb-mute" style={{ margin: 0 }}>No disputes.</p>}
+        <div style={{ marginTop: 14 }}><Link className="cb-btn" href={`/dashboard/admin/traffic?game=${g.id}`}>Show in Traffic</Link></div>
       </div>
     </div>
   );
@@ -356,25 +356,25 @@ function DisputeCard({ d, api }) {
           {d.booking && <div style={{ marginTop: 12 }}><Linkish onClick={() => api.open("booking", d.booking.id)}>Open the booking ({d.booking.placement}) →</Linkish></div>}
         </Head>
       </div>
-      <div className="ad-pop-body">
-        <h3 style={{ margin: "4px 0 10px", fontSize: ".9rem" }}>History <span className="ad-mute" style={{ fontWeight: 400 }}>· click a step for details</span></h3>
+      <div className="cb-pop-body">
+        <h3 style={{ margin: "4px 0 10px", fontSize: ".9rem" }}>History <span className="cb-mute" style={{ fontWeight: 400 }}>· click a step for details</span></h3>
         <History events={d.events} />
       </div>
-      <div className="ad-pop-foot">
+      <div className="cb-pop-foot">
         {r.open ? (
           <>
-            <input className="ad-fld" style={{ flex: 1, minWidth: 200 }} placeholder="Note for the record (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
-            <button type="button" className="ad-btn d" disabled={busy} onClick={() => decide("remove")}>Remove creative</button>
-            <button type="button" className="ad-btn" disabled={busy} onClick={() => decide("pause")}>Pause booking</button>
-            <button type="button" className="ad-btn" disabled={busy} onClick={() => decide("dismiss")}>Dismiss</button>
+            <input className="cb-fld" style={{ flex: 1, minWidth: 200 }} placeholder="Note for the record (optional)" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+            <button type="button" className="cb-btn d" disabled={busy} onClick={() => decide("remove")}>Remove creative</button>
+            <button type="button" className="cb-btn" disabled={busy} onClick={() => decide("pause")}>Pause booking</button>
+            <button type="button" className="cb-btn" disabled={busy} onClick={() => decide("dismiss")}>Dismiss</button>
           </>
         ) : (
           <>
-            <span className="ad-mute">Settled: {OUTCOME_NAME[r.status].toLowerCase()}.{r.adminNote ? ` ${r.adminNote}` : ""}</span>
-            {r.status === "paused" && d.booking && <button type="button" className="ad-btn" disabled={busy} onClick={async () => { setBusy(true); const x = await resumeBooking({ bookingId: d.booking.id }).catch(() => ({ error: "Connection lost." })); setBusy(false); x?.error ? setError(x.error) : api.changed(); }}>Resume booking</button>}
+            <span className="cb-mute">Settled: {OUTCOME_NAME[r.status].toLowerCase()}.{r.adminNote ? ` ${r.adminNote}` : ""}</span>
+            {r.status === "paused" && d.booking && <button type="button" className="cb-btn" disabled={busy} onClick={async () => { setBusy(true); const x = await resumeBooking({ bookingId: d.booking.id }).catch(() => ({ error: "Connection lost." })); setBusy(false); x?.error ? setError(x.error) : api.changed(); }}>Resume booking</button>}
           </>
         )}
-        {error && <span className="ad-err" role="alert">{error}</span>}
+        {error && <span className="cb-err" role="alert">{error}</span>}
       </div>
     </>
   );

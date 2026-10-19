@@ -58,9 +58,9 @@ export function DeckShell({ kind, widgets, groups, defaults, sub, initial = null
 
   return (
     <Ctx.Provider value={value}>
-      <div className={`ad-split${layout.open ? "" : " one"}`}>
-        <div className="ad-main">{children}</div>
-        {layout.open && <aside className="ad-side"><Board widgets={widgets} groups={groups} byKey={byKey} chosen={chosen} defaults={defaults} sub={sub} onSel={(sel) => update({ sel })} /></aside>}
+      <div className={`cb-split${layout.open ? "" : " one"}`}>
+        <div className="cb-main">{children}</div>
+        {layout.open && <aside className="cb-side"><Board widgets={widgets} groups={groups} byKey={byKey} chosen={chosen} defaults={defaults} sub={sub} onSel={(sel) => update({ sel })} /></aside>}
       </div>
     </Ctx.Provider>
   );
@@ -113,7 +113,7 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
   };
 
   return (
-    <div className="dk-panel ad-dk">
+    <div className="dk-panel cb-dk">
       <div className="md-head">
         <div>
           <h3 style={{ margin: 0, fontSize: ".9rem" }}>Statistics</h3>

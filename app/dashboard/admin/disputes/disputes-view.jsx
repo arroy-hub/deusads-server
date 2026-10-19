@@ -50,18 +50,18 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
         </>}
       />
       <DeckShell kind="admin_disputes" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="All disputes. Drag the grip to move a widget.">
-        <div className="ad-unit">
-          <div className="ad-bar">
+        <div className="cb-unit">
+          <div className="cb-bar">
             <Dropdown label="From" value={from} onChange={setFrom} options={FROM.map(([k, l]) => [k, l])} />
-            <span className="ad-sp" />
-            <span className="ad-mute">{shown.length} dispute{shown.length === 1 ? "" : "s"}</span>
+            <span className="cb-sp" />
+            <span className="cb-mute">{shown.length} dispute{shown.length === 1 ? "" : "s"}</span>
             <DeckToggle />
           </div>
-          {error && <p className="ad-err" role="alert" style={{ margin: "0 16px 8px" }}>{error}</p>}
+          {error && <p className="cb-err" role="alert" style={{ margin: "0 16px 8px" }}>{error}</p>}
           {shown.length ? (
-            <div className="ad-list" style={{ overflowX: "auto" }}>
+            <div className="cb-list" style={{ overflowX: "auto" }}>
               <div style={{ minWidth: 640 }}>
-                <div className="ad-lh" style={{ gridTemplateColumns: COLS }}>
+                <div className="cb-lh" style={{ gridTemplateColumns: COLS }}>
                   <SortTh label="Dispute" k="reason" sort={sort} onSort={onSort} />
                   <SortTh label="From → about" k="from" sort={sort} onSort={onSort} />
                   <SortTh label="Opened" k="opened" sort={sort} onSort={onSort} />
@@ -69,13 +69,13 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
                   <span />
                 </div>
                 {shown.map((r) => (
-                  <div key={r.id} className="ad-lr click" role="button" tabIndex={0} style={{ gridTemplateColumns: COLS }} onClick={() => openCard("dispute", r.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCard("dispute", r.id); } }}>
-                    <div className="ad-who">
-                      <span className="ad-th" style={{ width: 38, height: 38, backgroundImage: r.creativeUrl ? `url(${r.creativeUrl})` : undefined }} />
-                      <div><strong>{r.reason}</strong><span className="ad-mute">{r.creative} · {r.game}</span></div>
+                  <div key={r.id} className="cb-lr click" role="button" tabIndex={0} style={{ gridTemplateColumns: COLS }} onClick={() => openCard("dispute", r.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCard("dispute", r.id); } }}>
+                    <div className="cb-who">
+                      <span className="cb-th" style={{ width: 38, height: 38, backgroundImage: r.creativeUrl ? `url(${r.creativeUrl})` : undefined }} />
+                      <div><strong>{r.reason}</strong><span className="cb-mute">{r.creative} · {r.game}</span></div>
                     </div>
-                    <div className="ad-who"><div><strong style={{ fontSize: ".8125rem" }}>{r.by}</strong><span className="ad-mute">{r.initiator === "advertiser" ? "Advertiser" : "Developer"} → {r.against}</span></div></div>
-                    <div className="ad-mute">{r.created.slice(5).replace("-", "/")}</div>
+                    <div className="cb-who"><div><strong style={{ fontSize: ".8125rem" }}>{r.by}</strong><span className="cb-mute">{r.initiator === "advertiser" ? "Advertiser" : "Developer"} → {r.against}</span></div></div>
+                    <div className="cb-mute">{r.created.slice(5).replace("-", "/")}</div>
                     <div><Pill tone={r.open ? "warn" : r.status === "dismissed" ? "good" : "bad"}>{r.open ? "Open" : SHORT[r.status]}</Pill></div>
                     <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                       {r.open && <>
@@ -88,7 +88,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
                 ))}
               </div>
             </div>
-          ) : <div className="ad-list"><div className="ad-empty">{tab === "open" ? "No open disputes." : "Nothing here yet."}</div></div>}
+          ) : <div className="cb-list"><div className="cb-empty">{tab === "open" ? "No open disputes." : "Nothing here yet."}</div></div>}
         </div>
       </DeckShell>
     </>

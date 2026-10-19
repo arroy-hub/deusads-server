@@ -16,8 +16,8 @@ function Thumb({ row, w = 52, h = 34, onClick }) {
   const style = { width: w, height: h, backgroundImage: row.url ? `url(${row.url})` : undefined, background: row.url ? undefined : "#8c7f73" };
   const inner = row.url ? null : <b>{row.name.slice(0, 8)}</b>;
   return onClick
-    ? <button type="button" className="ad-th" aria-label={`Open ${row.name}`} style={{ ...style, cursor: "zoom-in", padding: 0 }} onClick={(e) => { e.stopPropagation(); onClick(); }}>{inner}</button>
-    : <span className="ad-th" style={style}>{inner}</span>;
+    ? <button type="button" className="cb-th" aria-label={`Open ${row.name}`} style={{ ...style, cursor: "zoom-in", padding: 0 }} onClick={(e) => { e.stopPropagation(); onClick(); }}>{inner}</button>
+    : <span className="cb-th" style={style}>{inner}</span>;
 }
 
 const catPill = (row) => <Pill tone={row.restricted ? "warn" : ""} dot={row.restricted}>{row.restricted ? "⚠ " : ""}{row.categoryLabel}</Pill>;
@@ -52,30 +52,30 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
   const startReject = (row) => { setRejecting(row.id); setReason(""); setError(""); };
 
   const rejectForm = (row) => (
-    <div className="ad-subrow">
-      <input className="ad-fld" placeholder={`Reason shown to ${row.owner}`} aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} autoFocus />
-      <button type="button" className="ad-btn d" disabled={busy === row.id} onClick={() => decide(row, "rejected", reason)}>Reject creative</button>
-      <button type="button" className="ad-btn" onClick={() => setRejecting(null)}>Cancel</button>
+    <div className="cb-subrow">
+      <input className="cb-fld" placeholder={`Reason shown to ${row.owner}`} aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} autoFocus />
+      <button type="button" className="cb-btn d" disabled={busy === row.id} onClick={() => decide(row, "rejected", reason)}>Reject creative</button>
+      <button type="button" className="cb-btn" onClick={() => setRejecting(null)}>Cancel</button>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", width: "100%" }}>
-        {SUGGESTIONS.map((s) => <button key={s} type="button" className="ad-btn" style={{ minHeight: 26, padding: "0 10px", fontWeight: 500 }} onClick={() => setReason(s)}>{s}</button>)}
+        {SUGGESTIONS.map((s) => <button key={s} type="button" className="cb-btn" style={{ minHeight: 26, padding: "0 10px", fontWeight: 500 }} onClick={() => setReason(s)}>{s}</button>)}
       </div>
     </div>
   );
 
   const body = list.length ? (
-    <div className="ad-list" style={{ overflowX: "auto" }}>
+    <div className="cb-list" style={{ overflowX: "auto" }}>
       <div style={{ minWidth: 560 }}>
-        <div className="ad-lh" style={{ gridTemplateColumns: COLS }}><span /><span>Creative</span><span>Category</span><span>Size · sent</span><span /></div>
+        <div className="cb-lh" style={{ gridTemplateColumns: COLS }}><span /><span>Creative</span><span>Category</span><span>Size · sent</span><span /></div>
         {list.map((row) => {
           const done = row.out !== "waiting";
           const clickable = row.kind === "creative";
           return (
-            <div key={`${row.kind}${row.id}`} className={`ad-lr${clickable ? " click" : ""}`} style={{ gridTemplateColumns: COLS }} role={clickable ? "button" : undefined} tabIndex={clickable ? 0 : undefined} onClick={clickable ? () => openCard("creative", row.id) : undefined} onKeyDown={clickable ? (e) => { if (e.key === "Enter") openCard("creative", row.id); } : undefined}>
+            <div key={`${row.kind}${row.id}`} className={`cb-lr${clickable ? " click" : ""}`} style={{ gridTemplateColumns: COLS }} role={clickable ? "button" : undefined} tabIndex={clickable ? 0 : undefined} onClick={clickable ? () => openCard("creative", row.id) : undefined} onKeyDown={clickable ? (e) => { if (e.key === "Enter") openCard("creative", row.id); } : undefined}>
               <Thumb row={row} onClick={clickable ? () => openCard("creative", row.id) : undefined} />
-              <div className="ad-who"><div><strong>{row.name}</strong><span className="ad-mute">{row.owner}</span>{row.out === "rejected" && row.note && <span className="ad-mute ad-clamp">Reason: {row.note}</span>}</div></div>
+              <div className="cb-who"><div><strong>{row.name}</strong><span className="cb-mute">{row.owner}</span>{row.out === "rejected" && row.note && <span className="cb-mute cb-clamp">Reason: {row.note}</span>}</div></div>
               <div>{catPill(row)}</div>
-              <div className="ad-mute" style={{ lineHeight: 1.35 }}>{row.size}<br />{row.created.slice(5).replace("-", "/")}</div>
-              <div className="ad-acts">
+              <div className="cb-mute" style={{ lineHeight: 1.35 }}>{row.size}<br />{row.created.slice(5).replace("-", "/")}</div>
+              <div className="cb-acts">
                 {done ? statusPill(row) : (
                   <>
                     <IconBtn icon="check" tip="Approve" disabled={busy === row.id} onClick={() => decide(row, "approved")} />
@@ -89,7 +89,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
         })}
       </div>
     </div>
-  ) : <div className="ad-list"><div className="ad-empty">Nothing here. New creatives appear as advertisers upload them.</div></div>;
+  ) : <div className="cb-list"><div className="cb-empty">Nothing here. New creatives appear as advertisers upload them.</div></div>;
 
   return (
     <>
@@ -105,12 +105,12 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
       />
       <div style={{ marginTop: 20 }}>
         <DeckShell kind="admin_review" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="Last 90 days. Drag the grip to move a widget.">
-          <div className="ad-bar">
+          <div className="cb-bar">
             <Dropdown label="Category" value={cat} onChange={setCat} options={[["all", "All categories"], ...AD_CATEGORIES.map((c) => [c.id, c.label])]} />
-            <span className="ad-sp" />
+            <span className="cb-sp" />
             <DeckToggle />
           </div>
-          {error && <p className="ad-err" role="alert">{error}</p>}
+          {error && <p className="cb-err" role="alert">{error}</p>}
           {!canNote && <p className="notice">Run <code>supabase/migrations/0008_roles_and_moderation.sql</code> in the Supabase SQL editor to enable rejection notes and the reviewed list.</p>}
           {body}
         </DeckShell>
