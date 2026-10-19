@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAdmin } from "../../../lib/admin";
 import { CardsProvider } from "./cards";
+import "./cabinet.css";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;

@@ -1,9 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { Info } from "../metrics-deck";
 import { saveDeckLayout } from "../deck-actions";
-import { IconBtn } from "./ui";
+import { Info, StatBtn } from "./ui";
 
 const Ctx = createContext(null);
 const storeKey = (kind) => `dk-layout-${kind}`;
@@ -58,9 +57,11 @@ export function DeckShell({ kind, widgets, groups, defaults, sub, initial = null
 
   return (
     <Ctx.Provider value={value}>
-      <div className={`cb-split${layout.open ? "" : " one"}`}>
-        <div className="cb-main">{children}</div>
-        {layout.open && <aside className="cb-side"><Board widgets={widgets} groups={groups} byKey={byKey} chosen={chosen} defaults={defaults} sub={sub} onSel={(sel) => update({ sel })} /></aside>}
+      <div className="cb-work cb-tight">
+        <div className={`cb-dsplit${layout.open ? "" : " cb-one"}`}>
+          <div className="cb-dmain">{children}</div>
+          {layout.open && <aside className="cb-dside"><Board widgets={widgets} groups={groups} byKey={byKey} chosen={chosen} defaults={defaults} sub={sub} onSel={(sel) => update({ sel })} /></aside>}
+        </div>
       </div>
     </Ctx.Provider>
   );
@@ -70,13 +71,13 @@ export function DeckShell({ kind, widgets, groups, defaults, sub, initial = null
 export function DeckToggle() {
   const ctx = useContext(Ctx);
   if (!ctx) return null;
-  const tip = ctx.open ? "Hide statistics" : "Show statistics";
-  return <IconBtn icon="stats" tip={tip} pressed={ctx.open} onClick={ctx.toggle} />;
+  return <StatBtn open={ctx.open} onClick={ctx.toggle} />;
 }
 
 function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
   const [menu, setMenu] = useState(false);
   const [over, setOver] = useState(null);
+  const [dragging, setDragging] = useState(null);
   const drag = useRef(null);
   const wrap = useRef(null);
   const on = new Set(chosen);
@@ -99,6 +100,7 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
     const from = drag.current;
     drag.current = null;
     setOver(null);
+    setDragging(null);
     if (!from || from === target) return;
     const rest = chosen.filter((k) => k !== from);
     rest.splice(rest.indexOf(target), 0, from);
@@ -113,40 +115,38 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
   };
 
   return (
-    <div className="dk-panel cb-dk">
-      <div className="md-head">
+    <div className="cb-dk-panel">
+      <div className="cb-md-head">
         <div>
-          <h3 style={{ margin: 0, fontSize: ".9rem" }}>Statistics</h3>
-          <p className="md-sub" style={{ margin: "2px 0 0", fontSize: ".75rem" }}>{sub}</p>
+          <h3 style={{ margin: 0, font: "700 14px var(--cb-head)" }}>Statistics</h3>
+          <p className="cb-mute" style={{ margin: "2px 0 0", fontSize: 12 }}>{sub}</p>
         </div>
-        <div className="wm" ref={wrap}>
-          <button type="button" className="wm-btn" aria-haspopup="true" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-            Widgets <span className="wm-count">{chosen.length}</span>
+        <div className="cb-wm" ref={wrap}>
+          <button type="button" className="cb-wm-btn" aria-haspopup="true" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            Widgets <span className="cb-wm-count">{chosen.length}</span>
           </button>
           {menu && (
-            <div className="wm-pop" role="group" aria-label="Widgets">
-              <div className="wm-cols">
+            <div className="cb-wm-pop" role="group" aria-label="Widgets">
+              <div className="cb-wm-cols">
                 {groups.map(([gid, label]) => {
                   const items = widgets.filter((w) => w.g === gid);
                   const n = items.filter((w) => on.has(w.k)).length;
                   return (
-                    <fieldset key={gid} className="wm-group">
-                      <legend>
-                        <button type="button" className="wm-head" aria-pressed={n === items.length} onClick={() => group(gid, n < items.length)}>
-                          <span>{label}</span><em>{n}/{items.length}</em>
-                        </button>
-                      </legend>
+                    <div key={gid} className="cb-wm-group">
+                      <button type="button" className="cb-wm-head" aria-pressed={n === items.length} onClick={() => group(gid, n < items.length)}>
+                        <span>{label}</span><em>{n}/{items.length}</em>
+                      </button>
                       {items.map((w) => (
-                        <label key={w.k} className="wm-item">
-                          <input type="checkbox" checked={on.has(w.k)} onChange={() => toggle(w.k)} />
+                        <button key={w.k} type="button" className="cb-wm-item" role="menuitemcheckbox" aria-checked={on.has(w.k)} onClick={() => toggle(w.k)}>
+                          <span className={`cb-wm-box${on.has(w.k) ? " cb-on" : ""}`} />
                           <span>{w.t}</span>
-                        </label>
+                        </button>
                       ))}
-                    </fieldset>
+                    </div>
                   );
                 })}
               </div>
-              <div className="wm-foot">
+              <div className="cb-wm-foot">
                 <button type="button" onClick={() => onSel(null)}>Reset layout</button>
                 <button type="button" onClick={() => onSel([])}>Clear all</button>
               </div>
@@ -154,30 +154,29 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
           )}
         </div>
       </div>
-      <div className="ig-grid">
+      <div className="cb-ig-grid">
         {chosen.map((k) => {
           const w = byKey[k];
           return (
-            <section
+            <div
               key={k}
-              className={`ig-card ig-s${w.w ?? 6}${over === k ? " over" : ""}`}
+              className={`cb-ig-card cb-ig-s${w.w ?? 6}${over === k ? " cb-over" : ""}${dragging === k ? " cb-dragging" : ""}`}
               draggable
-              onDragStart={(e) => { drag.current = k; try { e.dataTransfer.setData("text/plain", k); e.dataTransfer.effectAllowed = "move"; } catch {} }}
-              onDragOver={(e) => { if (drag.current && drag.current !== k) { e.preventDefault(); setOver(k); } }}
-              onDragLeave={() => setOver((o) => (o === k ? null : o))}
+              onDragStart={(e) => { drag.current = k; setDragging(k); try { e.dataTransfer.setData("text/plain", k); e.dataTransfer.effectAllowed = "move"; } catch {} }}
+              onDragOver={(e) => { if (drag.current) { e.preventDefault(); setOver(drag.current !== k ? k : null); } }}
               onDrop={(e) => { e.preventDefault(); drop(k); }}
-              onDragEnd={() => { drag.current = null; setOver(null); }}
+              onDragEnd={() => { drag.current = null; setOver(null); setDragging(null); }}
             >
-              <header className="ig-card-head">
-                <button type="button" className="ig-grip" aria-label={`Move ${w.t}. Arrow keys move it.`} title="Drag to move" onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); move(k, -1); } if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); move(k, 1); } }}>⠿</button>
+              <div className="cb-ig-card-head">
+                <span className="cb-ig-grip" title="Drag to move" tabIndex={0} role="img" aria-label={`Move ${w.t}. Arrow keys move it.`} onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); move(k, -1); } if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); move(k, 1); } }}>⠿</span>
                 <h3>{w.t}</h3>
-                {w.info && <Info title={w.t} text={w.info} />}
-              </header>
+                {w.info && <Info title={w.t} text={w.info} style={{ marginLeft: 2 }} />}
+              </div>
               <WidgetBody data={w.data} />
-            </section>
+            </div>
           );
         })}
-        {chosen.length === 0 && <div className="ig-empty">No widgets on the board. Open <b>Widgets</b> and tick the ones you want.</div>}
+        {chosen.length === 0 && <div className="cb-ig-empty">No widgets on the board. Open <b>Widgets</b> and tick the ones you want.</div>}
       </div>
     </div>
   );
@@ -185,17 +184,17 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
 
 function WidgetBody({ data }) {
   if (!data) return null;
-  if (data.type === "note") return <p className="ig-foot">{data.text}</p>;
+  if (data.type === "note") return <p className="cb-ig-foot">{data.text}</p>;
   if (data.type === "bars") {
-    if (!data.rows.length) return <p className="ig-foot">{data.empty}</p>;
-    const max = Math.max(...data.rows.map((r) => r.value), 0.0001);
+    if (!data.rows.length) return <p className="cb-ig-foot">{data.empty}</p>;
+    const max = Math.max(...data.rows.map((r) => r.value), 1);
     return (
-      <ul className="ig-bars">
+      <ul className="cb-ig-bars">
         {data.rows.map((r) => (
           <li key={r.label}>
-            <span className="ig-bars-label" title={r.label}>{r.label}</span>
-            <span className="ig-bars-track"><span style={{ width: `${(r.value / max) * 100}%`, background: data.color }} /></span>
-            <span className="ig-bars-text">{r.text}</span>
+            <span className="cb-ig-bars-label" title={r.label}>{r.label}</span>
+            <span className="cb-ig-bars-track"><span style={{ width: `${(r.value / max) * 100}%`, background: data.color }} /></span>
+            <span className="cb-ig-bars-text">{r.text}</span>
           </li>
         ))}
       </ul>
@@ -206,9 +205,9 @@ function WidgetBody({ data }) {
     const R = 34, C = 2 * Math.PI * R;
     let off = 0;
     return (
-      <div className="ig-ringrow">
-        <div className="ig-ring">
-          <svg width="90" height="90" viewBox="0 0 90 90" role="img" aria-label={data.parts.map((p) => `${p.label} ${p.value}`).join(", ")}>
+      <div className="cb-ig-ringrow">
+        <div className="cb-ig-ring">
+          <svg width="90" height="90" viewBox="0 0 90 90">
             {data.parts.map((p) => {
               const len = (p.value / total) * C;
               const el = <circle key={p.label} cx="45" cy="45" r={R} fill="none" stroke={p.color} strokeWidth="13" strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} transform="rotate(-90 45 45)" />;
@@ -216,9 +215,9 @@ function WidgetBody({ data }) {
               return el;
             })}
           </svg>
-          <div className="ig-ring-mid"><b>{data.parts.reduce((s, p) => s + p.value, 0)}</b><span>{data.center}</span></div>
+          <div className="cb-ig-ring-mid"><b>{data.parts.reduce((s, p) => s + p.value, 0) || 0}</b><span>{data.center}</span></div>
         </div>
-        <ul className="ig-legend">
+        <ul className="cb-ig-legend">
           {data.parts.map((p) => (
             <li key={p.label}><i style={{ background: p.color }} /><span>{p.label}</span><b>{p.value} · {Math.round((p.value / total) * 100)}%</b></li>
           ))}
@@ -228,9 +227,9 @@ function WidgetBody({ data }) {
   }
   if (data.type === "stats") {
     return (
-      <div className="ig-stats">
+      <div className="cb-ig-stats">
         {data.items.map((s) => (
-          <div key={s.label} className="ig-stat"><span className="ig-stat-label">{s.label}</span><span className={`ig-stat-value${s.warn ? " is-down" : ""}`}>{s.value}</span></div>
+          <div key={s.label} className="cb-ig-stat"><span className="cb-ig-stat-label">{s.label}</span><span className={`cb-ig-stat-value${s.warn ? " cb-is-down" : ""}`}>{s.value}</span></div>
         ))}
       </div>
     );
@@ -238,25 +237,25 @@ function WidgetBody({ data }) {
   if (data.type === "cols") {
     const max = Math.max(...data.values, 1);
     return (
-      <div className="ig-cols-wrap" style={{ height: 100 }}><div className="ig-cols">
+      <div className="cb-ig-cols" style={{ height: 96 }}>
         {data.values.map((v, i) => (
-          <div key={i} className="ig-col">
-            <span className="ig-col-val">{v}</span>
-            <span className="ig-col-bar" style={{ height: Math.max((v / max) * 62, 2), background: "#c94a24", width: "100%", maxWidth: 26, borderRadius: "3px 3px 0 0" }} />
-            <span className="ig-col-label">{data.labels[i]}</span>
+          <div key={i} className="cb-ig-col">
+            <span className="cb-ig-col-val">{v}</span>
+            <span className="cb-ig-col-bar" style={{ height: Math.max((v / max) * 62, 2), background: "#c94a24", width: "100%", maxWidth: 26, borderRadius: "3px 3px 0 0" }} />
+            <span className="cb-ig-col-label">{data.labels[i]}</span>
           </div>
         ))}
-      </div></div>
+      </div>
     );
   }
   if (data.type === "funnel") {
     const max = data.rows[0]?.value || 1;
     return (
-      <ul className="ig-funnel">
+      <ul className="cb-ig-funnel">
         {data.rows.map((r) => (
           <li key={r.label}>
-            <span className="ig-funnel-bar" style={{ width: `${Math.max((r.value / max) * 100, 12)}%`, background: r.color }}><b>{r.value}</b></span>
-            <span className="ig-funnel-label">{r.label}<em>{Math.round((r.value / max) * 100)}%</em></span>
+            <span className="cb-ig-funnel-bar" style={{ width: `${Math.max((r.value / max) * 100, 12)}%`, background: r.color }}><b>{r.value}</b></span>
+            <span className="cb-ig-funnel-label">{r.label}<em>{Math.round((r.value / max) * 100)}%</em></span>
           </li>
         ))}
       </ul>

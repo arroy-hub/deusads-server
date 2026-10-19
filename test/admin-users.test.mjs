@@ -27,11 +27,11 @@ assert.equal(userSortValue(rows[3], "status"), 1);
 
 const widgets = userWidgets(rows);
 const by = Object.fromEntries(widgets.map((w) => [w.k, w.data]));
-assert.deepEqual(by.u_roles.parts.map((p) => p.value), [2, 1, 1]);
-assert.deepEqual(by.u_status.parts.map((p) => p.value), [1, 2, 1]);
-assert.equal(by.u_recent.items[0].value, "2");
-assert.equal(by.u_idle.rows[0].value, 1); // developer "d" has no game and is inactive
-assert.equal(by.u_noname.items[0].value, "1");
-assert.equal(by.u_signups.values.length, 13);
+assert.deepEqual(by.uroles.parts.map((p) => p.value), [2, 1, 1]);
+assert.deepEqual(by.ustatus.parts.map((p) => p.value), [1, 2, 1]);
+assert.equal(by.unew.items[0].value, "2");
+assert.equal(by.uidle.rows[0].value, 1); // developer "d" has no game and is inactive
+assert.equal(by.ucomp.items[0].value, "1");
+assert.equal(by.usign.values.length, 13);
 for (const w of widgets) assert.ok(/^[a-z0-9_-]{1,12}$/.test(w.k), `widget key ${w.k} must fit the layout store`);
 console.log("admin-users ok");

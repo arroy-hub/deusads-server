@@ -19,8 +19,8 @@ export default async function DisputesPage() {
   if (error) {
     return (
       <>
-        <Band title="Disputes" />
-        <p className="notice">
+        <Band title="Disputes" sub="Reports in both directions: developers about creatives in their games, advertisers about where their ads are shown." />
+        <p className="notice" style={{ margin: "26px 40px" }}>
           {isSchemaOutdated(error) || error.code === "42P01" ? (
             <>Run <code>supabase/migrations/0024_digest_signal_disputes.sql</code> in the Supabase SQL editor to turn disputes on.</>
           ) : (

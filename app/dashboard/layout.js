@@ -88,7 +88,7 @@ export default async function DashboardLayout({ children }) {
   );
 
   return (
-    <div className={`shell${role === "advertiser" ? " is-adv" : ""}`} translate="no">
+    <div className={`shell${role === "advertiser" ? " is-adv" : ""}${admin ? " is-admin" : ""}`} translate="no">
       <nav className="rail" aria-label="Main">
         <div className="rail-brand">
           <div>
@@ -113,7 +113,7 @@ export default async function DashboardLayout({ children }) {
         />
 
         {groups.map((group, index) => (
-          <div className="rail-group" key={group.heading ?? index}>
+          <div className={`rail-group${group.heading?.startsWith("As a") ? " is-dim" : ""}`} key={group.heading ?? index}>
             {group.heading && <div className="rail-heading">{group.heading}</div>}
             {group.items.map((item) => (
               <NavLink key={item.key + item.href} item={item} />

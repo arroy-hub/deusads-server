@@ -1,30 +1,42 @@
 "use client";
 
 import { useState } from "react";
+import { useCards } from "./cards";
+import { Icon, Lnk } from "./ui";
 
-const DOT = { report: "#c2391b", admin: "#c94a24", ok: "#1b8a50", bad: "#c2391b", adv: "#3b6fb0", dev: "#7a4fb0", note: "#8c7f73", sys: "#8c7f73" };
-const when = (iso) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC" : "now");
+/**
+ * The mockup's history list (histList / histGen): a timeline of steps, the first one open; a click on a step opens its
+ * details. events: [{ kind, who, text, when, bookingId?, facts: [[label, value, link?]] }]; `link` = { card, id } turns the
+ * value into a link to that card. In a dispute the word "booking" in a step links to its booking.
+ */
+export function History({ events }) {
+  const { open: openCard } = useCards();
+  const [dx, setDx] = useState({});
+  const isOn = (i) => (dx[i] === undefined ? i === 0 : dx[i]);
+  const toggle = (i) => setDx((cur) => ({ ...cur, [i]: !isOn(i) }));
 
-/** A timeline of steps; a click on a step opens its details. events: [{ kind, who, text, at, facts: [[label, value]] }]. */
-export function History({ events, firstOpen = true }) {
-  const [open, setOpen] = useState(() => new Set(firstOpen && events.length ? [0] : []));
-  const toggle = (i) => setOpen((cur) => { const next = new Set(cur); next.has(i) ? next.delete(i) : next.add(i); return next; });
+  const text = (e) => {
+    if (!e.bookingId) return e.text;
+    const m = /\bbooking\b/i.exec(e.text);
+    if (!m) return e.text;
+    return <>{e.text.slice(0, m.index)}<Lnk onClick={() => openCard("booking", e.bookingId)}>{m[0]}</Lnk>{e.text.slice(m.index + m[0].length)}</>;
+  };
+
   return (
-    <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
+    <ol className="cb-hist">
       {events.map((e, i) => {
-        const on = open.has(i);
+        const on = isOn(i);
         return (
-          <li key={i} style={{ position: "relative", padding: "0 0 16px 26px", fontSize: ".84rem", lineHeight: 1.45 }}>
-            {i < events.length - 1 && <span style={{ position: "absolute", left: 5, top: 16, bottom: -2, width: 2, background: "var(--line)" }} />}
-            <i style={{ position: "absolute", left: 0, top: 3, width: 12, height: 12, borderRadius: "50%", background: DOT[e.kind] ?? DOT.note, boxShadow: "0 0 0 3px #fff" }} />
-            <div role="button" tabIndex={0} aria-expanded={on} onClick={() => toggle(i)} onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(i); } }} style={{ display: "flex", gap: 10, justifyContent: "space-between", cursor: "pointer", borderRadius: 8, margin: "-4px -8px", padding: "4px 8px" }}>
-              <span><b>{e.who}</b> · {e.text}<span className="cb-mute" style={{ display: "block" }}>{when(e.at)}</span></span>
-              <span aria-hidden="true" style={{ color: "var(--ink-3)", transform: on ? "rotate(90deg)" : "none", transition: "transform .15s" }}>›</span>
+          <li key={i} className={`cb-k-${e.kind}`}>
+            <i />
+            <div className="cb-hh" tabIndex={0} role="button" aria-expanded={on} onClick={() => toggle(i)} onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(i); } }}>
+              <span><b>{e.who}</b> · {text(e)}<span className="cb-w">{e.when}</span></span>
+              <span className={`cb-hc${on ? " cb-on" : ""}`}><Icon name="chev" size={14} /></span>
             </div>
-            {on && e.facts?.length > 0 && (
-              <dl style={{ margin: "8px 0 2px", padding: "10px 14px", background: "var(--surface)", borderRadius: 10, display: "grid", gap: 8 }}>
-                {e.facts.map(([k, v]) => (
-                  <div key={k} style={{ display: "grid", gridTemplateColumns: "140px minmax(0,1fr)", gap: 10, fontSize: ".8125rem" }}><dt style={{ color: "var(--ink-3)", fontWeight: 600 }}>{k}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{v}</dd></div>
+            {on && (
+              <dl className="cb-hx">
+                {e.facts.map(([k, v, link]) => (
+                  <div key={k}><dt>{k}</dt><dd>{link ? <Lnk onClick={() => openCard(link.card, link.id)}>{v}</Lnk> : v}</dd></div>
                 ))}
               </dl>
             )}

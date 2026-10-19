@@ -33,13 +33,14 @@ export default async function ModerationPage() {
   // Extra per-format pictures waiting for review (migration 0017; absent before it).
   const assetResult = await service
     .from("creative_assets")
-    .select("id, storage_path, width_px, height_px, created_at, format_id, creatives(name, owner_id, ad_category, accounts(email, company))")
+    .select("id, creative_id, storage_path, width_px, height_px, created_at, format_id, creatives(name, owner_id, ad_category, accounts(email, company))")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   const assets = assetResult.error
     ? []
     : (assetResult.data ?? []).map((row) => ({
         id: row.id,
+        creativeId: row.creative_id,
         name: `${row.creatives?.name ?? "Creative"} · ${formatLabel(row.format_id)}`,
         storage_path: row.storage_path,
         width_px: row.width_px,

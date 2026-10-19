@@ -2,94 +2,93 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { nextSort, sortRows } from "../../../../lib/sort";
 import { DeckShell, DeckToggle } from "../admin-deck";
-import { Band, Dropdown, IconBtn, Pill, SortTh, Tab } from "../ui";
+import { Band, Dropdown, IconBtn, Lnk, Seg, Th, toast } from "../ui";
 import { useCards } from "../cards";
 import { resolveDispute } from "../actions";
+import { outcomeText } from "../../../../lib/admin-disputes";
 
-const COLS = "minmax(0,1.5fr) minmax(0,1fr) 84px 96px 112px";
-const SORT_DEFAULTS = { reason: "asc", from: "asc", opened: "desc", status: "asc" };
-const SHORT = { removed: "Removed", paused: "Paused", dismissed: "Dismissed" };
-const FROM = [["all", "Everyone"], ["developer", "Developers"], ["advertiser", "Advertisers"]];
-const sortValue = (r, k) => (k === "reason" ? r.reason : k === "from" ? r.initiator : k === "opened" ? r.createdAt : r.status);
+const COLS = "56px minmax(0,1.2fr) minmax(250px,1.3fr) 58px 96px";
+const INFO = "Developer reports are about a creative: you can remove it from the platform. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
+const kindOf = (r) => (r.open ? "open" : r.status === "dismissed" ? "dismissed" : "acted");
 
 export default function DisputesView({ rows, widgets, groups, defaults, layout }) {
   const router = useRouter();
   const { open: openCard } = useCards();
   const [tab, setTab] = useState("open");
   const [from, setFrom] = useState("all");
-  const [sort, setSort] = useState(null);
+  const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(null);
-  const [error, setError] = useState("");
 
-  const inTab = (r) => (tab === "open" ? r.open : tab === "acted" ? r.status === "removed" || r.status === "paused" : r.status === "dismissed");
-  const shown = sortRows(rows.filter((r) => inTab(r) && (from === "all" || r.initiator === from)), sort, sortValue);
-  const count = (t) => rows.filter((r) => (t === "open" ? r.open : t === "acted" ? r.status === "removed" || r.status === "paused" : r.status === "dismissed")).length;
+  const inFrom = (r) => from === "all" || r.initiator === from;
+  const count = (k) => rows.filter((r) => kindOf(r) === k && inFrom(r)).length;
+  const shown = rows.filter((r) => kindOf(r) === tab && inFrom(r));
 
   async function decide(r, decision) {
     setBusy(r.id);
-    setError("");
+    const adv = r.initiator === "advertiser";
     const result = await resolveDispute({ disputeId: r.id, decision, note: "" }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(null);
-    if (result?.error) return setError(result.error);
+    if (result?.error) return toast(result.error);
+    setConfirm(null);
+    toast(decision === "remove" ? "Creative removed. Developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : `Report dismissed. ${adv ? "Both sides" : "Developer"} notified`);
     router.refresh();
   }
-  const onSort = (k) => setSort((s) => nextSort(s, k, SORT_DEFAULTS));
+
+  const list = shown.length ? (
+    <div className="cb-list cb-scroll">
+      <div style={{ minWidth: 700 }}>
+        <div className="cb-lh" style={{ gridTemplateColumns: COLS }}><span /><span>Creative and source</span><span>Reason</span><span className="cb-ctr">Date</span><span /></div>
+        {shown.map((r) => {
+          const adv = r.initiator === "advertiser";
+          return (
+            <div key={r.id} className="cb-lr cb-click" role="button" tabIndex={0} style={{ gridTemplateColumns: COLS, minHeight: 60 }}
+              onClick={() => openCard("dispute", r.id)}
+              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCard("dispute", r.id); } }}>
+              <Th seed={r.creativeId} w={52} h={34} tag={r.creative} url={r.creativeUrl} />
+              <div className="cb-who"><div>
+                <strong><Lnk onClick={() => openCard("creative", r.creativeId)}>{r.creative}</Lnk></strong>
+                <span className="cb-mute"><span className={`cb-pill cb-${adv ? "info" : "warn"} cb-nodot`} style={{ padding: "0 8px", fontSize: 11.5 }}>{adv ? "Advertiser" : "Developer"}</span> {adv ? r.adv : r.dev}</span>
+                <span className="cb-mute">{adv ? <>{r.bookingId ? <Lnk onClick={() => openCard("booking", r.bookingId)}>booking in {r.game}</Lnk> : `booking in ${r.game}`} · {r.dev}</> : `${r.adv} · in ${r.game}`}</span>
+              </div></div>
+              <div className="cb-rcl"><span className="cb-pill cb-bad">{r.reason}</span>{r.comment && <div className="cb-mute cb-clamp" style={{ marginTop: 4 }}>{r.comment}</div>}</div>
+              <div className="cb-mute cb-ctr" title={r.when}>{r.day}</div>
+              <div className="cb-acts" style={{ flexWrap: "nowrap" }}>
+                {r.open ? (
+                  <>
+                    {adv
+                      ? <IconBtn icon="pause" tip="Pause booking" danger disabled={busy === r.id} onClick={() => decide(r, "pause")} />
+                      : <IconBtn icon="trash" tip="Remove creative" danger onClick={() => setConfirm(r.id)} />}
+                    <IconBtn icon="dismiss" tip="Dismiss report" disabled={busy === r.id} onClick={() => decide(r, "dismiss")} />
+                  </>
+                ) : <span className={`cb-pill cb-${r.status === "dismissed" ? "good" : "bad"} cb-nodot`} title={outcomeText(r)}>{r.status === "removed" ? "Removed" : r.status === "paused" ? "Paused" : "Dismissed"}</span>}
+              </div>
+              {confirm === r.id && (
+                <div className="cb-subrow" onClick={(e) => e.stopPropagation()}>
+                  <span style={{ fontSize: 14 }}>Remove &quot;{r.creative}&quot; from the platform? Bookings stay as they are and {r.dev} is notified.</span>
+                  <span className="cb-sp" style={{ flex: 1 }} />
+                  <button type="button" className="cb-btn cb-d cb-s" disabled={busy === r.id} onClick={() => decide(r, "remove")}>Yes, remove</button>
+                  <button type="button" className="cb-btn cb-q cb-s" onClick={() => setConfirm(null)}>Keep</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : <div className="cb-list" style={{ padding: 34, textAlign: "center", color: "var(--ink-2)" }}>{tab === "dismissed" ? "No dismissed reports yet." : tab === "acted" ? "No actions taken yet." : "No open disputes."}</div>;
 
   return (
     <>
-      <Band
-        title="Disputes"
-        info="Developers report creatives that run in their games, and advertisers report problems with a game. Open a row to see the history. Remove the creative, pause the booking, or dismiss. Both sides are told."
-        sub="Reports from developers and advertisers."
-        tabs={<>
-          <Tab current={tab === "open"} count={count("open")} hot={count("open") > 0} onClick={() => setTab("open")}>Open</Tab>
-          <Tab current={tab === "acted"} count={count("acted")} onClick={() => setTab("acted")}>Action taken</Tab>
-          <Tab current={tab === "dismissed"} count={count("dismissed")} onClick={() => setTab("dismissed")}>Dismissed</Tab>
-        </>}
-      />
-      <DeckShell kind="admin_disputes" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="All disputes. Drag the grip to move a widget.">
-        <div className="cb-unit">
-          <div className="cb-bar">
-            <Dropdown label="From" value={from} onChange={setFrom} options={FROM.map(([k, l]) => [k, l])} />
-            <span className="cb-sp" />
-            <span className="cb-mute">{shown.length} dispute{shown.length === 1 ? "" : "s"}</span>
-            <DeckToggle />
-          </div>
-          {error && <p className="cb-err" role="alert" style={{ margin: "0 16px 8px" }}>{error}</p>}
-          {shown.length ? (
-            <div className="cb-list" style={{ overflowX: "auto" }}>
-              <div style={{ minWidth: 640 }}>
-                <div className="cb-lh" style={{ gridTemplateColumns: COLS }}>
-                  <SortTh label="Dispute" k="reason" sort={sort} onSort={onSort} />
-                  <SortTh label="From → about" k="from" sort={sort} onSort={onSort} />
-                  <SortTh label="Opened" k="opened" sort={sort} onSort={onSort} />
-                  <SortTh label="Status" k="status" sort={sort} onSort={onSort} />
-                  <span />
-                </div>
-                {shown.map((r) => (
-                  <div key={r.id} className="cb-lr click" role="button" tabIndex={0} style={{ gridTemplateColumns: COLS }} onClick={() => openCard("dispute", r.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCard("dispute", r.id); } }}>
-                    <div className="cb-who">
-                      <span className="cb-th" style={{ width: 38, height: 38, backgroundImage: r.creativeUrl ? `url(${r.creativeUrl})` : undefined }} />
-                      <div><strong>{r.reason}</strong><span className="cb-mute">{r.creative} · {r.game}</span></div>
-                    </div>
-                    <div className="cb-who"><div><strong style={{ fontSize: ".8125rem" }}>{r.by}</strong><span className="cb-mute">{r.initiator === "advertiser" ? "Advertiser" : "Developer"} → {r.against}</span></div></div>
-                    <div className="cb-mute">{r.created.slice(5).replace("-", "/")}</div>
-                    <div><Pill tone={r.open ? "warn" : r.status === "dismissed" ? "good" : "bad"}>{r.open ? "Open" : SHORT[r.status]}</Pill></div>
-                    <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                      {r.open && <>
-                        <IconBtn icon="trash" danger tip="Remove creative" disabled={busy === r.id} onClick={() => decide(r, "remove")} />
-                        <IconBtn icon="pause" tip="Pause booking" disabled={busy === r.id} onClick={() => decide(r, "pause")} />
-                        <IconBtn icon="dismiss" tip="Dismiss" disabled={busy === r.id} onClick={() => decide(r, "dismiss")} />
-                      </>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : <div className="cb-list"><div className="cb-empty">{tab === "open" ? "No open disputes." : "Nothing here yet."}</div></div>}
+      <Band title="Disputes" info={INFO} sub="Reports in both directions: developers about creatives in their games, advertisers about where their ads are shown." />
+      <DeckShell kind="admin_disputes" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="Last 90 days. Drag the grip to move a widget.">
+        <div className="cb-tbar">
+          <Seg label="Status" value={tab} onChange={(k) => { setTab(k); setConfirm(null); }} items={[["open", "Open", count("open")], ["acted", "Action taken", count("acted")], ["dismissed", "Dismissed", count("dismissed")]]} />
+          <Dropdown id="dfrom" label="From" value={from} onChange={setFrom} options={[["all", "Everyone"], ["developer", "Developers"], ["advertiser", "Advertisers"]]} />
+          <span className="cb-sp" />
+          <DeckToggle />
         </div>
+        {list}
       </DeckShell>
     </>
   );

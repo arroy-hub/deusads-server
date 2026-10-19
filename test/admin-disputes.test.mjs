@@ -17,12 +17,14 @@ assert.equal(rows[1].hours, 24);
 assert.equal(outcomeOf({ status: "resolved", outcome: null }), "dismissed");
 
 const ev = disputeEvents(rows[1]);
-assert.equal(ev.length, 2);
-assert.equal(ev.at(-1).text, "Booking paused");
-assert.equal(disputeEvents(rows[0]).at(-1).text, "Waiting for an admin");
+assert.deepEqual(ev.map((e) => e.kind), ["adv", "sys", "bad", "sys"]);
+assert.match(ev[2].text, /^Paused the booking in Game/);
+assert.equal(ev.at(-1).text, "Advertiser and developer notified");
+assert.deepEqual(disputeEvents(rows[0]).map((e) => e.text), ["Reported in Game: Misleading", "Review team notified"]);
 
 const widgets = disputeWidgets(rows);
-const open = widgets.find((w) => w.k === "d_open");
+const open = widgets.find((w) => w.k === "openNow");
 assert.equal(open.data.items[0].value, "1");
-assert.equal(widgets.find((w) => w.k === "d_from").data.parts[1].value, 1);
+assert.equal(widgets.find((w) => w.k === "dir").data.parts[1].value, 1);
+assert.equal(disputeWidgets([]).find((w) => w.k === "ttd").data.items[0].value, "—");
 console.log("admin-disputes ok");

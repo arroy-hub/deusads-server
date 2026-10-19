@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "../../modal";
 import { createUser } from "../actions";
+import { Icon } from "../ui";
 import { MIN_PASSWORD, ROLES } from "../../../../lib/admin-rules";
 
 const ROLE_HELP = {
@@ -58,8 +59,8 @@ export default function AddUserDialog() {
 
   return (
     <>
-      <button type="button" className="button" onClick={() => setOpen(true)} aria-haspopup="dialog">
-        Add user
+      <button type="button" className="cb-btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        <Icon name="plus" size={15} /> Add user
       </button>
       <Modal
         open={open}

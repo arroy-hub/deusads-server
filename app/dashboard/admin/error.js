@@ -6,7 +6,7 @@ import { useEffect } from "react";
 export default function AdminError({ error, reset }) {
   useEffect(() => { console.error("[admin]", error); }, [error]);
   return (
-    <div className="cb-band nt">
+    <div className="cb-band cb-nt">
       <div className="cb-band-row">
         <div>
           <h1>This screen could not load</h1>

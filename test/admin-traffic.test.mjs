@@ -9,9 +9,9 @@ const t = trafficTable([
   { game_id: "d", game_name: "D", views: 500, flagged: 0 },
 ]);
 const w = Object.fromEntries(trafficWidgets(t).map((x) => [x.k, x]));
-assert.equal(w.t_sum.data.items[1].value, "362");
-assert.deepEqual(w.t_lv.data.parts.map((p) => p.value), [1, 1, 1, 1]);
-assert.equal(w.t_share.data.rows[0].label, "A");
-assert.equal(w.t_share.data.rows.length, 2, "a game with too few views is left out");
-assert.equal(w.t_rule.data.rows[0].label, "Seen from behind");
+assert.equal(w.tsum.data.items[1].value, "362");
+assert.deepEqual(w.tlv.data.parts.map((p) => p.value), [1, 1, 1, 1]);
+assert.equal(w.tshare.data.rows[0].label, "A");
+assert.equal(w.tshare.data.rows.length, 2, "a game with too few views is left out");
+assert.equal(w.trule.data.rows[0].label, "Seen from behind");
 console.log("admin-traffic ok");

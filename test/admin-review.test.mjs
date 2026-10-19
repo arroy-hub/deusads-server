@@ -22,14 +22,14 @@ assert.equal(isRestricted("retail"), false);
 assert.equal(reasonKey(" Gambling is not accepted. "), "gambling is not accepted");
 
 const w = Object.fromEntries(reviewWidgets(rows).map((x) => [x.k, x.data]));
-assert.equal(w.r_queue.items[0].value, "1");
-assert.equal(w.r_queue.items[1].warn, true); // 48 h waiting
-assert.deepEqual(w.r_out.parts.map((p) => p.value), [1, 1, 1]);
-assert.equal(w.r_reasons.rows[0].label, "Gambling is not accepted");
-assert.equal(w.r_rate.rows[0].text, "100% of 1");
-assert.equal(w.r_time.items[0].value, "2.0 h");
-assert.equal(w.r_week.values.length, 13);
-assert.deepEqual(reviewWidgets([]).find((x) => x.k === "r_time").data.items[0].value, "—");
+assert.equal(w.rq.items[0].value, "1");
+assert.equal(w.rq.items[1].warn, true); // 48 h waiting
+assert.deepEqual(w.rout.parts.map((p) => p.value), [1, 1, 1]);
+assert.equal(w.rrsn.rows[0].label, "Gambling is not accepted");
+assert.equal(w.rrate.rows[0].text, "100% of 1");
+assert.equal(w.rttr.items[0].value, "2.0 h");
+assert.equal(w.rweek.values.length, 13);
+assert.deepEqual(reviewWidgets([]).find((x) => x.k === "rttr").data.items[0].value, "—");
 
 const ev = creativeEvents({ row: rows[1], bookings: [], disputes: [{ byName: "Kiln", reason: "Gambling", gameName: "Starfall", status: "resolved", outcome: "removed", created_at: "2026-10-16T00:00:00Z" }] });
 assert.deepEqual(ev.map((e) => e.kind), ["adv", "bad", "report"]);

@@ -256,6 +256,22 @@ export async function resolveDispute({ disputeId, decision, note }) {
   return { ok: true, outcome, name, paused };
 }
 
+/** An internal note on a dispute, visible to admins only (migration 0046). */
+export async function addDisputeNote({ disputeId, text }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+  const clean = cleanNote(text);
+  if (!clean) return { error: "Write the note first." };
+  const { error } = await admin.service.from("dispute_events").insert({ dispute_id: String(disputeId ?? ""), author_id: admin.user.id, side: "admin", kind: "note", text: clean });
+  if (error) {
+    if (error.code === "23514") return { error: "Run migration 0046 in the Supabase SQL editor first." };
+    if (isSchemaOutdated(error) || error.code === "42P01") return { error: "Run migration 0045 in the Supabase SQL editor first." };
+    return { error: "Could not save the note." };
+  }
+  revalidatePath("/dashboard/admin/disputes");
+  return { ok: true };
+}
+
 /** Resume a booking an admin paused (0045). */
 export async function resumeBooking({ bookingId }) {
   const admin = await getAdmin();
