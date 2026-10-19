@@ -2,9 +2,7 @@ import { notFound } from "next/navigation";
 import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
 import { formatLabel } from "../../../lib/formats";
-import { loadBookings } from "../../../lib/bookings-data";
-import { attachControls } from "../../../lib/advertiser-data";
-import { reviewRows, reviewWidgets, creativeEvents, REVIEW_GROUPS, REVIEW_DEFAULTS } from "../../../lib/admin-review";
+import { reviewRows, reviewWidgets, REVIEW_GROUPS, REVIEW_DEFAULTS } from "../../../lib/admin-review";
 import { userClient } from "../../../lib/supabase-server";
 import { loadDeckLayout } from "../../../lib/deck-layout-data";
 import ReviewView from "./review-view";
@@ -56,23 +54,6 @@ export default async function ModerationPage() {
   const shaped = reviewRows({ creatives, assets, urlOf });
   const all = [...shaped.creatives, ...shaped.assets];
 
-  // Where each creative runs and what was reported about it, for the card.
-  const ids = shaped.creatives.map((row) => row.id);
-  const [{ bookings }, disputeResult] = await Promise.all([
-    ids.length ? loadBookings(service, (query) => query.in("creative_id", ids.slice(0, 300)), { limit: 1000 }) : { bookings: [] },
-    ids.length ? service.from("creative_disputes").select("id, game_id, developer_id, creative_id, reason, comment, status, outcome, created_at").in("creative_id", ids.slice(0, 300)) : { data: [] },
-  ]);
-  await attachControls(service, bookings);
-  const disputes = disputeResult.data ?? [];
-  const names = new Map();
-  if (disputes.length) {
-    const [games, devs] = await Promise.all([
-      service.from("games").select("id, name").in("id", [...new Set(disputes.map((d) => d.game_id))]),
-      service.from("accounts").select("id, email, company").in("id", [...new Set(disputes.map((d) => d.developer_id))]),
-    ]);
-    for (const g of games.data ?? []) names.set(g.id, g.name);
-    for (const a of devs.data ?? []) names.set(a.id, a.company || a.email);
-  }
   const layout = await userClient().then((db) => loadDeckLayout(db, "admin_review"));
   return <ReviewView rows={all} widgets={reviewWidgets(all)} groups={REVIEW_GROUPS} defaults={REVIEW_DEFAULTS} layout={layout} canNote={migrated} />;
 }
