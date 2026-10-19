@@ -15,6 +15,7 @@ import { describeBooking } from "../../../lib/bookings-data";
 import { notify, notifyMany } from "../../../lib/notify";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { parseTargeting } from "../../../lib/targeting";
+import { isCategory } from "../../../lib/categories";
 import { syncCampaign } from "../../../lib/campaign-sync";
 import { addToPlan, planCreativeIds, removeFromPlan } from "../../../lib/campaign-plan";
 
@@ -170,7 +171,7 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
  * open placement in a game that fits, now and whenever such a placement appears. With no matching game yet it simply
  * waits (status Waiting). Advertisers only; the creative must be theirs and not rejected.
  */
-export async function launchCampaign({ campaignId, campaignName, creativeId, targeting, startsOn, endsOn }) {
+export async function launchCampaign({ campaignId, campaignName, creativeId, creativeIds, category, targeting, startsOn, endsOn }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
   if (!canAdvertise(me.role)) return { error: "Not allowed." };
@@ -181,11 +182,15 @@ export async function launchCampaign({ campaignId, campaignName, creativeId, tar
   const audience = parseTargeting(targeting ?? null);
   if (audience.error) return { error: audience.error };
 
-  const { data: creative } = await service.from("creatives").select("id, status").eq("id", String(creativeId ?? "")).eq("owner_id", user.id).maybeSingle();
-  if (!creative) return { error: "Pick one of your creatives." };
-  if (creative.status === "rejected") return { error: "That creative was rejected. Upload another one." };
+  // One or several creatives from the library; the first is the campaign's main one.
+  const wanted = [...new Set([...(Array.isArray(creativeIds) ? creativeIds : []), creativeId].map((id) => String(id ?? "")).filter(Boolean))].slice(0, 20);
+  if (wanted.length === 0) return { error: "Pick one of your creatives." };
+  const { data: found } = await service.from("creatives").select("id, status").in("id", wanted).eq("owner_id", user.id);
+  if ((found ?? []).length !== wanted.length) return { error: "Pick your own creatives." };
+  if ((found ?? []).some((creative) => creative.status === "rejected")) return { error: "A rejected creative cannot run. Upload another one." };
+  if (category && !isCategory(category)) return { error: "Choose one of the categories." };
 
-  const plan = { creativeId: creative.id, mode: "audience", placementIds: [], startsOn: range.startsOn ?? "", endsOn: range.endsOn ?? "", launched: true };
+  const plan = addToPlan({ mode: "audience", placementIds: [], startsOn: range.startsOn ?? "", endsOn: range.endsOn ?? "", launched: true }, wanted);
   let id = "";
   if (campaignId) {
     const campaign = await ownCampaign(me, campaignId);
@@ -193,14 +198,18 @@ export async function launchCampaign({ campaignId, campaignName, creativeId, tar
     const fields = { targeting: audience.value, plan };
     const name = cleanCampaignName(campaignName);
     if (name) fields.name = name;
-    const { error } = await service.from("campaigns").update(fields).eq("id", campaign.id);
+    let { error } = await service.from("campaigns").update(category ? { ...fields, category } : fields).eq("id", campaign.id);
+    // Before migration 0048 a campaign has no category of its own: it is started without one.
+    if (category && isSchemaOutdated(error)) ({ error } = await service.from("campaigns").update(fields).eq("id", campaign.id));
     if (isSchemaOutdated(error)) return { error: RULES_MISSING };
     if (error) return { error: "Could not start the campaign. Try again." };
     id = campaign.id;
   } else {
     const name = cleanCampaignName(campaignName);
     if (!name) return { error: "Name the campaign." };
-    const { data, error } = await service.from("campaigns").insert({ advertiser_id: user.id, name, targeting: audience.value, plan }).select("id").single();
+    const row = { advertiser_id: user.id, name, targeting: audience.value, plan };
+    let { data, error } = await service.from("campaigns").insert(category ? { ...row, category } : row).select("id").single();
+    if (category && isSchemaOutdated(error)) ({ data, error } = await service.from("campaigns").insert(row).select("id").single());
     if (isSchemaOutdated(error)) return { error: RULES_MISSING };
     if (bookingsMissing(error)) return { error: MISSING };
     if (error || !data) return { error: "Could not create the campaign." };
@@ -592,16 +601,17 @@ export async function excludeGame({ campaignId, gameId, excluded }) {
 
 /** What a draft remembers: the creative, how placements were chosen, the filters and the placements picked by hand. */
 function cleanPlan(plan, ownCreativeIds) {
-  const creativeId = ownCreativeIds.has(String(plan?.creativeId ?? "")) ? String(plan.creativeId) : null;
+  const own = planCreativeIds(plan).filter((id) => ownCreativeIds.has(id)).slice(0, 20);
+  const [creativeId = null, ...moreCreativeIds] = own;
   const mode = plan?.mode === "manual" ? "manual" : "audience";
-  return { creativeId, mode, placementIds: cleanPlacementIds(plan?.placementIds ?? []), startsOn: "", endsOn: "" };
+  return { creativeId, ...(moreCreativeIds.length ? { moreCreativeIds } : {}), mode, placementIds: cleanPlacementIds(plan?.placementIds ?? []), startsOn: "", endsOn: "" };
 }
 
 /**
  * Save a campaign before it is started: its name, audience and the choices made so far. It shows in the list as a Draft
  * and opens in the wizard where it was left. Creates the campaign, or updates the draft when `campaignId` is given.
  */
-export async function saveDraft({ campaignId, campaignName, targeting, plan }) {
+export async function saveDraft({ campaignId, campaignName, targeting, plan, category }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
   if (!canAdvertise(me.role)) return { error: "Not allowed." };
@@ -612,19 +622,23 @@ export async function saveDraft({ campaignId, campaignName, targeting, plan }) {
   if (audience.error) return { error: audience.error };
 
   const { data: mine } = await me.service.from("creatives").select("id").eq("owner_id", me.user.id);
+  if (category && !isCategory(category)) return { error: "Choose one of the categories." };
   const fields = { name, targeting: audience.value, plan: cleanPlan(plan, new Set((mine ?? []).map((row) => row.id))) };
+  const withCategory = category ? { ...fields, category } : fields;
 
   if (campaignId) {
     const campaign = await ownCampaign(me, campaignId);
     if (!campaign) return { error: "Unknown campaign." };
-    const { error } = await me.service.from("campaigns").update(fields).eq("id", campaign.id);
+    let { error } = await me.service.from("campaigns").update(withCategory).eq("id", campaign.id);
+    if (category && isSchemaOutdated(error)) ({ error } = await me.service.from("campaigns").update(fields).eq("id", campaign.id));
     if (isSchemaOutdated(error)) return { error: RULES_MISSING };
     if (error) return { error: "Could not save the draft. Try again." };
     revalidatePath("/dashboard/advertising");
     return { ok: true, campaignId: campaign.id };
   }
 
-  const { data, error } = await me.service.from("campaigns").insert({ advertiser_id: me.user.id, ...fields }).select("id").single();
+  let { data, error } = await me.service.from("campaigns").insert({ advertiser_id: me.user.id, ...withCategory }).select("id").single();
+  if (category && isSchemaOutdated(error)) ({ data, error } = await me.service.from("campaigns").insert({ advertiser_id: me.user.id, ...fields }).select("id").single());
   if (isSchemaOutdated(error)) return { error: RULES_MISSING };
   if (bookingsMissing(error)) return { error: MISSING };
   if (error || !data) return { error: "Could not save the draft. Try again." };

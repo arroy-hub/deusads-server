@@ -5,6 +5,7 @@ import { isSchemaOutdated } from "../../../../lib/api";
 import Wizard from "./wizard";
 import { orderCreatives } from "../../../../lib/creative-library";
 import { canAdvertise } from "../../../../lib/admin-rules";
+import { parseCover } from "../../../../lib/game-cover";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "New campaign" };
@@ -19,11 +20,11 @@ export default async function NewBookingPage({ searchParams }) {
   const [{ data: creatives }, campaignResult, firstCatalog] = await Promise.all([
     service
       .from("creatives")
-      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h, storage_path, created_at")
+      .select("id, name, status, width_px, height_px, safe_x, safe_y, safe_w, safe_h, storage_path, created_at, ad_category")
       .eq("owner_id", user.id)
       .neq("kind", "own")
       .order("created_at", { ascending: false }),
-    service.from("campaigns").select("id, name, targeting, plan").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
+    service.from("campaigns").select("id, name, targeting, plan, category, cover").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
     // The catalog: live placements in other people's games. Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
     catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo: false }),
@@ -31,8 +32,10 @@ export default async function NewBookingPage({ searchParams }) {
 
   // Campaign audience and draft plan come with migration 0026; without it the plain list still loads.
   let campaignRows = campaignResult.data;
-  if (campaignResult.error && isSchemaOutdated(campaignResult.error)) {
-    ({ data: campaignRows } = await service.from("campaigns").select("id, name").eq("advertiser_id", user.id).order("created_at", { ascending: false }));
+  // category (0048) and cover (0044) are newer than the audience and plan (0026): try with less until it loads.
+  for (const columns of ["id, name, targeting, plan", "id, name"]) {
+    if (!(campaignResult.error && isSchemaOutdated(campaignResult.error) && !campaignRows)) break;
+    ({ data: campaignRows } = await service.from("campaigns").select(columns).eq("advertiser_id", user.id).order("created_at", { ascending: false }));
   }
 
   // Migration 0017 adds the safe zone and per-format images; without it the plain columns still load.
@@ -126,6 +129,7 @@ export default async function NewBookingPage({ searchParams }) {
           targeting: audienceOf.get(item.id) ?? null,
           id: item.id,
           name: item.name,
+          category: item.ad_category ?? "",
           url: item.storage_path ? service.storage.from("creatives").getPublicUrl(item.storage_path).data.publicUrl : "",
           approved: item.status === "approved",
           status: item.status,
@@ -133,7 +137,10 @@ export default async function NewBookingPage({ searchParams }) {
           width: item.width_px ?? null,
           height: item.height_px ?? null,
         }))}
-        campaigns={(campaignRows ?? []).map((item) => ({ id: item.id, name: item.name, targeting: item.targeting ?? null, plan: item.plan ?? null }))}
+        campaigns={(campaignRows ?? []).map((item) => {
+          const cover = parseCover(item.cover);
+          return { id: item.id, name: item.name, targeting: item.targeting ?? null, plan: item.plan ?? null, category: item.category ?? "", cover: { colourId: cover.kind === "preset" ? cover.id : "", imageUrl: cover.kind === "image" ? service.storage.from("creatives").getPublicUrl(cover.path).data.publicUrl : "" } };
+        })}
         games={[...games.values()]}
         aimable={profiled}
         initialCampaignId={(campaignRows ?? []).some((item) => item.id === query?.campaign) ? query.campaign : ""}
