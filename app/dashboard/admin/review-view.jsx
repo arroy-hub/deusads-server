@@ -85,7 +85,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
         info={INFO}
         sub="Approve or reject what advertisers upload."
         tabs={<>
-          <Tab current={tab === "new"} count={waiting.length} hot={waiting.length > 0} onClick={() => { setTab("new"); setRejecting(null); }}>Waiting</Tab>
+          <Tab current={tab === "new"} count={waiting.length} onClick={() => { setTab("new"); setRejecting(null); }}>Waiting</Tab>
           <Tab current={tab === "assets"} count={assets.length} onClick={() => { setTab("assets"); setRejecting(null); }}>Format images</Tab>
           <Tab current={tab === "done"} count={reviewed.length} onClick={() => { setTab("done"); setRejecting(null); }}>Reviewed</Tab>
         </>}

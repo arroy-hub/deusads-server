@@ -179,11 +179,11 @@ export function Band({ title, info, sub, actions, tabs }) {
   );
 }
 
-export function Tab({ current, count, hot, onClick, children }) {
+export function Tab({ current, count, onClick, children }) {
   return (
     <button type="button" role="tab" className="cb-tab" aria-current={current ? "page" : undefined} onClick={onClick}>
       {children}
-      {count != null && <span className={`cb-cnt${hot ? " cb-hot" : ""}`}>{count}</span>}
+      {count != null && <span className="cb-cnt">{count}</span>}
     </button>
   );
 }

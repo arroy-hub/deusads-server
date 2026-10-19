@@ -109,10 +109,11 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
             <Dropdown id="bkst" label="Show" value={filter} onChange={setFilter} options={show} />
             <Dropdown id="bkgroup" label="Group by" value={by} onChange={setBy} options={Object.entries(GROUP_BY).map(([k, g]) => [k, g.label])} />
             <input className="cb-fld" id="bkq" type="search" placeholder="Search game, advertiser, creative" aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <span className="cb-sp" />
+            <span className="cb-trt">
             <span className="cb-mute">{shown.length} of {rows.length}</span>
             {def.key && <IconBtn icon="list" tip="Expand or collapse all" onClick={() => setOpenKeys(allOpen ? new Set() : new Set(grouped.map((g) => g.key)))} />}
             <DeckToggle />
+            </span>
           </div>
           {list}
         </div>

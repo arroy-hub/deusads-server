@@ -22,7 +22,8 @@ const FILL = { high: "#c2391b", watch: "#b87400", ok: "#8c7f73", few: "#8c7f73" 
 export default function TrafficView({ games, totals, rules, samples, pickedId, days, periods, widgets, groups, defaults, layout }) {
   const router = useRouter();
   const { open: openCard } = useCards();
-  const [, go] = useTransition();
+  const [pending, go] = useTransition();
+  const [want, setWant] = useState(null);
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState(null);
   const [allSamples, setAllSamples] = useState(false);
@@ -37,7 +38,7 @@ export default function TrafficView({ games, totals, rules, samples, pickedId, d
   const picked = games.find((g) => g.id === pickedId) ?? null;
   const look = games.filter((g) => g.level === "high" || g.level === "watch").length;
   const onSort = (k) => setSort((s) => nextSort(s, k, SORT_DEFAULTS));
-  const pick = (id) => go(() => router.replace(href(days, id), { scroll: false }));
+  const pick = (id) => { setWant(id); go(() => router.replace(href(days, id), { scroll: false })); };
   const press = (fn) => ({ role: "button", tabIndex: 0, onClick: fn, onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); } } });
   const rows = samples ? (allSamples ? samples : samples.slice(0, 4)) : [];
   const maxRule = Math.max(...rules.map((r) => picked?.rules[r.id] ?? 0), 1);
@@ -69,7 +70,7 @@ export default function TrafficView({ games, totals, rules, samples, pickedId, d
                   <span><SortTh label="Verdict" k="verdict" sort={sort} onSort={onSort} /></span>
                 </div>
                 {shown.map((g) => (
-                  <div key={g.id} className={`cb-lr cb-click cb-cm${g.id === pickedId ? " cb-sel" : ""}`} style={{ gridTemplateColumns: COLS, gap: "0 12px" }} {...press(() => pick(g.id))}>
+                  <div key={g.id} className={`cb-lr cb-click cb-cm${g.id === pickedId ? " cb-sel" : ""}${pending && want === g.id ? " cb-busy" : ""}`} aria-busy={pending && want === g.id} style={{ gridTemplateColumns: COLS, gap: "0 12px" }} {...press(() => pick(g.id))}>
                     <div className="cb-who">
                       <button type="button" className="cb-gi cb-gbtn" data-tip="Open game card" aria-label={`Open game card for ${g.name}`} style={{ width: 32, height: 32, fontSize: 13, background: gradientFor(g.id) }} onClick={(e) => { e.stopPropagation(); openCard("game", g.id); }}>{g.name.charAt(0)}</button>
                       <strong>{g.name}</strong>

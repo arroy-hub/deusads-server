@@ -8669,8 +8669,9 @@ body.ig-dragging *{cursor:grabbing!important}
 .shell.is-admin .rail-heading { margin: 0; padding: 14px 10px 5px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #a8a29a; }
 .shell.is-admin .rail-link { min-height: 0; padding: 8px 10px; gap: 10px; border-radius: 8px; font-size: 14px; font-weight: 500; }
 .shell.is-admin .rail-icon { width: 17px; height: 17px; opacity: .85; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.shell.is-admin .rail-badge { margin-left: auto; min-width: 20px; height: 18px; padding: 0 6px; border-radius: 9px; background: #fff; color: #b4472e; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
-.shell.is-admin .rail-badge.is-warn { background: #ffb347; color: #3a2200; }
+.shell.is-admin .rail-badge { margin-left: auto; min-width: 20px; height: 18px; padding: 0 6px; border-radius: 9px; background: #c94a24; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.shell.is-admin [aria-current="page"] .rail-badge { background: #8e2a14; }
+.shell.is-admin .rail-badge.is-warn, .shell.is-admin [aria-current="page"] .rail-badge.is-warn { background: #ffb347; color: #3a2200; }
 .shell.is-admin .rail-group.is-dim .rail-link:not([aria-current="page"]) { color: #a8a29a; }
 .shell.is-admin .rail-group.is-dim .rail-link:not([aria-current="page"]):hover { color: #fff; }
 .shell.is-admin { grid-template-columns: 237px 1fr; }
