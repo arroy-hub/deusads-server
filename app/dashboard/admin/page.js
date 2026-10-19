@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
-import { formatLabel } from "../../../lib/formats";
 import { reviewRows, reviewWidgets, REVIEW_GROUPS, REVIEW_DEFAULTS } from "../../../lib/admin-review";
 import { userClient } from "../../../lib/supabase-server";
 import { loadDeckLayout } from "../../../lib/deck-layout-data";
@@ -30,27 +29,8 @@ export default async function ModerationPage() {
   const migrated = !result.error;
   const creatives = result.data ?? [];
 
-  // Extra per-format pictures waiting for review (migration 0017; absent before it).
-  const assetResult = await service
-    .from("creative_assets")
-    .select("id, creative_id, storage_path, width_px, height_px, created_at, format_id, creatives(name, owner_id, ad_category, accounts(email, company))")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
-  const assets = assetResult.error
-    ? []
-    : (assetResult.data ?? []).map((row) => ({
-        id: row.id,
-        creativeId: row.creative_id,
-        name: `${row.creatives?.name ?? "Creative"} · ${formatLabel(row.format_id)}`,
-        storage_path: row.storage_path,
-        width_px: row.width_px,
-        height_px: row.height_px,
-        created_at: row.created_at,
-        ownerId: row.creatives?.owner_id ?? null,
-        owner: row.creatives?.accounts?.company || row.creatives?.accounts?.email || "Unknown",
-        email: row.creatives?.accounts?.email ?? "",
-        category: row.creatives?.ad_category ?? "other",
-      }));
+  // Extra per-format pictures are not moderated: they go live as soon as the advertiser uploads them.
+  const assets = [];
 
   const shaped = reviewRows({ creatives, assets, urlOf });
   const all = [...shaped.creatives, ...shaped.assets];

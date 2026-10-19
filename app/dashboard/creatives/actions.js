@@ -116,8 +116,8 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     }
   }
 
-  // A new picture from an advertiser is reviewed like a new creative; a developer's or an admin's own is not.
-  const status = me.role === "advertiser" ? "pending" : "approved";
+  // Pictures made for a format are not moderated: they count from the moment they are uploaded.
+  const status = "approved";
   const { data, error } = await me.service
     .from("creative_assets")
     .insert({

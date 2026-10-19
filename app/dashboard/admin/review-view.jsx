@@ -21,9 +21,8 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
   const [busy, setBusy] = useState(null);
 
   const waiting = rows.filter((r) => r.out === "waiting" && r.kind === "creative");
-  const assets = rows.filter((r) => r.kind === "asset");
   const reviewed = rows.filter((r) => r.out !== "waiting").sort((a, b) => String(b.reviewedAt).localeCompare(String(a.reviewedAt)));
-  const list = (tab === "new" ? waiting : tab === "assets" ? assets : reviewed).filter((r) => cat === "all" || r.category === cat);
+  const list = (tab === "new" ? waiting : reviewed).filter((r) => cat === "all" || r.category === cat);
   // an extra picture opens the creative it belongs to
   const cardOf = (row) => (row.kind === "asset" ? row.creativeId : row.id);
 
@@ -86,7 +85,6 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
         sub="Approve or reject what advertisers upload."
         tabs={<>
           <Tab current={tab === "new"} count={waiting.length} onClick={() => { setTab("new"); setRejecting(null); }}>Waiting</Tab>
-          <Tab current={tab === "assets"} count={assets.length} onClick={() => { setTab("assets"); setRejecting(null); }}>Format images</Tab>
           <Tab current={tab === "done"} count={reviewed.length} onClick={() => { setTab("done"); setRejecting(null); }}>Reviewed</Tab>
         </>}
       />
