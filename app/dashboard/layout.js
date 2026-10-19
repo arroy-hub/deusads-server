@@ -88,7 +88,7 @@ export default async function DashboardLayout({ children }) {
   );
 
   return (
-    <div className={`shell${role === "advertiser" ? " is-adv" : ""}`}>
+    <div className={`shell${role === "advertiser" ? " is-adv" : ""}`} translate="no">
       <nav className="rail" aria-label="Main">
         <div className="rail-brand">
           <div>
