@@ -13,6 +13,7 @@ import { avatarUrlOf } from "../../lib/account-data";
 import { initials as initialsOf, needsAttention } from "../../lib/account-rules";
 import AccountMenu from "./account-menu";
 import NavLink from "./nav-link";
+import { RoleMenu, RoleSwitch } from "./role-view";
 import NotificationsBell from "./notifications-bell";
 import NavFade from "./nav-fade";
 
@@ -95,7 +96,7 @@ export default async function DashboardLayout({ children }) {
             <Link href={homeFor(role)} className="rail-mark">
               Deus<span>ADS</span>
             </Link>
-            <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>
+            {admin ? <RoleSwitch /> : <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>}
           </div>
           <div className="rail-bell">
             <Suspense fallback={<span className="bell-button bell-wait" aria-hidden="true" />}>
@@ -112,7 +113,16 @@ export default async function DashboardLayout({ children }) {
           attention={needsAttention({ company: standing?.company, pendingEmail: user?.new_email })}
         />
 
-        {groups.map((group, index) => (
+        {admin && (
+          <RoleMenu
+            views={{
+              admin: groups.filter((group) => !group.heading?.startsWith("As a")),
+              advertiser: groups.filter((group) => group.heading === "As an advertiser").map((group) => ({ ...group, heading: null })),
+              developer: groups.filter((group) => group.heading === "As a developer").map((group) => ({ ...group, heading: null })),
+            }}
+          />
+        )}
+        {!admin && groups.map((group, index) => (
           <div className={`rail-group${group.heading?.startsWith("As a") ? " is-dim" : ""}`} key={group.heading ?? index}>
             {group.heading && <div className="rail-heading">{group.heading}</div>}
             {group.items.map((item) => (
