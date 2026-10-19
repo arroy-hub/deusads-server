@@ -423,3 +423,5 @@ dialog.cb-pop:focus{outline:0}
 .cb-lr.cb-busy:after{content:"";position:absolute;inset:0;background:rgba(36,29,25,.18);z-index:2}
 .cb-lr.cb-busy:before{content:"";position:absolute;z-index:3;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2.5px solid rgba(255,255,255,.6);border-top-color:var(--signal);border-radius:50%;animation:cb-spin .7s linear infinite}
 @keyframes cb-spin{to{transform:rotate(360deg)}}
+.cb-bars.cb-sm{grid-template-columns:max-content minmax(0,1fr) 52px;column-gap:12px}
+.cb-bars.cb-sm .cb-bar{grid-template-columns:subgrid;grid-column:1/-1;gap:0 12px}
