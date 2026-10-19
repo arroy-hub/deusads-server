@@ -180,6 +180,8 @@ await build({
   format: "esm",
   outdir: out,
   external: ["@supabase/*"],
+  // next/server needs a running Next.js request; the stand-in is described in the file.
+  alias: { "next/server": join(process.cwd(), "test", "stubs", "next-server.mjs") },
   logLevel: "error",
 });
 const load = (name) => import(pathToFileURL(join(out, name + ".js")).href);
@@ -813,6 +815,26 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(r.body.placements.length, 1);
   assert.equal(fillLog.length, 0);
 
+  db.assignments.length = 0;
+  db.assignments.push(...savedAssignments);
+}
+
+// --- the manifest does not wait for its bookkeeping: the SDK-signal stamp, the booking schedule and the
+// fill rate are left for after the answer (in a real request `after` runs them once the response is out)
+{
+  const savedAssignments = db.assignments.splice(0);
+  db.assignments.push({ placements: { external_id: "a" }, creatives: { id: "c1", storage_path: "x.png", status: "approved", owner_id: "o1" }, owner_id: "o1", active: true });
+  fillLog.length = 0;
+  globalThis.__afterTasks = [];
+  r = await getManifest();
+  const waiting = globalThis.__afterTasks;
+  globalThis.__afterTasks = undefined;
+  assert.equal(r.status, 200);
+  assert.equal(r.body.placements.length, 1, "the answer is complete without the bookkeeping");
+  assert.equal(fillLog.length, 0, "the fill rate is not recorded before the answer has gone out");
+  assert.equal(waiting.length, 3, "stamp, booking schedule and fill rate wait for after the answer");
+  for (const task of waiting) await task();
+  assert.equal(fillLog.length, 1, "and are done once it has");
   db.assignments.length = 0;
   db.assignments.push(...savedAssignments);
 }

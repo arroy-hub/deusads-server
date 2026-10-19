@@ -8,6 +8,7 @@ import {
   preflight,
   warnSchemaOutdated,
 } from "../../../lib/api";
+import { afterResponse } from "../../../lib/after-response";
 import { cropFromRow } from "../../../lib/surface-math";
 import { syncBookingSchedule } from "../../../lib/schedule";
 import { rotate } from "../../../lib/rotation";
@@ -42,26 +43,15 @@ export const GET = guarded(async function GET(request) {
   const { game, db, error } = await authenticateGame(request);
   if (error) return error;
 
-  // Bookings that start or end today take effect before the manifest is built.
-  await syncBookingSchedule(db);
+  // Bookings that start or end today are switched on by the database itself every minute (migration 0049).
+  // The same is asked here once a minute per server instance, but after the answer has gone out, so the
+  // manifest never waits for it and a database without 0049 still starts a booking at the next game start.
+  await afterResponse(() => syncBookingSchedule(db));
 
-  // Newest schema first; each step back drops what a missing migration added.
-  const attempts = [
-    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, withTargeting: true },
-    { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, migration: "0018_targeting.sql" },
-    { skipRemoved: true, withCrop: true, withSource: true, migration: "0017_ad_formats.sql" },
-    { skipRemoved: true, withCrop: true, migration: "0015_open_marketplace.sql" },
-    { skipRemoved: true, withCrop: false, migration: "0003_assignment_crop.sql" },
-    { skipRemoved: false, withCrop: false, migration: "0002_placement_sync_and_events.sql" },
-  ];
-
-  let data;
-  let queryError;
-  for (const attempt of attempts) {
-    if (attempt.migration) warnSchemaOutdated("GET /v1/manifest", attempt.migration);
-    ({ data, error: queryError } = await activeAssignments(db, game, attempt));
-    if (!isSchemaOutdated(queryError)) break;
-  }
+  // The manifest is built in three rounds of queries; whatever does not depend on an earlier answer is asked
+  // together with it, because each query costs a round trip to the database.
+  // Round 1: the creatives assigned to this game, and what the developer switched off.
+  const [{ data, error: queryError }, off] = await Promise.all([findAssignments(db, game), loadSwitches(db, game)]);
 
   if (queryError) {
     logDbError("manifest", queryError);
@@ -81,37 +71,34 @@ export const GET = guarded(async function GET(request) {
     row,
   }));
 
+  // Round 2: everything the choice below needs from the database. Asked for all rows at once, because which of
+  // them are eligible is only known after the game's description is read; what is not needed is simply not used.
   // A booked creative may ask for a kind of game (migration 0018): genres, platforms, languages.
   // Those that do not fit this game are dropped before the rotation, so the placement shows
   // another advertiser or the developer's own creative. The game's own description is read only
   // when some booked creative has an audience; a game that has not filled in what a creative
   // asks for does not get it (strict).
-  const targeted = rows.some((item) => item.source === "booking" && item.row.creatives.targeting != null);
-  const eligible = targeted ? eligibleRows(rows, await loadProfile(db, game)) : rows;
+  const targeted = rows.some((item) => isBooked(item) && item.row.creatives.targeting != null);
+  const profileOf = once(() => loadProfile(db, game));
+  const [profile, assetsOf, cropsOf, suspended, controlTables, bookings] = await Promise.all([
+    targeted ? profileOf() : null,
+    loadAssets(db, rows), // which picture each booked creative shows on each placement (migration 0017)
+    loadFormatCrops(db, rows),
+    loadSuspended(db, rows), // a suspended account's ads stop being served
+    loadControlTables(db, game, rows), // what the developer paused or blocked in this game (migration 0023)
+    loadBookings(db, rows),
+  ]);
 
-  // Which picture each booked creative shows on each placement (migration 0017).
+  const eligible = targeted ? eligibleRows(rows, profile) : rows;
+
   // Where no picture fits the placement's shape the pair is dropped before the
   // rotation, so the placement shows another advertiser or the developer's own creative.
-  const assetsOf = await loadAssets(db, eligible);
-  const cropsOf = await loadFormatCrops(db, eligible);
   const { servable, shown } = choosePictures(eligible, assetsOf, (path) => creativeUrl(db, path), cropsOf);
-  // A suspended account's ads stop being served (suspended_at comes with migration 0015).
-  const owners = [...new Set(servable.map((item) => item.advertiserId).filter(Boolean))];
-  let suspended = new Set();
-  if (owners.length) {
-    const { data: off, error: offError } = await db
-      .from("accounts")
-      .select("id")
-      .in("id", owners)
-      .not("suspended_at", "is", null);
-    if (!offError) suspended = new Set((off ?? []).map((account) => account.id));
-  }
+
   // What the developer switched off shows nothing: dropped before the rotation, and named in the reply.
-  const off = await loadSwitches(db, game);
   const disabled = new Set(off.disabled);
 
-  // What the developer paused or blocked in this game (migration 0023) is dropped the same way.
-  const controls = await loadControls(db, game, servable);
+  const controls = servable.some(isBooked) ? buildControls(controlTables, bookings) : null;
   const allowed = (item) =>
     !controls ||
     mayServe(
@@ -125,8 +112,14 @@ export const GET = guarded(async function GET(request) {
       controls
     );
 
-  // What the campaigns themselves decide (migration 0026): paused, their own audience, games they skip.
-  const campaignRules = await loadCampaignRules(db, game, servable);
+  // Round 3: what the campaigns themselves decide (migration 0026): paused, their own audience, games they skip.
+  const servableIds = new Set(servable.map((item) => item.assignmentId));
+  const campaignRules = await loadCampaignRules(
+    db,
+    game,
+    (bookings ?? []).filter((booking) => servableIds.has(booking.assignment_id)),
+    profileOf
+  );
   const campaignAllows = (item) => item.source !== "booking" || !campaignRules || campaignMayServe(campaignRules.ruleOf.get(item.assignmentId), game.id, campaignRules.profile);
 
   // The same steps one at a time, so a placement left empty can be explained (migration 0037).
@@ -140,10 +133,40 @@ export const GET = guarded(async function GET(request) {
     crop: shown.get(row).crop,
   }));
 
-  await recordFill(db, game, { levels: [rows, eligible, servable, notSuspended, notBlocked], chosen, disabled });
+  // Counted after the answer has gone out: the fill rate is for the developer's dashboard, not for the game.
+  await afterResponse(() => recordFill(db, game, { levels: [rows, eligible, servable, notSuspended, notBlocked], chosen, disabled }));
 
   return json({ version: 1, placements, disabled: off.disabled, disabledScenes: off.disabledScenes });
 });
+
+// Newest schema first; each step back drops what a missing migration added.
+const ATTEMPTS = [
+  { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, withTargeting: true },
+  { skipRemoved: true, withCrop: true, withSource: true, withFormats: true, migration: "0018_targeting.sql" },
+  { skipRemoved: true, withCrop: true, withSource: true, migration: "0017_ad_formats.sql" },
+  { skipRemoved: true, withCrop: true, migration: "0015_open_marketplace.sql" },
+  { skipRemoved: true, withCrop: false, migration: "0003_assignment_crop.sql" },
+  { skipRemoved: false, withCrop: false, migration: "0002_placement_sync_and_events.sql" },
+];
+
+const isBooked = (item) => item.source === "booking";
+
+/** Runs `load` the first time it is asked for and gives every later caller the same answer. */
+function once(load) {
+  let answer;
+  return () => (answer ??= load());
+}
+
+/** The creatives assigned to this game: { data, error }, on the newest schema the database has. */
+async function findAssignments(db, game) {
+  let result;
+  for (const attempt of ATTEMPTS) {
+    if (attempt.migration) warnSchemaOutdated("GET /v1/manifest", attempt.migration);
+    result = await activeAssignments(db, game, attempt);
+    if (!isSchemaOutdated(result.error)) break;
+  }
+  return result;
+}
 
 /**
  * Remembers what this request did for every placement of the game: an ad of an advertiser, the developer's own
@@ -166,78 +189,93 @@ async function recordFill(db, game, { levels, chosen, disabled }) {
 }
 
 /**
- * Pauses and blocks the developer set in this game (migration 0023): { controls, blocked, campaignOf },
- * ready for mayServe(). Null when nothing needs checking, or when they cannot be read: a read failure
- * must not hide a developer's ads, and the manifest is asked again at the next start.
+ * The pauses and blocks the developer set in this game (migration 0023), as the rows read:
+ * { controlRows, categoryRows }. Null when nothing booked is in play, and when they cannot be read:
+ * a read failure must not hide a developer's ads, and the manifest is asked again at the next start.
  */
-async function loadControls(db, game, items) {
-  const booked = items.filter((item) => item.source === "booking");
-  if (!booked.length) return null;
+async function loadControlTables(db, game, rows) {
+  if (!rows.some(isBooked)) return null;
 
-  const { data: rows, error: controlsError } = await db
-    .from("game_ad_controls")
-    .select("scope, target_id, state, reason, comment")
-    .eq("game_id", game.id);
-  if (controlsError) {
-    if (isSchemaOutdated(controlsError)) warnSchemaOutdated("GET /v1/manifest", "0023_game_ad_controls.sql");
-    else logDbError("manifest controls", controlsError);
+  const [controls, categories] = await Promise.all([
+    db.from("game_ad_controls").select("scope, target_id, state, reason, comment").eq("game_id", game.id),
+    db.from("game_category_blocks").select("category, blocked").eq("game_id", game.id),
+  ]);
+  if (controls.error) {
+    if (isSchemaOutdated(controls.error)) warnSchemaOutdated("GET /v1/manifest", "0023_game_ad_controls.sql");
+    else logDbError("manifest controls", controls.error);
     return null;
   }
-
-  const { data: categoryRows, error: categoriesError } = await db
-    .from("game_category_blocks")
-    .select("category, blocked")
-    .eq("game_id", game.id);
-  if (categoriesError) {
-    logDbError("manifest category blocks", categoriesError);
+  if (categories.error) {
+    logDbError("manifest category blocks", categories.error);
     return null;
   }
+  return { controlRows: controls.data, categoryRows: categories.data };
+}
 
-  const assignmentIds = [...new Set(booked.map((item) => item.assignmentId).filter(Boolean))];
-  const { data: bookings, error: bookingsError } = await db
-    .from("bookings")
-    .select("assignment_id, campaign_id")
-    .in("assignment_id", assignmentIds);
-  if (bookingsError) {
-    logDbError("manifest bookings", bookingsError);
-    return null;
-  }
-
+/** The pauses and blocks ready for mayServe(): { controls, blocked, campaignOf }. Null when any part could not be read. */
+function buildControls(tables, bookings) {
+  if (!tables || !bookings) return null;
   return {
-    controls: controlMap(rows),
-    blocked: blockedCategories(categoryRows),
-    campaignOf: new Map((bookings ?? []).map((booking) => [booking.assignment_id, booking.campaign_id])),
+    controls: controlMap(tables.controlRows),
+    blocked: blockedCategories(tables.categoryRows),
+    campaignOf: new Map(bookings.map((booking) => [booking.assignment_id, booking.campaign_id])),
   };
 }
 
 /**
- * The rules of the campaigns behind the booked items (migration 0026): { ruleOf: Map(assignmentId -> rule), profile }.
- * Null when there is nothing to check or the table is missing; a read failure must not hide ads, and the manifest
- * is asked again at the next start.
+ * Which campaign each booked assignment belongs to: [{ assignment_id, campaign_id }]. Null when it cannot be
+ * read (a read failure must not hide ads; the manifest is asked again at the next start).
  */
-async function loadCampaignRules(db, game, items) {
-  const assignmentIds = [...new Set(items.filter((item) => item.source === "booking").map((item) => item.assignmentId).filter(Boolean))];
-  if (!assignmentIds.length) return null;
+async function loadBookings(db, rows) {
+  const assignmentIds = [...new Set(rows.filter(isBooked).map((item) => item.assignmentId).filter(Boolean))];
+  if (!assignmentIds.length) return [];
 
-  const { data: bookings, error: bookingsError } = await db.from("bookings").select("assignment_id, campaign_id").in("assignment_id", assignmentIds);
-  if (bookingsError) {
-    logDbError("manifest campaign bookings", bookingsError);
+  const { data, error } = await db.from("bookings").select("assignment_id, campaign_id").in("assignment_id", assignmentIds);
+  if (error) {
+    logDbError("manifest bookings", error);
     return null;
   }
-  const campaignIds = [...new Set((bookings ?? []).map((booking) => booking.campaign_id))];
+  return data ?? [];
+}
+
+/** Ids of the advertisers among the rows whose account is suspended (suspended_at comes with migration 0015). */
+async function loadSuspended(db, rows) {
+  const owners = [...new Set(rows.map((item) => item.advertiserId).filter(Boolean))];
+  if (!owners.length) return new Set();
+
+  const { data, error } = await db.from("accounts").select("id").in("id", owners).not("suspended_at", "is", null);
+  return error ? new Set() : new Set((data ?? []).map((account) => account.id));
+}
+
+/** A pause may end by itself on a day (resume_on, migration 0028); before that migration it lasts until it is lifted. */
+async function loadCampaigns(db, campaignIds) {
+  const result = await db.from("campaigns").select("id, targeting, paused_at, resume_on").in("id", campaignIds);
+  if (result.error && isSchemaOutdated(result.error)) {
+    return db.from("campaigns").select("id, targeting, paused_at").in("id", campaignIds);
+  }
+  return result;
+}
+
+/**
+ * The rules of the campaigns behind the booked items (migration 0026): { ruleOf: Map(assignmentId -> rule), profile }.
+ * `bookings` are those of the items that can still be served. Null when there is nothing to check or the table is
+ * missing; a read failure must not hide ads, and the manifest is asked again at the next start.
+ */
+async function loadCampaignRules(db, game, bookings, profileOf) {
+  const campaignIds = [...new Set(bookings.map((booking) => booking.campaign_id))];
   if (!campaignIds.length) return null;
 
-  // A pause may end by itself on a day (resume_on, migration 0028); before that migration it lasts until it is lifted.
-  let { data: campaigns, error: campaignsError } = await db.from("campaigns").select("id, targeting, paused_at, resume_on").in("id", campaignIds);
-  if (campaignsError && isSchemaOutdated(campaignsError)) {
-    ({ data: campaigns, error: campaignsError } = await db.from("campaigns").select("id, targeting, paused_at").in("id", campaignIds));
-  }
+  const [campaignsResult, skippedResult] = await Promise.all([
+    loadCampaigns(db, campaignIds),
+    db.from("campaign_excluded_games").select("campaign_id").eq("game_id", game.id).in("campaign_id", campaignIds),
+  ]);
+  const { data: campaigns, error: campaignsError } = campaignsResult;
   if (campaignsError) {
     if (isSchemaOutdated(campaignsError)) warnSchemaOutdated("GET /v1/manifest", "0026_campaign_rules.sql");
     else logDbError("manifest campaigns", campaignsError);
     return null;
   }
-  const { data: skipped, error: skippedError } = await db.from("campaign_excluded_games").select("campaign_id").eq("game_id", game.id).in("campaign_id", campaignIds);
+  const { data: skipped, error: skippedError } = skippedResult;
   if (skippedError) {
     logDbError("manifest skipped games", skippedError);
     return null;
@@ -250,9 +288,9 @@ async function loadCampaignRules(db, game, items) {
       { pausedAt: effectivePause(campaign.paused_at, campaign.resume_on), targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set() },
     ])
   );
-  const ruleOf = new Map((bookings ?? []).map((booking) => [booking.assignment_id, ruleOfCampaign.get(booking.campaign_id)]));
+  const ruleOf = new Map(bookings.map((booking) => [booking.assignment_id, ruleOfCampaign.get(booking.campaign_id)]));
   // The game's description is read only when some campaign has an audience.
-  const profile = [...ruleOfCampaign.values()].some((rule) => rule.targeting != null) ? await loadProfile(db, game) : null;
+  const profile = [...ruleOfCampaign.values()].some((rule) => rule.targeting != null) ? await profileOf() : null;
   return { ruleOf, profile };
 }
 
