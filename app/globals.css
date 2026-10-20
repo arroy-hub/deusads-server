@@ -8837,7 +8837,7 @@ body.ig-dragging *{cursor:grabbing!important}
 .pg-ic.cx-win { padding-bottom: 0; }
 .pg-ic > .main-head.cx-head { display: block; margin: 0; padding: 24px 40px 0; }
 .cx-win[data-tab="cr"] .main-head > div:first-child::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b8421d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 9h.01'/%3E%3C/svg%3E"); }
-.cx-tabs { display: flex; gap: 4px; margin-top: 18px; overflow-x: auto; }
+.cx-tabs { display: flex; gap: 4px; margin-top: 18px; }
 .cx-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
 .cx-tab:hover { color: var(--ink); }
 .cx-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--signal-ink); }
@@ -9014,6 +9014,7 @@ body.ig-dragging *{cursor:grabbing!important}
 }
 @media (max-width: 700px) {
   .pg-ic > .main-head.cx-head { padding: 16px 16px 0; }
+  .cx-tabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .cx-blockw { padding-left: 16px; padding-right: 16px; }
   .cx-cr .rd-sections { padding-left: 16px; padding-right: 16px; }
   .cx-cr .rd-lib-empty, .cx-cr .empty, .cx-cr-problem { margin-left: 16px; margin-right: 16px; }
