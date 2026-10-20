@@ -57,8 +57,8 @@ export const Switch = ({ on, onChange, disabled, title, hint }) => (
 );
 
 /** Segmented control; options are [key, text, disabled?, title?]. `full` stretches it over the width of its panel. */
-export const Seg = ({ value, options, onChange, label, full = false }) => (
-  <div className={`ovx-seg${full ? " is-full" : ""}`} role="group" aria-label={label}>
+export const Seg = ({ value, options, onChange, label, full = false, compact = false }) => (
+  <div className={`ovx-seg${full ? " is-full" : ""}${compact ? " is-compact" : ""}`} role="group" aria-label={label}>
     {options.map(([key, text, off, title]) => (
       <button key={key} type="button" aria-pressed={value === key} disabled={off} title={title} onClick={() => onChange(key)}>{text}</button>
     ))}

@@ -38,7 +38,8 @@ export default function ReportFrame({ initial, board, children }) {
       raf = 0;
       const panel = side.current;
       const narrow = window.matchMedia('(max-width: 1100px)').matches;
-      const on = open && !!panel && !narrow;
+      // an empty panel (nothing to show, or the figures failed to load) does not keep its place
+      const on = open && !!panel && panel.offsetHeight > 0 && !narrow;
       const panelH = on ? panel.offsetHeight : 0;
       const shift = on ? panel.offsetWidth + 16 : 0;
       box.style.minHeight = on ? `${panelH}px` : '';

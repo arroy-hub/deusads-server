@@ -209,7 +209,7 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
               {placed.map((event, index) => (
                 <span key={`${event.date}-${index}`}>
                   <span className="ovx-mark" style={{ left: `${event.at}%`, borderLeftColor: EVENT_COLOR[event.kind] }} aria-hidden="true" />
-                  <span className="ovx-mark-name" style={{ left: `${event.at}%`, top: H + 30 + event.row * 22 }}>
+                  <span className="ovx-mark-name" style={{ left: `${event.at}%`, top: H + 30 + event.row * 22, transform: event.at < 9 ? "none" : event.at > 91 ? "translateX(-100%)" : undefined }}>
                     {event.text}
                   </span>
                 </span>

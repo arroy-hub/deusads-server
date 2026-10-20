@@ -6673,7 +6673,7 @@ th.num .sort-button {
 .ovx-plotwrap { display: flex; gap: 8px; padding: 6px 18px 0; }
 .ovx-yaxis { width: 42px; height: 170px; }
 .ovx-plot { flex: 1; min-width: 0; margin-right: 0; height: 170px; padding-bottom: 0; position: relative; }
-.ovx-xaxis { top: 248px; bottom: auto; }
+.ovx-xaxis { top: 178px; bottom: auto; }
 .ovx-mark { position: absolute; top: 0; height: 170px; border-left: 1.5px dashed #1c1b1a; opacity: 0.55; pointer-events: none; }
 .ovx-mark-name { position: absolute; transform: translateX(-50%); background: #1c1b1a; color: #fff; border-radius: 5px; font-size: 10.5px; font-weight: 700; padding: 1px 6px; white-space: nowrap; line-height: 16px; pointer-events: none; }
 .ovx-tip-row span { white-space: nowrap; }
@@ -9083,3 +9083,11 @@ body.ig-dragging *{cursor:grabbing!important}
 
 .cr-bar .dl-button{border-color:transparent}
 .cr-bar .dl-button:hover,.cr-bar .dl-button[aria-expanded="true"]{border-color:transparent}
+.ovx-seg.is-compact{padding:2px;border-radius:8px}
+.ovx-seg.is-compact button,.ovx-seg.is-compact a{height:24px;padding:0 10px;font-size:12.5px;border-radius:6px}
+.ovx-seg.is-full.is-compact button{height:24px}
+.dk-skel .dk-skel-head{margin-bottom:12px}
+.dk-skel-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px}
+.dk-skel-grid i{display:block;border-radius:8px;background:linear-gradient(90deg,#f1ebe4 0%,#f8f4ef 50%,#f1ebe4 100%);background-size:200% 100%;animation:dk-skel 1.4s ease-in-out infinite}
+@keyframes dk-skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.dk-skel-grid i{animation:none}}
