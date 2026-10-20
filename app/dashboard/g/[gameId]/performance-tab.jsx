@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
-import { formatCount } from "../../../../lib/analytics";
+import { formatCount, formatDay } from "../../../../lib/analytics";
 import { BREAKDOWNS, PERIODS, advShare, figures, isFiltered, ratio, toQuery } from "../../../../lib/performance-view";
 import PerformanceChart from "./performance-chart";
 import DeckBoard from "../../deck-board";
+import KeyNumbers from "../../key-numbers";
+import { Info } from "../../metrics-deck";
+import ReportFrame, { StatToggle } from "../../advertising/c/[campaignId]/report-frame";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
+const SW_LABEL = { all: "All", adv: "Advertisers", own: "My creatives" };
 const PLAYERS_NOTE = { all: "players who saw an ad", adv: "who saw an advertiser", own: "who saw your creatives" };
 const BY_LABEL = Object.fromEntries(BREAKDOWNS);
 const FILTER_KEYS = ["folder", "scene", "tag", "type", "format"];
@@ -94,95 +98,70 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
     ? "1 placement"
     : `${model.kpi.placements} of ${model.totalPlacements} ${model.totalPlacements === 1 ? "placement" : "placements"}`;
 
+  const dayRows = model.chart.days;
+  const viewsOf = (day) => (source === "adv" ? day.adv : source === "own" ? day.own : day.adv + day.own);
+  let bestDay = null;
+  for (const day of dayRows) if (viewsOf(day) > (bestDay ? viewsOf(bestDay) : 0)) bestDay = day;
+  const perDay = dayRows.length > 0 ? kpiFigures.views / dayRows.length : 0;
+
+  // The hero is the headline of the page; choosing which views count lives right under its number.
+  const hero = {
+    value: count(kpiFigures.views),
+    delta: null,
+    tail: `last ${model.win.days} days · ${scopeText}`,
+    perDay: count(Math.round(perDay)),
+    bestLabel: "Best day",
+    best: bestDay ? `${formatDay(bestDay.date)} · ${count(viewsOf(bestDay))}` : "—",
+    extra: (
+      <div className="pf-srcsw" role="radiogroup" aria-label="Which views to count">
+        {sourceCards.map((card) => (
+          <label key={card.id} className={`pf-sw ${source === card.id ? "is-on" : ""}`}>
+            <input className="pf-src-input" type="radio" name="pf-source" checked={source === card.id} onChange={() => chooseSource(card.id)} />
+            {card.id !== "all" && <span className={`pf-key ${card.id === "adv" ? "pf-key-adv" : "pf-key-own"}`} aria-hidden="true" />}
+            {SW_LABEL[card.id]}
+            <b>{count(card.value)}</b>
+          </label>
+        ))}
+        <Info title="Which views to count" text="Choose Advertisers or My creatives to count only those views. Per session counts every session, also those in which no ad was seen." />
+      </div>
+    ),
+  };
+  const items = [
+    { icon: "users", label: "Players", value: kpiFigures.players > 0 ? count(kpiFigures.players) : "—", sub: kpiFigures.players > 0 ? PLAYERS_NOTE[source] : "needs SDK 0.9 or newer" },
+    { icon: "pulse", label: "Per session", value: ratio(kpiFigures.perSession), sub: kpiFigures.perSession == null ? "needs SDK 0.10 or newer" : "impressions per game session" },
+    { icon: "user", label: "Per player", value: ratio(kpiFigures.perPlayer), sub: "impressions per player" },
+    { icon: "clock", label: "Avg. visible", value: seconds(kpiFigures.avgVisible), sub: "per view" },
+    { icon: "games", label: "Placements", value: String(model.kpi.placements), of: focus ? undefined : `of ${model.totalPlacements}`, sub: "with views in this selection" },
+    { icon: "eye", label: "Advertiser share", value: allViews > 0 ? `${Math.round(percent(kpi.adv, allViews))}%` : "—", sub: "of all impressions" },
+  ];
+
   return (
-    <div className="pf" aria-busy={pending}>
-      <div className={`pf-stack ${pending ? "is-pending" : ""}`}>
+    <div className={`pf ${pending ? "is-pending" : ""}`} aria-busy={pending}>
+      <ReportFrame
+        initial={deckLayout}
+        board={<DeckBoard kind="developer" model={model} source={source} days={model.chart.days} initial={deckLayout} panel />}
+      >
         {focus && (
-          <>
-            <div>
-              <button type="button" className="pf-back" onClick={() => go({ focus: "" }, 0)}>
-                ← All placements
-              </button>
-            </div>
-            <FocusHead gameId={gameId} placement={model.placement} />
-          </>
-        )}
-
-        <Controls
-          model={model}
-          state={state}
-          source={source}
-          focus={focus}
-          menu={menu}
-          setMenu={setMenu}
-          go={go}
-        />
-
-        <section className="pf-panel" aria-label="Figures">
-          <div className="pf-kpis" role="radiogroup" aria-label="Which views to count">
-            {sourceCards.map((card) => (
-              <label key={card.id} className={`pf-src ${source === card.id ? "is-on" : ""}`}>
-                <input
-                  className="pf-src-input"
-                  type="radio"
-                  name="pf-source"
-                  checked={source === card.id}
-                  onChange={() => chooseSource(card.id)}
-                />
-                <span className="pf-src-top">
-                  <span className={`pf-key ${card.id === "adv" ? "pf-key-adv" : card.id === "own" ? "pf-key-own" : "pf-key-all"}`} aria-hidden="true" />
-                  {SOURCE_LABEL[card.id]}
-                </span>
-                <span className="pf-src-val">{count(card.value)}</span>
-                <span className="pf-src-sub">{card.sub}</span>
-              </label>
-            ))}
-            <div className="pf-fig">
-              <span className="pf-src-top">Players</span>
-              <span className="pf-src-val">{kpiFigures.players > 0 ? count(kpiFigures.players) : "—"}</span>
-              <span className="pf-src-sub">{kpiFigures.players > 0 ? PLAYERS_NOTE[source] : "needs SDK 0.9 or newer"}</span>
-            </div>
-            <div className="pf-fig">
-              <span className="pf-src-top">Per session</span>
-              <span className="pf-src-val">{ratio(kpiFigures.perSession)}</span>
-              <span className="pf-src-sub">{kpiFigures.perSession == null ? "needs SDK 0.10 or newer" : "impressions per game session"}</span>
-            </div>
-            <div className="pf-fig">
-              <span className="pf-src-top">Per player</span>
-              <span className="pf-src-val">{ratio(kpiFigures.perPlayer)}</span>
-              <span className="pf-src-sub">impressions per player</span>
-            </div>
-            <div className="pf-fig">
-              <span className="pf-src-top">Avg. visible</span>
-              <span className="pf-src-val">{seconds(kpiFigures.avgVisible)}</span>
-              <span className="pf-src-sub">per view</span>
-            </div>
+          <div>
+            <button type="button" className="pf-back" onClick={() => go({ focus: "" }, 0)}>
+              ← All placements
+            </button>
           </div>
-          <p className="pf-hint is-one" title="Per session counts every session of the game, also those in which no ad was seen.">Click Advertisers or My creatives to count only those views. Per session counts every session, also those with no ad.</p>
-        </section>
+        )}
+        {focus && <FocusHead gameId={gameId} placement={model.placement} />}
 
-        <PerformanceChart
-          advanced={<DeckBoard kind="developer" model={model} source={source} days={model.chart.days} initial={deckLayout} />}
-          days={model.chart.days}
-          source={source}
-          subtitle={`Last ${model.win.days} days · ${scopeText}`}
-        />
+        <Controls model={model} state={state} source={source} focus={focus} menu={menu} setMenu={setMenu} go={go} />
+
+        <KeyNumbers hero={hero} items={items} />
+
+        <PerformanceChart days={model.chart.days} source={source} subtitle={`Last ${model.win.days} days · ${scopeText}`} />
 
         {focus ? (
           <FocusPanels model={model} source={source} />
         ) : (
-          <TableSection
-            model={model}
-            state={state}
-            source={source}
-            sort={sort}
-            setSort={setSort}
-            folded={folded}
-            setFolded={setFolded}
-            go={go}
-          />
+          <TableSection model={model} state={state} source={source} sort={sort} setSort={setSort} folded={folded} setFolded={setFolded} go={go} />
         )}
-      </div>
+      </ReportFrame>
     </div>
   );
 }
@@ -208,8 +187,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
   };
 
   return (
-    <div className="pf-bar">
-      <div className="pf-bar-row">
+    <div className="cr-bar is-wrap">
         <div className="pf-seg" role="group" aria-label="Period">
           {PERIODS.map((days) => (
             <button key={days} type="button" className="pf-seg-btn" aria-pressed={state.days === days} onClick={() => go({ days }, 0)}>
@@ -217,6 +195,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
             </button>
           ))}
         </div>
+        <Info title="Period" text={`Everything below covers the last ${state.days} days.`} />
         {!focus && facets.length > 0 && <span className="pf-bar-label">Show only</span>}
           {menu && <button type="button" className="pf-scrim" aria-label="Close menu" onClick={() => setMenu(null)} />}
           {facets.map((facet) => {
@@ -287,7 +266,8 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
               Clear filters
             </button>
           )}
-      </div>
+        <span className="cr-bar-sp" />
+        <StatToggle />
     </div>
   );
 }
@@ -527,7 +507,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   );
 
   return (
-    <section className="pf-panel pf-table-panel" aria-labelledby="pf-table-title">
+    <section className="pf-panel pf-table-panel" data-fw="1" aria-labelledby="pf-table-title">
       <div className="pf-table-head">
         <h2 id="pf-table-title">By {nameHead.toLowerCase()}</h2>
         <div className="pf-table-tools">
@@ -807,7 +787,7 @@ function FocusPanels({ model, source }) {
   const initials = (name) => name.split(/\s+/).slice(0, 2).map((word) => word[0] ?? "").join("").toUpperCase();
 
   return (
-    <div className="pf-focus-grid">
+    <div className="pf-focus-grid" data-fw="1">
       <section className="pf-panel" aria-labelledby="pf-shown-title">
         <div className="pf-panel-head">
           <h2 id="pf-shown-title">What was shown</h2>
