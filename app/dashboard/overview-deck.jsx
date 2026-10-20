@@ -5,7 +5,7 @@ import DeckBoard from "./deck-board";
 import { loadOverviewDeck } from "./deck-actions";
 
 /** "Advanced Data" under the Overview chart: the widgets for all campaigns together, fetched once the page is on screen. */
-export default function OverviewDeck({ days, series, initial = null }) {
+export default function OverviewDeck({ days, series, initial = null, panel = false, panelOpen = true, scope = "Across all your campaigns, whatever is ticked in the table." }) {
   const [model, setModel] = useState(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -15,6 +15,7 @@ export default function OverviewDeck({ days, series, initial = null }) {
   }, [days]);
   if (failed) return null;
   if (!model) {
+    if (panel) return null;
     // the same link while the figures are on their way, so nothing jumps in
     return (
       <div className="dk">
@@ -25,5 +26,5 @@ export default function OverviewDeck({ days, series, initial = null }) {
       </div>
     );
   }
-  return <DeckBoard kind="advertiser" model={model} days={series} initial={initial} scope="Across all your campaigns, whatever is ticked in the table." />;
+  return <DeckBoard kind="advertiser" model={model} days={series} initial={initial} scope={scope} panel={panel} panelOpen={panelOpen} />;
 }

@@ -6453,19 +6453,19 @@ th.num .sort-button {
 .ovx-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
 .ovx-check input { accent-color: var(--signal); width: 16px; height: 16px; }
 .ovx-check.is-off { color: #9a948b; }
-.ovx-plot-empty { position: absolute; left: 0; right: 0; top: 0; height: 240px; display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 13px; pointer-events: none; }
+.ovx-plot-empty { position: absolute; left: 0; right: 0; top: 0; height: 170px; display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 13px; pointer-events: none; }
 .ovx-none { display: flex; align-items: center; gap: 16px; padding: 22px; }
 .ovx-none > div { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .ovx-none > div span { color: var(--ink-2); font-size: 13px; }
 .ovx-none-ic { width: 40px; height: 40px; border-radius: 12px; background: var(--surface); border: 1px dashed #d8cabd; color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
 .ovx-empty { padding: 36px 18px; color: var(--ink-2); }
 .ovx-plotwrap { display: flex; gap: 8px; padding: 10px 18px 0; }
-.ovx-yaxis { display: flex; flex-direction: column; justify-content: space-between; height: 240px; width: 46px; flex: none; text-align: right; font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ovx-yaxis { display: flex; flex-direction: column; justify-content: space-between; height: 170px; width: 46px; flex: none; text-align: right; font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .ovx-plot { position: relative; flex: 1; min-width: 0; padding-bottom: 28px; touch-action: pan-y; }
-.ovx-plot svg { display: block; width: 100%; height: 240px; overflow: visible; }
+.ovx-plot svg { display: block; width: 100%; height: 170px; overflow: visible; }
 .ovx-grid { stroke: #eceae6; }
 .ovx-base { stroke: #d3cfc8; }
-.ovx-cursor { position: absolute; top: 0; height: 240px; border-left: 1.5px solid #1c1b1a; pointer-events: none; }
+.ovx-cursor { position: absolute; top: 0; height: 170px; border-left: 1.5px solid #1c1b1a; pointer-events: none; }
 .ovx-tip { position: absolute; top: 4px; transform: translateX(calc(-100% - 10px)); min-width: 170px; background: #1c1b1a; color: #fff; border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(28, 27, 26, 0.25); pointer-events: none; z-index: 2; }
 .ovx-tip.is-right { transform: translateX(10px); }
 .ovx-tip-row { display: flex; justify-content: space-between; gap: 14px; margin-top: 4px; font-variant-numeric: tabular-nums; }
@@ -6671,10 +6671,10 @@ th.num .sort-button {
 .ovx-check input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; display: inline-block; flex: none; }
 .ovx-seg button, .ovx-seg a { height: 32px; }
 .ovx-plotwrap { display: flex; gap: 8px; padding: 6px 18px 0; }
-.ovx-yaxis { width: 42px; height: 240px; }
-.ovx-plot { flex: 1; min-width: 0; margin-right: 0; height: 240px; padding-bottom: 0; position: relative; }
+.ovx-yaxis { width: 42px; height: 170px; }
+.ovx-plot { flex: 1; min-width: 0; margin-right: 0; height: 170px; padding-bottom: 0; position: relative; }
 .ovx-xaxis { top: 248px; bottom: auto; }
-.ovx-mark { position: absolute; top: 0; height: 240px; border-left: 1.5px dashed #1c1b1a; opacity: 0.55; pointer-events: none; }
+.ovx-mark { position: absolute; top: 0; height: 170px; border-left: 1.5px dashed #1c1b1a; opacity: 0.55; pointer-events: none; }
 .ovx-mark-name { position: absolute; transform: translateX(-50%); background: #1c1b1a; color: #fff; border-radius: 5px; font-size: 10.5px; font-weight: 700; padding: 1px 6px; white-space: nowrap; line-height: 16px; pointer-events: none; }
 .ovx-tip-row span { white-space: nowrap; }
 .ovx-namecell { display: inline-flex; align-items: center; gap: 10px; }
@@ -9080,3 +9080,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .cr-bar .ovx-seg a{height:26px;padding:0 12px;border-radius:7px;font-weight:600;font-size:13px;color:#4b4843;text-decoration:none}
 .cr-bar .ovx-seg a[aria-current="page"]{background:#1c1b1a;color:#fff}
 .cr-bar .ig-i{margin-left:0}
+
+.cr-bar .dl-button{border-color:transparent}
+.cr-bar .dl-button:hover,.cr-bar .dl-button[aria-expanded="true"]{border-color:transparent}

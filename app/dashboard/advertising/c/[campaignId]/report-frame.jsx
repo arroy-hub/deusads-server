@@ -1,7 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import DeckBoard from '../../../deck-board';
+import { cloneElement, createContext, useContext, useEffect, useRef, useState } from 'react';
 
 const Ctx = createContext(null);
 
@@ -22,7 +21,7 @@ export function StatToggle() {
  * right. While a box sits beside the panel it stays left of it. A box marked data-fw that starts below the panel's lower
  * edge (or when the panel is hidden) stretches to the full width of the window. Measured after every size change.
  */
-export default function ReportFrame({ initial, model, series, children }) {
+export default function ReportFrame({ initial, board, children }) {
   const [open, setOpen] = useState(initial?.open ?? true);
   const wrap = useRef(null);
   const left = useRef(null);
@@ -64,7 +63,7 @@ export default function ReportFrame({ initial, model, series, children }) {
       <div className='rf-wrap' ref={wrap}>
         <div className='rf-left' ref={left}>{children}</div>
         <aside className='rf-side' ref={side} hidden={!open} aria-label='Statistics'>
-          <DeckBoard kind='advertiser' model={model} days={series} initial={initial} panel panelOpen={open} scope='Same period as the chart.' />
+          {board ? cloneElement(board, { panel: true, panelOpen: open }) : null}
         </aside>
       </div>
     </Ctx.Provider>

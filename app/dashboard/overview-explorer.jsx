@@ -3,7 +3,7 @@
 import Link from "next/link";
 import CategoryIcon from "./advertising/category-icon";
 import ChartHead from "./chart-head";
-import OverviewDeck from "./overview-deck";
+import KeyNumbers from "./key-numbers";
 import StatusPill from "./advertising/status-pill";
 import { categoryLabel } from "../../lib/categories";
 import { useMemo, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import { ratio } from "../../lib/performance-view";
 import { byDay, byWeek, chartEvents, colorOf, dashOf, mergeSplit, selectionTotals, sortCampaigns, sumSeries, weekdayDay } from "../../lib/overview-chart";
 
 const W = 720;
-const H = 240;
+const H = 170;
 const EVENT_COLOR = { live: "#1c1b1a", paused: "#1c1b1a", blocked: "#8a2c17" };
 
 /** A lighter tint of a colour, for text on the dark tooltip. */
@@ -37,7 +37,7 @@ function deltaSeconds(now, before) {
  * down by campaign or creative (creative needs migration 0027), per day or per week,
  * with the pauses and blocks marked on it; Total can be compared with the period before.
  */
-export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false, reach = null, deckLayout = null }) {
+export default function OverviewExplorer({ days, dates, campaigns, previous = null, splitMissing = false, reach = null }) {
   // Ticked at the start: campaigns that show something (impressions, a mark, running). With none of those, all of them.
   const [selected, setSelected] = useState(() => {
     const active = campaigns.filter((item) => item.impressions > 0 || item.daily.some(Boolean) || (item.events ?? []).length > 0 || ["live", "limited"].includes(item.status?.key));
@@ -136,65 +136,34 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
   const current = hover == null ? null : hover;
   const tipRight = current != null && count > 1 && current < count * 0.35;
   const avgDelta = allOn && previous ? deltaSeconds(totals.avgVisible, previous.avgVisible) : null;
+  // the best day of the ticked campaigns together
+  const daily = sumSeries(chosen.map((item) => item.daily), days);
+  let best = null;
+  daily.forEach((value, index) => { if (dates[index] && value > 0 && (!best || value > best.value)) best = { value, date: dates[index] }; });
 
   return (
     <>
-      <section className="panel ovx-tiles" aria-label="Key numbers">
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Impressions</span>
-          <span className="ovx-tile-value">{formatCount(totals.impressions)}</span>
-          <span className="ovx-tile-sub">
-            {totals.delta ? (
-              <>
-                <b className={`ov-${totals.delta.tone}`}>{totals.delta.text}</b> <span className="ovx-muted">vs previous {days} days</span>
-              </>
-            ) : (
-              <span className="ovx-muted">no previous period</span>
-            )}
-          </span>
-        </div>
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Average view time</span>
-          <span className="ovx-tile-value">{totals.avgVisible == null ? "—" : `${totals.avgVisible.toFixed(1)} s`}</span>
-          <span className="ovx-tile-sub">
-            {avgDelta ? (
-              <>
-                <b className={`ov-${avgDelta.tone}`}>{avgDelta.text}</b> <span className="ovx-muted">vs previous {days} days</span>
-              </>
-            ) : (
-              <span className="ovx-muted">{totals.impressions > 0 ? "no previous period" : "weighted by impressions"}</span>
-            )}
-          </span>
-        </div>
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Total visible time</span>
-          <span className="ovx-tile-value">{totals.visibleHours == null ? "—" : `${totals.visibleHours.toFixed(1)} h`}</span>
-          <span className="ovx-tile-sub ovx-muted">sum of seconds in view</span>
-        </div>
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Games reached</span>
-          <span className="ovx-tile-value">{formatCount(totals.games)}</span>
-          <span className="ovx-tile-sub ovx-muted">{totals.gamesBooked > 0 ? `of ${formatCount(totals.gamesBooked)} in ${allOn ? "your" : "the selected"} campaigns` : allOn ? "across all campaigns" : `in ${chosen.length} of ${campaigns.length} campaigns`}</span>
-        </div>
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Players reached</span>
-          <span className="ovx-tile-value">{reachOn && reach.players > 0 ? formatCount(reach.players) : "—"}</span>
-          <span className="ovx-tile-sub ovx-muted">{!reachOn ? "select every campaign with views" : reach.players > 0 ? "different people who saw an ad" : "counted once games update the SDK"}</span>
-        </div>
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Impressions per session</span>
-          <span className="ovx-tile-value">{reachOn ? ratio(reach.perSession) : "—"}</span>
-          <span className="ovx-tile-sub ovx-muted">{reachOn ? `${formatCount(reach.sessions)} sessions where an ad was seen` : "select every campaign with views"}</span>
-        </div>
-        <div className="ovx-tile">
-          <span className="ovx-tile-label">Impressions per player</span>
-          <span className="ovx-tile-value">{reachOn ? ratio(reach.perPlayer) : "—"}</span>
-          <span className="ovx-tile-sub ovx-muted">{reachOn ? "how often one player saw an ad" : "select every campaign with views"}</span>
-        </div>
-      </section>
+      <KeyNumbers
+        hero={{
+          value: formatCount(totals.impressions),
+          delta: totals.delta,
+          tail: totals.delta ? `vs previous ${days} days` : "no previous period",
+          perDay: formatCount(Math.round(totals.impressions / Math.max(days, 1))),
+          bestLabel: `Best day${best ? ` · ${formatDay(best.date)}` : ""}`,
+          best: best ? formatCount(best.value) : "—",
+        }}
+        items={[
+          { icon: "users", label: "Players reached", value: reachOn && reach.players > 0 ? formatCount(reach.players) : "—", sub: !reachOn ? "select every campaign with views" : reach.players > 0 ? "different people who saw an ad" : "counted once games update the SDK" },
+          { icon: "clock", label: "Average view time", value: totals.avgVisible == null ? "—" : `${totals.avgVisible.toFixed(1)} s`, sub: avgDelta ? <><b className={`ov-${avgDelta.tone}`}>{avgDelta.text}</b> vs previous {days} d</> : totals.impressions > 0 ? "no previous period" : "weighted by impressions" },
+          { icon: "eye", label: "Total visible time", value: totals.visibleHours == null ? "—" : `${totals.visibleHours.toFixed(1)} h`, sub: "sum of seconds in view" },
+          { icon: "games", label: "Games reached", value: formatCount(totals.games), sub: totals.gamesBooked > 0 ? `of ${formatCount(totals.gamesBooked)} in ${allOn ? "your" : "the selected"} campaigns` : allOn ? "across all campaigns" : `in ${chosen.length} of ${campaigns.length} campaigns` },
+          { icon: "pulse", label: "Impressions per session", value: reachOn ? ratio(reach.perSession) : "—", sub: reachOn ? `${formatCount(reach.sessions)} sessions` : "select every campaign with views" },
+          { icon: "user", label: "Impressions per player", value: reachOn ? ratio(reach.perPlayer) : "—", sub: reachOn ? "how often one player saw an ad" : "select every campaign with views" },
+        ]}
+      />
 
       {campaigns.length > 0 && (
-      <section className="panel ovx-chart" aria-labelledby="ovx-chart-title">
+      <section className="panel ovx-chart" data-fw="1" aria-labelledby="ovx-chart-title">
         <ChartHead days={days} dates={dates} grain={grain} setGrain={setGrain} breakdown={breakdown} setBreakdown={setBreakdown} marks={marks} setMarks={setMarks} compare={compare} setCompare={setCompare} hasPrevious={hasPrevious} hasSplit={hasSplit} />
 
         {chosen.length > 0 && (
@@ -273,11 +242,10 @@ export default function OverviewExplorer({ days, dates, campaigns, previous = nu
             </div>
           </div>
         )}
-        {campaigns.length > 0 && <OverviewDeck days={days} series={dates.map((date, i) => ({ date, adv: campaigns.reduce((sum, item) => sum + (item.daily[i] || 0), 0) }))} initial={deckLayout} />}
       </section>
       )}
 
-      <section className="panel ovx-table" aria-labelledby="ovx-table-title" style={{ padding: 0 }}>
+      <section className="panel ovx-table" data-fw="1" aria-labelledby="ovx-table-title" style={{ padding: 0 }}>
         <div className="ovx-table-head">
           <h2 id="ovx-table-title">By campaign</h2>
           <span className="ovx-hint">Tick a campaign to show it on the chart above. Click a column title to sort.</span>

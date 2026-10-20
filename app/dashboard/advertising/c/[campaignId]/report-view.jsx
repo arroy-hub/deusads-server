@@ -5,6 +5,8 @@ import { REPORT_RANGES } from '../../../../../lib/reports';
 import CampaignChart from './campaign-chart';
 import CompareBox from './compare-box';
 import ReportFrame, { StatToggle } from './report-frame';
+import KeyNumbers from '../../../key-numbers';
+import DeckBoard from '../../../deck-board';
 import { Info } from '../../../metrics-deck';
 import { planCreativeIds } from '../../../../../lib/campaign-plan';
 
@@ -14,29 +16,6 @@ export function deltaSeconds(now, before) {
   const change = Math.round((now - before) * 10) / 10;
   if (change === 0) return { text: 'no change', tone: 'flat' };
   return { text: `${change > 0 ? '+' : '−'}${Math.abs(change).toFixed(1)} s`, tone: change > 0 ? 'up' : 'down' };
-}
-
-// the small icons of the key numbers (same strokes as the mockup)
-const ICON = {
-  users: 'M9 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.8c2 .6 3.3 2.3 3.5 5.2',
-  clock: 'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z',
-  eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z',
-  games: 'M3 7h18v11H3zM8 11v3M6.5 12.5h3',
-  pulse: 'M3 12h4l2.5-6 4 12 2.5-6H21',
-  user: 'M12 4a4 4 0 100 8 4 4 0 000-8zM4 21c1-6 15-6 16 0',
-};
-
-function Kpi({ icon, label, value, of, sub }) {
-  return (
-    <div className='cr-kpi'>
-      <span className='cr-kpi-ic' aria-hidden='true'><svg width='16' height='16' viewBox='0 0 24 24'><path d={ICON[icon]} /></svg></span>
-      <div>
-        <span className='cr-kpi-label'>{label}</span>
-        <span className='cr-kpi-value'>{value}{of ? <span className='cr-kpi-of'> {of}</span> : null}</span>
-        <span className='cr-kpi-sub'>{sub}</span>
-      </div>
-    </div>
-  );
 }
 
 const Delta = ({ d, days }) => (d ? <><b className={`ov-${d.tone}`}>{d.text}</b> vs previous {days} d</> : <>no previous period</>);
@@ -57,7 +36,7 @@ export default function ReportView({ report, days, deckLayout, totals, impressio
         </p>
       )}
 
-      <ReportFrame initial={deckLayout} model={report} series={series.map((d) => ({ date: d.date, adv: d.impressions }))}>
+      <ReportFrame initial={deckLayout} board={<DeckBoard kind='advertiser' model={report} days={series.map((d) => ({ date: d.date, adv: d.impressions }))} initial={deckLayout} scope='Same period as the chart.' />}>
         <div className='cr-bar'>
           <div className='ovx-seg' role='group' aria-label='Period'>
             {REPORT_RANGES.map((r) => <Link key={r} href={`${base}?days=${r}`} aria-current={r === days ? 'page' : undefined}>{r} days</Link>)}
@@ -72,30 +51,24 @@ export default function ReportView({ report, days, deckLayout, totals, impressio
           <StatToggle />
         </div>
 
-        <section className='cr-num' aria-label='Key numbers'>
-          <div className='cr-num-hero'>
-            <div>
-              <span className='cr-hero-label'>Impressions</span>
-              <div className='cr-hero-value'>{formatCount(totals.impressions)}</div>
-              <div className='cr-hero-delta'>
-                {impressionsDelta ? <span className={`cr-pill-delta ov-${impressionsDelta.tone}`}>{impressionsDelta.text}</span> : null}
-                <span>{impressionsDelta ? `vs previous ${days} days` : 'no previous period'}</span>
-              </div>
-            </div>
-            <div className='cr-hero-foot'>
-              <div><span>Average per day</span><b>{formatCount(Math.round(perDay))}</b></div>
-              <div><span>Best day{best ? ` · ${formatDay(best.date)}` : ''}</span><b>{best ? formatCount(best.impressions) : '—'}</b></div>
-            </div>
-          </div>
-          <div className='cr-kpis'>
-            <Kpi icon='users' label='Players reached' value={report.reach.players > 0 ? formatCount(report.reach.players) : '—'} sub={report.reach.players > 0 ? 'different people' : 'counted once games update the SDK'} />
-            <Kpi icon='clock' label='Average view time' value={avgNow == null ? '—' : `${avgNow.toFixed(1)} s`} sub={<Delta d={avgDelta} days={days} />} />
-            <Kpi icon='eye' label='Total visible time' value={hours == null ? '—' : `${hours.toFixed(1)} h`} sub='seconds in view, summed' />
-            <Kpi icon='games' label='Games showing now' value={showing} of={`of ${games.length}`} sub={heldLine || 'none held back'} />
-            <Kpi icon='pulse' label='Impressions per session' value={ratio(report.reach.perSession)} sub={`${formatCount(report.reach.sessions)} sessions`} />
-            <Kpi icon='user' label='Impressions per player' value={ratio(report.reach.perPlayer)} sub='how often one player saw it' />
-          </div>
-        </section>
+        <KeyNumbers
+          hero={{
+            value: formatCount(totals.impressions),
+            delta: impressionsDelta,
+            tail: impressionsDelta ? `vs previous ${days} days` : 'no previous period',
+            perDay: formatCount(Math.round(perDay)),
+            bestLabel: `Best day${best ? ` · ${formatDay(best.date)}` : ''}`,
+            best: best ? formatCount(best.impressions) : '—',
+          }}
+          items={[
+            { icon: 'users', label: 'Players reached', value: report.reach.players > 0 ? formatCount(report.reach.players) : '—', sub: report.reach.players > 0 ? 'different people' : 'counted once games update the SDK' },
+            { icon: 'clock', label: 'Average view time', value: avgNow == null ? '—' : `${avgNow.toFixed(1)} s`, sub: <Delta d={avgDelta} days={days} /> },
+            { icon: 'eye', label: 'Total visible time', value: hours == null ? '—' : `${hours.toFixed(1)} h`, sub: 'seconds in view, summed' },
+            { icon: 'games', label: 'Games showing now', value: showing, of: `of ${games.length}`, sub: heldLine || 'none held back' },
+            { icon: 'pulse', label: 'Impressions per session', value: ratio(report.reach.perSession), sub: `${formatCount(report.reach.sessions)} sessions` },
+            { icon: 'user', label: 'Impressions per player', value: ratio(report.reach.perPlayer), sub: 'how often one player saw it' },
+          ]}
+        />
 
         <section className='cr-box cr-box-tight' data-fw='1' aria-labelledby='cr-daily'>
           <div className='cr-box-head'>
