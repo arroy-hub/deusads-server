@@ -35,7 +35,7 @@ export default function AdvertiserOverview({ data, basePath, deckLayout = null }
 
       <ReportFrame
         initial={deckLayout}
-        board={data.campaigns.length > 0 ? <OverviewDeck days={days} series={series} initial={deckLayout} scope='Across all your campaigns, whatever is ticked in the table.' /> : null}
+        board={data.campaigns.length > 0 ? <OverviewDeck days={days} series={series} initial={deckLayout} scope='Across all your campaigns, whatever is ticked in the table.' panel /> : null}
       >
         <div className='cr-bar'>
           <nav className='ovx-seg' aria-label='Period for everything below'>

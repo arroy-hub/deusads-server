@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect, useEffect, cloneElement } from "react";
+import { useState, useRef, useLayoutEffect, useEffect, useContext, cloneElement } from "react";
+import { PanelCtx } from "./panel-context";
 import { createPortal } from "react-dom";
 import { formatCount } from "../../lib/analytics.js";
 import { attentionFigures } from "../../lib/attention.js";
@@ -609,7 +610,10 @@ function DailyTable({ days, dev, source, o, aside, info }) {
 }
 
 /** "Advanced Data": a link under the Impressions-per-day chart that opens a board of widgets. Widgets are switched on in the Widgets menu, dragged by their grip, and resized by their edges. */
-export default function MetricsDeck({ kind, model, source = "all", days, initial = null, onChange = null, scope = "Same selection as the chart.", panel = false, panelOpen = true }) {
+export default function MetricsDeck({ kind, model, source = "all", days, initial = null, onChange = null, scope = "Same selection as the chart.", panel = false, panelOpen: panelOpenProp = true }) {
+  // inside the report frame the page's own button decides whether the panel is open
+  const frameOpen = useContext(PanelCtx);
+  const panelOpen = frameOpen ?? panelOpenProp;
   const dev = kind === "developer";
   // the layout (open, which widgets, their sizes) comes from the account and goes back through `onChange`
   const [ownOpen, setOpenState] = useState(initial?.open ?? false);

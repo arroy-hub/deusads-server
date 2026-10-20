@@ -36,7 +36,7 @@ export default function ReportView({ report, days, deckLayout, totals, impressio
         </p>
       )}
 
-      <ReportFrame initial={deckLayout} board={<DeckBoard kind='advertiser' model={report} days={series.map((d) => ({ date: d.date, adv: d.impressions }))} initial={deckLayout} scope='Same period as the chart.' />}>
+      <ReportFrame initial={deckLayout} board={<DeckBoard kind='advertiser' model={report} days={series.map((d) => ({ date: d.date, adv: d.impressions }))} initial={deckLayout} scope='Same period as the chart.' panel />}>
         <div className='cr-bar'>
           <div className='ovx-seg' role='group' aria-label='Period'>
             {REPORT_RANGES.map((r) => <Link key={r} href={`${base}?days=${r}`} aria-current={r === days ? 'page' : undefined}>{r} days</Link>)}

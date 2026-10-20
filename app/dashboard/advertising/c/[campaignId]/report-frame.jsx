@@ -1,6 +1,8 @@
 'use client';
 
-import { cloneElement, createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+
+import { PanelCtx } from '../../../panel-context';
 
 const Ctx = createContext(null);
 
@@ -60,12 +62,14 @@ export default function ReportFrame({ initial, board, children }) {
 
   return (
     <Ctx.Provider value={{ open, toggle: () => setOpen((v) => !v) }}>
+      <PanelCtx.Provider value={open}>
       <div className='rf-wrap' ref={wrap}>
         <div className='rf-left' ref={left}>{children}</div>
         <aside className='rf-side' ref={side} hidden={!open} aria-label='Statistics'>
-          {board ? cloneElement(board, { panel: true, panelOpen: open }) : null}
+          {board}
         </aside>
       </div>
+      </PanelCtx.Provider>
     </Ctx.Provider>
   );
 }
