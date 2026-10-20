@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { userClient } from "../../../lib/supabase-server";
 import { isSchemaOutdated } from "../../../lib/api";
 import { getMember } from "../../../lib/admin";
@@ -6,14 +7,14 @@ import { targetingSummary } from "../../../lib/targeting";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 import { canAdvertise } from "../../../lib/admin-rules";
-import AdvertiserCreatives from "./advertiser-creatives";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creatives" };
 
 export default async function CreativesPage() {
   const member = await getMember();
-  if (member && canAdvertise(member.role)) return <AdvertiserCreatives me={member} />;
+  // An advertiser's library is the Creatives tab of the Campaigns window.
+  if (member && canAdvertise(member.role)) redirect("/dashboard/advertising?tab=creatives");
   const db = await userClient();
   // Pictures a developer put on their own placements (kind 'own', migration 0020) are not library creatives.
   const listCreatives = async (columns) => {

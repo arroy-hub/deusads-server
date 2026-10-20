@@ -6,12 +6,13 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
 
 assert.deepEqual(labels("developer"), ["Home", "My games"]);
-assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns", "Creatives"]);
+assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns"]);
+assert.ok(!labels("advertiser").includes("Creatives"), "Creatives is a tab of the Campaigns window, not a menu entry");
 assert.equal(labels("admin").slice(0, 6).join(), "Review creatives,Disputes,All bookings,Users,Traffic,System");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
 assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
-// an admin's own library is not confused with the review page
-assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives,Creatives");
+// the only creatives entry of an admin is the review page
+assert.equal(labels("admin").filter((label) => /creatives/i.test(label)).join(), "Review creatives");
 assert.ok(!labels("advertiser").some((label) => /find placements/i.test(label)), "placements are not a menu entry");
 assert.ok(labels("admin").includes("My games"), "an admin keeps their own developer and advertiser tools");
 // an admin has the whole advertiser menu and the whole developer menu, in two labelled sections
@@ -22,6 +23,11 @@ assert.equal(section("As a developer"), labels("developer").filter((label) => la
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard");
+
+// the Creatives tab and a creative's page count as being inside Campaigns
+const campaignsItem = menuFor("advertiser").flatMap((group) => group.items).find((item) => item.key === "campaigns");
+assert.ok(isActive(campaignsItem, "/dashboard/advertising") && isActive(campaignsItem, "/dashboard/creatives") && isActive(campaignsItem, "/dashboard/creatives/abc"));
+assert.ok(!isActive(campaignsItem, "/dashboard"));
 
 // badges
 const badged = menuFor("advertiser", { campaigns: 3 }).flatMap((group) => group.items).find((item) => item.key === "campaigns");

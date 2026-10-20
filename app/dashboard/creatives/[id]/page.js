@@ -6,7 +6,7 @@ import Workbench from "./workbench";
 import { canAdvertise } from "../../../../lib/admin-rules";
 import { FORMATS } from "../../../../lib/formats";
 import { coverageSummary, creativeShape } from "../../../../lib/advertiser-overview";
-import AdvertiserCreatives from "../advertiser-creatives";
+import AdvertiserWindow from "../../advertising/advertiser-window";
 import CreativeEditor from "./creative-editor";
 import { loadCreativeEditor } from "../../../../lib/advertiser-data";
 
@@ -22,14 +22,14 @@ export default async function CreativeFormatsPage({ params, searchParams }) {
   if (!me) notFound();
   const { service, user } = me;
 
-  // An advertiser edits a creative in a pop-up over the library.
+  // An advertiser edits a creative in a pop-up over the Creatives tab.
   if (canAdvertise(me.role)) {
     const editor = await loadCreativeEditor(service, me, id);
     if (!editor) notFound();
     if (editor.migrated) {
       return (
         <>
-          <AdvertiserCreatives me={me} />
+          <AdvertiserWindow me={me} tab="cr" />
           <CreativeEditor editor={editor} backTo={back} />
         </>
       );
