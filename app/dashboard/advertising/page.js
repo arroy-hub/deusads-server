@@ -1,17 +1,14 @@
 import { notFound } from "next/navigation";
 import { getMember } from "../../../lib/admin";
-import { bookingsMissing } from "../../../lib/booking-rules";
-import { loadCampaignList } from "../../../lib/advertiser-data";
 import { canAdvertise } from "../../../lib/admin-rules";
-import CampaignsListV2 from "./campaigns-list";
+import AdvertiserWindow from "./advertiser-window";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaigns" };
 
-export default async function AdvertisingPage() {
+export default async function AdvertisingPage({ searchParams }) {
   const me = await getMember();
   if (!me || !canAdvertise(me.role)) notFound();
-  const { campaigns, error, rules } = await loadCampaignList(me.service, me, 30);
-
-  return <CampaignsListV2 campaigns={campaigns} error={bookingsMissing(error)} rules={rules} />;
+  const { tab } = await searchParams;
+  return <AdvertiserWindow me={me} tab={tab === "creatives" ? "cr" : "camp"} />;
 }

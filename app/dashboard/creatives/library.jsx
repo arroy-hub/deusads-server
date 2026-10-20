@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import UploadDialog from "./upload-dialog";
 import LibraryBar from "./library-bar";
 import { MenuItem, MenuSep, Pop } from "../_cabinet/ui";
-import { IcCaret, IcFolder, IcGrip, IcMore, IcPencil, IcPlus, IcTrash, IcUpload } from "../_cabinet/icons";
+import { IcCaret, IcFolder, IcGrip, IcMore, IcPencil, IcTrash, IcUpload } from "../_cabinet/icons";
 import { createFolder, deleteFolder, moveCreative, renameFolder } from "./actions";
 import { deleteCreative, renameCreative } from "../actions";
 
@@ -92,8 +92,10 @@ function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, p
       </Link>
       <div className="rd-card-body">
         <span className="lib-bar" role="img" aria-label={`${ready} of ${item.formats.length} shapes ready`}>{item.formats.map((f) => <span key={f.id} className={f.ready ? "" : "is-missing"} title={SHORT[f.id]} />)}</span>
-        <span className={`rd-hint${item.status === "approved" && ready < item.formats.length ? " is-warn" : ""}`}>{hint(item)}</span>
-        <span className="rd-use">{item.campaigns === 0 ? "Not in use" : `In ${item.campaigns} ${item.campaigns === 1 ? "campaign" : "campaigns"}`}</span>
+        <div className="rd-line">
+          <span className={`rd-hint${item.status === "approved" && ready < item.formats.length ? " is-warn" : ""}`} title={hint(item)}>{hint(item)}</span>
+          <span className="rd-use">{item.campaigns === 0 ? "Not in use" : `In ${item.campaigns} ${item.campaigns === 1 ? "campaign" : "campaigns"}`}</span>
+        </div>
       </div>
     </article>
   );
@@ -113,7 +115,12 @@ function FolderMenu({ folder, onRename, onDelete }) {
   );
 }
 
-export default function LibraryV2({ list, folders: serverFolders = [], folderTools = true }) {
+/**
+ * The Creatives tab of the Campaigns window (no header of its own, the window has one). The search, the filters, the folder
+ * tools and "Add creative" sit in one sticky block; below it the folders with their creatives. `onCount` tells the window's
+ * tab how many creatives there are.
+ */
+export default function LibraryV2({ list, folders: serverFolders = [], folderTools = true, onCount }) {
   const router = useRouter();
   const [items, setItems] = useState(list);
   const [folders, setFolders] = useState(serverFolders);
@@ -131,6 +138,16 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   const [renaming, setRenaming] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [problem, setProblem] = useState("");
+
+  const block = useRef(null);
+  useEffect(() => onCount?.(items.length), [items.length, onCount]);
+  // The control block gets a shadow while it is pinned to the top and content scrolls under it.
+  useEffect(() => {
+    const sync = () => { const el = block.current; if (el && el.offsetParent) el.classList.toggle("stuck", window.scrollY > 4 && el.getBoundingClientRect().top <= 1); };
+    sync();
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
+  }, []);
 
   // The server is the truth: whenever the page is rendered again the local copy is replaced by it.
   useEffect(() => setItems(list), [list]);
@@ -190,18 +207,20 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
     router.refresh();
   };
 
+  const anyOpen = folders.some((f) => !closed[f.id]);
+  const toggleAll = () => setClosed(Object.fromEntries(folders.map((f) => [f.id, anyOpen])));
+
   const sections = group === "folder"
     ? [...folders.map((f) => ({ ...f, kind: "folder" })), { id: "none", name: "Not in a folder", kind: "none" }]
     : [{ id: "all", name: "All creatives", kind: "flat" }];
   const itemsOf = (s) => (s.kind === "folder" ? visible.filter((i) => i.folderId === s.id) : s.kind === "none" ? visible.filter((i) => !i.folderId || !folders.some((f) => f.id === i.folderId)) : visible);
 
   return (
-    <div className="pg-ic pg-creatives">
-      <div className="main-head">
-        <div><h1>Creatives</h1><p className="lede">Your pictures and the ad shapes each one covers.</p></div>
-        <button type="button" className="button" onClick={() => setAdding(true)}><IcPlus size={16} />Add creative</button>
+    <div className="cx-cr">
+      {problem && <p className="error cx-cr-problem" role="alert">{problem}</p>}
+      <div className="cx-blockw" ref={block}>
+        <LibraryBar query={q} setQuery={setQ} status={status} setStatus={setStatus} shapes={shapes} setShapes={setShapes} folderFilter={folderFilter} setFolderFilter={setFolderFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort} folders={folders} total={items.length} filtering={filtering} clear={() => { setQ(""); setStatus("all"); setShapes("all"); setFolderFilter("all"); }} shown={visible.length} folderTools={folderTools} addFolder={addFolder} addCreative={() => setAdding(true)} anyOpen={anyOpen} toggleAll={toggleAll} />
       </div>
-      {problem && <p className="error" role="alert">{problem}</p>}
 
       {items.length === 0 ? (
         <div className="rd-lib-empty">
@@ -212,8 +231,6 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
         </div>
       ) : (
         <>
-          <LibraryBar query={q} setQuery={setQ} status={status} setStatus={setStatus} shapes={shapes} setShapes={setShapes} folderFilter={folderFilter} setFolderFilter={setFolderFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort} folders={folders} filtering={filtering} clear={() => { setQ(""); setStatus("all"); setShapes("all"); setFolderFilter("all"); }} shown={visible.length} folderTools={folderTools} addFolder={addFolder} />
-
           <div className="rd-sections">
             {sections.map((s) => {
               const rows = itemsOf(s);
@@ -232,7 +249,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
                       {s.kind === "folder" ? (
                         <button type="button" className={`rd-caret${isOpen ? " is-open" : ""}`} aria-expanded={isOpen} aria-label={`${isOpen ? "Collapse" : "Expand"} ${s.name}`} onClick={() => setClosed((c) => ({ ...c, [s.id]: isOpen }))}><IcCaret size={16} /></button>
                       ) : <span className="rd-caret is-static" />}
-                      <span className="rd-sec-ic"><IcFolder size={18} /></span>
+                      {s.kind === "folder" && <span className="rd-sec-ic"><IcFolder size={18} /></span>}
                       {s.kind === "folder" ? <Editable key={renaming === s.id ? "r" : "n"} value={s.name} autoEdit={renaming === s.id} className="rd-sec-name" label="Folder name" onSave={(name) => nameFolder(s.id, name)} /> : <strong className="rd-sec-name is-static">{s.name}</strong>}
                       <span className="rd-sec-meta">{rows.length} {rows.length === 1 ? "creative" : "creatives"}{needs ? ` · ${needs} need shapes` : ""}</span>
                       {s.kind === "folder" && <span className="rd-sec-acts"><FolderMenu folder={folder} onRename={() => setRenaming(s.id)} onDelete={() => delFolder(s.id)} /></span>}
