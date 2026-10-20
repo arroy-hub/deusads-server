@@ -75,10 +75,13 @@ export default function CompareBox({ creatives, games, emptyCreatives }) {
   const anyFew = base.some((r) => r.f.few);
 
   return (
-    <section className="cr-table-box cr-compare" aria-labelledby="cr-compare">
+    <section className="cr-table-box cr-compare" data-fw="1" aria-labelledby="cr-compare">
       <div className="cr-box-head cr-pad">
         <div>
-          <h2 id="cr-compare">{isCreative ? "Which creative works better" : "Which game works better"}</h2>
+          <div className="cr-h2row">
+            <h2 id="cr-compare">{isCreative ? "Which creative works better" : "Which game works better"}</h2>
+            <Info title="Reading the table" text={`Hover a column title to see what it counts. Click a title to sort.${anyFew ? ` A dash means fewer than ${MIN_VIEWS} views, too few for a share to mean anything.` : ""} The best figure in each column is marked with a dot.`} />
+          </div>
           <p className="ovx-hint">{isCreative ? "Creatives rotate, so you can compare them over the same days." : "The same campaign in each game it runs in, over the same days."}</p>
         </div>
         <div className="cr-tabs" role="tablist" aria-label="Compare by">
@@ -131,10 +134,6 @@ export default function CompareBox({ creatives, games, emptyCreatives }) {
         </div>
       )}
       {open && <CreativeBubble creative={open.row} anchor={open.anchor} onClose={() => setOpen(null)} />}
-      <p className="ovx-hint cr-pad cr-cmp-note">
-        <Info title="Reading the table" text={`Hover a column title to see what it counts.${anyFew ? ` A dash means fewer than ${MIN_VIEWS} views, too few for a share to mean anything.` : ""}`} />
-        <span>The best figure in each column is marked with a dot.</span>
-      </p>
     </section>
   );
 }

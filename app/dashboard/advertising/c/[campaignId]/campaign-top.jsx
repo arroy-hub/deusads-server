@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import CategoryIcon from "../../category-icon";
-import { REPORT_RANGES, parseRange } from "../../../../../lib/reports";
 import { categoryLabel } from "../../../../../lib/categories";
 import { TONE } from "../../../_cabinet/dates";
 import { STATUS_DOT } from "../../../../../lib/campaign-cover";
@@ -15,9 +14,7 @@ import { DateRange, StatusMenu } from "../../../_cabinet/ui";
  */
 export default function CampaignTop({ h, creatives, coverCss }) {
   const path = usePathname();
-  const query = useSearchParams();
   const base = `/dashboard/advertising/c/${h.id}`;
-  const days = parseRange(query.get("days") ?? undefined);
   const tone = TONE[h.status.key] ?? "#8c7f73";
   const draft = h.status.key === "draft";
   const tabs = [
@@ -47,12 +44,6 @@ export default function CampaignTop({ h, creatives, coverCss }) {
         </div>
         <div className="cr-top-actions">
           <StatusMenu status={h.status} name={h.name} campaignId={h.id} pausedUntil={h.pausedUntil} locked={!h.rules} />
-          {path === base && (
-            <>
-              <div className="ovx-seg" role="group" aria-label="Period">{REPORT_RANGES.map((r) => <Link key={r} href={`${base}?days=${r}`} aria-current={r === days ? "page" : undefined}>{r} days</Link>)}</div>
-              <a className="button button-quiet" href={`/dashboard/advertising/export?kind=placements&days=${days}&campaign=${h.id}`} download>Export CSV</a>
-            </>
-          )}
           {draft && <Link href={`/dashboard/advertising/new?campaign=${h.id}`} className="button">Continue setup</Link>}
         </div>
       </div>

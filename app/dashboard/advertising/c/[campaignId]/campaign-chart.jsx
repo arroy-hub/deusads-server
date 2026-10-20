@@ -5,7 +5,7 @@ import { formatCount, formatDay, niceMax } from "../../../../../lib/analytics";
 import { weekdayDay } from "../../../../../lib/overview-chart";
 
 const W = 720;
-const H = 170;
+const H = 116;
 
 /** The campaign's impressions per day: a line over a pale area, with the pauses and blocks marked on it. Hover for exact numbers. */
 export default function CampaignChart({ series, events }) {

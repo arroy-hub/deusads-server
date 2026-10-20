@@ -609,16 +609,18 @@ function DailyTable({ days, dev, source, o, aside, info }) {
 }
 
 /** "Advanced Data": a link under the Impressions-per-day chart that opens a board of widgets. Widgets are switched on in the Widgets menu, dragged by their grip, and resized by their edges. */
-export default function MetricsDeck({ kind, model, source = "all", days, initial = null, onChange = null, scope = "Same selection as the chart." }) {
+export default function MetricsDeck({ kind, model, source = "all", days, initial = null, onChange = null, scope = "Same selection as the chart.", panel = false, panelOpen = true }) {
   const dev = kind === "developer";
   // the layout (open, which widgets, their sizes) comes from the account and goes back through `onChange`
-  const [open, setOpenState] = useState(initial?.open ?? false);
+  const [ownOpen, setOpenState] = useState(initial?.open ?? false);
+  // `panel`: the board is the Statistics panel of the page, shown or hidden by the page's own button (panelOpen)
+  const open = panel ? panelOpen : ownOpen;
   const [menu, setMenu] = useState(false);
   const [sel, setSelState] = useState(Array.isArray(initial?.sel) ? initial.sel : null);
   const sizesStore = useRef(initial?.sizes && typeof initial.sizes === "object" ? initial.sizes : {});
   const [sizes, setSizesState] = useState(sizesStore.current);
   const pickedRef = useRef(Array.isArray(initial?.sel) ? initial.sel : null);
-  const openRef = useRef(initial?.open ?? false);
+  const openRef = useRef(panel ? panelOpen : (initial?.open ?? false));
   const save = () => { if (onChange) onChange({ open: openRef.current, sel: pickedRef.current, sizes: sizesStore.current }); };
   const [drag, setDrag] = useState(null);
   const wrap = useRef(null);
@@ -640,6 +642,11 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
     ro.observe(el);
     return () => ro.disconnect();
   }, [open]);
+  useEffect(() => {
+    if (!panel || openRef.current === panelOpen) return;
+    openRef.current = panelOpen;
+    save();
+  }, [panel, panelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!menu) return;
     const down = (e) => { if (wrap.current && !wrap.current.contains(e.target)) setMenu(false); };
@@ -809,16 +816,18 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
     );
   });
 
+  if (panel && !open) return null;
   return (
-    <div className={`dk${open ? " is-open" : ""}`}>
-      <button type="button" className="dk-link" aria-expanded={open} aria-controls="dk-panel" onClick={() => setOpen(!open)}>
+    <div className={`dk${open ? " is-open" : ""}${panel ? " dk-side" : ""}`}>
+      {!panel && <button type="button" className="dk-link" aria-expanded={open} aria-controls="dk-panel" onClick={() => setOpen(!open)}>
         Advanced Data
         <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
+      </button>}
       {open && (
         <div id="dk-panel" className="dk-panel">
           <div className="md-head">
             <div>
+              {panel && <h3 className="dk-side-title">Statistics</h3>}
               <p className="md-sub">{scope} Pick widgets, drag the grip to move one, pull an edge to resize.</p>
             </div>
             <div className="wm" ref={wrap}>
