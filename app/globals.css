@@ -9118,15 +9118,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .gp-perf.is-pending .rf-left,.gp-perf.is-pending .rf-side{opacity:.6}
 .cr-bar .gp-export{border-color:transparent;min-height:34px}
 .pf-sw{font-family:inherit}
-.gs-list{display:flex;flex-direction:column;gap:16px;margin-top:12px}
-.gs-block h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:#4a3e36}
-.gs-row{display:grid;grid-template-columns:minmax(70px,1fr) minmax(60px,1.4fr) auto;align-items:center;gap:10px;padding:3px 0;font-size:12.5px}
-.gs-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#241d19}
-.gs-bar{display:block;height:8px;border-radius:4px;background:#f1ebe4;overflow:hidden}
-.gs-bar i{display:block;height:100%;border-radius:4px;background:#241d19}
-.gs-bar[data-kind="adv"] i{background:#c94a24}
-.gs-bar[data-kind="own"] i{background:#3d6fd1}
-.gs-row b{font-variant-numeric:tabular-nums;font-weight:700}
 
 .pf-sw{flex:none;white-space:nowrap}
 

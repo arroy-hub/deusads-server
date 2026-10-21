@@ -7,6 +7,7 @@ import { formatCount } from "../../../lib/analytics";
 import { PERIODS, advShare, compactCount, figures, niceTop, ratio } from "../../../lib/performance-view";
 import { gamesQuery } from "../../../lib/games-query";
 import GameIcon from "../game-icon";
+import GamesDeck from "./games-deck";
 import KeyNumbers from "../key-numbers";
 import { Info } from "../metrics-deck";
 import ReportFrame, { StatToggle } from "../advertising/c/[campaignId]/report-frame";
@@ -31,7 +32,7 @@ const Caret = () => (
  *
  * model: lib/games-performance.js loadGamesPerformance().model
  */
-export default function GamesPerformance({ model }) {
+export default function GamesPerformance({ model, deckLayout = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -212,7 +213,7 @@ export default function GamesPerformance({ model }) {
 
   return (
     <div aria-busy={pending} className={`gp gp-perf ${pending ? "is-pending" : ""}`}>
-      <ReportFrame initial={null} board={<GamesStats model={model} source={source} />}>
+      <ReportFrame initial={deckLayout} board={<GamesDeck days={state.days} games={state.games} source={source} series={model.days} initial={deckLayout} />}>
       <div className="cr-bar is-wrap">
         <div role="group" aria-label="Period" className="gp-seg">
           {PERIODS.map((n) => (
@@ -393,50 +394,6 @@ export default function GamesPerformance({ model }) {
         {table.rows.length === 0 && <p className="gp-muted" style={{ padding: "12px 20px" }}>Nothing matches.</p>}
       </section>
       </ReportFrame>
-    </div>
-  );
-}
-
-/** The Statistics panel of My games: the same selection as the chart, summed over games, by game, place type and format. */
-function GamesStats({ model, source }) {
-  const views = (cell) => figures(cell, source).views;
-  const byGame = model.rows.map((row) => ({ label: row.name, v: views(row.cell) })).sort((a, b) => b.v - a.v).slice(0, 6);
-  const group = (pick) => {
-    const sums = new Map();
-    for (const row of model.rows) {
-      for (const placement of row.placements) {
-        const key = pick(placement);
-        sums.set(key, (sums.get(key) ?? 0) + views(placement.cell));
-      }
-    }
-    return [...sums].map(([label, v]) => ({ label, v })).sort((a, b) => b.v - a.v).slice(0, 6);
-  };
-  const blocks = [
-    ["Top games", byGame],
-    ["Place type", group((placement) => placement.type)],
-    ["Format", group((placement) => placement.format)],
-  ].filter(([, rows]) => rows.some((row) => row.v > 0));
-  return (
-    <div className="dk dk-side">
-      <h3 className="dk-side-title">Statistics</h3>
-      {blocks.length === 0 && <p className="gp-muted">No impressions in this period yet.</p>}
-      <div className="gs-list">
-        {blocks.map(([title, rows]) => {
-          const top = Math.max(1, ...rows.map((row) => row.v));
-          return (
-            <section key={title} className="gs-block" aria-label={title}>
-              <h4>{title}</h4>
-              {rows.map((row) => (
-                <div key={row.label} className="gs-row">
-                  <span className="gs-name" title={row.label}>{row.label}</span>
-                  <span className="gs-bar" data-kind={source}><i style={{ width: `${((row.v / top) * 100).toFixed(1)}%` }} /></span>
-                  <b>{formatCount(row.v)}</b>
-                </div>
-              ))}
-            </section>
-          );
-        })}
-      </div>
     </div>
   );
 }

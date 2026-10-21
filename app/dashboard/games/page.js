@@ -12,6 +12,7 @@ import { agoText } from "../../../lib/connection";
 import GamesPerformance from "./games-performance";
 import { loadGamesPerformance } from "../../../lib/games-performance";
 import { windowOf } from "../../../lib/performance-view";
+import { loadDeckLayout } from "../../../lib/deck-layout-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My games" };
@@ -99,6 +100,9 @@ export default async function GamesPage({ searchParams }) {
         })
       : null;
 
+  // How the person arranged the widget board of the Statistics panel (the same board as in a game's Performance tab).
+  const deckLayout = tab === "performance" ? await loadDeckLayout(db, "developer") : null;
+
   const count = (mode) => withConnection.filter((game) => game.connection?.mode === mode).length;
   const DOT = { ok: "#3fb577", silent: "#e0a23a", new: "#9aa0a6" };
   const WORD = { ok: "#1f6b3a", silent: "#8a5a00", new: "#5b524a" };
@@ -158,7 +162,7 @@ export default async function GamesPage({ searchParams }) {
 
         {tab === "performance" && (
           <>
-            {performance?.model && <GamesPerformance model={performance.model} />}
+            {performance?.model && <GamesPerformance model={performance.model} deckLayout={deckLayout} />}
             {performance?.error === "migration" && (
               <p className="notice">
                 Run <code>supabase/migrations/0022_game_performance.sql</code> in the Supabase SQL editor to turn Performance on.
