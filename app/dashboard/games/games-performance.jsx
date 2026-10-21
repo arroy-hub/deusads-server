@@ -7,6 +7,10 @@ import { formatCount } from "../../../lib/analytics";
 import { PERIODS, advShare, compactCount, figures, niceTop, ratio } from "../../../lib/performance-view";
 import { gamesQuery } from "../../../lib/games-query";
 import GameIcon from "../game-icon";
+import GamesDeck from "./games-deck";
+import KeyNumbers from "../key-numbers";
+import { Info } from "../metrics-deck";
+import ReportFrame, { StatToggle } from "../advertising/c/[campaignId]/report-frame";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const BREAK = [["game", "Game"], ["placement", "Placement"], ["type", "Place type"], ["format", "Format"]];
@@ -28,7 +32,7 @@ const Caret = () => (
  *
  * model: lib/games-performance.js loadGamesPerformance().model
  */
-export default function GamesPerformance({ model }) {
+export default function GamesPerformance({ model, deckLayout = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -175,9 +179,42 @@ export default function GamesPerformance({ model }) {
     { key: "formats", label: "Format", options: model.facets.formats, all: "All" },
   ];
 
+  const viewsOf = (day) => (source === "adv" ? day.adv : source === "own" ? day.own : day.adv + day.own);
+  let bestDay = null;
+  for (const day of model.days) if (viewsOf(day) > (bestDay ? viewsOf(bestDay) : 0)) bestDay = day;
+  const hero = {
+    value: formatCount(shown.views),
+    delta: null,
+    tail: `last ${model.win.days} days · ${model.kpi.games} of ${model.kpi.totalGames} ${model.kpi.totalGames === 1 ? "game" : "games"}`,
+    perDay: formatCount(Math.round(model.days.length > 0 ? shown.views / model.days.length : 0)),
+    bestLabel: "Best day",
+    best: bestDay ? `${dayText(bestDay.date)} · ${formatCount(viewsOf(bestDay))}` : "—",
+    extra: (
+      <div role="group" aria-label="Count views from" className="pf-srcsw">
+        {cards.map((card) => (
+          <button key={card.id} type="button" aria-pressed={source === card.id} className={`pf-sw ${source === card.id ? "is-on" : ""}`} onClick={() => chooseSource(card.id)}>
+            {card.id !== "all" && <span className="gp-key" data-kind={card.id} />}
+            {card.id === "all" ? "All" : SOURCE_LABEL[card.id]}
+            <b>{formatCount(card.value)}</b>
+          </button>
+        ))}
+        <Info title="Which views to count" text="Select Advertisers or My creatives to count only those views. A view counts when a player had the placement on screen. Per session counts every session of a game, also those in which no ad was seen." />
+      </div>
+    ),
+  };
+  const items = [
+    { icon: "users", label: "Players", value: shown.players > 0 ? formatCount(shown.players) : "—", sub: shown.players > 0 ? "unique, summed over games" : "needs SDK 0.9 or newer" },
+    { icon: "pulse", label: "Per session", value: ratio(shown.perSession), sub: shown.perSession == null ? "needs SDK 0.10 or newer" : "impressions per game session" },
+    { icon: "user", label: "Per player", value: ratio(shown.perPlayer), sub: "impressions per player" },
+    { icon: "clock", label: "Avg. visible", value: seconds(shown.avgVisible), sub: "per view" },
+    { icon: "games", label: "Games", value: String(model.kpi.games), of: `of ${model.kpi.totalGames}`, sub: `${placementTotal} ${placementTotal === 1 ? "placement" : "placements"}` },
+    { icon: "eye", label: "Advertiser share", value: all > 0 ? `${Math.round(percent(kpi.adv, all))}%` : "—", sub: "of all impressions" },
+  ];
+
   return (
-    <div aria-busy={pending} className={`gp ${pending ? "is-pending" : ""}`}>
-      <div className="gp-filters">
+    <div aria-busy={pending} className={`gp gp-perf ${pending ? "is-pending" : ""}`}>
+      <ReportFrame initial={deckLayout} board={<GamesDeck days={state.days} games={state.games} source={source} series={model.days} initial={deckLayout} />}>
+      <div className="cr-bar is-wrap">
         <div role="group" aria-label="Period" className="gp-seg">
           {PERIODS.map((n) => (
             <button key={n} type="button" aria-pressed={state.days === n} onClick={() => go({ days: n })}>
@@ -185,7 +222,7 @@ export default function GamesPerformance({ model }) {
             </button>
           ))}
         </div>
-        <span className="gp-sep" />
+        <Info title="Period" text={`Everything below covers the last ${state.days} days.`} />
         {filters.map((filter) => {
           const chosen = state[filter.key];
           return (
@@ -214,52 +251,19 @@ export default function GamesPerformance({ model }) {
             </div>
           );
         })}
+        <span className="cr-bar-sp" />
+        <button type="button" className="cr-ib" data-tip="Export CSV" aria-label="Export CSV" onClick={exportCsv}>
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
+          </svg>
+        </button>
+        <span className="cr-bar-div" aria-hidden="true" />
+        <StatToggle />
       </div>
 
-      <div className="gp-kpis">
-        <div role="group" aria-label="Count views from" className="gp-cards">
-          {cards.map((card) => (
-            <button key={card.id} type="button" aria-pressed={source === card.id} className="gp-card" onClick={() => chooseSource(card.id)}>
-              <div className="gp-card-top">
-                <span className="gp-key" data-kind={card.id} />
-                {SOURCE_LABEL[card.id]}
-              </div>
-              <div className="gp-big">{formatCount(card.value)}</div>
-              <div className="gp-small">{card.sub}</div>
-              {source === card.id && (
-                <svg className="gp-tick" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#241d19" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12l5 5 9-10" />
-                </svg>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="gp-side">
-          <div>
-            <div className="gp-card-top">Players</div>
-            <div className="gp-big">{shown.players > 0 ? formatCount(shown.players) : "—"}</div>
-            <div className="gp-small">{shown.players > 0 ? "unique, summed over games" : "needs SDK 0.9 or newer"}</div>
-          </div>
-          <div>
-            <div className="gp-card-top">Per session</div>
-            <div className="gp-big">{ratio(shown.perSession)}</div>
-            <div className="gp-small">{shown.perSession == null ? "needs SDK 0.10 or newer" : "impressions per game session"}</div>
-          </div>
-          <div>
-            <div className="gp-card-top">Per player</div>
-            <div className="gp-big">{ratio(shown.perPlayer)}</div>
-            <div className="gp-small">impressions per player</div>
-          </div>
-          <div>
-            <div className="gp-card-top">Avg. visible</div>
-            <div className="gp-big">{seconds(shown.avgVisible)}</div>
-            <div className="gp-small">per view</div>
-          </div>
-        </div>
-      </div>
-      <p className="gp-hint is-one" title="A view counts when a player had the placement on screen. Per session counts every session of a game, also those in which no ad was seen.">Select Advertisers or My creatives to count only those views. Per session counts every session, also those with no ad.</p>
+      <KeyNumbers hero={hero} items={items} />
 
-      <section className="gp-panel" aria-label="Impressions per day">
+      <section className="gp-panel" data-fw="1" aria-label="Impressions per day">
         <div className="gp-chart-head">
           <div>
             <h2>Impressions per day</h2>
@@ -318,7 +322,7 @@ export default function GamesPerformance({ model }) {
         )}
       </section>
 
-      <section className="gp-panel gp-tablebox" aria-label="Table">
+      <section className="gp-panel gp-tablebox" data-fw="1" aria-label="Table">
         <div className="gp-table-head">
           <h2>By {BREAK.find(([key]) => key === by)[1].toLowerCase()}</h2>
           <div className="gp-tools">
@@ -337,12 +341,6 @@ export default function GamesPerformance({ model }) {
                 ))}
               </select>
             </label>
-            <button type="button" className="gp-drop" onClick={exportCsv}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
-              </svg>
-              Export CSV
-            </button>
           </div>
         </div>
         <div className="gp-scroll">
@@ -395,6 +393,7 @@ export default function GamesPerformance({ model }) {
         </div>
         {table.rows.length === 0 && <p className="gp-muted" style={{ padding: "12px 20px" }}>Nothing matches.</p>}
       </section>
+      </ReportFrame>
     </div>
   );
 }

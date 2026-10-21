@@ -28,7 +28,7 @@ export default function PerformanceChart({ days, source, title = "Impressions pe
   const total = days.reduce((sum, day) => sum + adv(day) + own(day), 0);
 
   return (
-    <section className="pf-panel" aria-labelledby="pf-chart-title">
+    <section className="pf-panel" data-fw="1" aria-labelledby="pf-chart-title">
       <div className="pf-panel-head">
         <h2 id="pf-chart-title">{title}</h2>
         <span className="pf-sub">

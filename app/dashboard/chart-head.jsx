@@ -29,8 +29,8 @@ export default function ChartHead({ days, dates, grain, setGrain, breakdown, set
         <p className="fl-sub">{BREAKDOWN_TEXT[breakdown]} · {formatDay(dates[0])} – {formatDay(dates[dates.length - 1])}</p>
       </div>
       <PopBtn label="View" icon={<IcGear size={14} />} align="end" width={340}>
-        <Field label="Break down by"><Seg full value={breakdown} options={breakdowns} onChange={setBreakdown} label="Break down by" /></Field>
-        <Field label="Per"><Seg full value={grain} options={grains} onChange={setGrain} label="Granularity" /></Field>
+        <Field label="Break down by"><Seg full compact value={breakdown} options={breakdowns} onChange={setBreakdown} label="Break down by" /></Field>
+        <Field label="Per"><Seg full compact value={grain} options={grains} onChange={setGrain} label="Granularity" /></Field>
         <div className="fl-divider" />
         <Switch on={marks} onChange={setMarks} title="Pauses and blocks" hint="Mark when a campaign went live, was paused or blocked" />
         <Switch

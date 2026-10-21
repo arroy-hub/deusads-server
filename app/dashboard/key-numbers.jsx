@@ -34,6 +34,7 @@ export default function KeyNumbers({ hero, items }) {
             <span>{hero.tail}</span>
           </div>
         </div>
+        {hero.extra ?? null}
         <div className='cr-hero-foot'>
           <div><span>Average per day</span><b>{hero.perDay}</b></div>
           <div><span>{hero.bestLabel}</span><b>{hero.best}</b></div>
