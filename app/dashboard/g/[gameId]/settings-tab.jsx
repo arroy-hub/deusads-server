@@ -199,6 +199,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
     genres: lists?.genres ?? [],
     platforms: lists?.platforms ?? [],
     languages: lists?.languages ?? [],
+    countries: lists?.countries ?? [],
     devices: more?.devices ?? [],
     playModes: more?.playModes ?? [],
   };
@@ -305,7 +306,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
               <section className="ag-sec">
                 <h3>Tell us more</h3>
                 <p className="ag-hint">
-                  Advertisers aim an ad at a genre, a device or a language. An ad that asks for something you have not filled in will not show in your game.
+                  Advertisers aim an ad at a genre, a device, a language or a country. An ad that asks for something you have not filled in will not show in your game.
                 </p>
                 {PROFILE_KEYS.map((key) => (
                   <MultiPick
@@ -316,7 +317,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                     options={FIELDS[key].options}
                     value={lists[key]}
                     onChange={(next) => setList(key, next)}
-                    searchable={key === "languages"}
+                    searchable={key === "languages" || key === "countries"}
                     disabled={busy}
                     required
                   />

@@ -101,6 +101,7 @@ export default async function NewBookingPage({ searchParams }) {
               genres: placement.games?.genres ?? [],
               platforms: placement.games?.platforms ?? [],
               languages: placement.games?.languages ?? [],
+              countries: placement.games?.countries ?? [],
             }
           : null,
         placements: [],
@@ -153,7 +154,7 @@ export default async function NewBookingPage({ searchParams }) {
 function catalogQuery(service, userId, { onlyOpen, withProfile, ownToo = false }) {
   let query = service
     .from("placements")
-    .select(`id, label, external_id, scene, aspect_ratio, game_id, games(name${withProfile ? ", genres, platforms, languages" : ""})`)
+    .select(`id, label, external_id, scene, aspect_ratio, game_id, games(name${withProfile ? ", genres, platforms, languages, countries" : ""})`)
     .is("removed_at", null);
   // Everyone else's placements; an admin also sees their own, to try both sides with one account.
   if (!ownToo) query = query.neq("owner_id", userId);

@@ -18,7 +18,7 @@ const Svg = ({ size = 16, width = 2, children }) => (
  * (`onColour`), and while a picture is on the header its button opens a little menu to replace or remove it
  * (`onRemoveCover`).
  *
- * `form` is { name, genres, platforms, languages, devices, playModes }. `status` is { dot, word, label, sub }.
+ * `form` is { name, genres, platforms, languages, countries, devices, playModes }. `status` is { dot, word, label, sub }.
  */
 export default function GameCardPreview({
   form,

@@ -41,11 +41,12 @@ export async function createGame(formData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Give the game a name." };
 
-  // What the game is: genres, platforms, languages (migration 0018). Advertisers aim ads at these.
+  // What the game is: genres, platforms, languages (migration 0018) and countries (0050). Advertisers aim ads at these.
   const described = validateProfile({
     genres: formData.getAll("genres"),
     platforms: formData.getAll("platforms"),
     languages: formData.getAll("languages"),
+    countries: formData.getAll("countries"),
   });
   if (described.error) return { error: described.error };
 
@@ -85,17 +86,17 @@ export async function createGame(formData) {
 
 /**
  * Saves the game's settings tab in one go: its name and, when the database knows them (migration
- * 0018), what the game is: genres, platforms and languages, at least one of each. Ads that ask for a
- * genre, platform or language only show in games that have said what they are. Owner only, enforced
+ * 0018), what the game is: genres, platforms, languages and countries, at least one of each. Ads that ask for a
+ * genre, platform, language or country only show in games that have said what they are. Owner only, enforced
  * by row-level security. Changes reach players the next time they start the game. Without `genres`
  * (an older database) only the name is saved.
  */
-export async function saveGame({ gameId, name, genres, platforms, languages, about }) {
+export async function saveGame({ gameId, name, genres, platforms, languages, countries, about }) {
   const clean = String(name ?? "").trim().slice(0, MAX_NAME);
   if (!clean) return { error: "Give the game a name." };
 
   const withProfile = genres !== undefined;
-  const described = withProfile ? validateProfile({ genres, platforms, languages }) : { value: {} };
+  const described = withProfile ? validateProfile({ genres, platforms, languages, countries }) : { value: {} };
   if (described.error) return { error: described.error };
 
   // The store link, devices and play modes (migration 0031); left alone when not sent.

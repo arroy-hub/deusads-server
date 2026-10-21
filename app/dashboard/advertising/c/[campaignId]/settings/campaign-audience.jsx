@@ -7,7 +7,8 @@ import GameIcon from "../../../../game-icon";
 import { setCampaignAudience } from "../../../actions";
 import { FIELDS, countFitting, fitsGame, hasTargeting, labelOf, targetingSummary } from "../../../../../../lib/targeting";
 
-const GROUPS = [["genres", "Genres", "on"], ["exclude_genres", "Skip genres", "off"], ["platforms", "Platforms and devices", ""], ["languages", "Languages", ""]];
+const GROUPS = [["genres", "Genres", "on"], ["exclude_genres", "Skip genres", "off"], ["platforms", "Platforms and devices", ""], ["languages", "Languages", ""], ["countries", "Countries", "on"], ["exclude_countries", "Skip countries", "off"]];
+const FIELD_OF = { exclude_genres: "genres", exclude_countries: "countries" };
 
 /** The saved audience, split the way the editor splits it: genres, skipped genres, platforms and languages. */
 function AudienceGroups({ targeting }) {
@@ -18,14 +19,14 @@ function AudienceGroups({ targeting }) {
       {filled.map(([key, label, tone]) => (
         <div key={key}>
           <dt>{label}</dt>
-          <dd>{targeting[key].map((id) => <span key={id} className={`cs-chip${tone ? ` is-${tone}` : ""}`}>{labelOf(key === "exclude_genres" ? "genres" : key, id).replace(key === "platforms" ? / \(.*\)$/ : /$^/, "")}</span>)}</dd>
+          <dd>{targeting[key].map((id) => <span key={id} className={`cs-chip${tone ? ` is-${tone}` : ""}`}>{labelOf(FIELD_OF[key] ?? key, id).replace(key === "platforms" ? / \(.*\)$/ : /$^/, "")}</span>)}</dd>
         </div>
       ))}
     </dl>
   );
 }
 
-const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [] };
+const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [], countries: [], exclude_countries: [] };
 const KEYS = Object.keys(EMPTY);
 const toList = (targeting) => ({ ...EMPTY, ...(targeting ?? {}) });
 const toTargeting = (value) => {
@@ -34,7 +35,7 @@ const toTargeting = (value) => {
 };
 const sameAudience = (x, y) => KEYS.every((k) => [...x[k]].sort().join() === [...y[k]].sort().join());
 
-/** Who the campaign is shown to: the lists of genres, platforms and languages, and the games that fit. */
+/** Who the campaign is shown to: the lists of genres, platforms, languages and countries, and the games that fit. */
 function AudienceEditor({ value, onChange, onSave, onClose, saved, catalog, busy, note }) {
   const targeting = toTargeting(value);
   const fits = catalog ? catalog.filter((game) => fitsGame(game, targeting)) : [];
@@ -42,6 +43,8 @@ function AudienceEditor({ value, onChange, onSave, onClose, saved, catalog, busy
   const pick = (key) => (next) => {
     if (key === "genres") onChange({ ...value, genres: next, exclude_genres: value.exclude_genres.filter((id) => !next.includes(id)) });
     else if (key === "exclude_genres") onChange({ ...value, exclude_genres: next, genres: value.genres.filter((id) => !next.includes(id)) });
+    else if (key === "countries") onChange({ ...value, countries: next, exclude_countries: value.exclude_countries.filter((id) => !next.includes(id)) });
+    else if (key === "exclude_countries") onChange({ ...value, exclude_countries: next, countries: value.countries.filter((id) => !next.includes(id)) });
     else onChange({ ...value, [key]: next });
   };
   return (
@@ -52,6 +55,8 @@ function AudienceEditor({ value, onChange, onSave, onClose, saved, catalog, busy
         <MultiPick label="Skip genres" hint="Never in games with any of these." options={FIELDS.genres.options} value={value.exclude_genres} onChange={pick("exclude_genres")} />
         <MultiPick label={FIELDS.platforms.label} hint="Only games on at least one of these." options={FIELDS.platforms.options} value={value.platforms} onChange={pick("platforms")} />
         <MultiPick label={FIELDS.languages.label} hint="Only games available in at least one of these." options={FIELDS.languages.options} value={value.languages} onChange={pick("languages")} searchable />
+        <MultiPick label={FIELDS.countries.label} hint="Only games whose players are in at least one of these." options={FIELDS.countries.options} value={value.countries} onChange={pick("countries")} searchable />
+        <MultiPick label="Skip countries" hint="Never in games with players in any of these." options={FIELDS.countries.options} value={value.exclude_countries} onChange={pick("exclude_countries")} searchable />
       </div>
       {catalog && (
         <div className="aud-fit" role="status" aria-live="polite">

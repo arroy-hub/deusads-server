@@ -59,8 +59,8 @@ assert.deepEqual(genreTags(["nope"]), { tags: [], more: 0 }, "unknown ids are sk
 assert.equal(listText(DEVICES, ["quest2", "quest3", "questpro", "pico4"]), "Quest 2, Quest 3 / 3S, Quest Pro +1");
 assert.equal(listText(DEVICES, []), "");
 assert.deepEqual(
-  previewRows({ platforms: ["quest", "pico"], devices: ["pico4"], languages: ["en"], playModes: ["solo"] }),
-  [["Platforms", "Meta Quest, Pico"], ["Devices", "Pico 4"], ["Languages", "English"], ["Play modes", "Single-player"]],
+  previewRows({ platforms: ["quest", "pico"], devices: ["pico4"], languages: ["en"], countries: ["de", "us"], playModes: ["solo"] }),
+  [["Platforms", "Meta Quest, Pico"], ["Devices", "Pico 4"], ["Languages", "English"], ["Countries", "Germany, United States"], ["Play modes", "Single-player"]],
   "the platform names lose their bracket"
 );
 assert.ok(previewRows({}).every(([, text]) => text === ""), "an empty form has empty lines");

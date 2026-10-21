@@ -28,7 +28,7 @@ export default async function GamesPage({ searchParams }) {
     let query = db
       .from("games")
       .select(
-        `id, name, created_at${withProfile ? ", genres, platforms, languages" : ""}${withIcon ? ", icon_path" : ""}, placements(count)`
+        `id, name, created_at${withProfile ? ", genres, platforms, languages, countries" : ""}${withIcon ? ", icon_path" : ""}, placements(count)`
       )
       .order("created_at", { ascending: true });
     if (skipRemoved) query = query.is("placements.removed_at", null);

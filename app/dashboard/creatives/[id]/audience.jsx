@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import MultiPick from "../../multi-pick";
 import { FIELDS, countFitting, hasTargeting, targetingSummary } from "../../../../lib/targeting";
 
-const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [] };
+const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [], countries: [], exclude_countries: [] };
 
 /** The non-empty lists of the form as an audience, or null for every game. */
 function toTargeting(audience) {
@@ -16,7 +16,7 @@ function toTargeting(audience) {
 const sameAudience = (a, b) => Object.keys(EMPTY).every((key) => [...a[key]].sort().join() === [...b[key]].sort().join());
 
 /**
- * Which games may show this creative: genres, platforms, languages, and genres to avoid. Nothing
+ * Which games may show this creative: genres, platforms, languages, countries, and genres or countries to avoid. Nothing
  * picked means every game. `catalog` is the profiles of the games that have opened placements to
  * advertisers (null when that is not known), so the advertiser sees at once how many games fit.
  * A booking is accepted whatever the audience is; this only decides where the ad appears.
@@ -43,6 +43,8 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
     // A genre cannot be wanted and avoided at once: picking it on one side takes it off the other.
     if (key === "genres") setAudience({ ...audience, genres: next, exclude_genres: audience.exclude_genres.filter((id) => !next.includes(id)) });
     else if (key === "exclude_genres") setAudience({ ...audience, exclude_genres: next, genres: audience.genres.filter((id) => !next.includes(id)) });
+    else if (key === "countries") setAudience({ ...audience, countries: next, exclude_countries: audience.exclude_countries.filter((id) => !next.includes(id)) });
+    else if (key === "exclude_countries") setAudience({ ...audience, exclude_countries: next, countries: audience.countries.filter((id) => !next.includes(id)) });
     else setAudience({ ...audience, [key]: next });
   };
 
@@ -80,6 +82,8 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
         <MultiPick label="Skip genres" hint="Never in games with any of these." options={FIELDS.genres.options} value={audience.exclude_genres} onChange={pick("exclude_genres")} disabled={busy} />
         <MultiPick label={FIELDS.platforms.label} hint="Only games on at least one of these." options={FIELDS.platforms.options} value={audience.platforms} onChange={pick("platforms")} disabled={busy} />
         <MultiPick label={FIELDS.languages.label} hint="Only games available in at least one of these." options={FIELDS.languages.options} value={audience.languages} onChange={pick("languages")} searchable disabled={busy} />
+        <MultiPick label={FIELDS.countries.label} hint="Only games whose players are in at least one of these." options={FIELDS.countries.options} value={audience.countries} onChange={pick("countries")} searchable disabled={busy} />
+        <MultiPick label="Skip countries" hint="Never in games with players in any of these." options={FIELDS.countries.options} value={audience.exclude_countries} onChange={pick("exclude_countries")} searchable disabled={busy} />
 
         <p className="audience-line" role="status" aria-live="polite">
           {hasTargeting(targeting) ? targetingSummary(targeting) : "Every game."}

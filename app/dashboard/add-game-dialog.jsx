@@ -18,11 +18,12 @@ const EMPTY = {
   genres: [],
   platforms: [],
   languages: [],
+  countries: [],
   devices: [],
   playModes: [],
 };
 const NO_PICTURE = { blob: null, preview: "" };
-const PART_LABELS = { genres: "a genre", platforms: "a platform", languages: "a language" };
+const PART_LABELS = { genres: "a genre", platforms: "a platform", languages: "a language", countries: "a country" };
 
 const Svg = ({ size = 16, width = 2, children }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -45,8 +46,8 @@ async function upload(blob, kind, type, extension) {
  * The "Add game" button and its pop-up. Left, the card the game will have on My games, built live from what is
  * typed; its icon and header are changed on the card itself (the picture button on the header uploads one, the
  * dots pick a colour). Right, the questionnaire: the name, the store link, and what it is
- * (genres, platforms, languages are required; devices and play modes are not). Advertisers aim ads at genres,
- * platforms and languages; a game that has not filled those in shows no targeted ads.
+ * (genres, platforms, languages and countries are required; devices and play modes are not). Advertisers aim ads at genres,
+ * platforms, languages and countries; a game that has not filled those in shows no targeted ads.
  *
  * Closing the pop-up (Cancel, the cross, Escape, a click outside) throws the draft away. It stays open while the
  * game is being saved and when saving fails, so nothing typed is lost. `gamesCount` is how many games there are
@@ -285,7 +286,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                 <section className="ag-sec">
                   <h3>Tell us more</h3>
                   <p className="ag-hint">
-                    Advertisers aim an ad at a genre, a device or a language. An ad that asks for something you have not filled in will not show in your game.
+                    Advertisers aim an ad at a genre, a device, a language or a country. An ad that asks for something you have not filled in will not show in your game.
                   </p>
                   {PROFILE_KEYS.map((key) => (
                     <MultiPick
@@ -297,7 +298,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                       value={form[key]}
                       onChange={(next) => set({ [key]: next })}
                       name={key}
-                      searchable={key === "languages"}
+                      searchable={key === "languages" || key === "countries"}
                       disabled={busy}
                       required
                     />

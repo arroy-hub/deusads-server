@@ -343,16 +343,20 @@ async function loadSwitches(db, game) {
 }
 
 /**
- * What the developer said about this game: { genres, platforms, languages }. Null when it could
+ * What the developer said about this game: { genres, platforms, languages, countries }. Null when it could
  * not be read; creatives with an audience then do not show (failing closed is the safe side, and
  * the manifest is asked again at the next start).
  */
 async function loadProfile(db, game) {
-  const { data, error } = await db
+  let { data, error } = await db
     .from("games")
-    .select("genres, platforms, languages")
+    .select("genres, platforms, languages, countries")
     .eq("id", game.id)
     .maybeSingle();
+  // Before migration 0050 there is no countries column: read what the game does have.
+  if (isSchemaOutdated(error)) {
+    ({ data, error } = await db.from("games").select("genres, platforms, languages").eq("id", game.id).maybeSingle());
+  }
   if (error) {
     if (isSchemaOutdated(error)) warnSchemaOutdated("GET /v1/manifest", "0018_targeting.sql");
     else logDbError("manifest game profile", error);

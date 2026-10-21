@@ -18,4 +18,10 @@ assert.deepEqual(ids(placementsToBook({ open, targeting: null, creativeTargeting
 assert.deepEqual(placementsToBook({ open, targeting: { genres: ["puzzle"] }, advertiserId: "me" }), []);
 assert.equal(campaignStatus([], { launched: true }).key, "waiting");
 assert.equal(campaignStatus([], {}).key, "draft");
+
+// country targeting (migration 0050)
+const C = (id, game, countries) => ({ id, owner_id: "dev", game_id: game, games: { genres: ["racing"], platforms: ["quest"], languages: ["en"], countries } });
+const abroad = [C("c1", "g1", ["de"]), C("c2", "g2", ["us"]), C("c3", "g3", [])];
+assert.deepEqual(ids(placementsToBook({ open: abroad, targeting: { countries: ["de"] }, advertiserId: "me" })), ["c1"]);
+assert.deepEqual(ids(placementsToBook({ open: abroad, targeting: { exclude_countries: ["de"] }, advertiserId: "me" })), ["c2"], "a game without countries is skipped (strict)");
 console.log("campaign-sync tests passed");

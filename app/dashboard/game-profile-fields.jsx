@@ -7,11 +7,12 @@ const HINTS = {
   genres: GENRES_HINT,
   platforms: "Where players can play it.",
   languages: "The languages the game is available in.",
+  countries: "The countries where most of its players are.",
 };
 
 /**
- * The three lists a developer fills in about a game: genres, platforms and languages.
- * `value` is { genres, platforms, languages }. With `named`, the picks also go out as form fields.
+ * The lists a developer fills in about a game: genres, platforms, languages and countries.
+ * `value` is { genres, platforms, languages, countries }. With `named`, the picks also go out as form fields.
  */
 export default function GameProfileFields({ value, onChange, disabled = false, named = false }) {
   return (
@@ -26,7 +27,7 @@ export default function GameProfileFields({ value, onChange, disabled = false, n
           value={value[key]}
           onChange={(next) => onChange({ ...value, [key]: next })}
           name={named ? key : undefined}
-          searchable={key === "languages"}
+          searchable={key === "languages" || key === "countries"}
           disabled={disabled}
         />
       ))}
