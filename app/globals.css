@@ -9264,3 +9264,40 @@ body.ig-dragging *{cursor:grabbing!important}
 @media (prefers-reduced-motion: reduce) {
   .si *, .si-leave, .si-leave-mark, .shell.is-entering *, .shell.is-leaving .content { transition: none !important; animation: none !important; }
 }
+
+
+/* sign-in, second pass: the hint of "Remember me", and the still copy of the sign-in screen that stays on top
+   while the dashboard loads (app/login/sign-in.jsx → app/dashboard/enter-reveal.jsx) */
+.si-check { position: relative; align-items: center; }
+.si-check input { margin: 0; }
+.si-hint {
+  position: absolute;
+  left: -6px;
+  bottom: calc(100% + 10px);
+  z-index: 4;
+  width: 270px;
+  max-width: calc(100vw - 48px);
+  background: #241d19;
+  color: #f6f2ed;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+  box-shadow: 0 10px 28px rgba(36, 29, 25, .3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
+  pointer-events: none;
+}
+.si-hint b { display: block; margin: 0 0 3px; font-weight: 700; color: #fff; }
+.si-hint::after { content: ""; position: absolute; left: 12px; bottom: -5px; width: 10px; height: 10px; background: #241d19; transform: rotate(45deg); }
+.si-hint.is-on { opacity: 1; visibility: visible; transform: none; transition: opacity .15s ease, transform .15s ease; }
+
+.si.si-handoff { z-index: 6000; background: transparent; pointer-events: auto; cursor: progress; }
+.si-handoff .si-card { animation: none; }
+.shell.is-arriving .rail > :not(.rail-brand),
+.shell.is-arriving .rail-brand > :not(:first-child),
+.shell.is-arriving .rail-brand > :first-child > :not(.rail-mark),
+.shell.is-arriving .main { opacity: 0; }

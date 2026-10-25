@@ -6,9 +6,10 @@ import { requestReset, signIn, signUp } from "./actions";
 
 /**
  * The sign-in screen: the dark of the side menu over the whole screen, the wordmark in the corner and one white
- * card (Sign in, Create an account, Reset your password). After a sign-in the card dissolves, the dark narrows
- * from the right into the side menu of the dashboard (as wide as that role's menu, measured from the real CSS),
- * the wordmark slides to its place in the menu, and the page opens beside it. On a phone the dark just fades.
+ * card (Sign in, Create an account, Reset your password). After a sign-in the button keeps its spinner while the
+ * dashboard loads underneath a still copy of this screen; once it is there, app/dashboard/enter-reveal.jsx plays
+ * the animation over the real page: the card dissolves, the dark narrows into the real side menu, the wordmark
+ * slides to its place and the page fades in. On a phone the dark just fades.
  * The dashboard's sign-out plays the same thing backwards (app/dashboard/leave.js) and ends here.
  */
 
@@ -29,37 +30,8 @@ const GO = { signin: "Sign in", signup: "Create account", reset: "Send link" };
 const BUSY = { signin: "Signing in…", signup: "Creating…", reset: "Sending…" };
 
 const EMAIL_KEY = "deus-last-email";
-const ENTER_KEY = "deus-enter"; // read by app/dashboard/enter-reveal.jsx
-const CORNER_SIZE = 22;
-const ROLE_CLASS = { developer: "shell", advertiser: "shell is-adv", admin: "shell is-admin" };
-const OUT_MS = 380;
-const SHRINK_MS = 850;
-const FADE_MS = 450;
-
-/** Where the menu edge and the wordmark are in the dashboard for this role, read from a hidden copy so it follows the CSS. */
-function measureRail(role) {
-  const probe = document.createElement("div");
-  probe.className = `${ROLE_CLASS[role] ?? "shell"} si-probe`;
-  probe.setAttribute("aria-hidden", "true");
-  probe.innerHTML = '<nav class="rail"><div class="rail-brand"><div><span class="rail-mark">Deus<span>ADS</span></span></div></div></nav><div class="content"></div>';
-  document.body.appendChild(probe);
-  const rail = probe.querySelector(".rail").getBoundingClientRect();
-  const markNode = probe.querySelector(".rail-mark");
-  const mark = markNode.getBoundingClientRect();
-  const css = getComputedStyle(markNode);
-  const size = parseFloat(css.fontSize) || 17;
-  const line = parseFloat(css.lineHeight);
-  const result = {
-    width: rail.width,
-    left: mark.left - rail.left,
-    top: mark.top - rail.top,
-    font: { family: css.fontFamily, weight: css.fontWeight, size, spacing: css.letterSpacing, line: Number.isFinite(line) ? line / size : 1.2 },
-  };
-  probe.remove();
-  return result;
-}
-
-const fontStyle = (font) => (font ? { fontFamily: font.family, fontWeight: font.weight, lineHeight: font.line } : undefined);
+const HINT_DELAY = 700; // ms the pointer rests on "Remember me" before its hint shows
+const GIVE_UP = 20000; // ms: if the dashboard never arrives, the still copy of this screen goes away
 
 function Icon({ kind }) {
   if (kind === "error") {
@@ -88,23 +60,16 @@ export default function SignIn({ notice }) {
   const [message, setMessage] = useState(notice && NOTICES[notice] ? { tone: "notice", text: NOTICES[notice] } : null);
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(false);
-  const [phase, setPhase] = useState("idle"); // idle → out → shrink (or fade on a phone) → wait
-  const [narrow, setNarrow] = useState(false);
-  const [veil, setVeil] = useState(false);
-  const [rail, setRail] = useState(null);
-  const [font, setFont] = useState(null);
-  const [markTo, setMarkTo] = useState(null);
+  const [entering, setEntering] = useState(false);
+  const [hint, setHint] = useState(false);
+  const rootRef = useRef(null);
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
-  const markRef = useRef(null);
-  const timers = useRef([]);
-
-  const later = (run, ms) => timers.current.push(setTimeout(run, ms));
+  const hintTimer = useRef(null);
 
   useEffect(() => {
     // The layers the dashboard's sign-out animation left on top: this screen now stands in their place.
-    document.querySelectorAll(".si-leave, .si-leave-mark").forEach((node) => node.remove());
-    setFont(measureRail("developer").font);
+    document.querySelectorAll(".si-leave, .si-leave-mark, .si-handoff").forEach((node) => node.remove());
     let last = "";
     try {
       last = localStorage.getItem(EMAIL_KEY) ?? "";
@@ -113,9 +78,17 @@ export default function SignIn({ notice }) {
     }
     if (last) setEmail((current) => current || last);
     setTimeout(() => (last ? passwordRef : emailRef).current?.focus(), 0);
-    const list = timers.current;
-    return () => list.forEach(clearTimeout);
+    return () => clearTimeout(hintTimer.current);
   }, []);
+
+  const hintLater = () => {
+    clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint(true), HINT_DELAY);
+  };
+  const hintOff = () => {
+    clearTimeout(hintTimer.current);
+    setHint(false);
+  };
 
   const fail = (text) => {
     setMessage({ tone: "error", text: text || "Something went wrong. Try again." });
@@ -131,38 +104,35 @@ export default function SignIn({ notice }) {
     setTimeout(() => emailRef.current?.focus(), 0);
   };
 
-  function enter(role, home) {
+  /**
+   * Signed in: a still copy of this screen (spinner on the button) is laid over everything and the dashboard is
+   * opened underneath it. The dashboard plays the animation on that copy once it has loaded.
+   */
+  function enter(home) {
+    setEntering(true);
+    hintOff();
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const phone = window.matchMedia?.("(max-width: 800px)").matches;
-    try {
-      sessionStorage.setItem(ENTER_KEY, "1");
-    } catch {
-      // without storage the dashboard simply opens without its fade-in
+    const root = rootRef.current;
+    if (!reduce && root) {
+      const cover = root.cloneNode(true);
+      cover.classList.add("si-handoff");
+      cover.setAttribute("aria-hidden", "true");
+      // what was typed (React keeps it in properties, which a copy does not carry), and no duplicate ids
+      const typed = root.querySelectorAll("input");
+      cover.querySelectorAll("input").forEach((input, index) => {
+        input.value = typed[index]?.value ?? "";
+        input.checked = Boolean(typed[index]?.checked);
+      });
+      cover.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+      document.body.appendChild(cover);
+      window.setTimeout(() => cover.isConnected && cover.remove(), GIVE_UP);
     }
-    router.prefetch(home);
-    const go = () => {
-      setPhase("wait");
-      later(() => setVeil(true), 160);
-      router.push(home);
-    };
-    if (reduce) return go();
-
-    setNarrow(Boolean(phone));
-    if (!phone) {
-      const target = measureRail(role);
-      const box = markRef.current?.getBoundingClientRect();
-      setRail(target);
-      setFont(target.font);
-      if (box) setMarkTo(`translate(${target.left - box.left}px, ${target.top - box.top}px) scale(${target.font.size / CORNER_SIZE})`);
-    }
-    setPhase("out");
-    later(() => setPhase(phone ? "fade" : "shrink"), OUT_MS);
-    later(go, OUT_MS + (phone ? FADE_MS : SHRINK_MS));
+    router.push(home);
   }
 
   async function submit(event) {
     event.preventDefault();
-    if (busy || phase !== "idle") return;
+    if (busy || entering) return;
     setMessage(null);
     setBusy(true);
     try {
@@ -179,7 +149,7 @@ export default function SignIn({ notice }) {
         } catch {
           // not remembered: the field starts empty next time
         }
-        enter(result.role, result.home);
+        enter(result.home);
         return;
       }
       if (mode === "signup") {
@@ -190,7 +160,7 @@ export default function SignIn({ notice }) {
           return;
         }
         if (result.signedIn) {
-          enter(result.role, result.home);
+          enter(result.home);
           return;
         }
         setBusy(false);
@@ -212,20 +182,15 @@ export default function SignIn({ notice }) {
     }
   }
 
-  const out = phase !== "idle";
-  const shrunk = !narrow && (phase === "shrink" || phase === "wait") && rail;
-  const faded = narrow && (phase === "fade" || phase === "wait");
-  const classes = ["si", out && "is-out", shrunk && "is-shrunk", faded && "is-faded"].filter(Boolean).join(" ");
-
   return (
-    <div className={classes} style={rail ? { "--si-rail": `${rail.width}px` } : undefined}>
+    <div className="si" ref={rootRef}>
       <div className="si-dark" aria-hidden="true" />
-      <div className="si-mark" ref={markRef} aria-hidden="true" style={{ ...fontStyle(font), transform: shrunk && markTo ? markTo : undefined }}>
+      <div className="si-mark" aria-hidden="true">
         Deus<span>ADS</span>
       </div>
 
       <div className="si-stage">
-        <section className={`si-card${shake ? " is-shake" : ""}`} aria-labelledby="si-title" inert={out ? true : undefined} onAnimationEnd={() => setShake(false)}>
+        <section className={`si-card${shake ? " is-shake" : ""}`} aria-labelledby="si-title" inert={entering ? true : undefined} onAnimationEnd={() => setShake(false)}>
           <div className="si-head">
             <h1 id="si-title">{TITLE[mode]}</h1>
             <p>{SUB[mode]}</p>
@@ -313,12 +278,21 @@ export default function SignIn({ notice }) {
             )}
 
             {mode === "signin" && (
-              <div className="si-check">
-                <input id="si-remember" type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
-                <div>
-                  <label htmlFor="si-remember">Remember me for 4 days</label>
-                  <small>Leave it off on a shared computer.</small>
-                </div>
+              <div className="si-check" onPointerEnter={hintLater} onPointerLeave={hintOff}>
+                <input
+                  id="si-remember"
+                  type="checkbox"
+                  checked={remember}
+                  aria-describedby="si-remember-hint"
+                  onChange={(event) => setRemember(event.target.checked)}
+                  onFocus={(event) => event.target.matches(":focus-visible") && setHint(true)}
+                  onBlur={hintOff}
+                />
+                <label htmlFor="si-remember">Remember me</label>
+                <span id="si-remember-hint" role="tooltip" className={`si-hint${hint ? " is-on" : ""}`}>
+                  <b>Remember me</b>
+                  Keeps you signed in for 4 days after your last visit. Leave it off on a shared computer.
+                </span>
               </div>
             )}
 
@@ -354,12 +328,6 @@ export default function SignIn({ notice }) {
         </section>
       </div>
 
-      {phase === "wait" && (
-        <div className={`nav-fade${veil ? " is-on" : ""}`} style={{ left: narrow ? 0 : rail?.width ?? 0 }} role="status" aria-live="polite">
-          <span className="nav-fade-spin" />
-          <span className="nav-fade-text">Loading</span>
-        </div>
-      )}
     </div>
   );
 }
