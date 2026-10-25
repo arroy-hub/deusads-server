@@ -6,6 +6,7 @@ import NotificationsTab from "./notifications-tab";
 import ProfileTab from "./profile-tab";
 import SecurityTab from "./security-tab";
 import { signOut } from "./actions";
+import { leaveDashboard } from "../leave";
 
 const TABS = ["profile", "security", "notifications"];
 
@@ -49,7 +50,7 @@ export default function AccountPage({ view, admin = false, countries, initialTab
         <div className="main-head" style={{ margin: 0 }}>
           <h1>{admin ? view.company || view.email : "Your account"}</h1>
           {!admin && (
-            <button type="button" className="button button-quiet" disabled={signingOut} onClick={() => startSignOut(() => signOut())}>
+            <button type="button" className="button button-quiet" disabled={signingOut} onClick={() => leaveDashboard(() => startSignOut(() => signOut()))}>
               {signingOut ? "Signing out…" : "Sign out"}
             </button>
           )}

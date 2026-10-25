@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { userClient } from "../../../lib/supabase-server";
+import { RESET_COOKIE, SESSION_COOKIE, resetValid, unseal } from "../../../lib/session-policy";
 import { isSchemaOutdated } from "../../../lib/api";
 import { notify } from "../../../lib/notify";
 import { SITE, anonClient, passwordIsRight, resolveActor } from "../../../lib/account-server";
@@ -23,10 +25,18 @@ const refresh = (id) => {
   revalidatePath("/dashboard/admin/users");
 };
 
+/** The cookies of the sign-in rules (lib/session-policy.js) go with the sign-in itself. */
+async function forgetSession() {
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
+  store.delete(RESET_COOKIE);
+}
+
 /** Leaves the dashboard. */
 export async function signOut() {
   const db = await userClient();
   await db.auth.signOut().catch(() => null);
+  await forgetSession();
   redirect("/login");
 }
 
@@ -128,21 +138,27 @@ export async function cancelEmailChange() {
   return { ok: true };
 }
 
-/** The owner changes the password: the current one is checked, other devices are signed out. */
+/**
+ * The owner changes the password: the current one is checked, other devices are signed out. Within 30 minutes of
+ * arriving from a password-reset link the current one is not asked for (the person has forgotten it).
+ */
 export async function changePassword({ current, next, repeat }) {
   const who = await resolveActor(null);
   if (who.error) return { error: who.error };
   const { me } = who;
 
-  const problem = passwordProblem({ current, next, repeat });
+  const store = await cookies();
+  const fromLink = resetValid(await unseal(store.get(RESET_COOKIE)?.value), me.user.id);
+  const problem = passwordProblem({ current, next, repeat }, { needCurrent: !fromLink });
   if (problem) return { error: problem };
-  if (!(await passwordIsRight(me.user.email, current))) return { error: "Your current password is not right." };
+  if (!fromLink && !(await passwordIsRight(me.user.email, current))) return { error: "Your current password is not right." };
 
   const db = await userClient();
   const { error } = await db.auth.updateUser({ password: String(next) });
   if (error) return { error: /weak|short|least/i.test(error.message ?? "") ? error.message : "Could not change the password. Try again." };
 
   await me.service.from("accounts").update({ password_changed_at: new Date().toISOString() }).eq("id", me.user.id);
+  if (fromLink) store.delete(RESET_COOKIE);
   await db.rpc("revoke_other_sessions", { p_keep: await currentSessionId(db) });
   await notify(me.service, { accountId: me.user.id, text: "Your password was changed.", link: "/dashboard/account?tab=security", type: "account_security" });
   refresh();
@@ -264,6 +280,7 @@ export async function deleteAccount({ accountId, password }) {
   if (self) {
     const db = await userClient();
     await db.auth.signOut().catch(() => null);
+    await forgetSession();
   }
   refresh();
   return { ok: true, self };

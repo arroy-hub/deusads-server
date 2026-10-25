@@ -221,17 +221,18 @@ export default function SecurityTab({ view, admin, say }) {
         <div className="srow">
           <div className="grow">
             <b>Password</b>
-            <span>{view.passwordChangedAt ? `Last changed ${agoLabel(view.passwordChangedAt)}` : "Not changed here yet"}</span>
+            <span>{view.fromResetLink ? "You came from a reset link: set a new password, the old one is not needed." : view.passwordChangedAt ? `Last changed ${agoLabel(view.passwordChangedAt)}` : "Not changed here yet"}</span>
           </div>
           <BubbleButton label="Change" ariaLabel="Change password">
             {(close) => (
               <BubbleForm
                 close={close}
-                fields={[["current", "Current password", "password", "current-password"], ["next", "New password", "password", "new-password"], ["repeat", "Repeat new password", "password", "new-password"]]}
+                note={view.fromResetLink ? "The reset link lets you skip the old password for 30 minutes." : undefined}
+                fields={[...(view.fromResetLink ? [] : [["current", "Current password", "password", "current-password"]]), ["next", "New password", "password", "new-password"], ["repeat", "Repeat new password", "password", "new-password"]]}
                 submit="At least 8 characters."
                 submitLabel="Change"
                 run={async ({ current, next, repeat }) => {
-                  const problem = passwordProblem({ current, next, repeat });
+                  const problem = passwordProblem({ current, next, repeat }, { needCurrent: !view.fromResetLink });
                   if (problem) return problem;
                   const result = await changePassword({ current, next, repeat });
                   if (result?.error) return result.error;

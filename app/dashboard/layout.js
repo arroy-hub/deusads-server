@@ -16,6 +16,7 @@ import NavLink from "./nav-link";
 import { RoleMenu, RoleSwitch } from "./role-view";
 import NotificationsBell from "./notifications-bell";
 import NavFade from "./nav-fade";
+import EnterReveal from "./enter-reveal";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,7 @@ export default async function DashboardLayout({ children }) {
       <div className="content">
         <main className="main">{children}</main>
         <NavFade />
+        <EnterReveal />
       </div>
     </div>
   );

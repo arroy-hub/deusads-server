@@ -9124,3 +9124,143 @@ body.ig-dragging *{cursor:grabbing!important}
 .cr-bar .gp-drop{min-height:30px;padding:0 10px;font-size:12.5px}
 
 .pf-sw{flex-direction:row}
+
+
+/* ---------------------------------------------------------------- sign-in screen
+   The whole screen is the dark of the side menu with one white card (app/login/sign-in.jsx). After a sign-in the
+   card dissolves, the dark narrows from the right into the side menu of the dashboard and the page fades in beside
+   it (.shell.is-entering). Sign-out plays it backwards (.si-leave, app/dashboard/leave.js).
+   Class names start with si- (never "ad": ad blockers hide such elements). */
+
+.si {
+  --si-ease: cubic-bezier(.76, 0, .24, 1);
+  --si-dark: #211f1d;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--surface, #f6f2ed);
+  color: #241d19;
+  font-family: "Instrument Sans", "Helvetica Neue", Arial, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.si-dark { position: absolute; inset: 0 auto 0 0; width: 100%; background: var(--si-dark); transition: width .85s var(--si-ease), opacity .45s ease, box-shadow .3s ease; }
+.si.is-shrunk .si-dark { width: var(--si-rail, 260px); box-shadow: inset -1px 0 0 #322f2b; }
+.si.is-faded .si-dark, .si.is-faded .si-mark { opacity: 0; }
+.si-mark {
+  position: absolute;
+  z-index: 2;
+  left: max(28px, env(safe-area-inset-left, 0px));
+  top: calc(26px + env(safe-area-inset-top, 0px));
+  margin: 0;
+  color: #fff;
+  font-family: "Manrope", "Instrument Sans", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform-origin: 0 0;
+  transition: transform .85s var(--si-ease), opacity .45s ease;
+  pointer-events: none;
+}
+.si-mark span { color: #ff9a7e; }
+
+.si-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow-y: auto;
+  display: grid;
+  place-items: center;
+  padding-block: 84px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.si.is-out .si-stage { pointer-events: none; }
+.si-card {
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 34px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+  animation: si-pop .4s ease backwards;
+  transition: opacity .38s ease, transform .38s ease, filter .38s ease;
+}
+.si.is-out .si-card { opacity: 0; transform: scale(.96); filter: blur(8px); }
+.si-card.is-shake { animation: si-shake .4s; }
+@keyframes si-pop { from { opacity: 0; transform: scale(.97); filter: blur(6px); } }
+@keyframes si-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+.si-head h1 { margin: 0; font: 800 28px/1.15 "Manrope", "Instrument Sans", system-ui, sans-serif; letter-spacing: -.03em; color: #241d19; text-wrap: balance; }
+.si-head p { margin: 4px 0 0; font-size: 14.5px; line-height: 1.45; color: #6b5f56; }
+.si-msg { margin: 0; display: flex; gap: 10px; align-items: flex-start; border-radius: 12px; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
+.si-msg svg { flex: none; margin-top: 1px; }
+.si-msg.is-notice { background: #fdf0d5; border: 1px solid #ecd49a; color: #5c3d00; }
+.si-msg.is-error { background: #fbe9e4; border: 1px solid #f0c6ba; color: #b3361b; }
+
+.si-form { display: flex; flex-direction: column; gap: 18px; margin: 0; }
+.si-field { display: flex; flex-direction: column; gap: 6px; }
+.si-field label, .si-roles legend, .si-check label { font-size: 14px; font-weight: 600; color: #241d19; }
+.si-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.si-input { box-sizing: border-box; width: 100%; min-height: 44px; margin: 0; border: 1px solid #d8cabd; border-radius: 8px; padding: 0 12px; background: #fff; color: #241d19; font: inherit; font-size: 15px; }
+.si-input::placeholder { color: #7a6e64; }
+.si-pw { position: relative; display: flex; align-items: center; }
+.si-pw .si-input { padding-right: 48px; }
+.si-eye { position: absolute; right: 2px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #6b5f56; cursor: pointer; padding: 0; }
+.si-eye:hover { color: #241d19; }
+.si-link { border: 0; background: none; padding: 0; font: inherit; font-size: 13.5px; font-weight: 600; color: #b8421d; cursor: pointer; }
+.si-link:hover { text-decoration: underline; }
+.si-check { display: flex; gap: 12px; align-items: flex-start; }
+.si-check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: #c94a24; cursor: pointer; }
+.si-check label { cursor: pointer; }
+.si-check small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: #6b5f56; }
+.si-roles { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+.si-roles legend { padding: 0; margin-bottom: 6px; }
+.si-role { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #e6ddd3; border-radius: 10px; cursor: pointer; }
+.si-role:has(input:checked) { border-color: #e7b9a4; background: #fdf3ee; }
+.si-role input { flex: none; margin: 3px 0 0; accent-color: #c94a24; }
+.si-role b { display: block; font-size: 14px; font-weight: 600; color: #241d19; }
+.si-role span span { display: block; font-size: 13px; color: #6b5f56; }
+.si-go { box-sizing: border-box; width: 100%; min-height: 46px; margin: 0; border: 1px solid #b8421d; border-radius: 8px; background: #b8421d; color: #fff; font: inherit; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+.si-go:hover { background: #a63a18; }
+.si-go:disabled { opacity: .85; cursor: progress; }
+.si-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .4); border-top-color: #fff; animation: nav-spin .7s linear infinite; }
+.si-foot { border-top: 1px solid #efe7de; padding-top: 20px; font-size: 14px; color: #6b5f56; text-align: center; }
+.si-foot .si-link { font-size: 14px; }
+.si :focus-visible { outline: 2px solid #c94a24; outline-offset: 2px; }
+.si-probe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; z-index: -1; }
+@media (max-width: 480px) {
+  .si-card { padding: 28px 20px; }
+  .si-head h1 { font-size: 26px; }
+}
+
+/* the dashboard right after a sign-in: the menu items and the page fade in beside the menu the dark became */
+@keyframes si-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes si-show { from { opacity: 0; } }
+.shell.is-entering .rail > :not(.rail-brand),
+.shell.is-entering .rail-brand > :not(:first-child),
+.shell.is-entering .rail-brand > :first-child > :not(.rail-mark) { animation: si-show .35s ease backwards; }
+.shell.is-entering .main > *,
+.shell.is-entering .main > :only-child > * { animation: si-rise .5s ease backwards; }
+.shell.is-entering .main > :only-child { animation: none; }
+.shell.is-entering .main > :nth-child(2),
+.shell.is-entering .main > :only-child > :nth-child(2) { animation-delay: 70ms; }
+.shell.is-entering .main > :nth-child(n+3),
+.shell.is-entering .main > :only-child > :nth-child(n+3) { animation-delay: 140ms; }
+
+/* sign-out: the page fades, the menu's dark widens over the screen, the wordmark slides to the corner */
+.shell.is-leaving .content { opacity: 0; transition: opacity .3s ease; }
+.si-leave { position: fixed; top: 0; left: 0; bottom: 0; z-index: 5000; background: #211f1d; opacity: 0; pointer-events: auto; cursor: progress; transition: opacity .25s ease, width .85s cubic-bezier(.76, 0, .24, 1); }
+.si-leave.is-cover { opacity: 1; }
+.si-leave.is-wide { width: 100% !important; }
+.si-leave-mark { position: fixed; z-index: 5001; margin: 0; color: #fff; white-space: nowrap; transform-origin: 0 0; pointer-events: none; transition: transform .85s cubic-bezier(.76, 0, .24, 1); }
+.si-leave-mark span { color: #ff9a7e; }
+
+@media (prefers-reduced-motion: reduce) {
+  .si *, .si-leave, .si-leave-mark, .shell.is-entering *, .shell.is-leaving .content { transition: none !important; animation: none !important; }
+}

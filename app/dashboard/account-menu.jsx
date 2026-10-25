@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "./account/actions";
+import { leaveDashboard } from "./leave";
 
 /**
  * The account block under the wordmark in the side menu: the picture, the company name and the email.
@@ -47,7 +48,7 @@ export default function AccountMenu({ company, email, avatarUrl, initials, atten
               Your account
               {attention && <small>Needs attention</small>}
             </Link>
-            <button className="it" type="button" role="menuitem" disabled={pending} onClick={() => start(() => signOut())}>
+            <button className="it" type="button" role="menuitem" disabled={pending} onClick={() => leaveDashboard(() => start(() => signOut()))}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" />
               </svg>
