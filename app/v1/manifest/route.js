@@ -36,7 +36,7 @@ export const OPTIONS = preflight;
  *
  * What the developer switched off (migration 0021) is listed too, so the SDK can hide it entirely
  * (no creative, no fallback texture): `disabled` holds placement ids that show nothing anywhere
- * (the placement itself or its folder is off), `disabledScenes` holds scene names in which every
+ * (the placement itself or its folder is off, or every place it stands in is too distorted: migration 0051), `disabledScenes` holds scene names in which every
  * placement shows nothing. SDKs before 0.6 ignore both and keep their fallback texture there.
  */
 export const GET = guarded(async function GET(request) {
@@ -302,12 +302,18 @@ async function loadCampaignRules(db, game, bookings, profileOf) {
 async function loadSwitches(db, game) {
   const none = { disabled: [], disabledScenes: [] };
 
-  // Only placements that can matter: switched off themselves, or in a folder.
-  const { data: placements, error: placementsError } = await db
-    .from("placements")
-    .select("external_id, enabled, folder_id, removed_at")
-    .eq("game_id", game.id)
-    .or("enabled.eq.false,folder_id.not.is.null");
+  // Only placements that can matter: switched off themselves, in a folder, or too distorted to be shown (migration 0051).
+  const readPlacements = (withShape) =>
+    db
+      .from("placements")
+      .select(withShape ? "external_id, enabled, folder_id, removed_at, shape_blocked" : "external_id, enabled, folder_id, removed_at")
+      .eq("game_id", game.id)
+      .or(withShape ? "enabled.eq.false,folder_id.not.is.null,shape_blocked.eq.true" : "enabled.eq.false,folder_id.not.is.null");
+  let { data: placements, error: placementsError } = await readPlacements(true);
+  if (placementsError && isSchemaOutdated(placementsError)) {
+    warnSchemaOutdated("GET /v1/manifest", "0051_placement_shape.sql");
+    ({ data: placements, error: placementsError } = await readPlacements(false));
+  }
   if (placementsError) {
     if (isSchemaOutdated(placementsError)) warnSchemaOutdated("GET /v1/manifest", "0021_placement_organization.sql");
     else logDbError("manifest switches", placementsError);

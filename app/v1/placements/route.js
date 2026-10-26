@@ -6,7 +6,7 @@ import {
   logDbError,
   warnSchemaOutdated,
 } from "../../../lib/api";
-import { placesOf, suggestPlaceType } from "../../../lib/placement-organization";
+import { placesOf, shapeBlockedOf, suggestPlaceType } from "../../../lib/placement-organization";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +35,10 @@ const MAX_PLACES_TOTAL = 5000;
  * Placements of this game that are missing from it are marked removed and
  * disappear from the dashboard and the manifest; sending one again restores it.
  * Without the flag (older SDKs, which only report open scenes) nothing is removed.
+ *
+ * SDK 0.13+ also says how the picture sits at each place (migration 0051): `shape` 0 fine, 1 stretched, 2 too
+ * distorted to be shown, and `worst`. A placement whose every place is too distorted is saved as shape_blocked,
+ * and the manifest then treats it as switched off.
  *
  * Response: { game, saved, removed: [{ externalId, label }], restored: [...] }
  */
@@ -104,6 +108,8 @@ export const POST = guarded(async function POST(request) {
       place_type_suggested: firstSuggestion(places, item.scene),
       // Migration 0036: the player can touch the object this placement is on (SDK 0.11+).
       interactive: item.interactive === true,
+      // Migration 0051: every place it stands in is too distorted to be shown (SDK 0.13+).
+      shape_blocked: shapeBlockedOf(places),
     });
   }
 
@@ -157,11 +163,14 @@ export const POST = guarded(async function POST(request) {
     const withoutRemoved = (list) => list.map(({ removed_at, ...rest }) => rest);
     const withoutOrganization = (list) => list.map(({ shared, place_type_suggested, ...rest }) => rest);
     const withoutInteractive = (list) => list.map(({ interactive, ...rest }) => rest);
+    const withoutShape = (list) => list.map(({ shape_blocked, ...rest }) => rest);
     const current = schemaCurrent ? rows : withoutRemoved(rows);
+    const older = withoutShape(current);
     const attempts = [
-      { payload: current, organized: true, migration: "0036_interactions.sql" },
-      { payload: withoutInteractive(current), organized: true, migration: "0021_placement_organization.sql" },
-      { payload: withoutOrganization(withoutInteractive(current)), organized: false, migration: null },
+      { payload: current, organized: true, migration: "0051_placement_shape.sql" },
+      { payload: older, organized: true, migration: "0036_interactions.sql" },
+      { payload: withoutInteractive(older), organized: true, migration: "0021_placement_organization.sql" },
+      { payload: withoutOrganization(withoutInteractive(older)), organized: false, migration: null },
     ];
 
     let data;
@@ -205,13 +214,20 @@ export const POST = guarded(async function POST(request) {
           path: place.path,
           last_seen_at: now,
           removed_at: null,
+          // Migration 0051. A report without it (an older SDK) resets the place to fine.
+          shape_level: place.shape ?? 0,
+          shape_worst: place.worst ?? null,
         });
       }
     }
     if (placeRows.length > 0) {
-      const { error: placesError } = await db
-        .from("placement_places")
-        .upsert(placeRows, { onConflict: "placement_id,scene,path" });
+      const save = (list) => db.from("placement_places").upsert(list, { onConflict: "placement_id,scene,path" });
+      let { error: placesError } = await save(placeRows);
+      if (placesError && isSchemaOutdated(placesError)) {
+        // Without 0051 the places are still saved, only without how the picture sits on them.
+        warnSchemaOutdated("POST /v1/placements", "0051_placement_shape.sql");
+        ({ error: placesError } = await save(placeRows.map(({ shape_level, shape_worst, ...rest }) => rest)));
+      }
       if (placesError && isSchemaOutdated(placesError)) {
         organized = false;
         warnSchemaOutdated("POST /v1/placements", "0021_placement_organization.sql");

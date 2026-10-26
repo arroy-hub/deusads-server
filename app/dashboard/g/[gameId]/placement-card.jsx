@@ -6,6 +6,7 @@ import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } from "../../../../lib/placement-view";
 import { addressOf, locateUrl } from "../../../../lib/unity-link";
 import { changeTags, setPlaceType } from "../../placement-actions";
+import { Info } from "../../metrics-deck";
 
 // What the Placements tab adds to a placement's own card (the picture editor): the handle (grip, or a tick
 // box while editing), the name you rename by clicking it, the "⋮" menu, the on/off switch, and the row of chips
@@ -25,6 +26,37 @@ export function useOrg(placementId) {
 
 const CUSTOM = "__custom";
 const SHOWN_TAGS = 3; // tags written on the card itself; the rest are in Details
+
+/**
+ * How the picture sits where the placement stands (migration 0051), as a chip: null when it is fine or not known.
+ * A place that is too distorted is left out of the game by the SDK, and a placement whose every place is too
+ * distorted takes no part in the rotation until it is moved in Unity.
+ */
+function shapeNote(places) {
+  const total = places.length;
+  const blocked = places.filter((place) => place.shape === 2).length;
+  const stretched = places.filter((place) => place.shape === 1).length;
+  if (blocked > 0) {
+    return {
+      blocked: true,
+      text: blocked === total ? "Not shown: picture too distorted" : `${blocked} of ${total} places not shown`,
+      title: "Picture too distorted",
+      hint:
+        (blocked === total ? "Where it stands now" : "In the places marked in Details") +
+        ", the surface is so steep or uneven that the picture would look broken, so the game does not show it there and no advertiser is booked on it. " +
+        "Move it to a flatter spot with Move & re-bake in the banner's Inspector in Unity, then press Send placements.",
+    };
+  }
+  if (stretched > 0) {
+    return {
+      blocked: false,
+      text: stretched === 1 ? "Picture stretched in 1 place" : `Picture stretched in ${stretched} places`,
+      title: "Picture stretched",
+      hint: "The picture is noticeably stretched or squeezed there. It is still shown, but a flatter spot would look better. Move & re-bake in Unity shows where.",
+    };
+  }
+  return null;
+}
 
 function useAction() {
   const [pending, startTransition] = useTransition();
@@ -270,6 +302,7 @@ export function CardTagRow({ placementId }) {
   const places = item.places.length;
   const type = effectiveType(item);
   const why = state === "off" || state === "partly" ? offReason(item, ctx) : "";
+  const shape = shapeNote(item.places);
   const tags = edit.shown;
   return (
     <div className="org-summary">
@@ -291,6 +324,12 @@ export function CardTagRow({ placementId }) {
           {type ? typeLabel(type) : "Type not determined"}
           {typeIsSuggested(item) ? " (auto)" : ""}
         </span>
+        {shape && (
+          <span className={`org-chip org-chip-shape${shape.blocked ? "" : " is-warn"}`}>
+            {shape.text}
+            <Info title={shape.title} text={shape.hint} />
+          </span>
+        )}
         {why && why !== "Switched off" && !/^(Folder|Its folder)/.test(why) && <span className="org-chip org-chip-off">{why}</span>}
         {tags.slice(0, SHOWN_TAGS).map((tag) => (
           <TagChip key={tag} tag={tag} edit={edit} />
@@ -677,6 +716,8 @@ function Places({ org }) {
               <span className="org-place-scene">{place.scene || "(no scene)"}</span>
               <span>{place.path || "—"}</span>
             </span>
+            {place.shape === 2 && <span className="org-place-shape">too distorted, not shown</span>}
+            {place.shape === 1 && <span className="org-place-shape is-warn">stretched</span>}
             <IconButton label="Show in Unity" hint="Show in Unity: select this object in the open Unity editor" onClick={() => showInUnity(place)}>
               <CubeIcon />
             </IconButton>

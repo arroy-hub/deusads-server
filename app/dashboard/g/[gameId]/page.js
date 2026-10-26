@@ -283,7 +283,7 @@ async function connectionOf(db, gameId, lastSignalAt) {
  * Null when the database does not have the migration yet, or a read fails: the tab then falls back to the plain list.
  */
 async function loadOrganization(db, gameId, rows) {
-  const [meta, folders, off, places, placeViews, placementViews, order] = await Promise.all([
+  const [meta, folders, off, firstPlaces, placeViews, placementViews, order] = await Promise.all([
     db
       .from("placements")
       .select("id, shared, enabled, folder_id, tags, place_type, place_type_suggested, first_seen_at")
@@ -291,12 +291,18 @@ async function loadOrganization(db, gameId, rows) {
       .is("removed_at", null),
     db.from("placement_folders").select("id, name, enabled, parent_id").eq("game_id", gameId).order("name"),
     db.from("placement_scene_off").select("scene").eq("game_id", gameId),
-    db.from("placement_places").select("id, placement_id, scene, path").eq("game_id", gameId).is("removed_at", null),
+    db.from("placement_places").select("id, placement_id, scene, path, shape_level, shape_worst").eq("game_id", gameId).is("removed_at", null),
     db.rpc("game_place_stats", { p_game_id: gameId, p_days: ANALYTICS_DAYS }),
     db.rpc("game_placement_stats", { p_game_id: gameId, p_days: ANALYTICS_DAYS }),
     // The developer's own order (migration 0025). Kept apart: without the migration only this read fails, not the tab.
     db.from("placements").select("id, sort_index").eq("game_id", gameId).is("removed_at", null),
   ]);
+
+  // How the picture sits at each place comes with migration 0051; without it the places are read as before.
+  let places = firstPlaces;
+  if (places.error && isSchemaOutdated(places.error)) {
+    places = await db.from("placement_places").select("id, placement_id, scene, path").eq("game_id", gameId).is("removed_at", null);
+  }
 
   const failure = meta.error ?? folders.error ?? off.error ?? places.error;
   if (failure) {
@@ -311,7 +317,7 @@ async function loadOrganization(db, gameId, rows) {
   const placesOf = new Map();
   for (const place of places.data ?? []) {
     if (!placesOf.has(place.placement_id)) placesOf.set(place.placement_id, []);
-    placesOf.get(place.placement_id).push({ id: place.id, scene: place.scene, path: place.path, views: viewsOfPlace.get(place.id) ?? null });
+    placesOf.get(place.placement_id).push({ id: place.id, scene: place.scene, path: place.path, views: viewsOfPlace.get(place.id) ?? null, shape: place.shape_level ?? 0, worst: place.shape_worst ?? null });
   }
 
   const items = new Map();

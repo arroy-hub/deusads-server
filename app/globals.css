@@ -9301,3 +9301,9 @@ body.ig-dragging *{cursor:grabbing!important}
 .shell.is-arriving .rail-brand > :not(:first-child),
 .shell.is-arriving .rail-brand > :first-child > :not(.rail-mark),
 .shell.is-arriving .main { opacity: 0; }
+
+/* Picture shape (migration 0051): a placement whose picture would be too distorted where it stands. */
+.org-chip-shape { background: #fbe4e1; color: #8a2a20; white-space: normal; }
+.org-chip-shape.is-warn { background: #fdf0cf; color: #7a5200; }
+.org-place-shape { margin-left: auto; padding: 1px 9px; border-radius: 99px; background: #fbe4e1; color: #8a2a20; font-size: 0.74rem; white-space: nowrap; }
+.org-place-shape.is-warn { background: #fdf0cf; color: #7a5200; }

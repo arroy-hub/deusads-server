@@ -18,6 +18,7 @@ const fillLog = []; // what record_manifest_fill was asked to add, one entry per
 let perfMissing = false; // migration 0038 not applied: no add_session_performance function
 const perfLog = []; // what add_session_performance was asked to add, one entry per report
 let interactionsMissing = false; // migration 0036 not applied: no placements.interactive, no impressions.interactions
+let shapeMissing = false; // migration 0051 not applied: no shape_blocked, shape_level, shape_worst
 let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
 let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
 let cropMissing = false; // 0002 applied, 0003 not yet
@@ -64,6 +65,9 @@ globalThis.fetch = async (input, init = {}) => {
     return fail(400, "42703", "column does not exist");
   }
   if (interactionsMissing && ((table === "placements" && /\"interactive\"/.test(text)) || (table === "impressions" && /\"interactions\"/.test(text)))) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (shapeMissing && /shape_blocked|shape_level|shape_worst/.test(text)) {
     return fail(400, "42703", "column does not exist");
   }
   if (attentionMissing && table === "impressions" && /view_distance/.test(text)) {
@@ -652,6 +656,74 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   r = await send([...baseline, P("s1"), unique], true);
   assert.equal(removedAt("Level_3", "Wall/A"), null, "an old SDK that sends no places does not wipe them");
 
+  organizationApplied = false;
+}
+
+// --- picture shape (migration 0051): a place where the picture would be too distorted is left out
+{
+  organizationApplied = true;
+  const baseline = live().map((id) => P(id));
+  const shaped = (id, shapes) => ({
+    ...P(id),
+    shared: true,
+    places: shapes.map((shape, index) => ({ scene: "Shape_" + index, path: "Wall/" + id, shape, worst: shape === 2 ? 4.7 : shape === 1 ? 1.8 : 1 })),
+  });
+  const placement = (id) => db.placements.find((p) => p.external_id === id);
+  const placeRow = (id, index) => organization.placement_places.find((x) => x.placement_id === placement(id).id && x.scene === "Shape_" + index);
+  db.assignments.push({ placements: { external_id: "w1" }, creatives: { id: "c9", storage_path: "w.png", status: "approved" }, owner_id: "o1", active: true });
+
+  // every place too distorted: the placement is off for the game and gets no creative
+  r = await send([...baseline, shaped("w1", [2, 2])], false);
+  assert.equal(r.status, 200);
+  assert.equal(placement("w1").shape_blocked, true);
+  assert.equal(placeRow("w1", 0).shape_level, 2);
+  assert.equal(placeRow("w1", 0).shape_worst, 4.7);
+  r = await getManifest();
+  assert.ok(r.body.disabled.includes("w1"), "a placement too distorted everywhere is listed as off");
+  assert.ok(!r.body.placements.find((p) => p.id === "w1"), "and gets no creative");
+
+  // only one copy too distorted: the placement stays in the rotation, the SDK leaves that copy out
+  r = await send([...baseline, shaped("w1", [2, 0])], false);
+  assert.equal(placement("w1").shape_blocked, false);
+  assert.equal(placeRow("w1", 0).shape_level, 2);
+  assert.equal(placeRow("w1", 1).shape_level, 0);
+  r = await getManifest();
+  assert.ok(!r.body.disabled.includes("w1"));
+  assert.ok(r.body.placements.find((p) => p.id === "w1"), "the copy that is fine still gets its creative");
+
+  // stretched is shown: recorded, never blocking
+  r = await send([...baseline, shaped("w1", [1, 1])], false);
+  assert.equal(placement("w1").shape_blocked, false);
+  assert.equal(placeRow("w1", 0).shape_level, 1);
+
+  // an invalid shape is ignored, and a report without shape (an older SDK) clears what was recorded
+  r = await send([...baseline, { ...shaped("w1", [0, 0]), places: [{ scene: "Shape_0", path: "Wall/w1", shape: 9, worst: -3 }, { scene: "Shape_1", path: "Wall/w1" }] }], false);
+  assert.equal(placement("w1").shape_blocked, false);
+  assert.equal(placeRow("w1", 0).shape_level, 0);
+  assert.equal(placeRow("w1", 0).shape_worst, null);
+
+  // a copy listed twice counts with its worse shape
+  r = await send([...baseline, { ...shaped("w1", [0]), places: [{ scene: "Shape_0", path: "Wall/w1", shape: 0 }, { scene: "Shape_0", path: "Wall/w1", shape: 2, worst: 3.2 }] }], false);
+  assert.equal(placement("w1").shape_blocked, true);
+
+  // 0051 not applied yet: placements and places are saved as before, nothing is blocked, the manifest answers
+  shapeMissing = true;
+  r = await send([...baseline, shaped("w2", [2, 2])], false);
+  assert.equal(r.status, 200);
+  assert.ok(placement("w2"));
+  assert.equal(placement("w2").shape_blocked, undefined);
+  assert.ok(organization.placement_places.find((x) => x.placement_id === placement("w2").id), "the places are still saved");
+  r = await getManifest();
+  assert.equal(r.status, 200);
+  assert.ok(!r.body.disabled.includes("w2"));
+  shapeMissing = false;
+
+  db.assignments.pop();
+  for (const id of ["w1", "w2"]) {
+    const row = placement(id);
+    organization.placement_places = organization.placement_places.filter((x) => x.placement_id !== row.id);
+    db.placements.splice(db.placements.indexOf(row), 1);
+  }
   organizationApplied = false;
 }
 
