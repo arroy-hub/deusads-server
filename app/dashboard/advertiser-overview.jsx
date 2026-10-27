@@ -5,7 +5,7 @@ import DownloadMenu from './download-menu';
 import ReportFrame, { StatToggle } from './advertising/c/[campaignId]/report-frame';
 import { Info } from './metrics-deck';
 import { REPORT_RANGES } from '../../lib/reports';
-import WindowTop, { PlateIcon, PLATE_PATHS } from './window-top';
+import WindowTop, { PlateIcon } from './window-top';
 
 /** The status of a campaign as a small coloured tag; the colour never carries the meaning alone. */
 export { default as StatusPill } from './advertising/status-pill';
@@ -20,7 +20,7 @@ export default function AdvertiserOverview({ data, basePath, deckLayout = null }
 
   return (
     <div className='wt-win pg-overview'>
-      <WindowTop title='Overview' sub='How your ads are doing across all campaigns.' icon={<PlateIcon d={PLATE_PATHS.chart} />} />
+      <WindowTop title='Overview' sub='How your ads are doing across all campaigns.' icon={<PlateIcon name="home" />} />
 
       {data.missing && (
         <p className='notice'>

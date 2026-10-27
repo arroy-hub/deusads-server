@@ -80,7 +80,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
 
   return (
     <>
-      <Band icon="warn" title="Disputes" info={INFO} sub="Reports in both directions: developers about creatives in their games, advertisers about where their ads are shown." />
+      <Band icon="disputes" title="Disputes" info={INFO} sub="Reports in both directions: developers about creatives in their games, advertisers about where their ads are shown." />
       <DeckShell kind="admin_disputes" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="Last 90 days. Drag the grip to move a widget.">
         <div className="cb-tbar">
           <Seg label="Status" value={tab} onChange={(k) => { setTab(k); setConfirm(null); }} items={[["open", "Open", count("open")], ["acted", "Action taken", count("acted")], ["dismissed", "Dismissed", count("dismissed")]]} />

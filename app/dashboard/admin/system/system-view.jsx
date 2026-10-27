@@ -26,7 +26,7 @@ export default function SystemView({ rows, tracked, ahead }) {
 
   return (
     <>
-      <Band icon="db" title="System" sub="The database against the code you are running." />
+      <Band icon="system" title="System" sub="The database against the code you are running." />
       <div className="cb-work">
         <div className={`cb-st${behind ? "" : " cb-ok"}`}>
           <span className="cb-st-ic"><Icon name={behind ? "warn" : "check"} size={24} /></span>

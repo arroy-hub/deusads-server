@@ -45,7 +45,7 @@ export default function TrafficView({ games, totals, rules, samples, pickedId, d
 
   return (
     <>
-      <Band icon="pulse" title="Traffic" sub="Marks on views that look wrong. Nothing is hidden from any report." />
+      <Band icon="traffic" title="Traffic" sub="Marks on views that look wrong. Nothing is hidden from any report." />
       <DeckShell kind="admin_traffic" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="Follows the period you pick above. Drag the grip to move a widget.">
         <div className="cb-unit">
           <div className="cb-tbar">

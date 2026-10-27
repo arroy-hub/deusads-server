@@ -32,7 +32,7 @@ export default async function TrafficPage({ searchParams }) {
   if (traffic.missing) {
     return (
       <>
-        <Band icon="pulse" title="Traffic" />
+        <Band icon="traffic" title="Traffic" />
         <p className="notice">Run <code>supabase/migrations/0040_suspicious_traffic.sql</code> in the Supabase SQL editor to turn this page on.</p>
       </>
     );

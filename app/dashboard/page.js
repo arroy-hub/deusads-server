@@ -10,7 +10,7 @@ import AdvertiserOverview from "./advertiser-overview";
 import { homeFor } from "../../lib/nav";
 import { loadDeckLayout } from "../../lib/deck-layout-data";
 import { userClient } from "../../lib/supabase-server";
-import WindowTop, { PlateIcon, PLATE_PATHS } from "./window-top";
+import WindowTop, { PlateIcon } from "./window-top";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Home" };
@@ -57,7 +57,7 @@ async function DeveloperHome({ me }) {
     <div className="wt-win">
       <WindowTop
         title="Home"
-        icon={<PlateIcon d={PLATE_PATHS.home} />}
+        icon={<PlateIcon name="home" />}
         sub="Your starting point: the next step to get ads running in your games, what needs your attention, and a summary of each game."
         actions={<Link href="/dashboard/games" className="button">{rows.length ? "My games" : "Add a game"}</Link>}
       />

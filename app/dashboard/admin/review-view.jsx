@@ -58,7 +58,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
               <div className="cb-acts" style={{ flexWrap: "nowrap" }}>
                 {done ? <Pill tone={row.out === "approved" ? "good" : "bad"} dot={false}>{row.out === "approved" ? "Approved" : "Rejected"}</Pill> : (
                   <>
-                    <IconBtn icon="check" tip="Approve" disabled={busy === row.id} onClick={() => decide(row, "approved")} />
+                    <IconBtn icon="modCreatives" tip="Approve" disabled={busy === row.id} onClick={() => decide(row, "approved")} />
                     <IconBtn icon="dismiss" tip="Reject…" danger onClick={() => { setRejecting(row.id); setReason(""); }} />
                   </>
                 )}
@@ -80,7 +80,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
   return (
     <>
       <Band
-        icon="check"
+        icon="modCreatives"
         title="Review creatives"
         info={INFO}
         sub="Approve or reject what advertisers upload."

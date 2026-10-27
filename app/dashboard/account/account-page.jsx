@@ -7,7 +7,7 @@ import ProfileTab from "./profile-tab";
 import SecurityTab from "./security-tab";
 import { signOut } from "./actions";
 import { leaveDashboard } from "../leave";
-import WindowTop, { PlateIcon, PLATE_PATHS } from "../window-top";
+import WindowTop, { PlateIcon } from "../window-top";
 
 const TABS = ["profile", "security", "notifications"];
 
@@ -50,7 +50,7 @@ export default function AccountPage({ view, admin = false, countries, initialTab
       <WindowTop
         title={admin ? view.company || view.email : "Your account"}
         sub={lede}
-        icon={<PlateIcon d={PLATE_PATHS.user} />}
+        icon={<PlateIcon name="account" />}
         actions={!admin ? (
           <button type="button" className="button button-quiet" disabled={signingOut} onClick={() => leaveDashboard(() => startSignOut(() => signOut()))}>
             {signingOut ? "Signing out…" : "Sign out"}

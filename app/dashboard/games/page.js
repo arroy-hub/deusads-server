@@ -1,5 +1,5 @@
 import Link from "next/link";
-import WindowTop, { PlateIcon, PLATE_PATHS } from "../window-top";
+import WindowTop, { PlateIcon } from "../window-top";
 import { userClient, currentUser } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
@@ -139,7 +139,7 @@ export default async function GamesPage({ searchParams }) {
 
   return (
     <div className="mg gp">
-      <WindowTop title="My games" sub="Your games, their connection and how their ads perform." icon={<PlateIcon d={PLATE_PATHS.games} />}>
+      <WindowTop title="My games" sub="Your games, their connection and how their ads perform." icon={<PlateIcon name="games" />}>
         <nav className="tabs" aria-label="My games sections">
           <Link href="/dashboard/games" className="tab" aria-current={tab === "games" ? "page" : undefined}>
             Games

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Info } from "../metrics-deck";
 import { PROGRESS, STATUS_LABEL, TYPE_LABEL, LIMITS, lockOf, toneOf, waitLabel } from "../../../lib/support-rules";
+import { PlateIcon } from "../window-top";
 
 /** Small pieces used by the page, the corner pop-ups and the request window. */
 
@@ -272,7 +273,7 @@ export function SupportTop({ title, sub, children }) {
       <div className="gp-cover"><div className="gp-pic" style={{ background: TOP_COVER }} /></div>
       <div className="gp-plate-row">
         <div className="gm-plate gp-plate">
-          <span className="gm-icon"><span className="sp-plate-ic"><ChatIcon size={26} /></span></span>
+          <span className="gm-icon"><span className="sp-plate-ic"><PlateIcon name="support" /></span></span>
           <div><h1>{title}</h1><div className="gm-sub">{sub}</div></div>
         </div>
       </div>

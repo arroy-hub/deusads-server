@@ -7,7 +7,7 @@ import { targetingSummary } from "../../../lib/targeting";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 import { canAdvertise } from "../../../lib/admin-rules";
-import WindowTop, { PlateIcon, PLATE_PATHS } from "../window-top";
+import WindowTop, { PlateIcon } from "../window-top";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creatives" };
@@ -57,7 +57,7 @@ export default async function CreativesPage() {
     <div className="wt-win">
       <WindowTop
         title="Creatives"
-        icon={<PlateIcon d={PLATE_PATHS.image} />}
+        icon={<PlateIcon name="creatives" />}
         sub={advertiser
           ? "Your image library for advertising. Upload a PNG or JPG under 8 MB; once DeusADS approves it, book it on placements under Find placements. Open a creative to set how it is cropped and which games may show it."
           : "Your image library. Upload a PNG or JPG under 8 MB, then pick it as your own creative on any of your placements. Changing what a placement shows never needs a new build of the game."}
