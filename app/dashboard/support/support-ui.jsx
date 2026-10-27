@@ -258,3 +258,25 @@ export function Message({ message, admin = false, ownerName = "User" }) {
 }
 
 export { lockOf };
+
+const TOP_COVER = "linear-gradient(105deg, #5a2a1e 0%, #a2432a 38%, #d9744f 70%, #f0b293 100%)";
+
+/**
+ * The window header of Help & feedback (and Support for the admin), as in the mockup and the game window: a warm cover
+ * behind a white plate with the red chat icon, the title and one line under it, then the tabs like browser tabs.
+ * The tabs are passed as children (a <nav className="tabs">).
+ */
+export function SupportTop({ title, sub, children }) {
+  return (
+    <div className="gp-top gp-top-card sp-top">
+      <div className="gp-cover"><div className="gp-pic" style={{ background: TOP_COVER }} /></div>
+      <div className="gp-plate-row">
+        <div className="gm-plate gp-plate">
+          <span className="gm-icon"><span className="sp-plate-ic"><ChatIcon size={26} /></span></span>
+          <div><h1>{title}</h1><div className="gm-sub">{sub}</div></div>
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}

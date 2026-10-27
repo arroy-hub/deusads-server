@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import AssistantChat from "./assistant-chat";
 import RequestsTab from "./requests-tab";
 import RequestWindow from "./request-window";
+import { SupportTop } from "./support-ui";
 
 const HEAD = {
-  assistant: ["Help & feedback", "Ask the assistant, or write to the developer — screenshots welcome."],
-  requests: ["Help & feedback", "Everything you sent to the developer, and what came back."],
+  assistant: ["Help & feedback", "Ask the assistant, or write to the developer — screenshots welcome"],
+  requests: ["Help & feedback", "Ask the assistant, or write to the developer — screenshots welcome"],
 };
 
 /**
@@ -54,14 +55,13 @@ export default function SupportPage({ role, requests, folders, outdated, initial
   const startForm = (next) => { setTab("assistant"); setAddress("assistant", null); setSeed(next); };
 
   return (
-    <div className="pg-ic cx-win sp-win" data-tab={tab}>
-      <header className="main-head cx-head">
-        <div><h1>{title}</h1><p className="lede">{lede}</p></div>
-        <div className="cx-tabs" role="tablist" aria-label="Help sections" onKeyDown={onKeyDown}>
-          <button type="button" ref={(el) => { tabs.current.assistant = el; }} className="cx-tab" role="tab" id="sp-tab-assistant" aria-selected={tab === "assistant"} aria-controls="sp-panel-assistant" tabIndex={tab === "assistant" ? 0 : -1} onClick={() => choose("assistant")}>Assistant</button>
-          <button type="button" ref={(el) => { tabs.current.requests = el; }} className="cx-tab" role="tab" id="sp-tab-requests" aria-selected={tab === "requests"} aria-controls="sp-panel-requests" tabIndex={tab === "requests" ? 0 : -1} onClick={() => choose("requests")}>My requests{unread > 0 && <i>{unread}</i>}</button>
-        </div>
-      </header>
+    <div className="pg-ic gp cx-win sp-win" data-tab={tab}>
+      <SupportTop title={title} sub={lede}>
+        <nav className="tabs" role="tablist" aria-label="Help sections" onKeyDown={onKeyDown}>
+          <button type="button" ref={(el) => { tabs.current.assistant = el; }} className="tab" role="tab" id="sp-tab-assistant" aria-selected={tab === "assistant"} aria-current={tab === "assistant" ? "page" : undefined} aria-controls="sp-panel-assistant" tabIndex={tab === "assistant" ? 0 : -1} onClick={() => choose("assistant")}>Assistant</button>
+          <button type="button" ref={(el) => { tabs.current.requests = el; }} className="tab" role="tab" id="sp-tab-requests" aria-selected={tab === "requests"} aria-current={tab === "requests" ? "page" : undefined} aria-controls="sp-panel-requests" tabIndex={tab === "requests" ? 0 : -1} onClick={() => choose("requests")}>My requests{unread > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Replies you have not read">{unread}</span>}</button>
+        </nav>
+      </SupportTop>
 
       <div id="sp-panel-assistant" role="tabpanel" aria-labelledby="sp-tab-assistant" hidden={tab !== "assistant"}>
         <div className="cx-body sp-assistant">

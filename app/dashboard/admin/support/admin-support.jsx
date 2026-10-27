@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminRequestWindow, { camel } from "./admin-request-window";
-import { CaretIcon, StripFace, toneStyle, useNow } from "../../support/support-ui";
+import { CaretIcon, StripFace, SupportTop, toneStyle, useNow } from "../../support/support-ui";
 import { IcMore } from "../../_cabinet/icons";
 import { STATUS_LABEL, TYPE_LABEL, bulkAllowed, groupByPerson, waitHours, waitLabel } from "../../../../lib/support-rules";
 import { changeStatusMany } from "../../support/actions";
@@ -150,15 +150,14 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
 
   const shownPeople = people.slice(0, shown);
   return (
-    <div className="pg-ic cx-win sp-win sq-win" data-tab={tab}>
-      <header className="main-head cx-head">
-        <div><h1>Support</h1><p className="lede">Messages from developers and advertisers.</p></div>
-        <div className="cx-tabs" role="tablist" aria-label="Support sections">
-          <button type="button" className="cx-tab" role="tab" aria-selected={tab === "queue"} onClick={() => choose("queue")}>Needs attention{waiting.length > 0 && <i>{waiting.length}</i>}</button>
-          <button type="button" className="cx-tab" role="tab" aria-selected={tab === "assistant"} onClick={() => choose("assistant")}>Assistant</button>
-          <button type="button" className="cx-tab" role="tab" aria-selected={all} onClick={() => choose("all")}>All requests</button>
-        </div>
-      </header>
+    <div className="pg-ic gp cx-win sp-win sq-win" data-tab={tab}>
+      <SupportTop title="Support" sub="Messages from developers and advertisers">
+        <nav className="tabs" role="tablist" aria-label="Support sections">
+          <button type="button" className="tab" role="tab" aria-selected={tab === "queue"} aria-current={tab === "queue" ? "page" : undefined} onClick={() => choose("queue")}>Needs attention{waiting.length > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{waiting.length}</span>}</button>
+          <button type="button" className="tab" role="tab" aria-selected={tab === "assistant"} aria-current={tab === "assistant" ? "page" : undefined} onClick={() => choose("assistant")}>Assistant</button>
+          <button type="button" className="tab" role="tab" aria-selected={all} aria-current={all ? "page" : undefined} onClick={() => choose("all")}>All requests</button>
+        </nav>
+      </SupportTop>
 
       {tab === "assistant" ? <AssistantAdmin /> : (
       <div className="cx-body sq-body">
