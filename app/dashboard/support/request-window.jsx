@@ -92,7 +92,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
         <div className="sp-msgs sp-conv" ref={list}>
           {failed ? <p className="sp-problem" role="alert">{failed}</p>
             : !data ? <div className="sp-wait"><span className="spinner" aria-hidden="true" /> Opening…</div>
-            : data.messages.map((m) => <Message key={m.id} message={m} />)}
+            : data.messages.map((m) => <Message key={m.id} message={m} people={data.people} />)}
         </div>
         {data && (lock ? (
           <div className="sp-locked">

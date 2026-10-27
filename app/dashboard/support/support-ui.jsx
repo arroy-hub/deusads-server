@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Info } from "../metrics-deck";
 import { PROGRESS, STATUS_LABEL, TYPE_LABEL, LIMITS, lockOf, toneOf, waitLabel } from "../../../lib/support-rules";
 import { PlateIcon } from "../window-top";
@@ -235,8 +236,64 @@ export function RequestForm({ role, seed, withContext = false, onSent, onCancel,
   );
 }
 
+/**
+ * The round face beside a message: the person's picture (or initials) and, after the pointer rests on it for a moment,
+ * the same card the profile page shows under "How someone sees you". `card` is null for the assistant, which keeps its mark.
+ */
+export function Face({ card, mark, who = "" }) {
+  const [pop, setPop] = useState(null);
+  const timer = useRef(null);
+  const node = useRef(null);
+  const clear = () => { clearTimeout(timer.current); };
+  useEffect(() => clear, []);
+  if (!card) return <span className="sp-who" aria-hidden="true">{mark}</span>;
+  const open = (delay) => {
+    clear();
+    timer.current = setTimeout(() => {
+      const box = node.current?.getBoundingClientRect();
+      if (!box) return;
+      const width = 270;
+      const left = Math.max(8, Math.min(box.left, window.innerWidth - width - 8));
+      const below = box.bottom + 96 < window.innerHeight;
+      setPop({ left, top: below ? box.bottom + 8 : null, bottom: below ? null : window.innerHeight - box.top + 8 });
+    }, delay);
+  };
+  const close = () => { clear(); setPop(null); };
+  return (
+    <>
+      <span
+        ref={node}
+        className={`sp-who sp-face${card.avatarUrl ? " has-pic" : ""}`}
+        style={card.avatarUrl ? { backgroundImage: `url(${card.avatarUrl})` } : undefined}
+        tabIndex={0}
+        role="img"
+        aria-label={card.name || who || "Profile"}
+        onMouseEnter={() => open(450)}
+        onMouseLeave={close}
+        onFocus={() => open(0)}
+        onBlur={close}
+        onKeyDown={(e) => { if (e.key === "Escape") close(); }}
+      >
+        {card.avatarUrl ? "" : card.initials}
+      </span>
+      {pop && typeof document !== "undefined" && createPortal(
+        <div className="sp-face-pop preview-card" style={{ left: pop.left, top: pop.top ?? undefined, bottom: pop.bottom ?? undefined }} role="tooltip">
+          <div className="p-line">
+            <span className={`av${card.avatarUrl ? "" : ""}`} style={card.avatarUrl ? { backgroundImage: `url(${card.avatarUrl})` } : undefined}>{card.avatarUrl ? "" : card.initials}</span>
+            <div>
+              <b>{card.name || "—"}</b>
+              <span>{[card.role, card.country].filter(Boolean).join(" · ")}</span>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 /** One message in a conversation. `mine` messages are the person's own. */
-export function Message({ message, admin = false, ownerName = "User" }) {
+export function Message({ message, admin = false, ownerName = "User", people = {} }) {
   if (message.kind === "system") return <div className="sp-sys">{message.body}</div>;
   // The admin reads from the other side: the person is on the left, the developer (the admin) on the right.
   const mine = admin ? message.kind === "developer" || message.kind === "note" : message.kind === "user";
@@ -244,7 +301,7 @@ export function Message({ message, admin = false, ownerName = "User" }) {
   const mark = message.kind === "bot" ? "D" : message.kind === "developer" || message.kind === "note" ? (admin ? "You" : "Dev") : admin ? ownerName.charAt(0).toUpperCase() : "You";
   return (
     <div className={`sp-m is-${message.kind}${mine ? " is-me" : ""}`}>
-      <span className="sp-who" aria-hidden="true">{mark}</span>
+      <Face card={message.authorId ? people[message.authorId] : null} mark={mark} who={who} />
       <div className={`sp-bub${message.kind === "note" ? " is-note" : ""}`}>
         <span className="sp-by">{who}</span>
         {message.body && <span className="sp-text">{message.body}</span>}

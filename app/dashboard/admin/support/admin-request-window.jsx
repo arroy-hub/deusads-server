@@ -140,7 +140,7 @@ export default function AdminRequestWindow({ id, summary, onClose }) {
         <div className="sp-msgs sp-conv" ref={list}>
           {failed ? <p className="sp-problem" role="alert">{failed}</p>
             : !data ? <div className="sp-wait"><span className="spinner" aria-hidden="true" /> Opening…</div>
-            : data.messages.map((m) => <Message key={m.id} message={m} admin ownerName={row.owner_name} />)}
+            : data.messages.map((m) => <Message key={m.id} message={m} admin ownerName={row.owner_name} people={data.people} />)}
         </div>
         {data && (
           <div className="sp-reply">

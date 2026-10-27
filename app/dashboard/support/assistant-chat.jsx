@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PenIcon, RequestForm, SendIcon, TypeIcon, buildContext, submitSupport } from "./support-ui";
+import { Face, PenIcon, RequestForm, SendIcon, TypeIcon, buildContext, submitSupport } from "./support-ui";
 import { TYPE_LABEL } from "../../../lib/support-rules";
 
 const GREETING_ON = "Hi! I can answer questions about the dashboard. If I can’t help, I’ll pass it to the developer — you can add a screenshot.";
@@ -23,6 +23,15 @@ const uid = () => `m${(counter += 1)}`;
  */
 export default function AssistantChat({ role, mode = "page", assistantOn = false, greeting, seed, onSeedUsed, onOpenRequest }) {
   const [messages, setMessages] = useState(() => [{ id: uid(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page" }]);
+  const [me, setMe] = useState(null); // the person's own card, for their face beside their messages
+  useEffect(() => {
+    let gone = false;
+    fetch("/dashboard/support/conversation?me=1", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => { if (!gone && json?.card) setMe(json.card); })
+      .catch(() => {});
+    return () => { gone = true; };
+  }, []);
   const [text, setText] = useState("");
   const [form, setForm] = useState(null); // null, or { type, title, text }
   const [thinking, setThinking] = useState(false);
@@ -120,7 +129,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   return (
     <div className="sp-chat">
       <div className="sp-msgs" ref={box} aria-live="polite">
-        {messages.map((m) => <ChatMessage key={m.id} m={m} onChip={(chip) => ask(chip)} onOpen={onOpenRequest} onAction={(type) => openForm(type)} />)}
+        {messages.map((m) => <ChatMessage key={m.id} m={m} me={me} onChip={(chip) => ask(chip)} onOpen={onOpenRequest} onAction={(type) => openForm(type)} />)}
         {thinking && <div className="sp-m is-bot"><span className="sp-who" aria-hidden="true">D</span><div className="sp-bub sp-typing"><i /><i /><i /></div></div>}
       </div>
       {form ? (
@@ -150,7 +159,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   );
 }
 
-function ChatMessage({ m, onChip, onOpen, onAction }) {
+function ChatMessage({ m, me, onChip, onOpen, onAction }) {
   if (m.kind === "sys") {
     return (
       <div className="sp-sys">
@@ -164,7 +173,7 @@ function ChatMessage({ m, onChip, onOpen, onAction }) {
   return (
     <>
       <div className={`sp-m is-${m.kind}${mine ? " is-me" : ""}`}>
-        <span className="sp-who" aria-hidden="true">{mine ? "You" : "D"}</span>
+        <Face card={mine ? me : null} mark={mine ? "You" : "D"} />
         <div>
           <div className="sp-bub"><span className="sp-text">{m.body}</span>{m.source && <span className="sp-source">{m.source}</span>}{m.shots?.map((url) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={url} className="sp-shot" src={url} alt="Screenshot" />)}</div>
           {m.chips && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
