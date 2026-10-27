@@ -8,7 +8,7 @@ const labels = (role) => menuFor(role).filter((group) => !group.foot).flatMap((g
 assert.deepEqual(labels("developer"), ["Home", "My games"]);
 assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns"]);
 assert.ok(!labels("advertiser").includes("Creatives"), "Creatives is a tab of the Campaigns window, not a menu entry");
-assert.equal(labels("admin").slice(0, 6).join(), "Review creatives,Disputes,All bookings,Users,Traffic,System");
+assert.equal(labels("admin").slice(0, 7).join(), "Review creatives,Disputes,Support,All bookings,Users,Traffic,System");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
 assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
 // the only creatives entry of an admin is the review page

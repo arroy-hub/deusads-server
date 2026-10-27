@@ -8,7 +8,7 @@ import { registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, openDisputes, unreadCount } from "../../lib/counts";
-import { unreadSupport } from "../../lib/support-data";
+import { supportWaiting, unreadSupport } from "../../lib/support-data";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import { avatarUrlOf } from "../../lib/account-data";
 import { initials as initialsOf, needsAttention } from "../../lib/account-rules";
@@ -76,8 +76,8 @@ export default async function DashboardLayout({ children }) {
     admin ? adminCounts(serviceClient()) : null,
     admin ? openDisputes(serviceClient()) : 0,
     admin ? loadAppliedVersions(serviceClient()) : null,
-    // Replies from the developer that this person has not read yet (Help & feedback; migration 0052).
-    admin ? 0 : unreadSupport(db, user?.id),
+    // An admin: requests waiting for an answer. Anyone else: replies from the developer not read yet (migration 0052).
+    admin ? supportWaiting(serviceClient()) : unreadSupport(db, user?.id),
   ]);
   const requests = 0; // bookings approve themselves: nothing waits for the developer
   const schemaBehind = admin && !schemaVerdict(applied).ok;

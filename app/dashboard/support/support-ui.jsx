@@ -46,7 +46,12 @@ export const dayOf = (iso) => { const d = new Date(iso); return `${d.getUTCDate(
 export const stampOf = (iso) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const agoOf = (iso, now) => (now ? `${waitLabel(Math.max(0, now - new Date(iso).getTime()) / 3600000)} ago` : dayOf(iso));
 
-const NOTE = (request, now) => ({
+const NOTE = (request, now, admin) => (admin ? {
+  new: "Waiting for your reply",
+  answered: `You replied · ${agoOf(request.lastMessageAt, now)}`,
+  noted: `Noted · ${agoOf(request.statusChangedAt, now)}`,
+  resolved: `Resolved · ${agoOf(request.statusChangedAt, now)}`,
+} : {
   new: "Waiting for the developer",
   answered: `Developer replied · ${agoOf(request.lastMessageAt, now)}`,
   noted: `Noted · ${agoOf(request.statusChangedAt, now)}`,
@@ -60,20 +65,20 @@ const COVER = "linear-gradient(105deg,color-mix(in srgb,var(--tone) 34%,#fff),co
  * The cover, the white plate with the type icon, title, status and the progress bar. The same markup as a campaign
  * strip, so the request list looks like the Campaigns list; the request window uses it as its header.
  */
-export function StripFace({ request, now }) {
+export function StripFace({ request, now, admin = false, typeSlot = null }) {
   const running = request.status === "new" || request.status === "answered";
   return (
     <>
       <div className="cx-scover"><div className="cx-pic" style={{ background: COVER }} /></div>
       <div className="cx-splate">
-        <span className="cx-ic"><span className="rd-tile"><TypeIcon type={request.type} size={20} /></span></span>
+        <span className="cx-ic">{typeSlot ?? <span className="rd-tile"><TypeIcon type={request.type} size={20} /></span>}</span>
         <div className="cx-txt">
           <h3>{request.title}</h3>
           <div className="cx-sub"><b>{STATUS_LABEL[request.status]}</b> · {TYPE_LABEL[request.type]} · #{request.number}</div>
         </div>
         <div className="cx-dates">
           <div className={`cx-dr${running ? " is-running" : ""}`}>
-            <div className="cx-dl"><b>Sent {dayOf(request.createdAt)}</b><span suppressHydrationWarning>{NOTE(request, now)}</span></div>
+            <div className="cx-dl"><b>Sent {dayOf(request.createdAt)}</b><span suppressHydrationWarning>{NOTE(request, now, admin)}</span></div>
             <div className="cx-dr-track"><i className="cx-dr-fill" style={{ width: `${PROGRESS[request.status]}%` }} /></div>
           </div>
         </div>
@@ -230,15 +235,16 @@ export function RequestForm({ role, seed, withContext = false, onSent, onCancel,
 }
 
 /** One message in a conversation. `mine` messages are the person's own. */
-export function Message({ message }) {
+export function Message({ message, admin = false, ownerName = "User" }) {
   if (message.kind === "system") return <div className="sp-sys">{message.body}</div>;
-  const mine = message.kind === "user";
-  const who = message.kind === "bot" ? "Assistant" : message.kind === "developer" ? "Developer" : "You";
-  const mark = message.kind === "bot" ? "D" : message.kind === "developer" ? "Dev" : "You";
+  // The admin reads from the other side: the person is on the left, the developer (the admin) on the right.
+  const mine = admin ? message.kind === "developer" || message.kind === "note" : message.kind === "user";
+  const who = message.kind === "bot" ? "Assistant" : message.kind === "note" ? "Internal note" : message.kind === "developer" ? (admin ? "You" : "Developer") : admin ? ownerName : "You";
+  const mark = message.kind === "bot" ? "D" : message.kind === "developer" || message.kind === "note" ? (admin ? "You" : "Dev") : admin ? ownerName.charAt(0).toUpperCase() : "You";
   return (
     <div className={`sp-m is-${message.kind}${mine ? " is-me" : ""}`}>
       <span className="sp-who" aria-hidden="true">{mark}</span>
-      <div className="sp-bub">
+      <div className={`sp-bub${message.kind === "note" ? " is-note" : ""}`}>
         <span className="sp-by">{who}</span>
         {message.body && <span className="sp-text">{message.body}</span>}
         {message.screenshots?.map((shot) => (
