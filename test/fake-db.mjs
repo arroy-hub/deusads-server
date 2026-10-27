@@ -50,5 +50,16 @@ export function fake({ missing = [] } = {}) {
     return b;
   };
   const storage = { from: () => ({ upload: async (path, bytes, o) => (uploaded.push({ path, type: o.contentType }), { error: null }), remove: async () => ({}), createSignedUrls: async (paths) => ({ data: paths.map((path) => ({ path, signedUrl: `https://x/${path}` })) }) }) };
-  return { tables, uploaded, from, storage };
+  // support_bot_begin (migration 0054): the same checks as the SQL function, in one synchronous step.
+  const rpc = async (fn, args) => {
+    if (missing.includes("support_bot_log") || fn !== "support_bot_begin") return { data: null, error: { code: "42883" } };
+    const day = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00.000Z").toISOString();
+    const log = tables.support_bot_log;
+    if (log.filter((r) => r.owner_id === args.p_owner && r.created_at >= day).length >= args.p_per_day) return { data: { status: "limit" }, error: null };
+    if (log.filter((r) => r.created_at >= day).reduce((n, r) => n + (r.tokens_in ?? 0) + (r.tokens_out ?? 0), 0) >= args.p_token_cap) return { data: { status: "budget" }, error: null };
+    const row = { id: randomUUID(), owner_id: args.p_owner, question: args.p_question, outcome: "escalated", reason: "Assistant unavailable", created_at: new Date().toISOString() };
+    log.push(row);
+    return { data: { status: "ok", id: row.id }, error: null };
+  };
+  return { tables, uploaded, from, storage, rpc };
 }

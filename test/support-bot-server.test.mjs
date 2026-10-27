@@ -84,6 +84,24 @@ for (let i = 0; i < 5; i += 1) assert.equal((await askAssistant(busy, { actor: p
 assert.equal((await askAssistant(busy, { actor: person, question: "api key again" })).outcome, "limit");
 assert.equal((await askAssistant(busy, { actor: { id: "dev-2", role: "developer" }, question: "api key" })).outcome, "answered");
 
+// at the same moment: five questions sent together cannot all pass a limit of 3
+const rush = world();
+await saveSettings(rush, { actor: admin, settings: { maxday: 5 } });
+rush.tables.support_bot_log.length = 0;
+const burst = await Promise.all(Array.from({ length: 8 }, (_, i) => askAssistant(rush, { actor: { id: "dev-9", role: "developer" }, question: `api key ${i}` })));
+assert.equal(burst.filter((r) => r.outcome === "answered").length, 5);
+assert.equal(burst.filter((r) => r.outcome === "limit").length, 3);
+
+// the day's token cap stops everyone
+const capped = world();
+capped.tables.support_bot_log.push({ id: "x", owner_id: "other", question: "q", outcome: "answered", tokens_in: 3_000_000, tokens_out: 0, created_at: new Date().toISOString() });
+assert.equal((await askAssistant(capped, { actor: person, question: "api key" })).outcome, "off");
+
+// the migration with the function is missing
+const noFn = world();
+noFn.rpc = async () => ({ data: null, error: { code: "42883" } });
+assert.ok((await askAssistant(noFn, { actor: person, question: "api key" })).error);
+
 // the admin's preview: unsaved settings, nothing logged, works while switched off
 const quiet = world({ enabled: false });
 got = await askAssistant(quiet, { actor: admin, question: "api key", preview: true, settings: { sig: true } });
