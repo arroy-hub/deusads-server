@@ -141,43 +141,66 @@ const MODES = [
 ];
 
 /**
- * Where a campaign (or a creative) is aimed: Worldwide, only the ticked countries, or everywhere except the ticked ones.
- * `value` is { countries, exclude_countries }; `onChange` gets the same shape. Worldwide shows every country ticked and
- * cannot be edited. Moving between "only" and "except" starts the list again, because a tick means the opposite.
+ * Where a campaign (or a creative) is aimed, as a field like the game's countries: a dashed box that says what is chosen
+ * (Worldwide, only some countries, or everywhere except some) and opens a pop-up with the three buttons and the three tier columns.
+ * `value` is { countries, exclude_countries }; `onChange` gets the same shape. Worldwide shows every country ticked and cannot be
+ * edited. Moving between "only" and "except" starts the list again, because a tick means the opposite.
  */
 export function CountryAudience({ value, onChange, disabled = false }) {
   const [mode, setMode] = useState(countryMode(value));
+  const [open, setOpen] = useState(false);
   const countries = value.countries ?? [];
   const skipped = value.exclude_countries ?? [];
+  const ticked = mode === "except" ? skipped : countries;
   const pick = (id) => {
     if (id === mode) return;
     setMode(id);
     onChange({ countries: [], exclude_countries: [] });
   };
-  const help = MODES.find((m) => m.id === mode).help;
+  const word = (n) => `${n} ${n === 1 ? "country" : "countries"}`;
+  const headline = mode === "all" ? "Worldwide" : mode === "only" ? (countries.length ? `Only ${word(countries.length)}` : "Only these countries") : skipped.length ? `Everywhere except ${word(skipped.length)}` : "Everywhere except";
+  const empty = mode !== "all" && ticked.length === 0;
   return (
     <div className="ct-audience">
-      <div className="ct-modes" role="radiogroup" aria-label="Where the campaign shows">
-        {MODES.map((m) => (
-          <button key={m.id} type="button" className="ct-mode" role="radio" aria-checked={mode === m.id} disabled={disabled} onClick={() => pick(m.id)}>{m.label}</button>
-        ))}
-      </div>
-      <p className="settings-help">{help}</p>
-      <TierColumns
-        kind={mode === "except" ? "exclude" : "include"}
-        locked={mode === "all"}
-        disabled={disabled}
-        value={mode === "except" ? skipped : countries}
-        onChange={(next) => (mode === "except" ? onChange({ countries: [], exclude_countries: next }) : onChange({ countries: next, exclude_countries: skipped.filter((id) => !next.includes(id)) }))}
-      />
-      {mode === "only" && countries.length === 0 && <p className="settings-help">Nothing ticked yet, so the campaign is not limited by country.</p>}
-      {mode === "except" && skipped.length === 0 && <p className="settings-help">Nothing ticked yet, so no country is skipped.</p>}
+      <button type="button" className={`ct-field${empty ? " is-empty" : ""}`} aria-haspopup="dialog" onClick={() => setOpen(true)} disabled={disabled}>
+        <b>{headline}</b>
+        {mode === "all" ? <span className="muted-line">All countries</span> : <TierChips ids={ticked} />}
+        {empty && <span className="ct-field-empty">Nothing ticked yet</span>}
+        <span className="ct-field-act">Edit</span>
+      </button>
       {mode === "only" && skipped.length > 0 && (
         <p className="settings-help">
           {skipped.length === 1 ? "1 country is also skipped" : `${skipped.length} countries are also skipped`}.{" "}
           <button type="button" className="button button-quiet" disabled={disabled} onClick={() => onChange({ countries, exclude_countries: [] })}>Stop skipping them</button>
         </p>
       )}
+      <Modal
+        wide
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Countries"
+        footer={
+          <>
+            <span className="muted-line">{mode === "all" ? "Worldwide: every country" : ticked.length === 0 ? "None ticked yet" : `${ticked.length} ${mode === "except" ? "skipped" : "selected"}`}</span>
+            {mode !== "all" && <button type="button" className="button button-quiet" onClick={() => onChange({ countries: [], exclude_countries: [] })} disabled={ticked.length === 0 && skipped.length === 0}>Clear all</button>}
+            <button type="button" className="button" onClick={() => setOpen(false)}>Done</button>
+          </>
+        }
+      >
+        <div className="ct-modes" role="radiogroup" aria-label="Where the campaign shows">
+          {MODES.map((m) => (
+            <button key={m.id} type="button" className="ct-mode" role="radio" aria-checked={mode === m.id} onClick={() => pick(m.id)}>{m.label}</button>
+          ))}
+        </div>
+        <p className="settings-help">{MODES.find((m) => m.id === mode).help}</p>
+        <TierColumns
+          kind={mode === "except" ? "exclude" : "include"}
+          locked={mode === "all"}
+          value={ticked}
+          scroll={420}
+          onChange={(next) => (mode === "except" ? onChange({ countries: [], exclude_countries: next }) : onChange({ countries: next, exclude_countries: skipped.filter((id) => !next.includes(id)) }))}
+        />
+      </Modal>
     </div>
   );
 }
