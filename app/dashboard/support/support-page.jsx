@@ -55,7 +55,7 @@ export default function SupportPage({ role, requests, folders, outdated, initial
   const startForm = (next) => { setTab("assistant"); setAddress("assistant", null); setSeed(next); };
 
   return (
-    <div className="pg-ic gp cx-win sp-win" data-tab={tab}>
+    <div className="gp cx-win sp-win" data-tab={tab}>
       <SupportTop title={title} sub={lede}>
         <nav className="tabs" role="tablist" aria-label="Help sections" onKeyDown={onKeyDown}>
           <button type="button" ref={(el) => { tabs.current.assistant = el; }} className="tab" role="tab" id="sp-tab-assistant" aria-selected={tab === "assistant"} aria-current={tab === "assistant" ? "page" : undefined} aria-controls="sp-panel-assistant" tabIndex={tab === "assistant" ? 0 : -1} onClick={() => choose("assistant")}>Assistant</button>

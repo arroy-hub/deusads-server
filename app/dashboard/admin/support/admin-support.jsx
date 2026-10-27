@@ -150,7 +150,7 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
 
   const shownPeople = people.slice(0, shown);
   return (
-    <div className="pg-ic gp cx-win sp-win sq-win" data-tab={tab}>
+    <div className="gp cx-win sp-win sq-win" data-tab={tab}>
       <SupportTop title="Support" sub="Messages from developers and advertisers">
         <nav className="tabs" role="tablist" aria-label="Support sections">
           <button type="button" className="tab" role="tab" aria-selected={tab === "queue"} aria-current={tab === "queue" ? "page" : undefined} onClick={() => choose("queue")}>Needs attention{waiting.length > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{waiting.length}</span>}</button>

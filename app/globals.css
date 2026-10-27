@@ -9646,3 +9646,4 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-top .tabs button.tab[aria-current="page"] { border: 0; }
 .sp-top .tab .cp-count { text-shadow: none; }
 .sp-top .gm-sub { white-space: normal; }
+.gp.sp-win { padding-bottom: 0; }
