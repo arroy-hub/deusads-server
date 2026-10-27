@@ -8,6 +8,7 @@ import { registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, openDisputes, unreadCount } from "../../lib/counts";
+import { unreadSupport } from "../../lib/support-data";
 import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import { avatarUrlOf } from "../../lib/account-data";
 import { initials as initialsOf, needsAttention } from "../../lib/account-rules";
@@ -17,6 +18,7 @@ import { RoleMenu, RoleSwitch } from "./role-view";
 import NotificationsBell from "./notifications-bell";
 import NavFade from "./nav-fade";
 import EnterReveal from "./enter-reveal";
+import SupportCorner from "./support/support-corner";
 
 export const dynamic = "force-dynamic";
 
@@ -68,12 +70,14 @@ export default async function DashboardLayout({ children }) {
     );
   }
   const admin = role === "admin";
-  const [, waitingAdmin, disputes, applied] = await Promise.all([
+  const [, waitingAdmin, disputes, applied, supportUnread] = await Promise.all([
     // Opening any page keeps the visit alive (My games works out "since your last visit" from it).
     registerVisit(serviceClient(), user?.id).catch(() => null),
     admin ? adminCounts(serviceClient()) : null,
     admin ? openDisputes(serviceClient()) : 0,
     admin ? loadAppliedVersions(serviceClient()) : null,
+    // Replies from the developer that this person has not read yet (Help & feedback; migration 0052).
+    admin ? 0 : unreadSupport(db, user?.id),
   ]);
   const requests = 0; // bookings approve themselves: nothing waits for the developer
   const schemaBehind = admin && !schemaVerdict(applied).ok;
@@ -81,7 +85,7 @@ export default async function DashboardLayout({ children }) {
 
   const groups = menuFor(
     role,
-    { requests, disputes, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0 },
+    { requests, disputes, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0, support: supportUnread },
     (games ?? []).map((game) => ({
       href: `/dashboard/g/${game.id}`,
       label: game.name,
@@ -124,7 +128,7 @@ export default async function DashboardLayout({ children }) {
           />
         )}
         {!admin && groups.map((group, index) => (
-          <div className={`rail-group${group.heading?.startsWith("As a") ? " is-dim" : ""}`} key={group.heading ?? index}>
+          <div className={`rail-group${group.heading?.startsWith("As a") ? " is-dim" : ""}${group.foot ? " is-foot" : ""}`} key={group.heading ?? index}>
             {group.heading && <div className="rail-heading">{group.heading}</div>}
             {group.items.map((item) => (
               <NavLink key={item.key + item.href} item={item} />
@@ -136,6 +140,7 @@ export default async function DashboardLayout({ children }) {
 
       <div className="content">
         <main className="main">{children}</main>
+        {!admin && <SupportCorner role={role} unread={supportUnread} />}
         <NavFade />
         <EnterReveal />
       </div>

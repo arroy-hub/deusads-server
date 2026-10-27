@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { menuFor, homeFor, isActive } from "../lib/nav.js";
 import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 
-const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
+const labels = (role) => menuFor(role).filter((group) => !group.foot).flatMap((group) => group.items.map((item) => item.label));
 
 assert.deepEqual(labels("developer"), ["Home", "My games"]);
 assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns"]);
@@ -23,6 +23,17 @@ assert.equal(section("As a developer"), labels("developer").filter((label) => la
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard");
+
+// Help & feedback: at the foot of the menu for developers and advertisers, with the unread count; not for an admin
+for (const role of ["developer", "advertiser"]) {
+  const groups = menuFor(role, { support: 2 });
+  const foot = groups.at(-1);
+  assert.ok(foot.foot && foot.items.length === 1, `${role}: Help & feedback is the last group`);
+  assert.equal(foot.items[0].label, "Help & feedback");
+  assert.equal(foot.items[0].href, "/dashboard/support");
+  assert.equal(foot.items[0].badge, 2);
+}
+assert.ok(!menuFor("admin").some((group) => group.foot), "an admin has no Help & feedback entry");
 
 // the Creatives tab and a creative's page count as being inside Campaigns
 const campaignsItem = menuFor("advertiser").flatMap((group) => group.items).find((item) => item.key === "campaigns");
