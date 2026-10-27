@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MultiPick from "../../multi-pick";
+import { CountryAudience } from "../../country-tiers";
 import { FIELDS, countFitting, hasTargeting, targetingSummary } from "../../../../lib/targeting";
 
 const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [], countries: [], exclude_countries: [] };
@@ -82,8 +83,10 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
         <MultiPick label="Skip genres" hint="Never in games with any of these." options={FIELDS.genres.options} value={audience.exclude_genres} onChange={pick("exclude_genres")} disabled={busy} />
         <MultiPick label={FIELDS.platforms.label} hint="Only games on at least one of these." options={FIELDS.platforms.options} value={audience.platforms} onChange={pick("platforms")} disabled={busy} />
         <MultiPick label={FIELDS.languages.label} hint="Only games available in at least one of these." options={FIELDS.languages.options} value={audience.languages} onChange={pick("languages")} searchable disabled={busy} />
-        <MultiPick label={FIELDS.countries.label} hint="Only games whose players are in at least one of these." options={FIELDS.countries.options} value={audience.countries} onChange={pick("countries")} searchable disabled={busy} />
-        <MultiPick label="Skip countries" hint="Never in games with players in any of these." options={FIELDS.countries.options} value={audience.exclude_countries} onChange={pick("exclude_countries")} searchable disabled={busy} />
+        <div className="stack">
+          <b>Countries</b>
+          <CountryAudience value={{ countries: audience.countries, exclude_countries: audience.exclude_countries }} onChange={(next) => { setNote(null); setAudience({ ...audience, ...next }); }} disabled={busy} />
+        </div>
 
         <p className="audience-line" role="status" aria-live="polite">
           {hasTargeting(targeting) ? targetingSummary(targeting) : "Every game."}

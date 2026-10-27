@@ -16,13 +16,14 @@ import { cropToStrip } from "../../../../lib/cover-image";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { planCreativeIds } from "../../../../lib/campaign-plan";
 import { FIELDS, PROFILE_KEYS, evaluate, labelOf, targetingSummary } from "../../../../lib/targeting";
+import { gamesByTier, reachedCountries, tierSummary } from "../../../../lib/country-tiers";
+import { CountryAudience } from "../../country-tiers";
 import { addD, diff, fmtDay, todayISO } from "../../_cabinet/dates";
 import { Tip } from "../../_cabinet/ui";
 import { IcCheck, IcPlus, IcWarn } from "../../_cabinet/icons";
 import { navigating } from "../../_cabinet/nav";
 
 const POPULAR_LANGUAGES = ["en", "es", "de", "fr", "ru", "pt", "zh", "ja", "ko", "it", "tr", "pl"];
-const POPULAR_COUNTRIES = ["us", "gb", "de", "fr", "ca", "au", "es", "it", "nl", "br", "jp", "kr"];
 const ALL_KEYS = [...PROFILE_KEYS, "exclude_genres", "exclude_countries"];
 const shapeOf = (item) => ({ aspect: item?.width && item?.height ? item.width / item.height : null, safeZone: item?.safe ?? undefined });
 const word = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -113,10 +114,6 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const [addingGenre, setAddingGenre] = useState(false);
   const [moreLang, setMoreLang] = useState(false);
   const [langQ, setLangQ] = useState("");
-  const [moreCountry, setMoreCountry] = useState(false);
-  const [countryQ, setCountryQ] = useState("");
-  const [addingCountry, setAddingCountry] = useState(false);
-  const [skipQ, setSkipQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [editor, setEditor] = useState(null); // { data, tab } while the creative editor is open
@@ -233,12 +230,6 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const languageOptions = optionsOf("languages", featured);
   const needle = langQ.trim().toLowerCase();
   const otherLanguages = FIELDS.languages.options.filter((o) => !featured.includes(o.id) && (!needle || o.label.toLowerCase().includes(needle)));
-  const featuredCountries = [...new Set([...POPULAR_COUNTRIES, ...filters.countries])];
-  const countryOptions = optionsOf("countries", featuredCountries);
-  const countryNeedle = countryQ.trim().toLowerCase();
-  const otherCountries = FIELDS.countries.options.filter((o) => !featuredCountries.includes(o.id) && !filters.exclude_countries.includes(o.id) && (!countryNeedle || o.label.toLowerCase().includes(countryNeedle)));
-  const skipNeedle = skipQ.trim().toLowerCase();
-  const skippable = FIELDS.countries.options.filter((o) => !filters.exclude_countries.includes(o.id) && !filters.countries.includes(o.id) && (!skipNeedle || o.label.toLowerCase().includes(skipNeedle)));
   const setCountries = (next) => setFilters({ ...filters, countries: next, exclude_countries: filters.exclude_countries.filter((id) => !next.includes(id)) });
   const setGenres = (next) => setFilters({ ...filters, genres: next, exclude_genres: filters.exclude_genres.filter((id) => !next.includes(id)) });
   const toggleIn = (key, id) => (key === "genres" ? setGenres : key === "countries" ? setCountries : (next) => setFilters({ ...filters, [key]: next }))(filters[key].includes(id) ? filters[key].filter((x) => x !== id) : [...filters[key], id]);
@@ -249,11 +240,12 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   for (const key of PROFILE_KEYS) {
     if (filters[key].length === 0) continue;
     running = { ...running, [key]: filters[key] };
-    const names = filters[key].map((id) => labelOf(key, id)).join(" or ");
+    const names = key === "countries" ? `${tierSummary(filters.countries)} (${filters.countries.length})` : filters[key].map((id) => labelOf(key, id)).join(" or ");
     funnel.push({ label: key === "genres" ? "Match your genres" : `${key === "platforms" ? "…on " : "…in "}${names}`, count: games.filter((g) => evaluate(g.profile, running).fits).length });
   }
   const skippedBy = (key) => (filters[key].length ? games.filter((g) => evaluate(g.profile, running).fits && evaluate(g.profile, { [key]: filters[key] }).problems.some((p) => p.kind === "excluded")).length : 0);
   const excludedCount = skippedBy("exclude_genres");
+  const byTier = gamesByTier(audienceGames.map((g) => g.profile), reachedCountries(filters));
   const excludedCountries = skippedBy("exclude_countries");
   const unfilled = PROFILE_KEYS.filter((k) => filters[k].length > 0).map((k) => ({ field: k, count: games.filter((g) => (g.profile?.[k] ?? []).length === 0).length, plural: k })).filter((i) => i.count > 0);
   let widen = null;
@@ -397,19 +389,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                 </section>
                 <section className="nwc-sec">
                   <div className="nwc-bh"><h3>Countries</h3><span>Where the game's players are</span></div>
-                  <div className="nwc-chips">
-                    {countryOptions.map((o) => <button key={o.id} type="button" className={`nwc-chip${filters.countries.includes(o.id) ? " is-picked" : ""}`} aria-pressed={filters.countries.includes(o.id)} onClick={() => toggleIn("countries", o.id)} disabled={busy}>{o.label}</button>)}
-                    <button type="button" className="nwc-chip is-add" aria-expanded={moreCountry} onClick={() => setMoreCountry(!moreCountry)}>+ More countries</button>
-                  </div>
-                  {moreCountry && <div className="nwc-more"><input className="nwc-in" type="search" placeholder="Search" aria-label="Search countries" value={countryQ} onChange={(e) => setCountryQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && e.preventDefault()} /><div className="nwc-chips">{otherCountries.map((o) => <button key={o.id} type="button" className="nwc-chip" onClick={() => setCountries([...filters.countries, o.id])}>{o.label}</button>)}{otherCountries.length === 0 && <span className="nwc-hint">Nothing found.</span>}</div></div>}
-                </section>
-                <section className="nwc-sec">
-                  <div className="nwc-bh"><h3>Exclude countries</h3><span>Never show in games with players in these countries</span></div>
-                  <div className="nwc-chips">
-                    {filters.exclude_countries.map((id) => <button key={id} type="button" className="nwc-chip is-excluded" aria-pressed="true" onClick={() => setFilters({ ...filters, exclude_countries: filters.exclude_countries.filter((x) => x !== id) })}>{labelOf("countries", id)} ×</button>)}
-                    <button type="button" className="nwc-chip is-add" aria-expanded={addingCountry} onClick={() => setAddingCountry(!addingCountry)}>+ Add country</button>
-                  </div>
-                  {addingCountry && <div className="nwc-more"><input className="nwc-in" type="search" placeholder="Search" aria-label="Search countries to exclude" value={skipQ} onChange={(e) => setSkipQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && e.preventDefault()} /><div className="nwc-chips">{skippable.map((o) => <button key={o.id} type="button" className="nwc-chip" onClick={() => setFilters({ ...filters, exclude_countries: [...filters.exclude_countries, o.id], countries: filters.countries.filter((x) => x !== o.id) })}>{o.label}</button>)}{skippable.length === 0 && <span className="nwc-hint">Nothing found.</span>}</div></div>}
+                  <CountryAudience value={{ countries: filters.countries, exclude_countries: filters.exclude_countries }} onChange={(next) => setFilters({ ...filters, ...next })} disabled={busy} />
                 </section>
               </div>
               <aside className="nwc-reach" aria-label="Estimated reach">
@@ -420,6 +400,11 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                   <div className="nwc-fn">
                     <div><div className="nwc-fr"><span>Registered</span><b>{games.length}</b></div><span className="nwc-fb"><span style={{ width: "100%" }} /></span></div>
                     {funnel.map((row) => <div key={row.label}><div className="nwc-fr"><span>{row.label}</span><b>{row.count}</b></div><span className="nwc-fb"><span style={{ width: `${games.length ? Math.round((row.count / games.length) * 100) : 0}%` }} /></span></div>)}
+                  </div>
+                )}
+                {aimable && audienceGames.length > 0 && (
+                  <div className="nwc-fn" aria-label="Games by tier">
+                    {byTier.map((row) => <div key={row.id}><div className="nwc-fr"><span>{row.label}</span><b>{word(row.games, "game", "games")}</b></div></div>)}
                   </div>
                 )}
                 {excludedCount > 0 && <p className="nwc-note">Excluded by genre: {word(excludedCount, "game", "games")}.</p>}

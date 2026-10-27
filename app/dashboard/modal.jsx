@@ -8,7 +8,7 @@ import { useId, useLayoutEffect, useRef } from "react";
  * content is only built while it is open, so a closed pop-up costs nothing and forgets what was
  * typed in it.
  */
-export default function Modal({ open, onClose, title, children, footer, busy = false }) {
+export default function Modal({ open, onClose, title, children, footer, busy = false, wide = false }) {
   const ref = useRef(null);
   const titleId = useId();
 
@@ -22,7 +22,7 @@ export default function Modal({ open, onClose, title, children, footer, busy = f
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={`modal${wide ? " modal-wide" : ""}`}
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={(event) => {

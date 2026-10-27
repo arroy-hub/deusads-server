@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MultiPick from "../../../../multi-pick";
+import { CountryAudience } from "../../../../country-tiers";
 import GameIcon from "../../../../game-icon";
 import { setCampaignAudience } from "../../../actions";
 import { FIELDS, countFitting, fitsGame, hasTargeting, labelOf, targetingSummary } from "../../../../../../lib/targeting";
@@ -55,8 +56,10 @@ function AudienceEditor({ value, onChange, onSave, onClose, saved, catalog, busy
         <MultiPick label="Skip genres" hint="Never in games with any of these." options={FIELDS.genres.options} value={value.exclude_genres} onChange={pick("exclude_genres")} />
         <MultiPick label={FIELDS.platforms.label} hint="Only games on at least one of these." options={FIELDS.platforms.options} value={value.platforms} onChange={pick("platforms")} />
         <MultiPick label={FIELDS.languages.label} hint="Only games available in at least one of these." options={FIELDS.languages.options} value={value.languages} onChange={pick("languages")} searchable />
-        <MultiPick label={FIELDS.countries.label} hint="Only games whose players are in at least one of these." options={FIELDS.countries.options} value={value.countries} onChange={pick("countries")} searchable />
-        <MultiPick label="Skip countries" hint="Never in games with players in any of these." options={FIELDS.countries.options} value={value.exclude_countries} onChange={pick("exclude_countries")} searchable />
+      </div>
+      <div className="aud-ed-wide">
+        <b>Countries</b>
+        <CountryAudience value={{ countries: value.countries, exclude_countries: value.exclude_countries }} onChange={(next) => onChange({ ...value, ...next })} />
       </div>
       {catalog && (
         <div className="aud-fit" role="status" aria-live="polite">

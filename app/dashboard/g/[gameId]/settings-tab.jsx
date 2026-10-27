@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { deleteGame, rotateApiKey, saveGame, setGameCover, setGameIcon } from "../../actions";
 import GameCardPreview from "../../game-card-preview";
 import MultiPick from "../../multi-pick";
+import { CountryField } from "../../country-tiers";
 import { browserClient } from "../../../../lib/supabase-browser";
 import { MAX_ICON_INPUT_BYTES, squareIcon } from "../../../../lib/icon-image";
 import { FIELDS, GENRES_HINT, MAX_GAME_GENRES, PROFILE_KEYS } from "../../../../lib/targeting";
@@ -308,7 +309,16 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                 <p className="ag-hint">
                   Advertisers aim an ad at a genre, a device, a language or a country. An ad that asks for something you have not filled in will not show in your game.
                 </p>
-                {PROFILE_KEYS.map((key) => (
+                {PROFILE_KEYS.map((key) => key === "countries" ? (
+                  <CountryField
+                    key={key}
+                    hint="Where your players live. Not the same as languages."
+                    value={lists[key]}
+                    onChange={(next) => setList(key, next)}
+                    disabled={busy}
+                    required
+                  />
+                ) : (
                   <MultiPick
                     key={key}
                     label={key === "platforms" ? "Platforms" : FIELDS[key].label}

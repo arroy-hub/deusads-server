@@ -9307,3 +9307,53 @@ body.ig-dragging *{cursor:grabbing!important}
 .org-chip-shape.is-warn { background: #fdf0cf; color: #7a5200; }
 .org-place-shape { margin-left: auto; padding: 1px 9px; border-radius: 99px; background: #fbe4e1; color: #8a2a20; font-size: 0.74rem; white-space: nowrap; }
 .org-place-shape.is-warn { background: #fdf0cf; color: #7a5200; }
+
+/* ---------------------------------------------------------------- country tiers */
+
+.modal-wide { width: min(76rem, calc(100vw - 2rem)); }
+
+.ct-t1 { --tier: #c94a24; --tier-bg: #f8e4da; --tier-fg: #8a2c17; }
+.ct-t2 { --tier: #3b6fb5; --tier-bg: #e0eaf3; --tier-fg: #1f4768; }
+.ct-t3 { --tier: #8c7f73; --tier-bg: #efe7de; --tier-fg: #4a3e36; }
+
+.ct-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.ct-col { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.ct-bar { height: 5px; background: var(--tier); border-radius: 12px 12px 0 0; }
+.ct-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.ct-count { font-size: 12.5px; color: var(--ink-2); }
+.ct-pill { position: relative; padding: 2px 11px; border-radius: 99px; background: var(--tier-bg); color: var(--tier-fg); font-size: 13px; font-weight: 800; cursor: help; border-bottom: 1.5px dotted currentColor; }
+.ct-bub { display: none; position: absolute; left: 0; top: calc(100% + 8px); width: 260px; padding: 9px 12px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12.5px; font-weight: 500; line-height: 1.45; text-align: left; z-index: 30; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25); }
+.ct-pill:hover .ct-bub, .ct-pill:focus .ct-bub { display: block; }
+.ct-list { list-style: none; margin: 0; padding: 6px 4px 8px; overflow: auto; }
+.ct-all, .ct-row { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.ct-all { padding: 0; }
+.ct-row { width: 100%; min-height: 32px; padding: 2px 8px; border-radius: 8px; font-size: 13px; }
+.ct-row:hover:not(:disabled) { background: var(--surface); }
+.ct-row.is-on { background: #fdf3ee; }
+.ct-row.is-skip { background: #fbe9e4; }
+.ct-all:focus-visible, .ct-row:focus-visible, .ct-pill:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ct-all:disabled, .ct-row:disabled { cursor: default; }
+.ct-cols.is-frozen .ct-list { opacity: 0.75; }
+.ct-box { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1.5px solid #a89a8c; border-radius: 5px; background: #fff; color: #fff; box-sizing: border-box; }
+.ct-box.is-on { background: var(--signal); border-color: var(--signal); }
+.ct-box.is-on.is-skip { background: #b3361f; border-color: #b3361f; }
+.ct-code { width: 24px; flex: none; font-size: 11px; font-weight: 800; color: var(--ink-2); }
+.ct-name { flex: 1; min-width: 0; }
+
+.ct-chip { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 99px; background: var(--tier-bg); color: var(--tier-fg); font-size: 12px; font-weight: 700; }
+.ct-field { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%; min-height: 48px; box-sizing: border-box; padding: 8px 14px; border: 1.5px dashed #c9b9a8; border-radius: 12px; background: var(--paper); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ct-field.is-empty { border-color: var(--signal); }
+.ct-field:hover:not(:disabled) { background: var(--surface); }
+.ct-field:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ct-field-empty { color: var(--ink-2); }
+.ct-field-act { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--signal-ink); }
+
+/* campaign: how the countries are used */
+.ct-modes { display: flex; flex-wrap: wrap; gap: 8px; }
+.ct-mode { height: 36px; padding: 0 16px; border-radius: 99px; border: 1px solid #d8cabd; background: var(--paper); color: var(--ink-2); font: 600 13.5px inherit; font-family: inherit; cursor: pointer; }
+.ct-mode[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+@media (max-width: 800px) {
+  .ct-cols { grid-template-columns: 1fr; }
+}
+.aud-ed-wide{display:grid;gap:8px}
