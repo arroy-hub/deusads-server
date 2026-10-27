@@ -238,10 +238,10 @@ dialog.cb-pop::backdrop{background:rgba(36,29,25,.5)}
 .cb-dside .cb-ig-s6,.cb-dside .cb-ig-s8{grid-column:1/-1}
 .cb-dside .cb-ig-grid{gap:8px}
 @media(max-width:1320px){.cb-dsplit{grid-template-columns:minmax(0,1fr)}}
-.cb-band h1 .cb-mk{margin-left:10px}
-.cb-band h1 .cb-ig-i{vertical-align:middle}
-.cb-band .cb-ig-bubble{font-weight:400;letter-spacing:0;text-transform:none}
-.cb-band .cb-ig-bubble b{display:block;margin:0 0 3px;font:700 .75rem/1.45 var(--cb-ui);color:#fff}
+.wt-top h1 .cb-mk{margin-left:10px}
+.wt-top h1 .cb-ig-i{vertical-align:middle}
+.wt-top .cb-ig-bubble{font-weight:400;letter-spacing:0;text-transform:none}
+.wt-top .cb-ig-bubble b{display:block;margin:0 0 3px;font:700 .75rem/1.45 var(--cb-ui);color:#fff}
 .cb-dmain .cb-pair{grid-template-columns:minmax(0,1fr)}
 .cb-dmain .cb-tbar{gap:8px 10px}
 .cb-bkh{cursor:pointer;background:#fff}

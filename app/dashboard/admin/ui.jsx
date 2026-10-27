@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ariaSort } from "../../../lib/sort";
+import WindowTop from "../window-top";
 
 // Building blocks of the admin cabinet. Each mirrors a helper of the mockup (claude/admin-mockup-widgets.html):
 // ic, th, catPill, band, tabBtn, infoI, statBtn, sel, sth, lnk, toast. Markup and class names are the mockup's, cb-prefixed.
@@ -163,19 +164,18 @@ export function StatBtn({ open, onClick }) {
   );
 }
 
-/** The header band: title with an optional "i" bubble, a one-line subtitle, actions on the right, optional tabs underneath. */
-export function Band({ title, info, sub, actions, tabs }) {
+/** The header: the shared cover with the icon plate, title with an optional "i" bubble, a one-line subtitle, actions on the right, optional tabs underneath. */
+export function Band({ title, info, sub, actions, tabs, icon = "list" }) {
   return (
-    <div className={`cb-band${tabs ? "" : " cb-nt"}`}>
-      <div className="cb-band-row">
-        <div>
-          <h1>{title}{info && <Info title={title} text={info} />}</h1>
-          {sub && <p>{sub}</p>}
-        </div>
-        <div className="cb-band-act">{actions}</div>
-      </div>
-      {tabs && <div className="cb-tabs" role="tablist">{tabs}</div>}
-    </div>
+    <WindowTop
+      title={title}
+      titleExtra={info ? <Info title={title} text={info} /> : null}
+      sub={sub}
+      icon={<Icon name={icon} size={28} />}
+      actions={actions ? <div className="cb-band-act">{actions}</div> : null}
+    >
+      {tabs ? <div className="tabs cb-tabs" role="tablist">{tabs}</div> : null}
+    </WindowTop>
   );
 }
 

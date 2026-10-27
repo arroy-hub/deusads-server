@@ -9648,9 +9648,24 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-top .gm-sub { white-space: normal; }
 .gp.sp-win { padding-bottom: 0; }
 
-/* My games header: same cover + plate + tabs as Help & feedback */
-.mg-top-card .gm-plate { margin-top: 0; }
-.mg-top-card .gm-sub { white-space: normal; }
-.mg-plate-ic { width: 56px; height: 56px; border-radius: 14px; background: var(--signal); color: #fff; display: grid; place-items: center; }
+/* Shared window header (WindowTop): cover, icon plate, title, tabs */
+.wt-top .gm-plate { margin-top: 0; min-width: 0; }
+.wt-top .gm-sub { white-space: normal; }
+.wt-ic { width: 56px; height: 56px; border-radius: 14px; background: var(--signal); color: #fff; display: grid; place-items: center; }
+.wt-top .gp-plate-row { flex-wrap: wrap; gap: 12px 24px; }
+.wt-top .wt-act { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.wt-top .tabs { display: flex; }
+.wt-top .tabs button.tab { border: 0; font-family: inherit; cursor: pointer; }
+.wt-top .tabs button.tab[aria-current="page"] { border: 0; }
+.wt-top .tab .cp-count { text-shadow: none; }
+.wt-top:not(:has(.tabs)) { padding-bottom: 18px; }
+.wt-top h1 .cb-ig-i { vertical-align: middle; }
 .mg.gp { padding-bottom: 0; }
-.mg-top-card .tabs { display: flex; }
+/* windows whose content sits in 40px side margins under the shared header */
+.main:has(> .wt-win) { padding: 0; max-width: none; }
+.wt-win { padding-bottom: 56px; }
+.wt-win > :not(.gp-top):not(dialog) { margin-left: 40px; margin-right: 40px; }
+.wt-win > .gp-top + :not(dialog) { margin-top: 26px; }
+.wt-win.cx-win { padding-bottom: 0; }
+.wt-win.cx-win > [role="tabpanel"] { margin-left: 0; margin-right: 0; margin-top: 0; }
+@media (max-width: 700px) { .wt-win > :not(.gp-top):not(dialog) { margin-left: 16px; margin-right: 16px; } .wt-win.cx-win > [role="tabpanel"] { margin-left: 0; margin-right: 0; } .wt-top .gp-plate-row, .wt-top .gp-top-card .tabs { padding-left: 16px; padding-right: 16px; } }

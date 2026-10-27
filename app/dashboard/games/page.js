@@ -1,4 +1,5 @@
 import Link from "next/link";
+import WindowTop, { PlateIcon, PLATE_PATHS } from "../window-top";
 import { userClient, currentUser } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
@@ -138,19 +139,7 @@ export default async function GamesPage({ searchParams }) {
 
   return (
     <div className="mg gp">
-      <div className="gp-top gp-top-card mg-top-card">
-        <div className="gp-cover"><div className="gp-pic" style={{ background: "linear-gradient(105deg, #5a2a1e 0%, #a2432a 38%, #d9744f 70%, #f0b293 100%)" }} /></div>
-        <div className="gp-plate-row">
-          <div className="gm-plate gp-plate">
-            <span className="gm-icon">
-              <span className="mg-plate-ic">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7h18v11H3zM8 11v3M6.5 12.5h3M15.5 11.5h.01M17.5 13.5h.01" /></svg>
-              </span>
-            </span>
-            <div><h1>My games</h1><div className="gm-sub">Your games, their connection and how their ads perform.</div></div>
-          </div>
-        </div>
-
+      <WindowTop title="My games" sub="Your games, their connection and how their ads perform." icon={<PlateIcon d={PLATE_PATHS.games} />}>
         <nav className="tabs" aria-label="My games sections">
           <Link href="/dashboard/games" className="tab" aria-current={tab === "games" ? "page" : undefined}>
             Games
@@ -160,7 +149,7 @@ export default async function GamesPage({ searchParams }) {
             Performance
           </Link>
         </nav>
-      </div>
+      </WindowTop>
 
       <div className="mg-work">
         {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}

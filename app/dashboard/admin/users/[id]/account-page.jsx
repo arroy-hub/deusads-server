@@ -25,6 +25,7 @@ export default function AdminAccountPage({ u, initialTab }) {
     <>
       <div className="cb-adminbar"><Icon name="warn" size={14} /> Admin view of this account. The owner sees the same page without this bar.</div>
       <Band
+        icon="users"
         title={u.company || u.email}
         sub={`${u.email} · joined ${u.joined}`}
         actions={

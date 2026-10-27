@@ -7,6 +7,7 @@ import { targetingSummary } from "../../../lib/targeting";
 import UploadForm from "./upload-form";
 import CreativeRow from "./creative-row";
 import { canAdvertise } from "../../../lib/admin-rules";
+import WindowTop, { PlateIcon, PLATE_PATHS } from "../window-top";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Creatives" };
@@ -53,15 +54,14 @@ export default async function CreativesPage() {
   for (const row of live ?? []) usedBy.set(row.creative_id, (usedBy.get(row.creative_id) ?? 0) + 1);
 
   return (
-    <>
-      <div className="main-head">
-        <h1>Creatives</h1>
-      </div>
-      <p className="lede">
-        {advertiser
+    <div className="wt-win">
+      <WindowTop
+        title="Creatives"
+        icon={<PlateIcon d={PLATE_PATHS.image} />}
+        sub={advertiser
           ? "Your image library for advertising. Upload a PNG or JPG under 8 MB; once DeusADS approves it, book it on placements under Find placements. Open a creative to set how it is cropped and which games may show it."
           : "Your image library. Upload a PNG or JPG under 8 MB, then pick it as your own creative on any of your placements. Changing what a placement shows never needs a new build of the game."}
-      </p>
+      />
 
       <UploadForm />
 
@@ -106,7 +106,7 @@ export default async function CreativesPage() {
           <p style={{ margin: "0 auto" }}>No creatives yet. Upload one above.</p>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

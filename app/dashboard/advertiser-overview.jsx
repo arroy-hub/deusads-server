@@ -5,6 +5,7 @@ import DownloadMenu from './download-menu';
 import ReportFrame, { StatToggle } from './advertising/c/[campaignId]/report-frame';
 import { Info } from './metrics-deck';
 import { REPORT_RANGES } from '../../lib/reports';
+import WindowTop, { PlateIcon, PLATE_PATHS } from './window-top';
 
 /** The status of a campaign as a small coloured tag; the colour never carries the meaning alone. */
 export { default as StatusPill } from './advertising/status-pill';
@@ -18,13 +19,8 @@ export default function AdvertiserOverview({ data, basePath, deckLayout = null }
   const series = data.dates.map((date, i) => ({ date, adv: data.campaigns.reduce((sum, item) => sum + (item.daily[i] || 0), 0) }));
 
   return (
-    <div className='pg-ic pg-overview'>
-      <div className='main-head'>
-        <div>
-          <h1>Overview</h1>
-          <p className='lede'>How your ads are doing across all campaigns.</p>
-        </div>
-      </div>
+    <div className='wt-win pg-overview'>
+      <WindowTop title='Overview' sub='How your ads are doing across all campaigns.' icon={<PlateIcon d={PLATE_PATHS.chart} />} />
 
       {data.missing && (
         <p className='notice'>
