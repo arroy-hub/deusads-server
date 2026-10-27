@@ -34,6 +34,8 @@ export default function WindowTop({ title, titleExtra = null, sub = null, icon, 
 
 // Paths for the plate icons.
 export const PLATE_PATHS = {
+  home: "M4 11l8-7 8 7v9H4z",
+  user: "M12 11a4 4 0 100-8 4 4 0 000 8zM4 21c.6-4 3.8-6 8-6s7.4 2 8 6",
   games: "M3 7h18v11H3zM8 11v3M6.5 12.5h3M15.5 11.5h.01M17.5 13.5h.01",
   chart: "M4 20V10M10 20V4M16 20v-8M22 20H2",
   flag: "M5 21V4m0 0h11l-2 4 2 4H5",

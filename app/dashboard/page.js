@@ -10,6 +10,7 @@ import AdvertiserOverview from "./advertiser-overview";
 import { homeFor } from "../../lib/nav";
 import { loadDeckLayout } from "../../lib/deck-layout-data";
 import { userClient } from "../../lib/supabase-server";
+import WindowTop, { PlateIcon, PLATE_PATHS } from "./window-top";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Home" };
@@ -53,17 +54,13 @@ async function DeveloperHome({ me }) {
   const empty = rows.filter((row) => row.placements === 0);
 
   return (
-    <>
-      <div className="main-head">
-        <h1>Home</h1>
-        <Link href="/dashboard/games" className="button">
-          {rows.length ? "My games" : "Add a game"}
-        </Link>
-      </div>
-      <p className="lede">
-        Your starting point: the next step to get ads running in your games, what needs your attention, and a
-        summary of each game.
-      </p>
+    <div className="wt-win">
+      <WindowTop
+        title="Home"
+        icon={<PlateIcon d={PLATE_PATHS.home} />}
+        sub="Your starting point: the next step to get ads running in your games, what needs your attention, and a summary of each game."
+        actions={<Link href="/dashboard/games" className="button">{rows.length ? "My games" : "Add a game"}</Link>}
+      />
 
       <section className="panel" aria-labelledby="steps-title">
         <h2 id="steps-title">Get a game earning</h2>
@@ -144,7 +141,7 @@ async function DeveloperHome({ me }) {
           )}
         </section>
       </div>
-    </>
+    </div>
   );
 }
 
