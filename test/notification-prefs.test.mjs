@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { ALL_TYPES, channelsOf, deliveryFor, hasChannel, isKnownType, prefProblem, resolvePrefs, sectionsFor } from "../lib/notification-prefs.js";
 
 const titles = (role) => sectionsFor(role).map((s) => s.title);
-assert.deepEqual(titles("developer"), ["Campaigns in your games", "Your reports", "Your games", "Account"]);
-assert.deepEqual(titles("advertiser"), ["Your creatives", "Your campaigns", "Account"]);
+assert.deepEqual(titles("developer"), ["Campaigns in your games", "Your reports", "Your games", "Help & feedback", "Account"]);
+assert.deepEqual(titles("advertiser"), ["Your creatives", "Your campaigns", "Help & feedback", "Account"]);
 assert.deepEqual(titles("admin"), ["To review", "Account"]);
 assert.deepEqual(titles("nobody"), titles("developer"), "an unknown role is treated as a developer");
 
 const rows = (role) => sectionsFor(role).flatMap((s) => s.rows.map((r) => r.type));
-assert.deepEqual(rows("developer"), ["dev_campaign", "dev_withdrew", "dev_report_decided", "dev_booking_paused", "dev_new_placements", "dev_game_silent", "account_security", "product_news"]);
-assert.deepEqual(rows("admin"), ["admin_review", "admin_reports", "account_security", "product_news"]);
+assert.deepEqual(rows("developer"), ["dev_campaign", "dev_withdrew", "dev_report_decided", "dev_booking_paused", "dev_new_placements", "dev_game_silent", "support_reply", "account_security", "product_news"]);
+assert.deepEqual(rows("admin"), ["admin_review", "admin_reports", "admin_support", "account_security", "product_news"]);
 assert.equal(new Set(ALL_TYPES).size, ALL_TYPES.length, "types are unique");
 for (const role of ["developer", "advertiser", "admin"]) for (const type of rows(role)) assert.ok(isKnownType(type), type);
 
@@ -28,7 +28,7 @@ assert.deepEqual(deliveryFor("product_news", { bell: true, email: true }), { bel
 assert.deepEqual(deliveryFor(undefined, undefined), { bell: false, email: false }, "no type: nothing to deliver by choice");
 
 const resolved = resolvePrefs("admin", [{ type: "admin_reports", bell: false, email: true }, { type: "other", bell: false, email: false }]);
-assert.deepEqual(Object.keys(resolved), ["admin_review", "admin_reports", "account_security", "product_news"]);
+assert.deepEqual(Object.keys(resolved), ["admin_review", "admin_reports", "admin_support", "account_security", "product_news"]);
 assert.deepEqual(resolved.admin_reports, { bell: false, email: true });
 assert.deepEqual(resolved.admin_review, { bell: true, email: false });
 
