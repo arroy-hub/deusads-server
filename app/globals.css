@@ -9647,3 +9647,10 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-top .tab .cp-count { text-shadow: none; }
 .sp-top .gm-sub { white-space: normal; }
 .gp.sp-win { padding-bottom: 0; }
+
+/* My games header: same cover + plate + tabs as Help & feedback */
+.mg-top-card .gm-plate { margin-top: 0; }
+.mg-top-card .gm-sub { white-space: normal; }
+.mg-plate-ic { width: 56px; height: 56px; border-radius: 14px; background: var(--signal); color: #fff; display: grid; place-items: center; }
+.mg.gp { padding-bottom: 0; }
+.mg-top-card .tabs { display: flex; }
