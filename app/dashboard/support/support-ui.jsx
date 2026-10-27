@@ -55,7 +55,7 @@ const NOTE = (request, now, admin) => (admin ? {
   resolved: `Resolved · ${agoOf(request.statusChangedAt, now)}`,
 } : {
   new: "Waiting for the developer",
-  answered: `Developer replied · ${agoOf(request.lastMessageAt, now)}`,
+  answered: `DeusADS replied · ${agoOf(request.lastMessageAt, now)}`,
   noted: `Noted · ${agoOf(request.statusChangedAt, now)}`,
   resolved: `Resolved · ${agoOf(request.statusChangedAt, now)}`,
 })[request.status];
@@ -297,8 +297,8 @@ export function Message({ message, admin = false, ownerName = "User", people = {
   if (message.kind === "system") return <div className="sp-sys">{message.body}</div>;
   // The admin reads from the other side: the person is on the left, the developer (the admin) on the right.
   const mine = admin ? message.kind === "developer" || message.kind === "note" : message.kind === "user";
-  const who = message.kind === "bot" ? "Assistant" : message.kind === "note" ? "Internal note" : message.kind === "developer" ? (admin ? "You" : "Developer") : admin ? ownerName : "You";
-  const mark = message.kind === "bot" ? "D" : message.kind === "developer" || message.kind === "note" ? (admin ? "You" : "Dev") : admin ? ownerName.charAt(0).toUpperCase() : "You";
+  const who = message.kind === "bot" ? "Assistant" : message.kind === "note" ? "Internal note" : message.kind === "developer" ? (admin ? "You" : "DeusADS") : admin ? ownerName : "You";
+  const mark = message.kind === "bot" ? "D" : message.kind === "developer" || message.kind === "note" ? (admin ? "You" : "DA") : admin ? ownerName.charAt(0).toUpperCase() : "You";
   return (
     <div className={`sp-m is-${message.kind}${mine ? " is-me" : ""}`}>
       <Face card={message.authorId ? people[message.authorId] : null} mark={mark} who={who} />
