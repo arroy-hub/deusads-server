@@ -5,6 +5,10 @@ import { PenIcon, RequestForm, SendIcon, TypeIcon, buildContext, submitSupport }
 import { TYPE_LABEL } from "../../../lib/support-rules";
 
 const GREETING_ON = "Hi! I can answer questions about the dashboard. If I can’t help, I’ll pass it to the developer — you can add a screenshot.";
+const HELPED = "That helped";
+const NOT_SOLVED = "Not solved — send to developer";
+const SEND = "Send to developer";
+const DOWN = "I couldn’t reach the assistant. You can pass your question to the developer.";
 const GREETING_OFF = "Hi! The assistant is still being set up. Until it is ready, write to the developer: pick what you need below.";
 const NOT_READY = "I can’t answer questions yet, but I can pass yours to the developer — they will reply here and in your bell.";
 
@@ -17,8 +21,8 @@ const uid = () => `m${(counter += 1)}`;
  * types stays in the chat; "Send to developer" turns the last question into a request and leaves a link to it.
  * `assistantOn` is false until the assistant itself is switched on by the admin.
  */
-export default function AssistantChat({ role, mode = "page", assistantOn = false, seed, onSeedUsed, onOpenRequest }) {
-  const [messages, setMessages] = useState(() => [{ id: uid(), kind: "bot", body: assistantOn ? GREETING_ON : GREETING_OFF, actions: !assistantOn && mode === "page" }]);
+export default function AssistantChat({ role, mode = "page", assistantOn = false, greeting, seed, onSeedUsed, onOpenRequest }) {
+  const [messages, setMessages] = useState(() => [{ id: uid(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page" }]);
   const [text, setText] = useState("");
   const [form, setForm] = useState(null); // null, or { type, title, text }
   const [thinking, setThinking] = useState(false);
@@ -38,24 +42,62 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   const push = (...items) => setMessages((list) => [...list.map((m) => (m.chips ? { ...m, chips: null } : m)), ...items.map((item) => ({ id: uid(), ...item }))]);
   const lastQuestion = () => [...messages].reverse().find((m) => m.kind === "user")?.body ?? "";
 
+  // The last answer's log id and the reason it was passed on: they travel with "Send to developer".
+  const last = useRef({ logId: null, escalation: null });
+
   async function ask(question) {
     const q = question.trim();
     if (!q || thinking) return;
+    if (q === HELPED) return helped();
+    if (q === NOT_SOLVED || q === SEND) return handoff(q === NOT_SOLVED);
     setText("");
+    const history = messages.filter((m) => m.kind === "user" || m.kind === "bot").slice(-8).map((m) => ({ role: m.kind === "user" ? "user" : "assistant", text: m.body }));
     push({ kind: "user", body: q });
     setThinking(true);
-    // Stage 6 puts the real assistant here; until then it says so and offers the developer.
-    await new Promise((done) => setTimeout(done, 450));
+    if (!assistantOn) {
+      await new Promise((done) => setTimeout(done, 450));
+      setThinking(false);
+      last.current = { logId: null, escalation: null };
+      return push({ kind: "bot", body: NOT_READY, chips: [SEND] });
+    }
+    let data = null;
+    try {
+      const response = await fetch("/dashboard/support/assistant", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "ask", question: q, history }) });
+      data = await response.json().catch(() => null);
+      if (!response.ok) data = { error: data?.error || DOWN };
+    } catch {
+      data = { error: DOWN };
+    }
     setThinking(false);
-    push({ kind: "bot", body: NOT_READY, chips: ["Send to developer"] });
+    if (!data || data.error) {
+      last.current = { logId: null, escalation: null };
+      return push({ kind: "bot", body: data?.error || DOWN, chips: [SEND] });
+    }
+    last.current = { logId: data.logId ?? null, escalation: data.escalation ?? null };
+    if (data.outcome === "answered") return push({ kind: "bot", body: data.reply, source: data.source, chips: [HELPED, NOT_SOLVED] });
+    if (data.outcome === "limit") return push({ kind: "bot", body: data.reply, chips: [SEND] });
+    if (data.outcome === "off") return push({ kind: "bot", body: NOT_READY, chips: [SEND] });
+    return push({ kind: "bot", body: data.reply, chips: [SEND] });
   }
 
-  async function handoff() {
+  async function rate(rating) {
+    const logId = last.current.logId;
+    if (!logId) return;
+    fetch("/dashboard/support/assistant", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "rate", logId, rating }) }).catch(() => null);
+  }
+
+  function helped() {
+    rate("up");
+    push({ kind: "user", body: HELPED }, { kind: "bot", body: "Glad to help! Ask anything else any time." });
+  }
+
+  async function handoff(notSolved = false) {
     const question = lastQuestion();
     if (!question || busy) return;
+    if (notSolved) rate("down");
     setBusy(true);
     const result = await submitSupport(
-      { action: "create", type: "question", title: question.slice(0, 70), text: question, via: "assistant", context: buildContext({ role, withPage: mode === "popup" }) },
+      { action: "create", type: "question", title: question.slice(0, 70), text: question, via: "assistant", escalation: last.current.escalation ?? "", logId: last.current.logId ?? "", context: buildContext({ role, withPage: mode === "popup" }) },
       [],
     );
     setBusy(false);
@@ -78,7 +120,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   return (
     <div className="sp-chat">
       <div className="sp-msgs" ref={box} aria-live="polite">
-        {messages.map((m) => <ChatMessage key={m.id} m={m} onChip={(chip) => (chip === "Send to developer" ? handoff() : ask(chip))} onOpen={onOpenRequest} onAction={(type) => openForm(type)} />)}
+        {messages.map((m) => <ChatMessage key={m.id} m={m} onChip={(chip) => ask(chip)} onOpen={onOpenRequest} onAction={(type) => openForm(type)} />)}
         {thinking && <div className="sp-m is-bot"><span className="sp-who" aria-hidden="true">D</span><div className="sp-bub sp-typing"><i /><i /><i /></div></div>}
       </div>
       {form ? (
@@ -124,8 +166,8 @@ function ChatMessage({ m, onChip, onOpen, onAction }) {
       <div className={`sp-m is-${m.kind}${mine ? " is-me" : ""}`}>
         <span className="sp-who" aria-hidden="true">{mine ? "You" : "D"}</span>
         <div>
-          <div className="sp-bub"><span className="sp-text">{m.body}</span>{m.shots?.map((url) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={url} className="sp-shot" src={url} alt="Screenshot" />)}</div>
-          {m.chips && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === "Send to developer" ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
+          <div className="sp-bub"><span className="sp-text">{m.body}</span>{m.source && <span className="sp-source">{m.source}</span>}{m.shots?.map((url) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={url} className="sp-shot" src={url} alt="Screenshot" />)}</div>
+          {m.chips && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
         </div>
       </div>
       {m.actions && (

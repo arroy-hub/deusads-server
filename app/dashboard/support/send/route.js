@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getMember } from "../../../../lib/admin";
 import { LIMITS } from "../../../../lib/support-rules";
 import { OUTDATED, createRequest, postMessage } from "../../../../lib/support-server";
+import { linkLog } from "../../../../lib/support-bot";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export async function POST(request) {
       title: String(form.get("title") ?? ""),
       text: String(form.get("text") ?? ""),
       via: String(form.get("via") ?? "form"),
+      escalation: String(form.get("escalation") ?? "") || null,
       context,
       files,
     });
@@ -63,6 +65,9 @@ export async function POST(request) {
   }
 
   if (result.error) return fail(result.error, result.error === OUTDATED ? 409 : 400);
+  // A request that grew out of an assistant answer: remember it in the assistant's log (only the person's own row).
+  const logId = String(form.get("logId") ?? "");
+  if (action === "create" && result.id && logId) await linkLog(me.service, { logId, ownerId: actor.id, requestId: result.id });
   revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard/support");
   revalidatePath("/dashboard/admin/support");

@@ -19,6 +19,7 @@ import NotificationsBell from "./notifications-bell";
 import NavFade from "./nav-fade";
 import EnterReveal from "./enter-reveal";
 import SupportCorner from "./support/support-corner";
+import { botStatus } from "../../lib/support-bot";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ export default async function DashboardLayout({ children }) {
     );
   }
   const admin = role === "admin";
-  const [, waitingAdmin, disputes, applied, supportUnread] = await Promise.all([
+  const [, waitingAdmin, disputes, applied, supportUnread, assistant] = await Promise.all([
     // Opening any page keeps the visit alive (My games works out "since your last visit" from it).
     registerVisit(serviceClient(), user?.id).catch(() => null),
     admin ? adminCounts(serviceClient()) : null,
@@ -78,6 +79,8 @@ export default async function DashboardLayout({ children }) {
     admin ? loadAppliedVersions(serviceClient()) : null,
     // An admin: requests waiting for an answer. Anyone else: replies from the developer not read yet (migration 0052).
     admin ? supportWaiting(serviceClient()) : unreadSupport(db, user?.id),
+    // Whether the assistant answers yet (switched on by an admin, key present): the corner chat greets accordingly.
+    admin ? null : botStatus(serviceClient()),
   ]);
   const requests = 0; // bookings approve themselves: nothing waits for the developer
   const schemaBehind = admin && !schemaVerdict(applied).ok;
@@ -140,7 +143,7 @@ export default async function DashboardLayout({ children }) {
 
       <div className="content">
         <main className="main">{children}</main>
-        {!admin && <SupportCorner role={role} unread={supportUnread} />}
+        {!admin && <SupportCorner role={role} unread={supportUnread} assistantOn={assistant?.on ?? false} greeting={assistant?.greeting} />}
         <NavFade />
         <EnterReveal />
       </div>

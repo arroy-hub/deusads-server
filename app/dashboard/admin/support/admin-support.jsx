@@ -8,6 +8,7 @@ import { CaretIcon, StripFace, toneStyle, useNow } from "../../support/support-u
 import { IcMore } from "../../_cabinet/icons";
 import { STATUS_LABEL, TYPE_LABEL, bulkAllowed, groupByPerson, waitHours, waitLabel } from "../../../../lib/support-rules";
 import { changeStatusMany } from "../../support/actions";
+import AssistantAdmin from "./assistant-admin";
 
 const PAGE = 30;
 const SORTS = { queue: [["wait", "Longest waiting"], ["count", "Most requests"], ["name", "Name A–Z"]], all: [["wait", "Waiting first"], ["recent", "Most recent"], ["count", "Most requests"], ["name", "Name A–Z"]] };
@@ -83,7 +84,7 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
 
   const openRequest = (id) => { setOpenId(id); try { const u = new URL(window.location.href); u.searchParams.set("open", id); window.history.replaceState(null, "", u); } catch {} };
   const closeRequest = () => { setOpenId(null); try { const u = new URL(window.location.href); u.searchParams.delete("open"); window.history.replaceState(null, "", u); } catch {} router.refresh(); };
-  const choose = (next) => { setTab(next); setShown(PAGE); setPicked(new Set()); setFilters((f) => ({ ...f, sort: "wait" })); try { const u = new URL(window.location.href); if (next === "all") u.searchParams.set("tab", "all"); else u.searchParams.delete("tab"); window.history.replaceState(null, "", u); } catch {} };
+  const choose = (next) => { setTab(next); setShown(PAGE); setPicked(new Set()); setFilters((f) => ({ ...f, sort: "wait" })); try { const u = new URL(window.location.href); if (next === "all" || next === "assistant") u.searchParams.set("tab", next); else u.searchParams.delete("tab"); window.history.replaceState(null, "", u); } catch {} };
 
   const medianOld = (() => { const ws = waiting.map((r) => waitHours(r, now)).sort((a, b) => a - b); return ws.length ? { old: ws.at(-1), med: ws[Math.floor(ws.length / 2)] } : null; })();
   const personCount = new Set(requests.map((r) => r.owner_id)).size;
@@ -153,11 +154,13 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
       <header className="main-head cx-head">
         <div><h1>Support</h1><p className="lede">Messages from developers and advertisers.</p></div>
         <div className="cx-tabs" role="tablist" aria-label="Support sections">
-          <button type="button" className="cx-tab" role="tab" aria-selected={!all} onClick={() => choose("queue")}>Needs attention{waiting.length > 0 && <i>{waiting.length}</i>}</button>
+          <button type="button" className="cx-tab" role="tab" aria-selected={tab === "queue"} onClick={() => choose("queue")}>Needs attention{waiting.length > 0 && <i>{waiting.length}</i>}</button>
+          <button type="button" className="cx-tab" role="tab" aria-selected={tab === "assistant"} onClick={() => choose("assistant")}>Assistant</button>
           <button type="button" className="cx-tab" role="tab" aria-selected={all} onClick={() => choose("all")}>All requests</button>
         </div>
       </header>
 
+      {tab === "assistant" ? <AssistantAdmin /> : (
       <div className="cx-body sq-body">
         {outdated && <p className="notice" role="status">The database needs update <code>0052_support.sql</code> before support works.</p>}
         <div className="sq-top">
@@ -205,6 +208,7 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
           </div>
         </section>
       </div>
+      )}
 
       {openId && <AdminRequestWindow key={openId} id={openId} summary={requests.find((r) => r.id === openId) ?? null} onClose={closeRequest} />}
     </div>

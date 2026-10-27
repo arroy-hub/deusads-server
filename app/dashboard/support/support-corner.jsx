@@ -13,7 +13,7 @@ const OpenIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
  * menu with two choices: message the developer (a form, straight to the developer) or ask the assistant (a chat). The
  * chat keeps its conversation while the person moves between pages. Not shown on the Help & feedback page itself.
  */
-export default function SupportCorner({ role, unread = 0, assistantOn = false }) {
+export default function SupportCorner({ role, unread = 0, assistantOn = false, greeting }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menu, setMenu] = useState(false);
@@ -83,7 +83,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false })
               </div>
             ))}
             <div className="sp-bot-wrap" hidden={mode !== "bot"}>
-              {botSeen && <AssistantChat role={role} mode="popup" assistantOn={assistantOn} onOpenRequest={goRequests} />}
+              {botSeen && <AssistantChat role={role} mode="popup" assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
             </div>
           </div>
         </section>

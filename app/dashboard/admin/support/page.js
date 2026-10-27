@@ -16,7 +16,7 @@ export default async function AdminSupportPage({ searchParams }) {
       requests={loaded.requests}
       outdated={loaded.outdated}
       serverNow={Date.now()}
-      initialTab={tab === "all" ? "all" : "queue"}
+      initialTab={tab === "all" || tab === "assistant" ? tab : "queue"}
       initialOpen={typeof open === "string" ? open : null}
     />
   );

@@ -16,7 +16,7 @@ const HEAD = {
  * pen button) and My requests (strips, folders, the conversation as a pop-up). The tab and the open request are kept in
  * the address (?tab=requests&open=<id>) so a link from the bell opens the right conversation.
  */
-export default function SupportPage({ role, requests, folders, outdated, initialTab, initialOpen }) {
+export default function SupportPage({ role, requests, folders, outdated, initialTab, initialOpen, assistantOn = false, greeting }) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
   const [openId, setOpenId] = useState(initialOpen);
@@ -66,7 +66,7 @@ export default function SupportPage({ role, requests, folders, outdated, initial
       <div id="sp-panel-assistant" role="tabpanel" aria-labelledby="sp-tab-assistant" hidden={tab !== "assistant"}>
         <div className="cx-body sp-assistant">
           <div className="sp-chat-card">
-            <AssistantChat role={role} mode="page" seed={seed} onSeedUsed={() => setSeed(null)} onOpenRequest={openRequest} />
+            <AssistantChat role={role} mode="page" assistantOn={assistantOn} greeting={greeting} seed={seed} onSeedUsed={() => setSeed(null)} onOpenRequest={openRequest} />
           </div>
         </div>
       </div>
