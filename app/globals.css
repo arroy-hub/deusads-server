@@ -9678,3 +9678,5 @@ body.ig-dragging *{cursor:grabbing!important}
 @keyframes sp-pop { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 .sp-who.sp-face.has-pic, .sp-m.is-developer .sp-who.sp-face.has-pic { background-color: #4a3a33; }
 .sp-m .sp-who.sp-face.has-pic { background-size: cover; background-position: center; background-repeat: no-repeat; }
+.sp-who.sp-gap { visibility: hidden; }
+.sp-m.is-follow { margin-top: -7px; }

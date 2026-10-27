@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CaretIcon, CloseIcon, Message, ShotPicker, StripFace, TypeIcon, submitSupport, toneStyle, useNow, useShots } from "../../support/support-ui";
+import { CaretIcon, CloseIcon, Message, followFlags, ShotPicker, StripFace, TypeIcon, submitSupport, toneStyle, useNow, useShots } from "../../support/support-ui";
 import { STATUS_LABEL, TYPES, TYPE_LABEL, allowedStatuses } from "../../../../lib/support-rules";
 import { changeStatus, changeType, openRequest } from "../../support/actions";
 
@@ -140,7 +140,7 @@ export default function AdminRequestWindow({ id, summary, onClose }) {
         <div className="sp-msgs sp-conv" ref={list}>
           {failed ? <p className="sp-problem" role="alert">{failed}</p>
             : !data ? <div className="sp-wait"><span className="spinner" aria-hidden="true" /> Opening…</div>
-            : data.messages.map((m) => <Message key={m.id} message={m} admin ownerName={row.owner_name} people={data.people} />)}
+            : (() => { const flags = followFlags(data.messages); return data.messages.map((m, i) => <Message key={m.id} message={m} admin ownerName={row.owner_name} people={data.people} follow={flags[i]} />); })()}
         </div>
         {data && (
           <div className="sp-reply">

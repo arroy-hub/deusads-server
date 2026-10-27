@@ -292,16 +292,31 @@ export function Face({ card, mark, who = "" }) {
   );
 }
 
+/**
+ * Which messages continue the one before them: the same sender (same author, or the assistant) within two minutes,
+ * with nothing between. Those hide their face and sit closer. Returns an array of booleans, one per message.
+ */
+export function followFlags(messages, gapMs = 120000) {
+  const time = (m) => (m?.at ? new Date(m.at).getTime() : NaN);
+  return messages.map((m, i) => {
+    const prev = messages[i - 1];
+    if (!prev || m.kind === "system" || m.kind === "sys" || prev.kind === "system" || prev.kind === "sys") return false;
+    if (prev.kind !== m.kind || (prev.authorId ?? null) !== (m.authorId ?? null)) return false;
+    const gap = time(m) - time(prev);
+    return gap >= 0 && gap <= gapMs;
+  });
+}
+
 /** One message in a conversation. `mine` messages are the person's own. */
-export function Message({ message, admin = false, ownerName = "User", people = {} }) {
+export function Message({ message, admin = false, ownerName = "User", people = {}, follow = false }) {
   if (message.kind === "system") return <div className="sp-sys">{message.body}</div>;
   // The admin reads from the other side: the person is on the left, the developer (the admin) on the right.
   const mine = admin ? message.kind === "developer" || message.kind === "note" : message.kind === "user";
   const who = message.kind === "bot" ? "Assistant" : message.kind === "note" ? "Internal note" : message.kind === "developer" ? (admin ? "You" : "DeusADS") : admin ? ownerName : "You";
   const mark = message.kind === "bot" ? "D" : message.kind === "developer" || message.kind === "note" ? (admin ? "You" : "DA") : admin ? ownerName.charAt(0).toUpperCase() : "You";
   return (
-    <div className={`sp-m is-${message.kind}${mine ? " is-me" : ""}`}>
-      <Face card={message.authorId ? people[message.authorId] : null} mark={mark} who={who} />
+    <div className={`sp-m is-${message.kind}${mine ? " is-me" : ""}${follow ? " is-follow" : ""}`}>
+      {follow ? <span className="sp-who sp-gap" aria-hidden="true" /> : <Face card={message.authorId ? people[message.authorId] : null} mark={mark} who={who} />}
       <div className={`sp-bub${message.kind === "note" ? " is-note" : ""}`}>
         <span className="sp-by">{who}</span>
         {message.body && <span className="sp-text">{message.body}</span>}

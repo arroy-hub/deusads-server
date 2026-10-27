@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CloseIcon, LockIcon, Message, SendIcon, ShotPicker, StripFace, submitSupport, toneStyle, useNow, useShots } from "./support-ui";
+import { CloseIcon, LockIcon, Message, followFlags, SendIcon, ShotPicker, StripFace, submitSupport, toneStyle, useNow, useShots } from "./support-ui";
 import { lockOf } from "../../../lib/support-rules";
 import { openRequest } from "./actions";
 
@@ -92,7 +92,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
         <div className="sp-msgs sp-conv" ref={list}>
           {failed ? <p className="sp-problem" role="alert">{failed}</p>
             : !data ? <div className="sp-wait"><span className="spinner" aria-hidden="true" /> Opening…</div>
-            : data.messages.map((m) => <Message key={m.id} message={m} people={data.people} />)}
+            : (() => { const flags = followFlags(data.messages); return data.messages.map((m, i) => <Message key={m.id} message={m} people={data.people} follow={flags[i]} />); })()}
         </div>
         {data && (lock ? (
           <div className="sp-locked">

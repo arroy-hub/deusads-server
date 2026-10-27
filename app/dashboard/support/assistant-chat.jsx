@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Face, PenIcon, RequestForm, SendIcon, TypeIcon, buildContext, submitSupport } from "./support-ui";
+import { Face, PenIcon, followFlags, RequestForm, SendIcon, TypeIcon, buildContext, submitSupport } from "./support-ui";
 import { TYPE_LABEL } from "../../../lib/support-rules";
 
 const GREETING_ON = "Hi! I can answer questions about the dashboard. If I can’t help, I’ll pass it to the developer — you can add a screenshot.";
@@ -22,7 +22,7 @@ const uid = () => `m${(counter += 1)}`;
  * `assistantOn` is false until the assistant itself is switched on by the admin.
  */
 export default function AssistantChat({ role, mode = "page", assistantOn = false, greeting, seed, onSeedUsed, onOpenRequest }) {
-  const [messages, setMessages] = useState(() => [{ id: uid(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page" }]);
+  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page" }]);
   const [me, setMe] = useState(null); // the person's own card, for their face beside their messages
   useEffect(() => {
     let gone = false;
@@ -48,7 +48,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
 
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }); }, [messages, thinking, form]);
 
-  const push = (...items) => setMessages((list) => [...list.map((m) => (m.chips ? { ...m, chips: null } : m)), ...items.map((item) => ({ id: uid(), ...item }))]);
+  const push = (...items) => setMessages((list) => [...list.map((m) => (m.chips ? { ...m, chips: null } : m)), ...items.map((item) => ({ id: uid(), at: Date.now(), ...item }))]);
   const lastQuestion = () => [...messages].reverse().find((m) => m.kind === "user")?.body ?? "";
 
   // The last answer's log id and the reason it was passed on: they travel with "Send to developer".
@@ -129,7 +129,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   return (
     <div className="sp-chat">
       <div className="sp-msgs" ref={box} aria-live="polite">
-        {messages.map((m) => <ChatMessage key={m.id} m={m} me={me} onChip={(chip) => ask(chip)} onOpen={onOpenRequest} onAction={(type) => openForm(type)} />)}
+        {messages.map((m, i) => <ChatMessage key={m.id} m={m} me={me} follow={followFlags(messages)[i]} onChip={(chip) => ask(chip)} onOpen={onOpenRequest} onAction={(type) => openForm(type)} />)}
         {thinking && <div className="sp-m is-bot"><span className="sp-who" aria-hidden="true">D</span><div className="sp-bub sp-typing"><i /><i /><i /></div></div>}
       </div>
       {form ? (
@@ -159,7 +159,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   );
 }
 
-function ChatMessage({ m, me, onChip, onOpen, onAction }) {
+function ChatMessage({ m, me, follow, onChip, onOpen, onAction }) {
   if (m.kind === "sys") {
     return (
       <div className="sp-sys">
@@ -172,8 +172,8 @@ function ChatMessage({ m, me, onChip, onOpen, onAction }) {
   const mine = m.kind === "user";
   return (
     <>
-      <div className={`sp-m is-${m.kind}${mine ? " is-me" : ""}`}>
-        <Face card={mine ? me : null} mark={mine ? "You" : "D"} />
+      <div className={`sp-m is-${m.kind}${mine ? " is-me" : ""}${follow ? " is-follow" : ""}`}>
+        {follow ? <span className="sp-who sp-gap" aria-hidden="true" /> : <Face card={mine ? me : null} mark={mine ? "You" : "D"} />}
         <div>
           <div className="sp-bub"><span className="sp-text">{m.body}</span>{m.source && <span className="sp-source">{m.source}</span>}{m.shots?.map((url) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={url} className="sp-shot" src={url} alt="Screenshot" />)}</div>
           {m.chips && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
