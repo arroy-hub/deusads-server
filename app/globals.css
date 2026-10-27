@@ -9676,4 +9676,4 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-face-pop { position: fixed; z-index: 1000; width: 270px; box-shadow: 0 10px 30px rgba(36, 29, 25, 0.2); animation: sp-pop 0.14s ease-out; }
 .sp-face-pop .av { background-size: cover; background-position: center; }
 @keyframes sp-pop { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-.sp-who.sp-face.has-pic, .sp-m.is-developer .sp-who.sp-face.has-pic { background-color: #f4efe9; box-shadow: inset 0 0 0 1px rgba(36, 29, 25, 0.12); }
+.sp-who.sp-face.has-pic, .sp-m.is-developer .sp-who.sp-face.has-pic { background-color: #4a3a33; }
