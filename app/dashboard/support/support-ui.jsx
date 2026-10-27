@@ -332,7 +332,7 @@ export function Message({ message, admin = false, ownerName = "User", people = {
 
 export { lockOf };
 
-const TOP_COVER = "linear-gradient(105deg, #5a2a1e 0%, #a2432a 38%, #d9744f 70%, #f0b293 100%)";
+const TOP_COVER = "linear-gradient(105deg, #e3dfda 0%, #ebe8e4 45%, #f3f1ee 100%)";
 
 /**
  * The window header of Help & feedback (and Support for the admin), as in the mockup and the game window: a warm cover

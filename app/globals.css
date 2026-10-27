@@ -9680,3 +9680,9 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-m .sp-who.sp-face.has-pic { background-size: cover; background-position: center; background-repeat: no-repeat; }
 .sp-who.sp-gap { visibility: hidden; }
 .sp-m.is-follow { margin-top: -7px; }
+
+/* Light grey window header: the tabs read as dark-on-light */
+.wt-top.gp-top-card .tabs .tab:not([aria-current="page"]), .sp-top.gp-top-card .tabs .tab:not([aria-current="page"]), .wt-top .cb-tab:not([aria-current="page"]) {
+  background: rgba(36, 29, 25, 0.07); -webkit-backdrop-filter: none; backdrop-filter: none; color: #6b5f56; text-shadow: none; }
+.wt-top.gp-top-card .tabs .tab:not([aria-current="page"]):hover, .sp-top.gp-top-card .tabs .tab:not([aria-current="page"]):hover, .wt-top .cb-tab:not([aria-current="page"]):hover { background: rgba(36, 29, 25, 0.12); color: #241d19; }
+.wt-top .cb-tab:not([aria-current="page"]) .cb-cnt { background: rgba(36, 29, 25, 0.12); color: #6b5f56; }
