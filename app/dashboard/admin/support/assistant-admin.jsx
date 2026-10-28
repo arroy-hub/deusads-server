@@ -152,18 +152,20 @@ export default function AssistantAdmin() {
 
   return (
     <div className="cx-body sb-body">
-      <section className="sb-card">
-        <div className="sb-hero">
-          <span className="sb-av" aria-hidden="true">D</span>
-          <div className="sb-id">
-            <h2>Deus Assistant</h2>
+      <section className="bot-card">
+        <div className="bot-cover" />
+        <div className="bot-row">
+          <span className="bot-av" aria-hidden="true">D</span>
+          <div className="bot-id">
+            <h2>Deus Assistant <span className="pill info">Beta</span></h2>
             <p><span className={`sb-live${live ? "" : " is-off"}`}>{live ? "Active" : reasonOff}</span></p>
-            <small>Model: {data.model} · Guide: {data.articles.filter((a) => a.enabled).length} answers · Replies in {settings.lang === "en" ? "English" : "the user’s language"}</small>
+            <span className="bot-meta">Model: {data.model} · Guide: {data.articles.filter((a) => a.enabled).length} answers · Replies in {settings.lang === "en" ? "English" : "the user’s language"}</span>
           </div>
-          <label className="sb-master">
-            <Switch on={data.enabled} onChange={flip} label="Assistant on" />
-            <span>Assistant on</span>
-          </label>
+          <div className="bot-st">
+            <span className="tgl" role="switch" aria-pressed={data.enabled} onClick={() => flip(!data.enabled)}>
+              <span className="sw" />Assistant on
+            </span>
+          </div>
         </div>
         <div className="cp-ptabs" role="tablist">
           {SUBTABS.map(([key, label]) => (
@@ -177,13 +179,14 @@ export default function AssistantAdmin() {
       {sub === "overview" && (
         <>
           <div className="cx-plate">
-            <div className="sb-periods" role="group" aria-label="Period">
-              {PERIODS.map(([key, label]) => <button key={key} type="button" className="fl-btn" aria-pressed={period === key} onClick={() => setPeriod(key)}>{label}</button>)}
-            </div>
+            <label className="sb-period">Period <select className="cp-sel" value={period} onChange={(e) => setPeriod(e.target.value)}>
+              {PERIODS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select></label>
             <div className="sb-mini">
-              <span><b>{s.total}</b>questions</span>
+              <span><b>{s.total}</b>conversations</span>
               <span><b>{s.solvedPct}%</b>solved without you</span>
               <span><b>{s.passed}</b>passed to you</span>
+              <span><b>—</b>first answer</span>
               <span><b>{s.rated ? `${s.helpfulPct}%` : "—"}</b>rated helpful</span>
             </div>
           </div>

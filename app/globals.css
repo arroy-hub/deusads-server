@@ -9679,6 +9679,23 @@ body.ig-dragging *{cursor:grabbing!important}
 .sb-rbar i { display: block; height: 100%; background: #3a9a62; }
 .sb-rleg { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
 .sb-rleg b { color: var(--ink); }
+.sb-period { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+/* the assistant's profile card (mockup: bot-card) */
+.pill.info { background: #e0eaf3; color: #1f4768; }
+.bot-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(60, 35, 20, .05); }
+.bot-cover { height: 64px; background: linear-gradient(105deg, color-mix(in srgb, var(--signal) 30%, #fff), color-mix(in srgb, var(--signal) 12%, #fff) 60%, #fff); }
+.bot-row { display: flex; align-items: flex-start; gap: 16px; padding: 0 20px 14px; flex-wrap: wrap; }
+.bot-av { width: 68px; height: 68px; border-radius: 18px; background: var(--ink); color: #fff; font: 800 28px/60px Inter, system-ui, sans-serif; text-align: center; border: 4px solid #fff; box-shadow: 0 6px 18px rgba(60, 35, 20, .2); flex: none; margin-top: -30px; }
+.bot-id { flex: 1; min-width: 260px; padding-top: 12px; }
+.bot-id h2 { margin: 0; font-size: 20px; font-weight: 800; display: flex; gap: 10px; align-items: center; }
+.bot-id p { margin: 2px 0 4px; }
+.bot-meta { font-size: 12.5px; color: var(--ink-3); }
+.bot-st { display: flex; gap: 14px; align-items: center; padding-top: 16px; flex-wrap: wrap; }
+.bot-st .tgl { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; user-select: none; }
+.bot-st .tgl .sw { width: 30px; height: 18px; border-radius: 99px; background: #cdbfb1; position: relative; transition: .15s; }
+.bot-st .tgl .sw::after { content: ""; position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: .15s; }
+.bot-st .tgl[aria-pressed="true"] .sw { background: #2f9e5b; }
+.bot-st .tgl[aria-pressed="true"] .sw::after { left: 14px; }
 .sb-bars { padding: 0 16px 14px; display: grid; gap: 9px; }
 .sb-bars div { display: grid; grid-template-columns: minmax(0, 150px) 1fr 30px; gap: 10px; align-items: center; font-size: 12.5px; }
 .sb-bars i { display: block; height: 8px; border-radius: 99px; background: #ece5dd; position: relative; overflow: hidden; }
