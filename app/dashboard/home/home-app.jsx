@@ -278,12 +278,13 @@ function HomeView({ role, data, blocks, setBlocks, nav, active }) {
   const main = [];
   const side = [];
   const show = (key) => blocks[key];
-  if (isNew) {
-    if (show("setup")) main.push(<Checklist key="setup" steps={data.checklist} isNew role={role} />);
+  // Until the whole Get started path is done, the checklist takes the place of Needs attention (which stays hidden).
+  if (!allDone) {
+    if (show("setup")) main.push(<Checklist key="setup" steps={data.checklist} isNew={isNew} role={role} />);
+    if (!isNew && show("activity")) side.push(<Activity key="activity" items={data.activity} />);
   } else {
     if (show("attention")) main.push(<Attention key="attention" strips={data.strips} />);
     if (show("activity")) side.push(<Activity key="activity" items={data.activity} />);
-    if (show("setup") && !allDone) side.push(<Checklist key="setup" steps={data.checklist} isNew={false} role={role} />);
   }
   if (show("guides")) main.push(<Guides key="guides" role={role} nav={nav} />);
   if (show("news")) side.push(<News key="news" role={role} nav={nav} />);
