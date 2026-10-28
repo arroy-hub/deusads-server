@@ -9683,3 +9683,6 @@ body.ig-dragging *{cursor:grabbing!important}
 
 /* the shared header's gradient spans the whole width (no fade, no gap at the right edge) */
 .wt-top .gp-pic, .sp-top .gp-pic { width: 100%; aspect-ratio: auto; -webkit-mask-image: none; mask-image: none; }
+
+/* On windows with the shared header the reserved scrollbar gutter showed as a blank strip at the right edge when the page is short */
+html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
