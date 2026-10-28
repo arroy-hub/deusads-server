@@ -680,8 +680,11 @@ export default function HomeApp({ role, data, name, today }) {
       document.body.appendChild(ghost);
       document.documentElement.style.overflowX = "hidden";
       const y0 = window.scrollY;
-      if (y0 > 0) el.style.minHeight = `${rect.height}px`;
+      // keep the page as tall as it was, so the browser does not clamp the scroll position up when the new view is shorter
+      el.style.minHeight = y0 > 0 ? `${rect.height}px` : "";
       pending.current = { dir, ghost, y0, oldW };
+    } else if (root.current) {
+      root.current.style.minHeight = "";
     }
     router.push(href, { scroll: false });
   }, [router]);
@@ -710,7 +713,6 @@ export default function HomeApp({ role, data, name, today }) {
     setTimeout(() => {
       ghost.remove();
       document.documentElement.style.overflowX = "";
-      el.style.minHeight = "";
     }, T + 40);
   }, [view.name, view.slug]);
 
