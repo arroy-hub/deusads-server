@@ -405,7 +405,7 @@ function GuideView({ role, slug, nav }) {
                   <li key={head}><div><h3>{head}</h3><p>{text}</p></div></li>
                 ))}
               </ol>
-              <div className="art-note"><span><Ic name="flag" size={16} /></span><div><b>{guide.note[0]}</b> {guide.note[1]}</div></div>
+              <div className="art-note"><div><b>{guide.note[0]}</b> {guide.note[1]}</div></div>
               <div className="art-foot">
                 <span>Was this helpful?</span>
                 <button type="button" className="btn" onClick={() => toast("Thanks for the feedback")}>Yes</button>
@@ -434,7 +434,7 @@ function GuideView({ role, slug, nav }) {
             <Head title="Still stuck?" icon="chat" />
             <div className="blk-b">
               <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginBottom: 10 }}>Write to us and we will answer in My requests.</p>
-              <Link href="/dashboard/requests" className="btn sm">Ask for help</Link>
+              <Link href="/dashboard/support" className="btn sm">Ask for help</Link>
             </div>
           </section>
         </div>
@@ -573,7 +573,7 @@ function toast(message) {
   const el = document.createElement("div");
   el.className = "toast";
   el.textContent = message;
-  document.body.appendChild(el);
+  (document.querySelector(".hm") || document.body).appendChild(el);
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.remove(), 2000);
 }
