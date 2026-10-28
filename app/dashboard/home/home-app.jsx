@@ -21,7 +21,6 @@ const STORE = "deusads-home-blocks";
 const TUNE = "deusads-home-c-tune-2"; // only what was changed in the Glow & gradients panel
 const TIP_MS = 10000;
 const EASE = "cubic-bezier(.4,0,.2,1)";
-const COVER = "linear-gradient(105deg,color-mix(in srgb,var(--tone) 34%,#fff),color-mix(in srgb,var(--tone) 22%,#fff) 55%,color-mix(in srgb,var(--tone) 9%,#fff))";
 const HOME = "/dashboard/home";
 const READ = ["guide", "news"];
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -37,7 +36,27 @@ const TITLES = {
   news: ["What’s new", "News, patches and announcements from the DeusADS team", "mega"],
 };
 
-/** One block of Home: icon and title, the optional left and right slots, and the body. */
+/**
+ * A block's head, built like the window header: a gradient band across the top, a white plate on it with the
+ * icon tile and the title (plus the left slot), and the right slot on the band.
+ */
+function Head({ title, icon, left, right, under = null }) {
+  return (
+    <div className="blk-h bh">
+      <span className="bh-band" aria-hidden="true" />
+      {under}
+      <div className="bh-plate">
+        {icon && <span className="blk-ic"><Ic name={icon} size={24} /></span>}
+        <h2>{title}</h2>
+        {left}
+      </div>
+      <span className="sp" />
+      {right && <span className="bh-r">{right}</span>}
+    </div>
+  );
+}
+
+/** One block of Home: the head, the optional left and right slots, and the body. */
 function Block({ id, title, icon, left, right, cls = "", bodyCls = "", hide, children }) {
   const key = BLOCKS.find(([, label]) => label === title)?.[2] ?? id ?? "df";
   return (
@@ -47,13 +66,7 @@ function Block({ id, title, icon, left, right, cls = "", bodyCls = "", hide, chi
           <Ic name="x" size={14} width={2.2} />
         </button>
       )}
-      <div className="blk-h">
-        {icon && <span className="blk-ic"><Ic name={icon} size={24} /></span>}
-        <h2>{title}</h2>
-        {left}
-        <span className="sp" />
-        {right}
-      </div>
+      <Head title={title} icon={icon} left={left} right={right} />
       <div className={`blk-b ${bodyCls}`}>{children}</div>
     </section>
   );
@@ -61,8 +74,8 @@ function Block({ id, title, icon, left, right, cls = "", bodyCls = "", hide, chi
 
 function Strip({ item }) {
   return (
-    <Link href={item.href} className="cx-strip" style={{ "--tone": `var(--cx-${item.tone})`, "--sh": "64px" }}>
-      <div className="cx-scover"><div className="cx-pic" style={{ background: COVER }} /></div>
+    <Link href={item.href} className="cx-strip" data-tone={item.tone} style={{ "--tone": `var(--cx-${item.tone})`, "--sh": "64px" }}>
+      <div className="cx-scover"><div className="cx-pic" /></div>
       <div className="cx-splate">
         <span className="cx-ic"><span className="rd-tile"><Ic name={item.icon} size={20} /></span></span>
         <div className="cx-txt"><h3>{item.title}</h3><div className="cx-sub">{item.text}</div></div>
@@ -148,14 +161,14 @@ function Checklist({ steps, isNew, role, hide }) {
     : isNew ? "Get started: four steps to your first campaign." : "Four steps to your first campaign.";
   const win = role === "dev" ? "Ready for advertisers. Campaigns can start running in your game." : "Done. Your campaign is waiting for moderation.";
   return (
-    <Block title={isNew ? "Welcome to DeusADS" : "Get started"} icon="flag" hide={hide} right={<small>{done} of {steps.length}</small>}>
+    <Block id="setup" title={isNew ? "Welcome to DeusADS" : "Get started"} icon="flag" hide={hide}>
       <div className="setup">
-        <p className="sub">{sub}</p>
+        <p className="sub">{sub}<small className="sub-n">{done} of {steps.length}</small></p>
         <div className="prog"><div className="bar"><i style={{ width: `${(done / steps.length) * 100}%` }} /></div></div>
         {all && <div className="win"><Ic name="check" size={18} width={2.6} /><span>{win}</span></div>}
         {steps.map((step) => (
           <div key={step.key} className={`step${step.done ? " done" : ""}${step.current ? " cur" : ""}`}>
-            <span className="ck">{step.done ? "✓" : ""}</span>
+            <span className="ck">{step.done ? <Ic name="check" size={14} width={3} /> : null}</span>
             <div className="tx"><b>{step.title}</b><small>{step.hint}</small></div>
             {!step.done && <Link href={step.href} className={`btn sm${step.current ? " pri" : ""}`}>{step.action}</Link>}
           </div>
@@ -246,16 +259,10 @@ function Tip({ role, active, hide }) {
           <Ic name="x" size={14} width={2.2} />
         </button>
       )}
-      <div className="blk-h">
-        <span className="blk-ic"><Ic name="bulb" size={24} /></span>
-        <h2>Tip</h2>
-        {nav}
-        <span className="sp" />
-      </div>
+      <Head title="Tip" icon="bulb" left={nav} under={<i key={`${index}-${lap}`} className="tip-prog" style={{ animationDuration: `${TIP_MS}ms` }} />} />
       <div className="blk-b" ref={box}>
         <div className="news" ref={text}><h3>{title}</h3><p>{body}</p></div>
       </div>
-      <i key={`${index}-${lap}`} className="tip-prog" style={{ animationDuration: `${TIP_MS}ms` }} />
     </section>
   );
 }
@@ -341,11 +348,12 @@ function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, 
     if (blocks.setup) main.push(<Checklist key="setup" steps={steps} isNew={isNew} role={role} hide={hideOf("setup")} />);
   } else {
     if (blocks.attention) main.push(<Attention key="attention" strips={data.strips} hide={hideOf("attention")} />);
-    if (blocks.activity) side.push(<Activity key="activity" items={data.activity} hide={hideOf("activity")} />);
   }
   if (blocks.guides) main.push(<Guides key="guides" role={role} nav={nav} hide={hideOf("guides")} />);
+  // The right column: What's new and Tip always sit above Recent activity.
   if (blocks.news) side.push(<News key="news" role={role} nav={nav} hide={hideOf("news")} />);
   if (blocks.tips) side.push(<Tip key="tips" role={role} active hide={hideOf("tips")} />);
+  if (allDone && blocks.activity) side.push(<Activity key="activity" items={data.activity} hide={hideOf("activity")} />);
   const empty = !main.length && !side.length;
   // until Get started is done, Needs attention and Recent activity are not offered in Customize either
   const skip = allDone ? [] : ["attention", "activity"];
@@ -389,7 +397,7 @@ function GuideView({ role, slug, nav }) {
       <div className="rd-grid">
         <div className="col">
           <section className="panel blk" data-k="df">
-            <div className="blk-h"><h2>{guide.title}</h2><span className="sp" /><small>{guide.min} min read</small></div>
+            <Head title={guide.title} icon="book" right={<small>{guide.min} min read</small>} />
             <div className="blk-b">
               <p className="art-intro">{guide.intro}</p>
               <ol className="art-steps">
@@ -408,7 +416,7 @@ function GuideView({ role, slug, nav }) {
         </div>
         <div className="col">
           <section className="panel blk" data-k="df">
-            <div className="blk-h"><h2>More guides</h2><span className="sp" /></div>
+            <Head title="More guides" icon="book" />
             <div className="blk-b">
               <div className="glist">
                 {list.map((title) => {
@@ -423,7 +431,7 @@ function GuideView({ role, slug, nav }) {
             </div>
           </section>
           <section className="panel blk" data-k="df">
-            <div className="blk-h"><h2>Still stuck?</h2><span className="sp" /></div>
+            <Head title="Still stuck?" icon="chat" />
             <div className="blk-b">
               <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginBottom: 10 }}>Write to us and we will answer in My requests.</p>
               <Link href="/dashboard/requests" className="btn sm">Ask for help</Link>
@@ -485,7 +493,7 @@ function NewsView({ role, nav, open, toggle, filter, setFilter }) {
     <>
       <div className="rel">
         <section className="panel blk" data-k="df">
-          <div className="blk-h"><span className="blk-ic"><Ic name="mega" size={24} /></span><h2>All news</h2><span className="sp" />{seg}</div>
+          <Head title="All news" icon="mega" right={seg} />
           <div className="blk-b flush">
             {list.length ? (
               <div className="nwl">
@@ -530,6 +538,33 @@ function NewsView({ role, nav, open, toggle, filter, setFilter }) {
       </div>
     </>
   );
+}
+
+/**
+ * The greeting title stays on one line: when the name is too long for the space, the font shrinks until it fits
+ * (never below 24px). Refits on resize and when the fonts finish loading.
+ */
+function FitTitle({ children }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const fit = () => {
+      el.style.fontSize = "";
+      const max = parseFloat(getComputedStyle(el).fontSize);
+      let size = max;
+      if (el.scrollWidth > el.clientWidth) size = Math.max(24, Math.floor((max * el.clientWidth) / el.scrollWidth));
+      el.style.fontSize = size === max ? "" : `${size}px`;
+      while (el.scrollWidth > el.clientWidth && size > 24) { size -= 1; el.style.fontSize = `${size}px`; }
+    };
+    fit();
+    const watch = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
+    watch?.observe(el);
+    document.fonts?.ready.then(fit).catch(() => {});
+    window.addEventListener("hello-refit", fit);
+    return () => { watch?.disconnect(); window.removeEventListener("hello-refit", fit); };
+  }, [children]);
+  return <h2 ref={ref} className="hello-t">{children}</h2>;
 }
 
 let toastTimer = null;
@@ -674,7 +709,7 @@ export default function HomeApp({ role, data, name, today }) {
   const hello = (
     <section className="hello">
       <div className="hello-eye">{today}</div>
-      <h2>{isNew ? "Welcome, " : "Welcome back, "}{name}</h2>
+      <FitTitle>{`${isNew ? "Welcome, " : "Welcome back, "}${name}`}</FitTitle>
       <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
     </section>
   );

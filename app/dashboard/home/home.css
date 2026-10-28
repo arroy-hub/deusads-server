@@ -144,7 +144,7 @@
 .hm .step .tx{flex:1;min-width:0}
 .hm .step b{display:block;font-size:14px;line-height:1.3}
 .hm .step small{display:block;color:var(--ink-3);font-size:12.5px;line-height:1.35}
-.hm .step.done b{color:var(--ink-3);text-decoration:line-through;text-decoration-color:#cdbfb1}
+.hm .step.done b{color:var(--ink-3)}
 .hm .step.cur .ck{border-color:var(--signal)}
 .hm .win{margin:6px 0 10px;padding:12px 14px;border-radius:12px;background:#e3f5ea;color:#0a6b3a;font-weight:600;font-size:13.5px;display:flex;gap:10px;align-items:center}
 .hm .quick{display:grid;gap:8px;padding:14px}
@@ -374,3 +374,91 @@
 /* All news: the way back is a plain arrow under the list */
 .hm .bk-row.bk-under{margin:14px 0 0}
 .hm .bk-row .btn.bk-arrow,.hm.lb .bk-row .btn.bk-arrow{width:38px;min-height:38px;padding:0;justify-content:center;border-radius:99px}
+
+/* Block heads like the window header (concept 28 Oct): a gradient band across the top of the block, a white plate on it
+   with the icon tile and the title; the close button and the right slot sit on the band. Applies to every block. */
+.hm.lb .blk-h.bh{position:relative;display:flex;align-items:center;gap:10px;min-height:0;padding:18px 52px 0 12px;border-bottom:0}
+.hm.lb .blk:not(.hasx) .blk-h.bh{padding-right:20px}
+.hm .bh-band{position:absolute;left:0;right:0;top:0;height:54px;background:linear-gradient(90deg,#e8b1a2 0%,#efc5b7 18%,#f5d9ce 38%,#f8e6de 58%,#faede7 78%,#fbf0eb 100%);border-bottom:1px solid #efe5dc;pointer-events:none}
+.hm .blk-h.bh>:not(.bh-band){position:relative;z-index:1}
+.hm .bh-plate{display:inline-flex;align-items:center;gap:12px;min-width:238px;height:46px;padding:0 18px 0 7px;background:#fff;border-radius:11px;box-shadow:0 1px 2px rgba(60,35,20,.06),0 6px 16px rgba(60,35,20,.12)}
+.hm.lb .bh-plate .blk-ic{width:32px;height:32px;border-radius:9px;background:var(--signal-soft);margin:0}
+.hm.lb .bh-plate h2{font-size:16.5px;font-weight:800;letter-spacing:-.015em;white-space:nowrap}
+.hm .bh-plate .cnt{margin-left:-4px}
+.hm .bh-plate .tip-nav{margin-left:auto;margin-right:-8px}
+.hm .blk-x{top:13px} /* centred in the 54px band */
+.hm .bh-r{position:absolute;top:0;right:52px;height:54px;display:flex;align-items:center;z-index:1}
+.hm.lb .blk:not(.hasx) .bh-r{right:20px}
+.hm.lb .blk-h.bh+.blk-b{padding-top:12px}
+.hm.lb .blk[data-k="gp"] .blk-h.bh+.blk-b{padding-top:18px}
+.hm .setup .sub-n{margin-left:12px;font-size:12px;font-weight:500;color:var(--ink-3);position:relative;top:-3px;white-space:nowrap}
+.hm .step .ck svg{display:block}
+.hm .hello .hello-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== Home UI pass of 29 Oct (approved in the Home window mockup): block heads, greeting, Needs attention items ===== */
+/* chosen values: head band colours per block (--h-<block>-1/2 start/end, -e fade length, -l line), Needs attention item
+   backing (--sp-*: background, colour per type, strength, length) and the greeting size */
+.hm{--h-setup-1:#201d1d;--h-setup-2:#9b4d38;--h-setup-e:100%;--h-setup-l:#efe5dc;--h-na-1:#211f1d;--h-na-2:#b35a42;--h-na-e:100%;--h-na-l:#ece5de;--h-ra-1:#f7f7f7;--h-ra-2:#efeae7;--h-ra-e:100%;--h-ra-l:#ece5de;--h-gp-1:#f6f6f6;--h-gp-2:#efeae8;--h-gp-e:100%;--h-gp-l:#ece5de;--h-wn-1:#e9e9e9;--h-wn-2:#efeae7;--h-wn-e:100%;--h-wn-l:#ece5de;--h-tp-1:#eae9e9;--h-tp-2:#efeae6;--h-tp-e:100%;--h-tp-l:#ece5de;--h-df-1:#ffffff;--h-df-2:#ffffff;--h-df-e:100%;--h-df-l:#ece5de;--sp-bg:#ffffff;--sp-warn:#c98a14;--sp-sched:#3b6fb5;--sp-stop:#b3361b;--sp-s:21%;--sp-w:474px;--hello-fs:57px}
+/* small grey text: a step darker for contrast (12-13px hints, dates) */
+.hm{--ink-3:#76695e}
+
+/* 1. every block head has its own band colours (values chosen in the mockup on 29 Oct, see the tokens above) */
+.hm .blk[data-k="setup"] .bh-band{background:linear-gradient(90deg,var(--h-setup-1,#e8b1a2) 0%,color-mix(in srgb,var(--h-setup-1,#e8b1a2) 40%,var(--h-setup-2,#fbf0eb)) calc(var(--h-setup-e,100%) * .38),var(--h-setup-2,#fbf0eb) var(--h-setup-e,100%));border-bottom-color:var(--h-setup-l,#efe5dc)}
+.hm .blk[data-k="na"] .bh-band{background:linear-gradient(90deg,var(--h-na-1,#ffffff) 0%,color-mix(in srgb,var(--h-na-1,#ffffff) 40%,var(--h-na-2,#ffffff)) calc(var(--h-na-e,100%) * .38),var(--h-na-2,#ffffff) var(--h-na-e,100%));border-bottom-color:var(--h-na-l,#ece5de)}
+.hm .blk[data-k="ra"] .bh-band{background:linear-gradient(90deg,var(--h-ra-1,#ffffff) 0%,color-mix(in srgb,var(--h-ra-1,#ffffff) 40%,var(--h-ra-2,#ffffff)) calc(var(--h-ra-e,100%) * .38),var(--h-ra-2,#ffffff) var(--h-ra-e,100%));border-bottom-color:var(--h-ra-l,#ece5de)}
+.hm .blk[data-k="gp"] .bh-band{background:linear-gradient(90deg,var(--h-gp-1,#ffffff) 0%,color-mix(in srgb,var(--h-gp-1,#ffffff) 40%,var(--h-gp-2,#ffffff)) calc(var(--h-gp-e,100%) * .38),var(--h-gp-2,#ffffff) var(--h-gp-e,100%));border-bottom-color:var(--h-gp-l,#ece5de)}
+.hm .blk[data-k="wn"] .bh-band{background:linear-gradient(90deg,var(--h-wn-1,#ffffff) 0%,color-mix(in srgb,var(--h-wn-1,#ffffff) 40%,var(--h-wn-2,#ffffff)) calc(var(--h-wn-e,100%) * .38),var(--h-wn-2,#ffffff) var(--h-wn-e,100%));border-bottom-color:var(--h-wn-l,#ece5de)}
+.hm .blk[data-k="tp"] .bh-band{background:linear-gradient(90deg,var(--h-tp-1,#ffffff) 0%,color-mix(in srgb,var(--h-tp-1,#ffffff) 40%,var(--h-tp-2,#ffffff)) calc(var(--h-tp-e,100%) * .38),var(--h-tp-2,#ffffff) var(--h-tp-e,100%));border-bottom-color:var(--h-tp-l,#ece5de)}
+.hm .blk[data-k="df"] .bh-band{background:linear-gradient(90deg,var(--h-df-1,#ffffff) 0%,color-mix(in srgb,var(--h-df-1,#ffffff) 40%,var(--h-df-2,#ffffff)) calc(var(--h-df-e,100%) * .38),var(--h-df-2,#ffffff) var(--h-df-e,100%));border-bottom-color:var(--h-df-l,#ece5de)}
+/* the current step is "you are here", not an error: a dark ring */
+.hm .step.cur .ck{border-color:var(--ink)}
+
+/* 3. one level of depth less: the block plate sits on the band with a hairline instead of a lifted shadow,
+      and the white plate inside a Needs attention strip loses its own shadow */
+.hm .bh-plate{box-shadow:0 0 0 1px rgba(60,35,20,.07),0 1px 2px rgba(60,35,20,.05)}
+.hm .blk[data-k="setup"] .bh-plate{box-shadow:0 0 0 1px rgba(60,35,20,.06),0 4px 12px rgba(60,35,20,.10)}
+.hm .cx-splate{box-shadow:0 0 0 1px rgba(60,35,20,.06)}
+
+/* 4. the plate is as wide as its content; its icon lines up with the block content (24px) */
+.hm .bh-plate{min-width:0;padding-right:16px}
+.hm.lb .blk-h.bh{padding-left:17px}
+.hm .tipblk .bh-plate .tip-nav{margin-left:6px;margin-right:-6px}
+
+/* 5. no gradient on gradient: What's new and Tip are plain white under their band */
+.hm.lb .blk[data-k="wn"],.hm.lb .blk[data-k="tp"]{background:#fff}
+
+/* 6. guides: three in a row while they fit, so there is no lone card in a second row */
+.hm .ga{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.hm.lb .sheet{min-height:0;padding:18px 18px 12px}
+
+/* 7. close button: visible and a bigger target, still centred in the band */
+.hm .blk-x{width:32px;height:32px;top:11px;right:12px;opacity:.8;color:var(--ink-3)}
+.hm .blk:hover .blk-x{opacity:1}
+
+/* 8. tip timer: along the edge between the band and the body, full width, layered under the title plate */
+.hm .blk-h.bh>.tip-prog{position:absolute;left:0;right:0;top:53px;height:1.5px;z-index:0;background:var(--signal);opacity:.45}
+
+/* 9. greeting as in the concept of 29 Oct (measured at 1978px wide): 55px title, tighter spacing above and below */
+.hm.lb .work{padding-top:26px}
+.hm .hello{padding-bottom:19px}
+.hm .hello h2{font-size:var(--hello-fs,55px);line-height:1.05;letter-spacing:-.02em;margin-top:10px}
+.hm .hello p{margin-top:5px}
+
+/* 10. block icon tiles: the deeper flat tile of the concept */
+.hm.lb .bh-plate .blk-ic{background:#f2d2c3;color:#aa3618}
+
+/* 11. Needs attention items: the coloured backing behind each white plate is tunable (colour per type, strength, length) */
+.hm .cx-strip[data-tone="warn"]{--spc:var(--sp-warn,#c98a14)}
+.hm .cx-strip[data-tone="sched"]{--spc:var(--sp-sched,#3b6fb5)}
+.hm .cx-strip[data-tone="stop"]{--spc:var(--sp-stop,#b3361b)}
+.hm .cx-pic{width:var(--sp-w,300px);background:linear-gradient(105deg,color-mix(in srgb,var(--spc,var(--tone)) var(--sp-s,34%),#fff),color-mix(in srgb,var(--spc,var(--tone)) calc(var(--sp-s,34%) * .65),#fff) 55%,color-mix(in srgb,var(--spc,var(--tone)) calc(var(--sp-s,34%) * .26),#fff))}
+
+.hm .cx-strip{background:var(--sp-bg,#fff)}
+
+/* 12. white close button on the Get started and Needs attention heads */
+.hm .blk[data-k="setup"]>.blk-x,.hm .blk[data-k="na"]>.blk-x{color:#fff;opacity:.9}
+.hm .blk[data-k="setup"]>.blk-x:hover,.hm .blk[data-k="na"]>.blk-x:hover{color:#fff;opacity:1;background:rgba(255,255,255,.18)}
+
+/* 13. the greeting title may use the whole width of the work area (the line under it keeps its own measure);
+       a name too long for it shrinks the font instead of wrapping (FitTitle) */
+.hm .hello{max-width:none}
