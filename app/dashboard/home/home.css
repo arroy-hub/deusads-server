@@ -370,3 +370,7 @@
 .hm .cx-strip,.hm .cx-splate{flex-wrap:nowrap}.hm .cx-right{width:auto;justify-content:normal}
 .hm .step{border:0;border-top:1px solid #f1eae1;border-radius:0;flex-direction:row;background:none}
 .hm .rd-tile{cursor:inherit}.hm .wm-btn{gap:normal}.hm .wm-foot{justify-content:normal}.hm a.btn{text-align:center}
+
+/* All news: the way back is a plain arrow under the list */
+.hm .bk-row.bk-under{margin:14px 0 0}
+.hm .bk-row .btn.bk-arrow,.hm.lb .bk-row .btn.bk-arrow{width:38px;min-height:38px;padding:0;justify-content:center;border-radius:99px}

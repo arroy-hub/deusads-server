@@ -261,11 +261,12 @@ function Tip({ role, active, hide }) {
 }
 
 /** The Customize control: a block list with checkboxes, plus the Glow & gradients panel. */
-function Customize({ blocks, setBlocks, open, setOpen }) {
+function Customize({ blocks, setBlocks, open, setOpen, skip = [] }) {
+  const list = BLOCKS.filter(([key]) => !skip.includes(key));
   const wrap = useRef(null);
   const [down, setDown] = useState(false);
   useLayoutEffect(() => { if (open && wrap.current) setDown(wrap.current.getBoundingClientRect().top < 340); }, [open]);
-  const on = BLOCKS.filter(([key]) => blocks[key]).length;
+  const on = list.filter(([key]) => blocks[key]).length;
   useEffect(() => {
     if (!open) return undefined;
     const close = (event) => { if (!wrap.current?.contains(event.target)) setOpen(false); };
@@ -277,12 +278,12 @@ function Customize({ blocks, setBlocks, open, setOpen }) {
   return (
     <div className="cust-end">
       <div className="wm" ref={wrap}>
-        <button type="button" className="wm-btn" onClick={() => setOpen(!open)} data-tip={`Customize Home · ${on} of ${BLOCKS.length} blocks shown`} aria-label="Customize Home" aria-haspopup="true" aria-expanded={open}>
+        <button type="button" className="wm-btn" onClick={() => setOpen(!open)} data-tip={`Customize Home · ${on} of ${list.length} blocks shown`} aria-label="Customize Home" aria-haspopup="true" aria-expanded={open}>
           <Ic name="sliders" size={17} width={1.9} />
         </button>
         {open && (
           <div className={`wm-pop${down ? " down" : ""}`} role="group" aria-label="Home blocks">
-            {BLOCKS.map(([key, label]) => (
+            {list.map(([key, label]) => (
               <button key={key} type="button" className="wm-item" role="menuitemcheckbox" aria-checked={!!blocks[key]} onClick={() => setBlocks({ ...blocks, [key]: !blocks[key] })}>
                 <span className={`wm-box${blocks[key] ? " on" : ""}`} />
                 <span>{label}</span>
@@ -290,7 +291,7 @@ function Customize({ blocks, setBlocks, open, setOpen }) {
             ))}
             <div className="wm-foot">
               <button type="button" onClick={() => setBlocks(Object.fromEntries(BLOCKS.map(([key]) => [key, true])))}>Reset layout</button>
-              <button type="button" onClick={() => setBlocks(Object.fromEntries(BLOCKS.map(([key]) => [key, false])))}>Clear all</button>
+              <button type="button" onClick={() => setBlocks({ ...blocks, ...Object.fromEntries(list.map(([key]) => [key, false])) })}>Clear all</button>
             </div>
           </div>
         )}
@@ -346,12 +347,14 @@ function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, 
   if (blocks.news) side.push(<News key="news" role={role} nav={nav} hide={hideOf("news")} />);
   if (blocks.tips) side.push(<Tip key="tips" role={role} active hide={hideOf("tips")} />);
   const empty = !main.length && !side.length;
+  // until Get started is done, Needs attention and Recent activity are not offered in Customize either
+  const skip = allDone ? [] : ["attention", "activity"];
   return (
     <>
       {hello}
       {empty ? (
         <div className="home-grid off">
-          <Customize blocks={blocks} setBlocks={setBlocks} open={custOpen} setOpen={setCustOpen} />
+          <Customize blocks={blocks} setBlocks={setBlocks} open={custOpen} setOpen={setCustOpen} skip={skip} />
           <div className="panel off-box"><span className="off-ic"><Ic name="sliders" size={26} width={1.8} /></span><h2>Widgets are switched off</h2></div>
         </div>
       ) : (
@@ -359,7 +362,7 @@ function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, 
           <div className="col">{main}</div>
           <div className="col">
             {side}
-            <Customize blocks={blocks} setBlocks={setBlocks} open={custOpen} setOpen={setCustOpen} />
+            <Customize blocks={blocks} setBlocks={setBlocks} open={custOpen} setOpen={setCustOpen} skip={skip} />
           </div>
         </div>
       )}
@@ -480,9 +483,6 @@ function NewsView({ role, nav, open, toggle, filter, setFilter }) {
   );
   return (
     <>
-      <div className="bk-row">
-        <Link href={HOME} className="btn sm with-ic" onClick={(e) => nav(e, HOME)}><Ic name="chevl" size={14} width={2.2} />Home</Link>
-      </div>
       <div className="rel">
         <section className="panel blk" data-k="df">
           <div className="blk-h"><span className="blk-ic"><Ic name="mega" size={24} /></span><h2>All news</h2><span className="sp" />{seg}</div>
@@ -524,6 +524,9 @@ function NewsView({ role, nav, open, toggle, filter, setFilter }) {
             )}
           </div>
         </section>
+      </div>
+      <div className="bk-row bk-under">
+        <Link href={HOME} className="btn sm bk-arrow" aria-label="Back to Home" data-tip="Back to Home" onClick={(e) => nav(e, HOME)}><Ic name="arrowl" size={18} width={2.2} /></Link>
       </div>
     </>
   );

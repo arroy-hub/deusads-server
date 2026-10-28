@@ -18,6 +18,7 @@ const PATHS = {
   flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   sliders: <><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11M21 18h-1" /><circle cx="16" cy="6" r="2.4" /><circle cx="10" cy="12" r="2.4" /><circle cx="18" cy="18" r="2.4" /></>,
   chevl: <path d="M15 5l-7 7 7 7" />,
+  arrowl: <path d="M19 12H5M11 18l-6-6 6-6" />,
   chevr: <path d="M9 5l7 7-7 7" />,
   chevd: <path d="M5 9l7 7 7-7" />,
   chevu: <path d="M5 15l7-7 7 7" />,
