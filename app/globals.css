@@ -9680,3 +9680,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-m .sp-who.sp-face.has-pic { background-size: cover; background-position: center; background-repeat: no-repeat; }
 .sp-who.sp-gap { visibility: hidden; }
 .sp-m.is-follow { margin-top: -7px; }
+
+/* the shared header's gradient spans the whole width (no fade, no gap at the right edge) */
+.wt-top .gp-pic, .sp-top .gp-pic { width: 100%; aspect-ratio: auto; -webkit-mask-image: none; mask-image: none; }
