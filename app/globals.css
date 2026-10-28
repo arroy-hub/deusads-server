@@ -8149,10 +8149,6 @@ a.gm-mi { text-decoration: none; }
 .gp-top-card .tabs .tab[aria-current="page"]::before, .gp-top-card .tabs .tab[aria-current="page"]::after { content: ""; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; }
 .gp-top-card .tabs .tab[aria-current="page"]::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, #f6f2ed 12px); }
 .gp-top-card .tabs .tab[aria-current="page"]::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, #f6f2ed 12px); }
-/* Windows with the shared header (no custom cover): a stronger white veil over the cool grey cover, and the open tab set apart
-   from the header by a 1px outline in the colour of the line under the header (it follows the curved feet too). */
-.wt-top .gp-cover::after { background: rgba(255, 255, 255, 0.6); }
-.wt-top .tabs .tab[aria-current="page"] { filter: drop-shadow(0 -1px 0 #e6ddd3) drop-shadow(1px 0 0 #e6ddd3) drop-shadow(-1px 0 0 #e6ddd3); }
 .gp-top-card .tabs .cp-count { text-shadow: none; }
 .gp-top-card .gm-status { text-decoration: none; }
 .gp-top-card .tabs .cp-count { text-shadow: none; }
@@ -9803,7 +9799,8 @@ body.ig-dragging *{cursor:grabbing!important}
 .sp-m.is-follow { margin-top: -7px; }
 
 /* the shared header's gradient spans the whole width (no fade, no gap at the right edge) */
-.wt-top .gp-pic, .sp-top .gp-pic { width: 100%; aspect-ratio: auto; -webkit-mask-image: none; mask-image: none; }
+/* windows without a custom cover: the warm gradient of support-mockup.html over 62% of the width, dissolving to the right */
+.wt-top .gp-pic, .sp-top .gp-pic { width: 62%; aspect-ratio: auto; -webkit-mask-image: linear-gradient(to right, #000 0, #000 60%, rgba(0,0,0,0.6) 78%, rgba(0,0,0,0.2) 92%, transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 60%, rgba(0,0,0,0.6) 78%, rgba(0,0,0,0.2) 92%, transparent 100%); }
 
 /* On windows with the shared header the reserved scrollbar gutter showed as a blank strip at the right edge when the page is short */
 html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }

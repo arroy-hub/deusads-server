@@ -4,7 +4,7 @@
 
 import { NAV_ICONS } from "../../lib/nav-icons";
 
-const COVER = "linear-gradient(100deg, #dee2e5 0%, #e4e6ea 40%, #eff0f3 100%)";
+const COVER = "linear-gradient(105deg, #5a2a1e 0%, #a2432a 38%, #d9744f 70%, #f0b293 100%)";
 
 /** The plate icon: the menu pictogram of the same key (see lib/nav-icons.js), so header and menu always match. */
 export function PlateIcon({ name }) {
