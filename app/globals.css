@@ -9657,6 +9657,28 @@ body.ig-dragging *{cursor:grabbing!important}
 .sb-pill.is-brand { background: var(--signal-soft); color: var(--signal-ink); }
 .sb-pill.is-info { background: #e0eaf3; color: #1f4768; }
 .sb-pill.is-warn { background: #fdf0d5; color: #8a5a00; }
+/* admin assistant overview: people, the daily chart, ratings */
+.sb-tools { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 16px 10px; font-size: 12.5px; color: var(--ink-2); }
+.sb-tools label { display: inline-flex; align-items: center; gap: 8px; }
+.sb-person { border-top: 1px solid #f1eae1; }
+.sb-prow { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.sb-prow:hover { background: #fbf8f4; }
+.sb-pav { width: 32px; height: 32px; border-radius: 8px; color: #fff; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.sb-pmain { flex: 1; min-width: 0; }
+.sb-pmain b { display: block; font-size: 14px; font-weight: 600; }
+.sb-pmain small { display: block; font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pwait { font-size: 13px; font-weight: 700; color: var(--cx-stop); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sb-caret { color: var(--ink-3); transition: transform .15s; }
+.sb-caret.is-open { transform: rotate(180deg); }
+.sb-inner { background: #fcfaf7; border-top: 1px solid #f1eae1; }
+.sb-inner td:first-child { padding-left: 62px; }
+.sb-legend { display: flex; gap: 14px; padding: 0 16px 6px; font-size: 12px; color: var(--ink-2); }
+.sb-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+.sb-chart { padding: 0 16px 14px; }
+.sb-rbar { height: 10px; border-radius: 99px; background: #f0cfc3; overflow: hidden; }
+.sb-rbar i { display: block; height: 100%; background: #3a9a62; }
+.sb-rleg { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+.sb-rleg b { color: var(--ink); }
 .sb-bars { padding: 0 16px 14px; display: grid; gap: 9px; }
 .sb-bars div { display: grid; grid-template-columns: minmax(0, 150px) 1fr 30px; gap: 10px; align-items: center; font-size: 12.5px; }
 .sb-bars i { display: block; height: 8px; border-radius: 99px; background: #ece5dd; position: relative; overflow: hidden; }

@@ -13,6 +13,33 @@ const OUTCOME = { answered: ["Answered", "ok"], escalated: ["Passed to you", "br
 const stamp = (iso) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+const PALETTE = ["#c94a24", "#3b6fb6", "#2f9e8f", "#b8862b", "#8a63b8", "#c2527a"];
+const colorOf = (name) => PALETTE[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+/** Hours as a short label: minutes, hours, then days. */
+const ageOf = (h) => (h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${Math.round(h)} h` : `${Math.round(h / 24)} d`);
+
+/** Stacked bars per day: answered by the assistant (blue) and passed to a person (red). */
+function DailyChart({ days }) {
+  const W = 420, H = 130, max = Math.max(1, ...days.map((d) => d.answered + d.passed));
+  const slot = W / Math.max(1, days.length), bw = Math.max(3, Math.min(22, slot * 0.66));
+  return (
+    <svg viewBox={`0 0 ${W} ${H + 18}`} width="100%" role="img" aria-label="Answered by the assistant and passed to a person, per day">
+      {days.map((d, i) => {
+        const x = i * slot + (slot - bw) / 2, ha = (d.answered / max) * H, hp = (d.passed / max) * H;
+        return (
+          <g key={d.day}>
+            <title>{`${d.day}: answered ${d.answered}, passed to you ${d.passed}`}</title>
+            <rect x={x} y={H - ha} width={bw} height={ha} rx="3" fill="#3b6fb5" />
+            <rect x={x} y={H - ha - hp - 1.5} width={bw} height={hp} rx="3" fill="#c94a24" />
+          </g>
+        );
+      })}
+      <text x="0" y={H + 14} fontSize="10.5" fill="#8c7f73">{days[0]?.day.slice(5)}</text>
+      <text x={W} y={H + 14} fontSize="10.5" fill="#8c7f73" textAnchor="end">{days[days.length - 1]?.day.slice(5)}</text>
+    </svg>
+  );
+}
+
 /** A switch (role=switch) with an optional label. */
 function Switch({ on, onChange, label, disabled }) {
   return (
@@ -53,6 +80,10 @@ export default function AssistantAdmin() {
   const [note, setNote] = useState("");
   const [editing, setEditing] = useState(null); // null, or the article being written
   const [open, setOpen] = useState(() => new Set());
+  const [openPeople, setOpenPeople] = useState(() => new Set());
+  const [outcome, setOutcome] = useState("all");
+  const [order, setOrder] = useState("wait");
+  const togglePerson = (key) => setOpenPeople((set) => { const next = new Set(set); if (next.has(key)) next.delete(key); else next.add(key); return next; });
 
   const load = useCallback(async (p) => {
     const result = await loadAssistantPanel({ period: p });
@@ -110,6 +141,14 @@ export default function AssistantAdmin() {
 
   const s = data.stats;
   const preview = <Preview settings={settings} />;
+  const people = data.people
+    .filter((p) => outcome === "all" || p.items.some((i) => i.outcome === outcome))
+    .map((p) => ({ ...p, items: outcome === "all" ? p.items : p.items.filter((i) => i.outcome === outcome) }))
+    .sort((a, b) => {
+      if (order === "count") return b.items.length - a.items.length;
+      if (order === "recent") return a.lastAt < b.lastAt ? 1 : -1;
+      return (b.waitHours > 0) - (a.waitHours > 0) || b.waitHours - a.waitHours;
+    });
 
   return (
     <div className="cx-body sb-body">
@@ -150,30 +189,79 @@ export default function AssistantAdmin() {
           </div>
           <div className="sb-grid">
             <div className="sb-wd">
-              <h2>Recent questions <Info text="What people asked the assistant and what it did. Click a row to see the answer it was based on." /></h2>
-              {data.recent.length === 0 ? <p className="sb-empty">No questions in this period yet.</p> : (
-                <table className="sb-log"><tbody>
-                  {data.recent.map((r) => {
-                    const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, "info"];
-                    return (
-                      <tr key={r.id}>
-                        <td className="sb-when">{stamp(r.at)}</td>
-                        <td><span className="sb-q">{r.question}</span><span className="sb-w">{r.who} · {r.role}</span></td>
-                        <td><span className={`sb-pill is-${tone}`}>{label}</span></td>
-                        <td className="sb-src">{r.outcome === "answered" ? `${r.source || "—"} · ${r.confidence ?? 0}%` : (r.reason || "—")}</td>
-                        <td className="sb-rate">{r.rating === "up" ? "👍" : r.rating === "down" ? "👎" : ""}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody></table>
-              )}
+              <h2>Activity by person <Info text="Everyone who asked the assistant in this period. A person whose question was passed to you is at the top, the longest-waiting first. Open a person to see their questions." /></h2>
+              <div className="sb-tools">
+                <label>Outcome <select className="cp-sel" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+                  <option value="all">All</option>
+                  {Object.entries(OUTCOME).map(([key, [label]]) => <option key={key} value={key}>{label}</option>)}
+                </select></label>
+                <label>Sort <select className="cp-sel" value={order} onChange={(e) => setOrder(e.target.value)}>
+                  <option value="wait">Waiting first</option>
+                  <option value="recent">Most recent</option>
+                  <option value="count">Most questions</option>
+                </select></label>
+              </div>
+              {people.length === 0 ? <p className="sb-empty">No questions in this period yet.</p> : people.map((p) => {
+                const isOpen = openPeople.has(p.key);
+                return (
+                  <div className="sb-person" key={p.key}>
+                    <button type="button" className="sb-prow" aria-expanded={isOpen} onClick={() => togglePerson(p.key)}>
+                      <span className="sb-pav" style={{ background: colorOf(p.name) }} aria-hidden="true">{p.name.charAt(0).toUpperCase()}</span>
+                      <span className="sb-pmain"><b>{p.name}</b><small>{p.role} · {p.items.length} {p.items.length === 1 ? "question" : "questions"} · last {stamp(p.lastAt)}</small></span>
+                      {p.waitHours > 0 && <span className="sb-pwait" title="Age of the oldest question passed to you">{ageOf(p.waitHours)}</span>}
+                      <span className={`sb-caret${isOpen ? " is-open" : ""}`} aria-hidden="true">▾</span>
+                    </button>
+                    {isOpen && (
+                      <table className="sb-log sb-inner"><tbody>
+                        {p.items.map((r) => {
+                          const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, "info"];
+                          return (
+                            <tr key={r.id}>
+                              <td className="sb-when">{stamp(r.at)}</td>
+                              <td><span className="sb-q">{r.question}</span></td>
+                              <td><span className={`sb-pill is-${tone}`}>{label}</span></td>
+                              <td className="sb-src">{r.outcome === "answered" ? `${r.source || "—"} · ${r.confidence ?? 0}%` : (r.reason || "—")}</td>
+                              <td className="sb-rate">{r.rating === "up" ? "👍" : r.rating === "down" ? "👎" : ""}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody></table>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="sb-col">
+              <div className="sb-wd">
+                <h2>Answered vs passed to you</h2>
+                <small>{period === "today" ? "Today" : `Each day, ${period === "week" ? "last 7 days" : "last 30 days"}`}</small>
+                <div className="sb-legend"><span><i style={{ background: "#3b6fb5" }} />Answered by the assistant</span><span><i style={{ background: "#c94a24" }} />Passed to you</span></div>
+                <div className="sb-chart"><DailyChart days={data.daily} /></div>
+              </div>
               <div className="sb-wd">
                 <h2>Why it passed to you</h2>
                 {data.reasons.length === 0 ? <p className="sb-empty">Nothing passed on yet.</p> : (
                   <div className="sb-bars">
                     {data.reasons.map((r) => <div key={r.reason}><span>{r.reason}</span><i style={{ "--w": `${Math.round((r.count / Math.max(1, s.passed)) * 100)}%` }} /><em>{r.count}</em></div>)}
+                  </div>
+                )}
+              </div>
+              <div className="sb-wd">
+                <h2>How users rate it</h2>
+                <small>Answers with a rating</small>
+                {data.ratings.up + data.ratings.down === 0 ? <p className="sb-empty">No ratings yet.</p> : (
+                  <div className="sb-pad">
+                    <div className="sb-rbar"><i style={{ width: `${s.helpfulPct}%` }} /></div>
+                    <div className="sb-rleg"><span>👍 <b>{data.ratings.up}</b> helpful</span><span><b>{data.ratings.down}</b> not helpful 👎</span></div>
+                  </div>
+                )}
+              </div>
+              <div className="sb-wd">
+                <h2>What people ask about</h2>
+                <small>By the guide answer used, share of questions</small>
+                {data.topics.length === 0 ? <p className="sb-empty">No questions yet.</p> : (
+                  <div className="sb-bars">
+                    {data.topics.map((t) => <div key={t.topic}><span>{t.topic}</span><i style={{ "--w": `${Math.round((t.count / Math.max(1, s.total)) * 100)}%` }} /><em>{Math.round((t.count / Math.max(1, s.total)) * 100)}%</em></div>)}
                   </div>
                 )}
               </div>
