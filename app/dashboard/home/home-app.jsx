@@ -32,9 +32,9 @@ const viewOf = (path) =>
       ? { name: "guide", slug: path.slice(`${HOME}/guides/`.length).split("/")[0] }
       : { name: "home" };
 const TITLES = {
-  home: ["Home", "Everything that needs you, in one place"],
-  guide: ["Guides", null],
-  news: ["What’s new", "News, patches and announcements from the DeusADS team"],
+  home: ["Home", "Everything that needs you, in one place", "home"],
+  guide: ["Guides", null, "book"],
+  news: ["What’s new", "News, patches and announcements from the DeusADS team", "mega"],
 };
 
 /** One block of Home: icon and title, the optional left and right slots, and the body. */
@@ -43,7 +43,7 @@ function Block({ id, title, icon, left, right, cls = "", bodyCls = "", hide, chi
   return (
     <section className={`panel blk${hide ? " hasx" : ""}${cls ? ` ${cls}` : ""}`} data-k={key}>
       {hide && (
-        <button type="button" className="blk-x" onClick={hide} aria-label={`Hide ${title}`} title="Hide this block">
+        <button type="button" className="blk-x" onClick={hide} aria-label={`Hide ${title}`} data-tip="Hide this block">
           <Ic name="x" size={14} width={2.2} />
         </button>
       )}
@@ -101,11 +101,11 @@ function Attention({ strips, hide }) {
     setAll(!all);
   };
   return (
-    <Block title="Needs attention" icon="alert" hide={hide} cls="" bodyCls={many ? "attn" : ""} left={<span className="cnt" title={`${n} items wait for your action`}>{n}</span>}>
+    <Block title="Needs attention" icon="alert" hide={hide} cls="" bodyCls={many ? "attn" : ""} left={<span className="cnt" data-tip={`${n} items wait for your action`}>{n}</span>}>
       {many ? <div ref={clip} className={`attn-clip${all ? " open" : ""}${scroll ? " scroll" : ""}`}>{list}</div> : list}
       {many && (
         <div className="attn-more">
-          <button type="button" className={`attn-tgl${all ? " open" : ""}`} title={label} aria-label={label} aria-expanded={all} onClick={toggle}>
+          <button type="button" className={`attn-tgl${all ? " open" : ""}`} data-tip={label} aria-label={label} aria-expanded={all} onClick={toggle}>
             <Ic name="chevd" size={18} />
           </button>
         </div>
@@ -114,9 +114,9 @@ function Attention({ strips, hide }) {
   );
 }
 
-function Activity({ items }) {
+function Activity({ items, hide }) {
   return (
-    <Block title="Recent activity" icon="pulse" bodyCls="flush">
+    <Block title="Recent activity" icon="pulse" hide={hide}>
       {items.length === 0 ? (
         <p className="sub">Nothing yet. Bookings, decisions and answers will show up here.</p>
       ) : (
@@ -124,14 +124,14 @@ function Activity({ items }) {
           {items.slice(0, 5).map((item) => {
             const row = (
               <>
-                <span className="tl-d"><Ic name="pulse" size={11} width={2.4} /></span>
+                <span className="tl-d"><Ic name={item.icon || "pulse"} size={11} width={2.4} /></span>
                 <div><b>{item.text}</b><small>{item.when}</small></div>
               </>
             );
             return item.href ? (
-              <Link key={item.id} href={item.href} className="tli" style={{ "--tone": "var(--cx-mute)" }}>{row}</Link>
+              <Link key={item.id} href={item.href} className="tli" style={{ "--tone": `var(--cx-${item.tone || "mute"})` }}>{row}</Link>
             ) : (
-              <div key={item.id} className="tli" style={{ "--tone": "var(--cx-mute)" }}>{row}</div>
+              <div key={item.id} className="tli" style={{ "--tone": `var(--cx-${item.tone || "mute"})` }}>{row}</div>
             );
           })}
         </div>
@@ -242,7 +242,7 @@ function Tip({ role, active, hide }) {
   return (
     <section className="panel blk hasx tipblk" data-k="tp" onMouseEnter={() => setHover(true)} onMouseLeave={() => { setHover(false); setLap((value) => value + 1); }}>
       {hide && (
-        <button type="button" className="blk-x" onClick={hide} aria-label="Hide Tip" title="Hide this block">
+        <button type="button" className="blk-x" onClick={hide} aria-label="Hide Tip" data-tip="Hide this block">
           <Ic name="x" size={14} width={2.2} />
         </button>
       )}
@@ -261,9 +261,10 @@ function Tip({ role, active, hide }) {
 }
 
 /** The Customize control: a block list with checkboxes, plus the Glow & gradients panel. */
-function Customize({ blocks, setBlocks, onGlow }) {
-  const [open, setOpen] = useState(false);
+function Customize({ blocks, setBlocks, open, setOpen }) {
   const wrap = useRef(null);
+  const [down, setDown] = useState(false);
+  useLayoutEffect(() => { if (open && wrap.current) setDown(wrap.current.getBoundingClientRect().top < 340); }, [open]);
   const on = BLOCKS.filter(([key]) => blocks[key]).length;
   useEffect(() => {
     if (!open) return undefined;
@@ -276,11 +277,11 @@ function Customize({ blocks, setBlocks, onGlow }) {
   return (
     <div className="cust-end">
       <div className="wm" ref={wrap}>
-        <button type="button" className="wm-btn" onClick={() => setOpen(!open)} title={`Customize Home · ${on} of ${BLOCKS.length} blocks shown`} aria-label="Customize Home" aria-haspopup="true" aria-expanded={open}>
+        <button type="button" className="wm-btn" onClick={() => setOpen(!open)} data-tip={`Customize Home · ${on} of ${BLOCKS.length} blocks shown`} aria-label="Customize Home" aria-haspopup="true" aria-expanded={open}>
           <Ic name="sliders" size={17} width={1.9} />
         </button>
         {open && (
-          <div className="wm-pop" role="group" aria-label="Home blocks">
+          <div className={`wm-pop${down ? " down" : ""}`} role="group" aria-label="Home blocks">
             {BLOCKS.map(([key, label]) => (
               <button key={key} type="button" className="wm-item" role="menuitemcheckbox" aria-checked={!!blocks[key]} onClick={() => setBlocks({ ...blocks, [key]: !blocks[key] })}>
                 <span className={`wm-box${blocks[key] ? " on" : ""}`} />
@@ -290,7 +291,6 @@ function Customize({ blocks, setBlocks, onGlow }) {
             <div className="wm-foot">
               <button type="button" onClick={() => setBlocks(Object.fromEntries(BLOCKS.map(([key]) => [key, true])))}>Reset layout</button>
               <button type="button" onClick={() => setBlocks(Object.fromEntries(BLOCKS.map(([key]) => [key, false])))}>Clear all</button>
-              <button type="button" onClick={() => { setOpen(false); onGlow(); }}>Glow &amp; gradients</button>
             </div>
           </div>
         )}
@@ -328,7 +328,7 @@ function GlowPanel({ values, setValue, reset, close }) {
   );
 }
 
-function HomeView({ role, data, blocks, setBlocks, nav, onGlow, hello, isNew }) {
+function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, setCustOpen }) {
   const main = [];
   const side = [];
   const steps = data.checklist;
@@ -338,7 +338,7 @@ function HomeView({ role, data, blocks, setBlocks, nav, onGlow, hello, isNew }) 
     if (blocks.setup) main.push(<Checklist key="setup" steps={steps} isNew role={role} hide={hideOf("setup")} />);
   } else {
     if (blocks.attention) main.push(<Attention key="attention" strips={data.strips} hide={hideOf("attention")} />);
-    if (blocks.activity) side.push(<Activity key="activity" items={data.activity} />);
+    if (blocks.activity) side.push(<Activity key="activity" items={data.activity} hide={hideOf("activity")} />);
     if (blocks.setup && !allDone) side.push(<Checklist key="setup" steps={steps} isNew={false} role={role} hide={hideOf("setup")} />);
   }
   if (blocks.guides) main.push(<Guides key="guides" role={role} nav={nav} hide={hideOf("guides")} />);
@@ -350,7 +350,7 @@ function HomeView({ role, data, blocks, setBlocks, nav, onGlow, hello, isNew }) 
       {hello}
       {empty ? (
         <div className="home-grid off">
-          <div className="cust-end"><Customize blocks={blocks} setBlocks={setBlocks} onGlow={onGlow} /></div>
+          <Customize blocks={blocks} setBlocks={setBlocks} open={custOpen} setOpen={setCustOpen} />
           <div className="panel off-box"><span className="off-ic"><Ic name="sliders" size={26} width={1.8} /></span><h2>Widgets are switched off</h2></div>
         </div>
       ) : (
@@ -358,7 +358,7 @@ function HomeView({ role, data, blocks, setBlocks, nav, onGlow, hello, isNew }) 
           <div className="col">{main}</div>
           <div className="col">
             {side}
-            <Customize blocks={blocks} setBlocks={setBlocks} onGlow={onGlow} />
+            <Customize blocks={blocks} setBlocks={setBlocks} open={custOpen} setOpen={setCustOpen} />
           </div>
         </div>
       )}
@@ -384,7 +384,7 @@ function GuideView({ role, slug, nav }) {
       </div>
       <div className="rd-grid">
         <div className="col">
-          <section className="panel blk" data-k="gp">
+          <section className="panel blk" data-k="df">
             <div className="blk-h"><h2>{guide.title}</h2><span className="sp" /><small>{guide.min} min read</small></div>
             <div className="blk-b">
               <p className="art-intro">{guide.intro}</p>
@@ -403,22 +403,22 @@ function GuideView({ role, slug, nav }) {
           </section>
         </div>
         <div className="col">
-          <section className="panel blk" data-k="gp">
+          <section className="panel blk" data-k="df">
             <div className="blk-h"><h2>More guides</h2><span className="sp" /></div>
             <div className="blk-b">
               <div className="glist">
                 {list.map((title) => {
                   const href = `${HOME}/guides/${slugOf(title)}`;
                   return (
-                    <Link key={title} href={href} aria-current={title === guide.title} onClick={(e) => nav(e, href)}>
+                    <button key={title} type="button" aria-current={title === guide.title} onClick={(e) => nav(e, href)}>
                       <span>{title}</span><small>{ART[title].min} min</small>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
             </div>
           </section>
-          <section className="panel blk" data-k="gp">
+          <section className="panel blk" data-k="df">
             <div className="blk-h"><h2>Still stuck?</h2><span className="sp" /></div>
             <div className="blk-b">
               <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginBottom: 10 }}>Write to us and we will answer in My requests.</p>
@@ -483,8 +483,8 @@ function NewsView({ role, nav, open, toggle, filter, setFilter }) {
         <Link href={HOME} className="btn sm with-ic" onClick={(e) => nav(e, HOME)}><Ic name="chevl" size={14} width={2.2} />Home</Link>
       </div>
       <div className="rel">
-        <section className="panel blk" data-k="wn">
-          <div className="blk-h"><h2>All news</h2><span className="sp" />{seg}</div>
+        <section className="panel blk" data-k="df">
+          <div className="blk-h"><span className="blk-ic"><Ic name="mega" size={24} /></span><h2>All news</h2><span className="sp" />{seg}</div>
           <div className="blk-b flush">
             {list.length ? (
               <div className="nwl">
@@ -547,6 +547,7 @@ export default function HomeApp({ role, data, name, today }) {
   const [blocks, setBlocksState] = useState(() => Object.fromEntries(BLOCKS.map(([key]) => [key, true])));
   const [glow, setGlow] = useState(GD0);
   const [glowOpen, setGlowOpen] = useState(false);
+  const [custOpen, setCustOpen] = useState(false);
   const [open, setOpen] = useState({});
   const [filter, setFilter] = useState("all");
   const root = useRef(null);
@@ -564,6 +565,31 @@ export default function HomeApp({ role, data, name, today }) {
       if (tune) setGlow((now) => Object.fromEntries(Object.keys(now).map((key) => [key, { ...now[key], ...(tune[key] || {}) }])));
     } catch {}
   }, [role]);
+  useEffect(() => { if (new URLSearchParams(window.location.search).has("tune")) setGlowOpen(true); }, []);
+  const tip = useRef(null);
+  useEffect(() => {
+    const el = root.current;
+    const box = tip.current;
+    if (!el || !box) return undefined;
+    const over = (event) => {
+      const host = event.target.closest?.("[data-tip]");
+      if (!host || !el.contains(host)) { box.style.opacity = 0; return; }
+      box.textContent = host.dataset.tip;
+      box.style.opacity = 1;
+      const r = host.getBoundingClientRect();
+      const w = box.offsetWidth;
+      const h = box.offsetHeight;
+      const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+      let y = r.top - h - 8;
+      if (y < 8) y = r.bottom + 8;
+      box.style.left = `${x}px`;
+      box.style.top = `${y}px`;
+    };
+    const hide = () => { box.style.opacity = 0; };
+    document.addEventListener("mouseover", over);
+    window.addEventListener("scroll", hide, true);
+    return () => { document.removeEventListener("mouseover", over); window.removeEventListener("scroll", hide, true); };
+  }, []);
   useEffect(() => { applyGlow(glow, root.current); try { localStorage.setItem(TUNE, JSON.stringify(glow)); } catch {} }, [glow]);
 
   const setBlocks = (next) => {
@@ -590,16 +616,20 @@ export default function HomeApp({ role, data, name, today }) {
     if (dir && !reduced() && root.current) {
       const el = root.current;
       const rect = el.getBoundingClientRect();
-      const ghost = document.createElement("div");
-      ghost.className = el.className;
+      const oldPlate = el.querySelector(".plate");
+      const oldW = oldPlate ? oldPlate.getBoundingClientRect().width : 0;
+      const ghost = el.cloneNode(true);
+      ghost.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
       ghost.style.cssText = `position:fixed;z-index:20;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;background:transparent`;
-      const work = el.querySelector(".hm-work")?.cloneNode(true);
-      if (work) ghost.appendChild(work);
+      const gh = ghost.querySelector(".hdr");
+      if (gh) { gh.style.background = "transparent"; gh.style.borderBottom = "0"; gh.querySelector(".cover")?.remove(); }
+      const gp = ghost.querySelector(".plate");
+      if (gp) { gp.style.background = "transparent"; gp.style.boxShadow = "none"; }
       document.body.appendChild(ghost);
       document.documentElement.style.overflowX = "hidden";
       const y0 = window.scrollY;
       if (y0 > 0) el.style.minHeight = `${rect.height}px`;
-      pending.current = { dir, ghost, y0 };
+      pending.current = { dir, ghost, y0, oldW };
     } else {
       window.scrollTo(0, 0);
     }
@@ -614,12 +644,19 @@ export default function HomeApp({ role, data, name, today }) {
     if (!job || !root.current) return;
     pending.current = null;
     const el = root.current;
-    const { dir, ghost, y0 } = job;
+    const { dir, ghost, y0, oldW } = job;
     const D = 90, T = 480, OUT = "cubic-bezier(.3,.7,.4,1)", IN = "cubic-bezier(.22,1,.36,1)", F = "cubic-bezier(.4,0,.6,1)";
     const move = (node, from, to, easing, fill) => node.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }], { duration: T, easing, fill });
     const fade = (node, from, to, duration, delay, fill) => node.animate([{ opacity: from }, { opacity: to }], { duration, delay, easing: F, fill });
+    ghost.querySelectorAll(".plate-ic, .plate > div").forEach((node) => fade(node, 1, 0, T * 0.45, 0, "forwards"));
     ghost.querySelectorAll(".hm-work").forEach((node) => { move(node, 0, -dir * D, OUT, "forwards"); fade(node, 1, 0, T * 0.5, 0, "forwards"); });
     el.querySelectorAll(".hm-work").forEach((node) => { move(node, dir * D, 0, IN, "backwards"); fade(node, 0, 1, T * 0.55, T * 0.12, "backwards"); });
+    const plate = el.querySelector(".plate");
+    if (plate) {
+      const nw = plate.getBoundingClientRect().width;
+      plate.querySelectorAll(".plate-ic, .plate > div").forEach((node) => fade(node, 0, 1, T * 0.55, T * 0.15, "backwards"));
+      if (oldW && Math.abs(oldW - nw) > 1) { plate.style.overflow = "hidden"; const grow = plate.animate([{ width: `${oldW}px` }, { width: `${nw}px` }], { duration: T, easing: IN }); grow.onfinish = () => { plate.style.overflow = ""; }; }
+    }
     setTimeout(() => {
       ghost.remove();
       document.documentElement.style.overflowX = "";
@@ -636,21 +673,29 @@ export default function HomeApp({ role, data, name, today }) {
     </section>
   );
 
-  const [title, lede] = view.name === "guide"
-    ? ["Guides", `Step-by-step help for ${role === "dev" ? "developers" : "advertisers"}`]
+  const [title, lede, icon] = view.name === "guide"
+    ? ["Guides", `Step-by-step help for ${role === "dev" ? "developers" : "advertisers"}`, "book"]
     : TITLES[view.name];
   return (
-    <div ref={root} className="pg-ic pg-home hm lb" data-view={view.name}>
-      <header className="main-head">
-        <div><h1>{title}</h1>{lede && <p className="lede">{lede}</p>}</div>
-      </header>
+    <div ref={root} className="hm lb pg" data-view={view.name}>
+      <div className="hdr">
+        <div className="cover"><i /></div>
+        <div className="plate-row">
+          <div className="plate">
+            <span className="plate-ic"><Ic name={icon} size={26} /></span>
+            <div><h1>{title}</h1><small>{lede}</small></div>
+          </div>
+        </div>
+        <div style={{ height: 22 }} />
+      </div>
       <div className="work hm-work">
         {view.name === "home" && (
-          <HomeView role={role} data={data} blocks={blocks} setBlocks={setBlocks} nav={nav} onGlow={() => setGlowOpen(true)} hello={hello} isNew={isNew} />
+          <HomeView role={role} data={data} blocks={blocks} setBlocks={setBlocks} nav={nav} hello={hello} isNew={isNew} custOpen={custOpen} setCustOpen={setCustOpen} />
         )}
         {view.name === "guide" && <GuideView role={role} slug={view.slug} nav={nav} />}
         {view.name === "news" && <NewsView role={role} nav={nav} open={open} toggle={toggleOpen} filter={filter} setFilter={setFilter} />}
       </div>
+      <div id="tip" ref={tip} role="tooltip" />
       {glowOpen && <GlowPanel values={glow} setValue={setValue} reset={() => setGlow(GD0)} close={() => setGlowOpen(false)} />}
     </div>
   );
