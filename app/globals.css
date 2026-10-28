@@ -9357,3 +9357,6 @@ body.ig-dragging *{cursor:grabbing!important}
   .ct-cols { grid-template-columns: 1fr; }
 }
 .aud-ed-wide{display:grid;gap:8px}
+
+/* The side menu hangs slightly over the work area: a soft shadow on its right edge (Home and every other page). */
+.rail { box-shadow: 3px 0 12px rgba(60, 35, 20, 0.16); }

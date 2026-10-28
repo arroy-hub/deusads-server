@@ -6,7 +6,7 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 const labels = (role) => menuFor(role).flatMap((group) => group.items.map((item) => item.label));
 
 assert.deepEqual(labels("developer"), ["Home", "My games"]);
-assert.deepEqual(labels("advertiser"), ["Overview", "Campaigns"]);
+assert.deepEqual(labels("advertiser"), ["Home", "Overview", "Campaigns"]);
 assert.ok(!labels("advertiser").includes("Creatives"), "Creatives is a tab of the Campaigns window, not a menu entry");
 assert.equal(labels("admin").slice(0, 6).join(), "Review creatives,Disputes,All bookings,Users,Traffic,System");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
@@ -18,11 +18,12 @@ assert.ok(labels("admin").includes("My games"), "an admin keeps their own develo
 // an admin has the whole advertiser menu and the whole developer menu, in two labelled sections
 const adminGroups = menuFor("admin");
 const section = (heading) => adminGroups.find((group) => group.heading === heading)?.items.map((item) => item.label).join();
-assert.equal(section("As an advertiser"), labels("advertiser").join(), "an admin gets the advertiser Overview as its own entry (it is the advertiser's Home)");
+assert.equal(section("As an advertiser"), labels("advertiser").filter((label) => label !== "Home").join(), "an admin gets the advertiser Overview as its own entry");
 assert.equal(section("As a developer"), labels("developer").filter((label) => label !== "Home").join());
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin");
-assert.equal(homeFor("developer"), "/dashboard");
+assert.equal(homeFor("developer"), "/dashboard/home");
+assert.equal(homeFor("advertiser"), "/dashboard");
 
 // the Creatives tab and a creative's page count as being inside Campaigns
 const campaignsItem = menuFor("advertiser").flatMap((group) => group.items).find((item) => item.key === "campaigns");
@@ -36,6 +37,8 @@ assert.ok(!labels("developer").includes("Now showing") && !labels("admin").inclu
 
 // the active item
 const home = { href: "/dashboard", exact: true };
+const homePage = menuFor("developer")[0].items[0];
+assert.ok(isActive(homePage, "/dashboard/home") && isActive(homePage, "/dashboard/home/guides/fill-in-targeting") && isActive(homePage, "/dashboard/home/news") && !isActive(homePage, "/dashboard"));
 const games = { href: "/dashboard/games" };
 assert.ok(isActive(home, "/dashboard") && !isActive(home, "/dashboard/games"));
 assert.ok(isActive(games, "/dashboard/games") && !isActive(games, "/dashboard/gamesx"));
