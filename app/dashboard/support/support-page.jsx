@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AssistantChat from "./assistant-chat";
 import RequestsTab from "./requests-tab";
 import RequestWindow from "./request-window";
@@ -36,7 +36,10 @@ export default function SupportPage({ role, requests, folders, outdated, initial
   }, []);
 
   // A link to another request while the page is open (the bell): follow it.
-  useEffect(() => { if (initialOpen) { setTab("requests"); setOpenId(initialOpen); } }, [initialOpen]);
+  // It follows the address in the browser (what the bell link or this page itself set), never the server's copy of it:
+  // router.refresh() brings back props built from a possibly older address, and following those reopened the first request.
+  const wanted = useSearchParams().get("open");
+  useEffect(() => { if (wanted) { setTab("requests"); setOpenId(wanted); } }, [wanted]);
 
   function choose(next, focus = false) {
     setTab(next);
@@ -50,8 +53,10 @@ export default function SupportPage({ role, requests, folders, outdated, initial
     choose(tab === "requests" ? "assistant" : "requests", true);
   };
 
-  const openRequest = (id) => { setTab("requests"); setOpenId(id); setAddress("requests", id); router.refresh(); };
-  const closeRequest = () => { setOpenId(null); setAddress("requests", null); router.refresh(); };
+  // Opening and closing a request does not touch the address: router.refresh() can put an older address back, and the
+  // page used to follow it, which reopened the first request instead of the one that was clicked.
+  const openRequest = (id) => { setTab("requests"); setOpenId(id); router.refresh(); };
+  const closeRequest = () => { setOpenId(null); router.refresh(); };
   const startForm = (next) => { setTab("assistant"); setAddress("assistant", null); setSeed(next); };
 
   return (
