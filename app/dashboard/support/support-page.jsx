@@ -47,6 +47,23 @@ export default function SupportPage({ role, requests, folders, outdated, initial
     window.scrollTo(0, 0);
     if (focus) tabs.current[next]?.focus();
   }
+  // The sidebar item "Help & feedback" while this page is already open: the address only differs by ?tab=requests, which
+  // the router does not treat as a new page, so the loading veil used to spin until it gave up. Just show the first tab.
+  useEffect(() => {
+    const onClick = (event) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!link || (link.target && link.target !== "_self")) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname !== "/dashboard/support" || url.search) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpenId(null);
+      choose("assistant");
+    };
+    window.addEventListener("click", onClick, true);
+    return () => window.removeEventListener("click", onClick, true);
+  });
   const onKeyDown = (e) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
