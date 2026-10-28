@@ -23,11 +23,11 @@ function subscribe(fn) {
   window.addEventListener("storage", fn);
   return () => { listeners.delete(fn); window.removeEventListener("storage", fn); };
 }
-const useView = () => useSyncExternalStore(subscribe, read, () => "admin");
+export const useRailView = () => useSyncExternalStore(subscribe, read, () => "admin");
 
 /** The small role label under the logo: for an admin it is a button that steps through the three views. */
 export function RoleSwitch() {
-  const view = useView();
+  const view = useRailView();
   const next = ORDER[(ORDER.indexOf(view) + 1) % ORDER.length];
   const change = () => {
     try { localStorage.setItem(KEY, next); } catch {}
@@ -43,7 +43,7 @@ export function RoleSwitch() {
 
 /** The menu groups of the chosen view. */
 export function RoleMenu({ views }) {
-  const view = useView();
+  const view = useRailView();
   return (
     <>
       {(views[view] ?? views.admin).map((group, index) => (

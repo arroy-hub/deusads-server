@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
+import { useRailView } from "../role-view";
 import { usePathname, useRouter } from "next/navigation";
 import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
@@ -589,7 +590,11 @@ function toast(message) {
   toastTimer = setTimeout(() => el.remove(), 2000);
 }
 
-export default function HomeApp({ role, data, name, today }) {
+export default function HomeApp({ role: roleProp, data: dataProp, choices = null, name, today }) {
+  // An admin sees the Home of the role chosen in the side menu.
+  const railView = useRailView();
+  const role = choices ? (railView === "advertiser" ? "adv" : "dev") : roleProp;
+  const data = choices ? choices[role] : dataProp;
   const path = usePathname();
   const router = useRouter();
   const view = viewOf(path);
