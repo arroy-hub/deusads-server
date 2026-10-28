@@ -9375,7 +9375,7 @@ body.ig-dragging *{cursor:grabbing!important}
 
 /* the assistant tab: one white card with the chat */
 .sp-assistant { align-items: flex-start; }
-.sp-chat-card { width: 100%; max-width: 780px; height: calc(100vh - 260px); min-height: 460px; background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.sp-chat-card { width: 100%; max-width: 760px; height: calc(100vh - 260px); min-height: 460px; background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
 .sp-chat { display: flex; flex-direction: column; min-height: 0; flex: 1; height: 100%; }
 .sp-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .sp-m { display: flex; gap: 9px; max-width: 92%; }

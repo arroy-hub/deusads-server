@@ -9,8 +9,9 @@ const HELPED = "That helped";
 const NOT_SOLVED = "Not solved — send to developer";
 const SEND = "Send to developer";
 const DOWN = "I couldn’t reach the assistant. You can pass your question to the developer.";
-const GREETING_OFF = "Hi! The assistant is still being set up. Until it is ready, write to the developer: pick what you need below.";
-const NOT_READY = "I can’t answer questions yet, but I can pass yours to the developer — they will reply here and in your bell.";
+const STARTERS = ["Where is my API key?", "Banners don’t show in game", "How do I pause a campaign?"];
+const GREETING_OFF = "Hi! The assistant isn’t working right now. You can still send your message: a person will reply as soon as it’s their turn in the queue.";
+const NOT_READY = "The assistant isn’t working right now, so I can’t answer. Pass your question to the developer: a person will reply as soon as it’s their turn, here and in your bell.";
 
 let counter = 0;
 const uid = () => `m${(counter += 1)}`;
@@ -22,7 +23,7 @@ const uid = () => `m${(counter += 1)}`;
  * `assistantOn` is false until the assistant itself is switched on by the admin.
  */
 export default function AssistantChat({ role, mode = "page", assistantOn = false, greeting, seed, onSeedUsed, onOpenRequest }) {
-  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page" }]);
+  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page", chips: assistantOn ? STARTERS : undefined }]);
   const [me, setMe] = useState(null); // the person's own card, for their face beside their messages
   useEffect(() => {
     let gone = false;
