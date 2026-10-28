@@ -80,6 +80,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
   return (
     <>
       <Band
+        icon="modCreatives"
         title="Review creatives"
         info={INFO}
         sub="Approve or reject what advertisers upload."

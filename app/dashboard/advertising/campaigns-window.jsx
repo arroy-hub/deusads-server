@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import CampaignsPanel from "./campaigns-panel";
 import Library from "../creatives/library";
+import WindowTop, { PlateIcon } from "../window-top";
 
 const HEAD = {
   camp: ["Campaigns", "Your campaigns and where each one stands."],
@@ -32,14 +33,13 @@ export default function CampaignsWindow({ campaigns, error, rules, today, librar
   };
 
   return (
-    <div className="pg-ic pg-campaigns cx-win" data-tab={tab}>
-      <header className="main-head cx-head">
-        <div><h1>{title}</h1><p className="lede">{lede}</p></div>
-        <div className="cx-tabs" role="tablist" aria-label="Campaigns sections" onKeyDown={onKeyDown}>
-          <button type="button" ref={(el) => { tabs.current.camp = el; }} className="cx-tab" role="tab" id="cx-tab-camp" aria-selected={tab === "camp"} aria-controls="cx-panel-camp" tabIndex={tab === "camp" ? 0 : -1} onClick={() => choose("camp")}>Campaigns <i>{campaigns.length}</i></button>
-          <button type="button" ref={(el) => { tabs.current.cr = el; }} className="cx-tab" role="tab" id="cx-tab-cr" aria-selected={tab === "cr"} aria-controls="cx-panel-cr" tabIndex={tab === "cr" ? 0 : -1} onClick={() => choose("cr")}>Creatives <i>{creativeCount}</i></button>
+    <div className="wt-win pg-campaigns cx-win" data-tab={tab}>
+      <WindowTop title={title} sub={lede} icon={<PlateIcon name="campaigns" />}>
+        <div className="tabs" role="tablist" aria-label="Campaigns sections" onKeyDown={onKeyDown}>
+          <button type="button" ref={(el) => { tabs.current.camp = el; }} className="tab" role="tab" id="cx-tab-camp" aria-selected={tab === "camp"} aria-current={tab === "camp" ? "page" : undefined} aria-controls="cx-panel-camp" tabIndex={tab === "camp" ? 0 : -1} onClick={() => choose("camp")}>Campaigns <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{campaigns.length}</span></button>
+          <button type="button" ref={(el) => { tabs.current.cr = el; }} className="tab" role="tab" id="cx-tab-cr" aria-selected={tab === "cr"} aria-current={tab === "cr" ? "page" : undefined} aria-controls="cx-panel-cr" tabIndex={tab === "cr" ? 0 : -1} onClick={() => choose("cr")}>Creatives <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{creativeCount}</span></button>
         </div>
-      </header>
+      </WindowTop>
       <div id="cx-panel-camp" role="tabpanel" aria-labelledby="cx-tab-camp" hidden={tab !== "camp"}>
         <CampaignsPanel campaigns={campaigns} error={error} rules={rules} today={today} />
       </div>

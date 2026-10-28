@@ -35,7 +35,7 @@ export default function UsersView({ rows, widgets, groups, defaults, layout }) {
 
   return (
     <>
-      <Band title="Users" sub="Every account on the platform. Click a row to open it. Active means a game or a campaign is running now." actions={<AddUserDialog />} />
+      <Band icon="users" title="Users" sub="Every account on the platform. Click a row to open it. Active means a game or a campaign is running now." actions={<AddUserDialog />} />
       <DeckShell kind="admin_users" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="All accounts. Drag the grip to move a widget.">
         <div className="cb-unit">
           <div className="cb-tbar">

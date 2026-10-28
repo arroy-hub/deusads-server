@@ -102,7 +102,7 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
 
   return (
     <>
-      <Band title="All bookings" sub="Read-only. Bookings are grouped, open a group to see its creatives. Bookings approve themselves; to switch an account off, use Users." />
+      <Band icon="bookings" title="All bookings" sub="Read-only. Bookings are grouped, open a group to see its creatives. Bookings approve themselves; to switch an account off, use Users." />
       <DeckShell kind="admin_bookings" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="All bookings, last 90 days. Drag the grip to move a widget.">
         <div className="cb-unit">
           <div className="cb-tbar">

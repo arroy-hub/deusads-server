@@ -1,4 +1,5 @@
 import Link from "next/link";
+import WindowTop, { PlateIcon } from "../window-top";
 import { userClient, currentUser } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
@@ -137,15 +138,8 @@ export default async function GamesPage({ searchParams }) {
   });
 
   return (
-    <div className="mg">
-      <div className="mg-top hd-top">
-        <div className="mg-head">
-          <div>
-            <h1>My games</h1>
-            <p>Your games, their connection and how their ads perform.</p>
-          </div>
-        </div>
-
+    <div className="mg gp">
+      <WindowTop title="My games" sub="Your games, their connection and how their ads perform." icon={<PlateIcon name="games" />}>
         <nav className="tabs" aria-label="My games sections">
           <Link href="/dashboard/games" className="tab" aria-current={tab === "games" ? "page" : undefined}>
             Games
@@ -155,7 +149,7 @@ export default async function GamesPage({ searchParams }) {
             Performance
           </Link>
         </nav>
-      </div>
+      </WindowTop>
 
       <div className="mg-work">
         {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}
