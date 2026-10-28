@@ -23,5 +23,5 @@ export default async function HomeLayout() {
   ]);
   const today = new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
   const name = account?.company || me.user.email || "";
-  return <HomeApp role={role} data={data} welcome={`Welcome back, ${name} · ${today}`} />;
+  return <HomeApp role={role} data={data} name={name} today={today} />;
 }

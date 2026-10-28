@@ -6,39 +6,55 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
+import { GD0, GSPEC, PLATES, applyGlow } from "./glow";
 
 // The blocks a person can switch on and off, in the order they appear in the menu.
 const BLOCKS = [
-  ["attention", "Needs attention"],
-  ["activity", "Recent activity"],
-  ["setup", "Get started checklist"],
-  ["guides", "Guides"],
-  ["news", "What’s new"],
-  ["tips", "Tips"],
+  ["attention", "Needs attention", "na", "alert"],
+  ["activity", "Recent activity", "ra", "pulse"],
+  ["setup", "Get started checklist", "df", "flag"],
+  ["guides", "Guides", "gp", "book"],
+  ["news", "What’s new", "wn", "mega"],
+  ["tips", "Tips", "tp", "bulb"],
 ];
 const STORE = "deusads-home-blocks";
+const TUNE = "deusads-home-c-tune";
 const TIP_MS = 10000;
 const EASE = "cubic-bezier(.4,0,.2,1)";
 const COVER = "linear-gradient(105deg,color-mix(in srgb,var(--tone) 34%,#fff),color-mix(in srgb,var(--tone) 22%,#fff) 55%,color-mix(in srgb,var(--tone) 9%,#fff))";
-const BLOCK_ICON = { "Welcome to DeusADS": "flag", "Get started": "flag", Guides: "book", "Needs attention": "alert", "Recent activity": "pulse", "What’s new": "mega", Tip: "bulb" };
-const PILL = { important: "hm-warn", patch: "hm-info", news: "hm-info" };
 const HOME = "/dashboard/home";
-
+const READ = ["guide", "news"];
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const viewOf = (path) => (path.startsWith(`${HOME}/news`) ? { name: "news" } : path.startsWith(`${HOME}/guides/`) ? { name: "guide", slug: path.slice(`${HOME}/guides/`.length).split("/")[0] } : { name: "home" });
+const viewOf = (path) =>
+  path.startsWith(`${HOME}/news`)
+    ? { name: "news" }
+    : path.startsWith(`${HOME}/guides/`)
+      ? { name: "guide", slug: path.slice(`${HOME}/guides/`.length).split("/")[0] }
+      : { name: "home" };
+const TITLES = {
+  home: ["Home", "Everything that needs you, in one place"],
+  guide: ["Guides", null],
+  news: ["What’s new", "News, patches and announcements from the DeusADS team"],
+};
 
-/** One block of Home: icon and title on the left, whatever `right` holds on the right. */
-function Block({ title, right, left, cls = "", id, children, className = "" }) {
+/** One block of Home: icon and title, the optional left and right slots, and the body. */
+function Block({ id, title, icon, left, right, cls = "", bodyCls = "", hide, children }) {
+  const key = BLOCKS.find(([, label]) => label === title)?.[2] ?? id ?? "df";
   return (
-    <section className={`hm-panel hm-blk ${className}`} id={id}>
-      <div className="hm-blk-h">
-        {BLOCK_ICON[title] && <span className="hm-blk-ic"><Ic name={BLOCK_ICON[title]} size={24} /></span>}
+    <section className={`panel blk${hide ? " hasx" : ""}${cls ? ` ${cls}` : ""}`} data-k={key}>
+      {hide && (
+        <button type="button" className="blk-x" onClick={hide} aria-label={`Hide ${title}`} title="Hide this block">
+          <Ic name="x" size={14} width={2.2} />
+        </button>
+      )}
+      <div className="blk-h">
+        {icon && <span className="blk-ic"><Ic name={icon} size={24} /></span>}
         <h2>{title}</h2>
         {left}
-        <span className="hm-sp" />
+        <span className="sp" />
         {right}
       </div>
-      <div className={`hm-blk-b ${cls}`}>{children}</div>
+      <div className={`blk-b ${bodyCls}`}>{children}</div>
     </section>
   );
 }
@@ -51,30 +67,27 @@ function Strip({ item }) {
         <span className="cx-ic"><span className="rd-tile"><Ic name={item.icon} size={20} /></span></span>
         <div className="cx-txt"><h3>{item.title}</h3><div className="cx-sub">{item.text}</div></div>
       </div>
-      <div className="cx-right"><span className={`hm-btn hm-sm${item.primary ? " hm-pri" : ""}`}>{item.action}</span></div>
+      <div className="cx-right"><span className="cx-go" aria-hidden="true"><Ic name="chevr" size={17} width={2.2} /></span></div>
     </Link>
   );
 }
 
-function Attention({ strips }) {
+/** Needs attention: three strips by default, the rest behind the chevron (a neat scroll after it opens). */
+function Attention({ strips, hide }) {
   const [all, setAll] = useState(false);
   const [scroll, setScroll] = useState(false);
   const clip = useRef(null);
   const n = strips.length;
   useEffect(() => {
-    if (!all) { setScroll(false); return; }
+    if (!all) { setScroll(false); return undefined; }
     const timer = setTimeout(() => setScroll(true), 520);
     return () => clearTimeout(timer);
   }, [all]);
-  const toggle = () => {
-    if (all) clip.current?.scrollTo({ top: 0, behavior: "smooth" });
-    setAll(!all);
-  };
   if (n === 0) {
     return (
-      <Block title="Needs attention">
-        <div className="hm-attn-empty">
-          <span className="hm-ok"><Ic name="check" size={24} width={2.4} /></span>
+      <Block title="Needs attention" icon="alert" hide={hide}>
+        <div className="attn-empty">
+          <span className="ok"><Ic name="check" size={24} width={2.4} /></span>
           <div><h3>You’re all caught up</h3><p>Nothing needs your action right now. New items will appear here.</p></div>
         </div>
       </Block>
@@ -83,12 +96,18 @@ function Attention({ strips }) {
   const many = n > 3;
   const list = <div className="cx-strips">{strips.map((item) => <Strip key={item.key} item={item} />)}</div>;
   const label = all ? "Show less" : `Show all ${n}`;
+  const toggle = () => {
+    if (all) clip.current?.scrollTo({ top: 0, behavior: "smooth" });
+    setAll(!all);
+  };
   return (
-    <Block title="Needs attention" cls={many ? "hm-attn" : ""} left={<span className="hm-cnt" title={`${n} items wait for your action`}>{n}</span>}>
-      {many ? <div ref={clip} className={`hm-attn-clip${all ? " hm-open" : ""}${scroll ? " hm-scroll" : ""}`}>{list}</div> : list}
+    <Block title="Needs attention" icon="alert" hide={hide} cls="" bodyCls={many ? "attn" : ""} left={<span className="cnt" title={`${n} items wait for your action`}>{n}</span>}>
+      {many ? <div ref={clip} className={`attn-clip${all ? " open" : ""}${scroll ? " scroll" : ""}`}>{list}</div> : list}
       {many && (
-        <div className="hm-attn-more">
-          <button type="button" className={`hm-attn-tgl${all ? " hm-open" : ""}`} title={label} aria-label={label} aria-expanded={all} onClick={toggle}><Ic name="chevd" size={18} /></button>
+        <div className="attn-more">
+          <button type="button" className={`attn-tgl${all ? " open" : ""}`} title={label} aria-label={label} aria-expanded={all} onClick={toggle}>
+            <Ic name="chevd" size={18} />
+          </button>
         </div>
       )}
     </Block>
@@ -97,20 +116,23 @@ function Attention({ strips }) {
 
 function Activity({ items }) {
   return (
-    <Block title="Recent activity" cls="hm-flush">
+    <Block title="Recent activity" icon="pulse" bodyCls="flush">
       {items.length === 0 ? (
-        <p className="hm-quiet">Nothing yet. Bookings, decisions and answers will show up here.</p>
+        <p className="sub">Nothing yet. Bookings, decisions and answers will show up here.</p>
       ) : (
-        <div className="hm-fc">
-          {items.map((item) => {
+        <div className="tl">
+          {items.slice(0, 5).map((item) => {
             const row = (
               <>
-                <span className="hm-d"><Ic name="pulse" size={12} width={2.4} /></span>
-                <b>{item.text}</b>
-                <small>{item.when}</small>
+                <span className="tl-d"><Ic name="pulse" size={11} width={2.4} /></span>
+                <div><b>{item.text}</b><small>{item.when}</small></div>
               </>
             );
-            return item.href ? <Link key={item.id} href={item.href} className="hm-fcr" style={{ "--tone": "var(--cx-mute)" }} title={item.text}>{row}</Link> : <div key={item.id} className="hm-fcr" style={{ "--tone": "var(--cx-mute)" }} title={item.text}>{row}</div>;
+            return item.href ? (
+              <Link key={item.id} href={item.href} className="tli" style={{ "--tone": "var(--cx-mute)" }}>{row}</Link>
+            ) : (
+              <div key={item.id} className="tli" style={{ "--tone": "var(--cx-mute)" }}>{row}</div>
+            );
           })}
         </div>
       )}
@@ -118,7 +140,7 @@ function Activity({ items }) {
   );
 }
 
-function Checklist({ steps, isNew, role }) {
+function Checklist({ steps, isNew, role, hide }) {
   const done = steps.filter((step) => step.done).length;
   const all = done === steps.length;
   const sub = role === "dev"
@@ -126,16 +148,16 @@ function Checklist({ steps, isNew, role }) {
     : isNew ? "Get started: four steps to your first campaign." : "Four steps to your first campaign.";
   const win = role === "dev" ? "Ready for advertisers. Campaigns can start running in your game." : "Done. Your campaign is waiting for moderation.";
   return (
-    <Block title={isNew ? "Welcome to DeusADS" : "Get started"} right={<small>{done} of {steps.length}</small>}>
-      <div className="hm-setup">
-        <p className="hm-sub">{sub}</p>
-        <div className="hm-prog"><div className="hm-bar"><i style={{ width: `${(done / steps.length) * 100}%` }} /></div></div>
-        {all && <div className="hm-win"><Ic name="check" size={18} width={2.6} /><span>{win}</span></div>}
+    <Block title={isNew ? "Welcome to DeusADS" : "Get started"} icon="flag" hide={hide} right={<small>{done} of {steps.length}</small>}>
+      <div className="setup">
+        <p className="sub">{sub}</p>
+        <div className="prog"><div className="bar"><i style={{ width: `${(done / steps.length) * 100}%` }} /></div></div>
+        {all && <div className="win"><Ic name="check" size={18} width={2.6} /><span>{win}</span></div>}
         {steps.map((step) => (
-          <div key={step.key} className={`hm-step${step.done ? " hm-done" : ""}${step.current ? " hm-cur" : ""}`}>
-            <span className="hm-ck">{step.done ? "✓" : ""}</span>
-            <div className="hm-tx"><b>{step.title}</b><small>{step.hint}</small></div>
-            {!step.done && <Link href={step.href} className={`hm-btn hm-sm${step.current ? " hm-pri" : ""}`}>{step.action}</Link>}
+          <div key={step.key} className={`step${step.done ? " done" : ""}${step.current ? " cur" : ""}`}>
+            <span className="ck">{step.done ? "✓" : ""}</span>
+            <div className="tx"><b>{step.title}</b><small>{step.hint}</small></div>
+            {!step.done && <Link href={step.href} className={`btn sm${step.current ? " pri" : ""}`}>{step.action}</Link>}
           </div>
         ))}
       </div>
@@ -143,16 +165,16 @@ function Checklist({ steps, isNew, role }) {
   );
 }
 
-function Guides({ role, nav }) {
+function Guides({ role, nav, hide }) {
   return (
-    <Block title="Guides">
-      <div className="hm-gds hm-ga">
+    <Block title="Guides" icon="book" hide={hide} bodyCls="">
+      <div className="gds ga">
         {GUIDE_CARDS[role].map(([title, text]) => (
-          <Link key={title} href={`${HOME}/guides/${slugOf(title)}`} className="hm-sheet" onClick={(e) => nav(e, `${HOME}/guides/${slugOf(title)}`)}>
-            <span className="hm-sh-eye">Guide</span>
+          <Link key={title} href={`${HOME}/guides/${slugOf(title)}`} className="sheet" onClick={(e) => nav(e, `${HOME}/guides/${slugOf(title)}`)}>
+            <span className="sh-eye">Guide</span>
             <h3>{title}</h3>
             <p>{text}</p>
-            <span className="hm-sh-foot"><span>Read</span><Ic name="chevr" size={14} width={2.2} /></span>
+            <span className="sh-foot"><span>Read</span><Ic name="chevr" size={14} width={2.2} /></span>
           </Link>
         ))}
       </div>
@@ -160,28 +182,28 @@ function Guides({ role, nav }) {
   );
 }
 
-function News({ role, nav }) {
+function News({ role, nav, hide }) {
   const latest = LATEST[role];
   return (
-    <Block title="What’s new">
-      <div className="hm-news">
+    <Block title="What’s new" icon="mega" hide={hide}>
+      <div className="news">
         <h3>{latest.title}</h3>
         <p>{latest.text}</p>
-        <Link href={`${HOME}/news`} className="hm-link" onClick={(e) => nav(e, `${HOME}/news`)}>See all news →</Link>
+        <Link href={`${HOME}/news`} className="link" style={{ textAlign: "left" }} onClick={(e) => nav(e, `${HOME}/news`)}>See all news →</Link>
       </div>
     </Block>
   );
 }
 
-function Tip({ role, active }) {
+function Tip({ role, active, hide }) {
   const list = TIPS[role];
+  const n = list.length;
   const [index, setIndex] = useState(0);
   const [hover, setHover] = useState(false);
-  const [lap, setLap] = useState(0); // restarts the thin progress line after the pointer leaves
+  const [lap, setLap] = useState(0);
   const text = useRef(null);
   const box = useRef(null);
   const busy = useRef(null);
-  const n = list.length;
 
   const step = useCallback((by) => {
     const el = text.current;
@@ -211,188 +233,245 @@ function Tip({ role, active }) {
 
   const [title, body] = list[index % n];
   const nav = (
-    <span className="hm-tip-nav">
+    <span className="tip-nav">
       <button type="button" aria-label="Previous tip" onClick={() => step(-1)}><Ic name="chevl" size={14} /></button>
       <small>{(index % n) + 1} / {n}</small>
       <button type="button" aria-label="Next tip" onClick={() => step(1)}><Ic name="chevr" size={14} /></button>
     </span>
   );
   return (
-    <section className="hm-panel hm-blk hm-tipblk" onMouseEnter={() => setHover(true)} onMouseLeave={() => { setHover(false); setLap((value) => value + 1); }}>
-      <div className="hm-blk-h">
-        <span className="hm-blk-ic"><Ic name="bulb" size={24} /></span>
+    <section className="panel blk hasx tipblk" data-k="tp" onMouseEnter={() => setHover(true)} onMouseLeave={() => { setHover(false); setLap((value) => value + 1); }}>
+      {hide && (
+        <button type="button" className="blk-x" onClick={hide} aria-label="Hide Tip" title="Hide this block">
+          <Ic name="x" size={14} width={2.2} />
+        </button>
+      )}
+      <div className="blk-h">
+        <span className="blk-ic"><Ic name="bulb" size={24} /></span>
         <h2>Tip</h2>
-        <span className="hm-sp" />
         {nav}
+        <span className="sp" />
       </div>
-      <div className="hm-blk-b" ref={box}>
-        <div className="hm-news" ref={text}><h3>{title}</h3><p>{body}</p></div>
+      <div className="blk-b" ref={box}>
+        <div className="news" ref={text}><h3>{title}</h3><p>{body}</p></div>
       </div>
-      <i key={`${index}-${lap}`} className="hm-tip-prog" style={{ animationDuration: `${TIP_MS}ms` }} />
+      <i key={`${index}-${lap}`} className="tip-prog" style={{ animationDuration: `${TIP_MS}ms` }} />
     </section>
   );
 }
 
-/** The button that opens the list of blocks, with a checkbox for each. */
-function Customize({ role, blocks, setBlocks }) {
+/** The Customize control: a block list with checkboxes, plus the Glow & gradients panel. */
+function Customize({ blocks, setBlocks, onGlow }) {
   const [open, setOpen] = useState(false);
-  const [down, setDown] = useState(false);
   const wrap = useRef(null);
-  const shown = BLOCKS.filter(([key]) => blocks[key]).length;
+  const on = BLOCKS.filter(([key]) => blocks[key]).length;
   useEffect(() => {
     if (!open) return undefined;
-    setDown(wrap.current ? wrap.current.getBoundingClientRect().top < 340 : false);
-    const away = (event) => { if (wrap.current && !wrap.current.contains(event.target)) setOpen(false); };
-    const key = (event) => { if (event.key === "Escape") setOpen(false); };
-    document.addEventListener("pointerdown", away);
-    document.addEventListener("keydown", key);
-    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", key); };
+    const close = (event) => { if (!wrap.current?.contains(event.target)) setOpen(false); };
+    const esc = (event) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("click", close); document.removeEventListener("keydown", esc); };
   }, [open]);
-  const set = (next) => setBlocks(next);
   return (
-    <div className="hm-wm" ref={wrap}>
-      <button type="button" className="hm-wm-btn" title={`Customize Home · ${shown} of ${BLOCKS.length} blocks shown`} aria-label="Customize Home" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Ic name="sliders" size={17} width={1.9} />
-      </button>
-      {open && (
-        <div className={`hm-wm-pop${down ? " hm-down" : ""}`} role="group" aria-label="Home blocks">
-          {BLOCKS.map(([key, label]) => (
-            <button key={key} type="button" className="hm-wm-item" role="menuitemcheckbox" aria-checked={blocks[key]} onClick={() => set({ ...blocks, [key]: !blocks[key] })}>
-              <span className={`hm-wm-box${blocks[key] ? " hm-on" : ""}`} />
-              <span>{label}</span>
-            </button>
-          ))}
-          <div className="hm-wm-foot">
-            <button type="button" onClick={() => set(Object.fromEntries(BLOCKS.map(([key]) => [key, true])))}>Reset layout</button>
-            <button type="button" onClick={() => set(Object.fromEntries(BLOCKS.map(([key]) => [key, false])))}>Clear all</button>
+    <div className="cust-end">
+      <div className="wm" ref={wrap}>
+        <button type="button" className="wm-btn" onClick={() => setOpen(!open)} title={`Customize Home · ${on} of ${BLOCKS.length} blocks shown`} aria-label="Customize Home" aria-haspopup="true" aria-expanded={open}>
+          <Ic name="sliders" size={17} width={1.9} />
+        </button>
+        {open && (
+          <div className="wm-pop" role="group" aria-label="Home blocks">
+            {BLOCKS.map(([key, label]) => (
+              <button key={key} type="button" className="wm-item" role="menuitemcheckbox" aria-checked={!!blocks[key]} onClick={() => setBlocks({ ...blocks, [key]: !blocks[key] })}>
+                <span className={`wm-box${blocks[key] ? " on" : ""}`} />
+                <span>{label}</span>
+              </button>
+            ))}
+            <div className="wm-foot">
+              <button type="button" onClick={() => setBlocks(Object.fromEntries(BLOCKS.map(([key]) => [key, true])))}>Reset layout</button>
+              <button type="button" onClick={() => setBlocks(Object.fromEntries(BLOCKS.map(([key]) => [key, false])))}>Clear all</button>
+              <button type="button" onClick={() => { setOpen(false); onGlow(); }}>Glow &amp; gradients</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-function HomeView({ role, data, blocks, setBlocks, nav, active }) {
-  const isNew = data.mode === "new";
-  const allDone = data.checklist.every((step) => step.done);
+/** Glow & gradients: one master slider for all plates, then each plate on its own. Values live on the Home root. */
+function GlowPanel({ values, setValue, reset, close }) {
+  return (
+    <div className="blk-pop" role="dialog" aria-label="Glow and gradients">
+      {Object.keys(GSPEC).map((key) => (
+        <div key={key}>
+          <h4 className="g">{GSPEC[key][0]}</h4>
+          {GSPEC[key][1].map(([field, label, min, max, step]) => (
+            <label key={field} className="gl-row">
+              {label}
+              {min === "c" ? (
+                <input type="color" value={values[key][field]} onChange={(e) => setValue(key, field, e.target.value)} />
+              ) : (
+                <input type="range" min={min} max={max} step={step} value={values[key][field]} onChange={(e) => setValue(key, field, +e.target.value)} />
+              )}
+              <output>{values[key][field]}</output>
+            </label>
+          ))}
+        </div>
+      ))}
+      <div className="gl-foot">
+        <button type="button" onClick={() => navigator.clipboard?.writeText(JSON.stringify(values))}>Copy settings</button>
+        <button type="button" onClick={reset}>Reset all</button>
+        <button type="button" onClick={close}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+function HomeView({ role, data, blocks, setBlocks, nav, onGlow, hello, isNew }) {
   const main = [];
   const side = [];
-  const show = (key) => blocks[key];
-  // Until the whole Get started path is done, the checklist takes the place of Needs attention (which stays hidden).
-  if (!allDone) {
-    if (show("setup")) main.push(<Checklist key="setup" steps={data.checklist} isNew={isNew} role={role} />);
-    if (!isNew && show("activity")) side.push(<Activity key="activity" items={data.activity} />);
+  const steps = data.checklist;
+  const allDone = steps.every((step) => step.done);
+  const hideOf = (key) => () => setBlocks({ ...blocks, [key]: false });
+  if (isNew) {
+    if (blocks.setup) main.push(<Checklist key="setup" steps={steps} isNew role={role} hide={hideOf("setup")} />);
   } else {
-    if (show("attention")) main.push(<Attention key="attention" strips={data.strips} />);
-    if (show("activity")) side.push(<Activity key="activity" items={data.activity} />);
+    if (blocks.attention) main.push(<Attention key="attention" strips={data.strips} hide={hideOf("attention")} />);
+    if (blocks.activity) side.push(<Activity key="activity" items={data.activity} />);
+    if (blocks.setup && !allDone) side.push(<Checklist key="setup" steps={steps} isNew={false} role={role} hide={hideOf("setup")} />);
   }
-  if (show("guides")) main.push(<Guides key="guides" role={role} nav={nav} />);
-  if (show("news")) side.push(<News key="news" role={role} nav={nav} />);
-  if (show("tips")) side.push(<Tip key="tips" role={role} active={active} />);
-  const custom = <div className="hm-cust-end"><Customize role={role} blocks={blocks} setBlocks={setBlocks} /></div>;
-  if (!main.length && !side.length) {
-    return (
-      <div className="hm-home-grid">
-        <div className="hm-panel hm-stub"><h2>Everything is switched off</h2><p>Use the sliders button in the right corner to bring blocks back.</p></div>
-        <div className="hm-col">{custom}</div>
-      </div>
-    );
-  }
+  if (blocks.guides) main.push(<Guides key="guides" role={role} nav={nav} hide={hideOf("guides")} />);
+  if (blocks.news) side.push(<News key="news" role={role} nav={nav} hide={hideOf("news")} />);
+  if (blocks.tips) side.push(<Tip key="tips" role={role} active hide={hideOf("tips")} />);
+  const empty = !main.length && !side.length;
   return (
-    <div className="hm-home-grid">
-      <div className="hm-col">{main}</div>
-      <div className="hm-col">{side}{custom}</div>
-    </div>
+    <>
+      {hello}
+      {empty ? (
+        <div className="home-grid off">
+          <div className="cust-end"><Customize blocks={blocks} setBlocks={setBlocks} onGlow={onGlow} /></div>
+          <div className="panel off-box"><span className="off-ic"><Ic name="sliders" size={26} width={1.8} /></span><h2>Widgets are switched off</h2></div>
+        </div>
+      ) : (
+        <div className="home-grid">
+          <div className="col">{main}</div>
+          <div className="col">
+            {side}
+            <Customize blocks={blocks} setBlocks={setBlocks} onGlow={onGlow} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 function GuideView({ role, slug, nav }) {
   const guide = guideBySlug(slug);
-  const [thanks, setThanks] = useState(false);
   if (!guide) {
     return (
-      <div className="hm-panel hm-stub"><h2>This guide does not exist</h2><Link href={HOME} className="hm-btn hm-pri" onClick={(e) => nav(e, HOME)}>← Back to Home</Link></div>
+      <div className="panel stub">
+        <h2>This guide is not here</h2>
+        <Link href={HOME} className="btn pri" onClick={(e) => nav(e, HOME)}>← Back to Home</Link>
+      </div>
     );
   }
-  const list = GUIDE_LIST[role] ?? GUIDE_LIST.dev;
+  const list = GUIDE_LIST[role];
   return (
     <>
-      <div className="hm-bk-row"><Link href={HOME} className="hm-btn hm-sm hm-with-ic" onClick={(e) => nav(e, HOME)}><Ic name="chevl" size={14} width={2.2} />Home</Link></div>
-      <div className="hm-rd-grid">
-        <div className="hm-col">
-          <Block title={guide.title} right={<small>{guide.min} min read</small>}>
-            <p className="hm-art-intro">{guide.intro}</p>
-            <ol className="hm-art-steps">
-              {guide.steps.map(([head, text]) => <li key={head}><div><h3>{head}</h3><p>{text}</p></div></li>)}
-            </ol>
-            <div className="hm-art-note"><span><Ic name="flag" size={16} /></span><div><b>{guide.note[0]}</b> {guide.note[1]}</div></div>
-            <div className="hm-art-foot">
-              {thanks ? <span>Thanks for the feedback.</span> : <><span>Was this helpful?</span><button type="button" className="hm-btn" onClick={() => setThanks(true)}>Yes</button><button type="button" className="hm-btn" onClick={() => setThanks(true)}>Not really</button></>}
+      <div className="bk-row">
+        <Link href={HOME} className="btn sm with-ic" onClick={(e) => nav(e, HOME)}><Ic name="chevl" size={14} width={2.2} />Home</Link>
+      </div>
+      <div className="rd-grid">
+        <div className="col">
+          <section className="panel blk" data-k="gp">
+            <div className="blk-h"><h2>{guide.title}</h2><span className="sp" /><small>{guide.min} min read</small></div>
+            <div className="blk-b">
+              <p className="art-intro">{guide.intro}</p>
+              <ol className="art-steps">
+                {guide.steps.map(([head, text]) => (
+                  <li key={head}><div><h3>{head}</h3><p>{text}</p></div></li>
+                ))}
+              </ol>
+              <div className="art-note"><span><Ic name="flag" size={16} /></span><div><b>{guide.note[0]}</b> {guide.note[1]}</div></div>
+              <div className="art-foot">
+                <span>Was this helpful?</span>
+                <button type="button" className="btn" onClick={() => toast("Thanks for the feedback")}>Yes</button>
+                <button type="button" className="btn" onClick={() => toast("Thanks for the feedback")}>Not really</button>
+              </div>
             </div>
-          </Block>
+          </section>
         </div>
-        <div className="hm-col">
-          <Block title="More guides">
-            <div className="hm-glist">
-              {list.map((title) => (
-                <Link key={title} href={`${HOME}/guides/${slugOf(title)}`} aria-current={title === guide.title} onClick={(e) => nav(e, `${HOME}/guides/${slugOf(title)}`)}>
-                  <span>{title}</span><small>{ART[title].min} min</small>
-                </Link>
-              ))}
+        <div className="col">
+          <section className="panel blk" data-k="gp">
+            <div className="blk-h"><h2>More guides</h2><span className="sp" /></div>
+            <div className="blk-b">
+              <div className="glist">
+                {list.map((title) => {
+                  const href = `${HOME}/guides/${slugOf(title)}`;
+                  return (
+                    <Link key={title} href={href} aria-current={title === guide.title} onClick={(e) => nav(e, href)}>
+                      <span>{title}</span><small>{ART[title].min} min</small>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </Block>
+          </section>
+          <section className="panel blk" data-k="gp">
+            <div className="blk-h"><h2>Still stuck?</h2><span className="sp" /></div>
+            <div className="blk-b">
+              <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginBottom: 10 }}>Write to us and we will answer in My requests.</p>
+              <Link href="/dashboard/requests" className="btn sm">Ask for help</Link>
+            </div>
+          </section>
         </div>
       </div>
     </>
   );
 }
 
-function Magazine({ item, collapse }) {
+function Magazine({ item, collapse, open }) {
   const foot = (
-    <div className="hm-mag-foot">
-      <span className="hm-mag-sign">The DeusADS team</span>
-      <button type="button" className="hm-nw-up" aria-label="Collapse" aria-expanded="true" onClick={collapse}><Ic name="chevu" size={16} width={2.2} /></button>
+    <div className="mag-foot">
+      <span className="mag-sign">The DeusADS team</span>
+      <button type="button" className="nw-up" onClick={collapse} aria-label="Collapse" aria-expanded={open}><Ic name="chevu" size={16} width={2.2} /></button>
     </div>
   );
   if (item.items) {
-    const groups = ["New", "Improved", "Fixed"].map((group) => [group, item.items.filter((entry) => entry[0] === group)]).filter((group) => group[1].length);
     return (
-      <div className="hm-mag">
-        <p className="hm-lead">{item.lead}</p>
-        {groups.map(([group, entries]) => entries.map((entry, k) => (
-          <section className="hm-mag-sec" key={`${group}${entry[1]}`}>
-            <div className="hm-mag-eye">{k === 0 ? group : " "}</div>
-            <h4>{entry[1]}</h4>
-            <p>{entry[2]}</p>
-          </section>
-        )))}
-        {foot}
+      <div className="mag mag-h">
+        <div className="mag-head"><p className="lead">{item.lead}</p></div>
+        <div className="mag-body">
+          <div className="chg">
+            {item.items.map(([tag, title, text]) => (
+              <section key={title} className="chg-i">
+                <span className={`chg-t chg-${tag.toLowerCase()}`}>{tag}</span>
+                <div><h4>{title}</h4><p>{text}</p></div>
+              </section>
+            ))}
+          </div>
+          {foot}
+        </div>
       </div>
     );
   }
   return (
-    <div className={`hm-mag${item.type === "important" ? " hm-warn" : ""}`}>
-      {item.type === "important" && <div className="hm-mag-eye">What you need to know</div>}
-      <p className="hm-lead">{item.body[0]}</p>
-      {item.body.slice(1).map((text) => <p key={text}>{text}</p>)}
+    <div className={`mag${item.type === "important" ? " warn" : ""}`}>
+      {item.type === "important" && <div className="mag-eye">What you need to know</div>}
+      <p className="lead">{item.body[0]}</p>
+      {item.body.slice(1).map((line) => <p key={line}>{line}</p>)}
       {foot}
     </div>
   );
 }
 
-function NewsView({ role, nav }) {
+function NewsView({ role, nav, open, toggle, filter, setFilter }) {
   const all = NEWS[role];
-  const [filter, setFilter] = useState("all");
-  const [opened, setOpened] = useState({});
   const list = all.filter((item) => filter === "all" || item.type === filter);
   const count = (key) => (key === "all" ? all.length : all.filter((item) => item.type === key).length);
-  const toggle = (id, row) => {
-    const now = !opened[id];
-    setOpened({ ...opened, [id]: now });
-    if (!now && row) { const top = row.getBoundingClientRect().top; if (top < 40) window.scrollTo({ top: window.scrollY + top - 80, behavior: "smooth" }); }
-  };
   const seg = (
-    <span className="hm-fseg">
+    <span className="fseg">
       {[["all", "All"], ["important", "Important"], ["patch", "Patches"], ["news", "News"]].map(([key, label]) => (
         <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label} <em>{count(key)}</em></button>
       ))}
@@ -400,62 +479,93 @@ function NewsView({ role, nav }) {
   );
   return (
     <>
-      <div className="hm-bk-row"><Link href={HOME} className="hm-btn hm-sm hm-with-ic" onClick={(e) => nav(e, HOME)}><Ic name="chevl" size={14} width={2.2} />Home</Link></div>
-      <div className="hm-rel">
-        <Block title="All news" right={seg} cls="hm-flush">
-          {list.length === 0 ? <p className="hm-quiet">Nothing here yet.</p> : (
-            <div className="hm-nwl">
-              {list.map((item) => {
-                const [label, , icon] = NTYPE[item.type];
-                const open = Boolean(opened[item.id]);
-                const has = Boolean(item.items || item.body);
-                const lead = item.items ? item.lead : item.body ? item.body[0] : item.s;
-                return (
-                  <article key={item.id} className={`hm-nw${item.type === "important" ? " hm-imp" : ""}${open ? " hm-open" : ""}`}>
-                    <span className="rd-tile"><Ic name={icon} size={17} /></span>
-                    <div className="hm-nw-b">
-                      <div className="hm-nw-t"><b>{item.t}</b><span className={`hm-pill ${PILL[item.type]}`}>{label}</span><small className="hm-nw-d">{item.d}</small></div>
-                      <div className="hm-nw-sw"><div>
-                        <div className="hm-nw-s" {...(has ? { role: "button", tabIndex: 0, "aria-expanded": open, onClick: (e) => toggle(item.id, e.currentTarget.closest(".hm-nw")), onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(item.id, e.currentTarget.closest(".hm-nw")); } } } : {})}>
-                          <p>{lead}</p>
-                          {has && <span className="hm-nw-ch"><Ic name="chevd" size={16} width={2.2} /></span>}
+      <div className="bk-row">
+        <Link href={HOME} className="btn sm with-ic" onClick={(e) => nav(e, HOME)}><Ic name="chevl" size={14} width={2.2} />Home</Link>
+      </div>
+      <div className="rel">
+        <section className="panel blk" data-k="wn">
+          <div className="blk-h"><h2>All news</h2><span className="sp" />{seg}</div>
+          <div className="blk-b flush">
+            {list.length ? (
+              <div className="nwl">
+                {list.map((item) => {
+                  const [label, tone, icon] = NTYPE[item.type];
+                  const isOpen = !!open[item.id];
+                  const has = !!(item.items || item.body);
+                  const lead = item.items ? item.lead : item.body ? item.body[0] : item.s;
+                  const pill = { important: "warn", patch: "info", news: "brand" }[item.type];
+                  const expand = () => toggle(item.id);
+                  return (
+                    <article key={item.id} className={`nw${item.type === "important" ? " imp" : ""}${item.type === "news" ? " nws" : ""}${isOpen ? " open" : ""}`}>
+                      <span className="rd-tile"><Ic name={icon} size={17} width={2} /></span>
+                      <div className="nw-b">
+                        <div className="nw-t">
+                          <b>{item.t}</b>
+                          <span className={`pill ${pill}`}>{label}</span>
+                          <small className="nw-d">{item.d}</small>
                         </div>
-                      </div></div>
-                      {has && <div className="hm-nw-x"><div><Magazine item={item} collapse={(e) => toggle(item.id, e.currentTarget.closest(".hm-nw"))} /></div></div>}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </Block>
+                        <div className="nw-sw">
+                          <div>
+                            <div className="nw-s" role={has ? "button" : undefined} tabIndex={has ? 0 : undefined} aria-expanded={has ? isOpen : undefined} onClick={has ? expand : undefined} onKeyDown={has ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); expand(); } } : undefined}>
+                              <p>{lead}</p>
+                              {has && <span className="nw-ch"><Ic name="chevd" size={16} width={2.2} /></span>}
+                            </div>
+                          </div>
+                        </div>
+                        {has && <div className="nw-x"><div><Magazine item={item} open={isOpen} collapse={expand} /></div></div>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ color: "var(--ink-3)" }}>Nothing here yet.</p>
+            )}
+          </div>
+        </section>
       </div>
     </>
   );
 }
 
-const TITLES = {
-  home: (welcome) => ["Home", welcome],
-  guide: (_, role) => ["Guides", `Step-by-step help for ${role === "dev" ? "developers" : "advertisers"}`],
-  news: () => ["What’s new", "News, patches and announcements from the DeusADS team"],
-};
+let toastTimer = null;
+function toast(message) {
+  if (typeof document === "undefined") return;
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = message;
+  document.body.appendChild(el);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.remove(), 2000);
+}
 
-export default function HomeApp({ role, data, welcome }) {
+export default function HomeApp({ role, data, name, today }) {
   const path = usePathname();
   const router = useRouter();
   const view = viewOf(path);
+  const isNew = data.mode === "new";
   const [blocks, setBlocksState] = useState(() => Object.fromEntries(BLOCKS.map(([key]) => [key, true])));
+  const [glow, setGlow] = useState(GD0);
+  const [glowOpen, setGlowOpen] = useState(false);
+  const [open, setOpen] = useState({});
+  const [filter, setFilter] = useState("all");
   const root = useRef(null);
   const pending = useRef(null);
   const previous = useRef(view.name);
 
-  // What a person switched off stays off in this browser. The store holds both roles, as the mockup did.
+  // What a person switched off stays off in this browser.
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORE) || "null");
       if (saved?.[role]) setBlocksState((now) => ({ ...now, ...saved[role] }));
     } catch {}
+    try {
+      const tune = JSON.parse(localStorage.getItem(TUNE) || "null");
+      if (tune) setGlow((now) => Object.fromEntries(Object.keys(now).map((key) => [key, { ...now[key], ...(tune[key] || {}) }])));
+    } catch {}
   }, [role]);
+  useEffect(() => { applyGlow(glow, root.current); try { localStorage.setItem(TUNE, JSON.stringify(glow)); } catch {} }, [glow]);
+
   const setBlocks = (next) => {
     setBlocksState(next);
     try {
@@ -464,30 +574,32 @@ export default function HomeApp({ role, data, welcome }) {
     } catch {}
   };
 
+  const setValue = (key, field, value) => setGlow((now) => {
+    const next = { ...now, [key]: { ...now[key], [field]: value } };
+    if (key === "all") PLATES.forEach((plate) => { next[plate] = { ...next[plate], [field]: value }; });
+    return next;
+  });
+
   /** Follow a link inside the window; Home ↔ a guide or the news list slides, everything else just changes. */
   const nav = useCallback((event, href) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const target = viewOf(href).name;
     const from = viewOf(window.location.pathname).name;
-    const read = ["guide", "news"];
-    const dir = from === "home" && read.includes(target) ? 1 : read.includes(from) && target === "home" ? -1 : 0;
+    const dir = from === "home" && READ.includes(target) ? 1 : READ.includes(from) && target === "home" ? -1 : 0;
     if (dir && !reduced() && root.current) {
       const el = root.current;
       const rect = el.getBoundingClientRect();
       const ghost = document.createElement("div");
       ghost.className = el.className;
-      ghost.dataset.view = el.dataset.view;
-      ghost.style.cssText = `position:fixed;z-index:20;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;background:transparent;padding-bottom:0`;
-      const header = el.querySelector(".main-head")?.cloneNode(true);
-      if (header) { header.style.background = "transparent"; header.style.borderBottom = "0"; header.style.boxShadow = "none"; ghost.appendChild(header); }
+      ghost.style.cssText = `position:fixed;z-index:20;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;pointer-events:none;background:transparent`;
       const work = el.querySelector(".hm-work")?.cloneNode(true);
       if (work) ghost.appendChild(work);
       document.body.appendChild(ghost);
       document.documentElement.style.overflowX = "hidden";
       const y0 = window.scrollY;
       if (y0 > 0) el.style.minHeight = `${rect.height}px`;
-      pending.current = { dir, ghost, y0, head: el.querySelector(".main-head > div:first-child")?.getBoundingClientRect() };
+      pending.current = { dir, ghost, y0 };
     } else {
       window.scrollTo(0, 0);
     }
@@ -506,9 +618,7 @@ export default function HomeApp({ role, data, welcome }) {
     const D = 90, T = 480, OUT = "cubic-bezier(.3,.7,.4,1)", IN = "cubic-bezier(.22,1,.36,1)", F = "cubic-bezier(.4,0,.6,1)";
     const move = (node, from, to, easing, fill) => node.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }], { duration: T, easing, fill });
     const fade = (node, from, to, duration, delay, fill) => node.animate([{ opacity: from }, { opacity: to }], { duration, delay, easing: F, fill });
-    ghost.querySelectorAll(".main-head > div:first-child").forEach((node) => fade(node, 1, 0, T * 0.45, 0, "forwards"));
     ghost.querySelectorAll(".hm-work").forEach((node) => { move(node, 0, -dir * D, OUT, "forwards"); fade(node, 1, 0, T * 0.5, 0, "forwards"); });
-    el.querySelectorAll(".main-head > div:first-child").forEach((node) => fade(node, 0, 1, T * 0.55, T * 0.15, "backwards"));
     el.querySelectorAll(".hm-work").forEach((node) => { move(node, dir * D, 0, IN, "backwards"); fade(node, 0, 1, T * 0.55, T * 0.12, "backwards"); });
     setTimeout(() => {
       ghost.remove();
@@ -517,17 +627,31 @@ export default function HomeApp({ role, data, welcome }) {
     }, T + 40);
   }, [view.name, view.slug]);
 
-  const [title, lede] = TITLES[view.name](welcome, role);
+  const toggleOpen = (id) => setOpen((now) => ({ ...now, [id]: !now[id] }));
+  const hello = (
+    <section className="hello">
+      <div className="hello-eye">{today}</div>
+      <h2>{isNew ? "Welcome, " : "Welcome back, "}{name}</h2>
+      <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
+    </section>
+  );
+
+  const [title, lede] = view.name === "guide"
+    ? ["Guides", `Step-by-step help for ${role === "dev" ? "developers" : "advertisers"}`]
+    : TITLES[view.name];
   return (
-    <div ref={root} className="pg-ic pg-home hm" data-view={view.name}>
+    <div ref={root} className="pg-ic pg-home hm lb" data-view={view.name}>
       <header className="main-head">
-        <div><h1>{title}</h1><p className="lede">{lede}</p></div>
+        <div><h1>{title}</h1>{lede && <p className="lede">{lede}</p>}</div>
       </header>
-      <div className="hm-work">
-        {view.name === "home" && <HomeView role={role} data={data} blocks={blocks} setBlocks={setBlocks} nav={nav} active />}
+      <div className="work hm-work">
+        {view.name === "home" && (
+          <HomeView role={role} data={data} blocks={blocks} setBlocks={setBlocks} nav={nav} onGlow={() => setGlowOpen(true)} hello={hello} isNew={isNew} />
+        )}
         {view.name === "guide" && <GuideView role={role} slug={view.slug} nav={nav} />}
-        {view.name === "news" && <NewsView role={role} nav={nav} />}
+        {view.name === "news" && <NewsView role={role} nav={nav} open={open} toggle={toggleOpen} filter={filter} setFilter={setFilter} />}
       </div>
+      {glowOpen && <GlowPanel values={glow} setValue={setValue} reset={() => setGlow(GD0)} close={() => setGlowOpen(false)} />}
     </div>
   );
 }
