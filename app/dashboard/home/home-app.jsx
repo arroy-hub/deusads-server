@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
-import { GD0, GSPEC, PLATES, applyGlow } from "./glow";
+import { GD0, GSPEC, PLATES, applyGlow, glowStyle } from "./glow";
 
 // The blocks a person can switch on and off, in the order they appear in the menu.
 const BLOCKS = [
@@ -18,7 +18,7 @@ const BLOCKS = [
   ["tips", "Tips", "tp", "bulb"],
 ];
 const STORE = "deusads-home-blocks";
-const TUNE = "deusads-home-c-tune";
+const TUNE = "deusads-home-c-tune-2"; // only what was changed in the Glow & gradients panel
 const TIP_MS = 10000;
 const EASE = "cubic-bezier(.4,0,.2,1)";
 const COVER = "linear-gradient(105deg,color-mix(in srgb,var(--tone) 34%,#fff),color-mix(in srgb,var(--tone) 22%,#fff) 55%,color-mix(in srgb,var(--tone) 9%,#fff))";
@@ -590,7 +590,8 @@ export default function HomeApp({ role, data, name, today }) {
     window.addEventListener("scroll", hide, true);
     return () => { document.removeEventListener("mouseover", over); window.removeEventListener("scroll", hide, true); };
   }, []);
-  useEffect(() => { applyGlow(glow, root.current); try { localStorage.setItem(TUNE, JSON.stringify(glow)); } catch {} }, [glow]);
+  useEffect(() => { applyGlow(glow, root.current); }, [glow]);
+  const saveTune = (next) => { try { localStorage.setItem(TUNE, JSON.stringify(next)); } catch {} };
 
   const setBlocks = (next) => {
     setBlocksState(next);
@@ -603,6 +604,7 @@ export default function HomeApp({ role, data, name, today }) {
   const setValue = (key, field, value) => setGlow((now) => {
     const next = { ...now, [key]: { ...now[key], [field]: value } };
     if (key === "all") PLATES.forEach((plate) => { next[plate] = { ...next[plate], [field]: value }; });
+    saveTune(next);
     return next;
   });
 
@@ -677,7 +679,7 @@ export default function HomeApp({ role, data, name, today }) {
     ? ["Guides", `Step-by-step help for ${role === "dev" ? "developers" : "advertisers"}`, "book"]
     : TITLES[view.name];
   return (
-    <div ref={root} className="hm lb pg" data-view={view.name}>
+    <div ref={root} className="hm lb pg" data-view={view.name} style={glowStyle(glow)}>
       <div className="hdr">
         <div className="cover"><i /></div>
         <div className="plate-row">
@@ -696,7 +698,7 @@ export default function HomeApp({ role, data, name, today }) {
         {view.name === "news" && <NewsView role={role} nav={nav} open={open} toggle={toggleOpen} filter={filter} setFilter={setFilter} />}
       </div>
       <div id="tip" ref={tip} role="tooltip" />
-      {glowOpen && <GlowPanel values={glow} setValue={setValue} reset={() => setGlow(GD0)} close={() => setGlowOpen(false)} />}
+      {glowOpen && <GlowPanel values={glow} setValue={setValue} reset={() => { setGlow(GD0); try { localStorage.removeItem(TUNE); } catch {} }} close={() => setGlowOpen(false)} />}
     </div>
   );
 }
