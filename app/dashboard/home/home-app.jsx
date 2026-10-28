@@ -380,6 +380,16 @@ function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, 
 
 function GuideView({ role, slug, nav }) {
   const guide = guideBySlug(slug);
+  const voteKey = `deusads.guide-vote.${slug}`;
+  const [vote, setVote] = useState(null);
+  useEffect(() => {
+    try { setVote(localStorage.getItem(voteKey)); } catch { setVote(null); }
+  }, [voteKey]);
+  const castVote = (key) => {
+    if (vote) return;
+    setVote(key);
+    try { localStorage.setItem(voteKey, key); } catch {}
+  };
   if (!guide) {
     return (
       <div className="panel stub">
@@ -407,9 +417,10 @@ function GuideView({ role, slug, nav }) {
               </ol>
               <div className="art-note"><div><b>{guide.note[0]}</b> {guide.note[1]}</div></div>
               <div className="art-foot">
-                <span>Was this helpful?</span>
-                <button type="button" className="btn" onClick={() => toast("Thanks for the feedback")}>Yes</button>
-                <button type="button" className="btn" onClick={() => toast("Thanks for the feedback")}>Not really</button>
+                <span>{vote ? "Thanks for the feedback" : "Was this helpful?"}</span>
+                {[["yes", "Yes"], ["no", "Not really"]].map(([key, label]) => (
+                  <button key={key} type="button" className={`btn${vote === key ? " on" : ""}`} aria-pressed={vote === key} disabled={!!vote && vote !== key} onClick={() => castVote(key)}>{label}</button>
+                ))}
               </div>
             </div>
           </section>
@@ -671,8 +682,6 @@ export default function HomeApp({ role, data, name, today }) {
       const y0 = window.scrollY;
       if (y0 > 0) el.style.minHeight = `${rect.height}px`;
       pending.current = { dir, ghost, y0, oldW };
-    } else {
-      window.scrollTo(0, 0);
     }
     router.push(href, { scroll: false });
   }, [router]);
@@ -701,7 +710,7 @@ export default function HomeApp({ role, data, name, today }) {
     setTimeout(() => {
       ghost.remove();
       document.documentElement.style.overflowX = "";
-      if (y0 > 0) { window.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => { el.style.minHeight = ""; }, 700); }
+      el.style.minHeight = "";
     }, T + 40);
   }, [view.name, view.slug]);
 

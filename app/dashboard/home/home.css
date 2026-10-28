@@ -462,3 +462,7 @@
 /* 13. the greeting title may use the whole width of the work area (the line under it keeps its own measure);
        a name too long for it shrinks the font instead of wrapping (FitTitle) */
 .hm .hello{max-width:none}
+
+/* Was this helpful?: the chosen answer stays lit, the other one is locked */
+.hm .art-foot .btn.on{background:var(--ink);border-color:var(--ink);color:#fff;opacity:1}
+.hm .art-foot .btn:disabled{opacity:.4;cursor:default}
