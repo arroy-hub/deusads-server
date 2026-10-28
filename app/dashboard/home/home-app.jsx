@@ -334,12 +334,13 @@ function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, 
   const steps = data.checklist;
   const allDone = steps.every((step) => step.done);
   const hideOf = (key) => () => setBlocks({ ...blocks, [key]: false });
-  if (isNew) {
-    if (blocks.setup) main.push(<Checklist key="setup" steps={steps} isNew role={role} hide={hideOf("setup")} />);
+  // Until the whole Get started path is done, Get started stands in place of Needs attention,
+  // and neither Needs attention nor Recent activity is shown.
+  if (!allDone) {
+    if (blocks.setup) main.push(<Checklist key="setup" steps={steps} isNew={isNew} role={role} hide={hideOf("setup")} />);
   } else {
     if (blocks.attention) main.push(<Attention key="attention" strips={data.strips} hide={hideOf("attention")} />);
     if (blocks.activity) side.push(<Activity key="activity" items={data.activity} hide={hideOf("activity")} />);
-    if (blocks.setup && !allDone) side.push(<Checklist key="setup" steps={steps} isNew={false} role={role} hide={hideOf("setup")} />);
   }
   if (blocks.guides) main.push(<Guides key="guides" role={role} nav={nav} hide={hideOf("guides")} />);
   if (blocks.news) side.push(<News key="news" role={role} nav={nav} hide={hideOf("news")} />);
