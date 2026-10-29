@@ -114,7 +114,7 @@ export default function Workbench({ creative, assets }) {
       if (result?.error) throw new Error(result.error);
       setMessage({
         tone: "ok",
-        text: result.status === "pending" ? "Uploaded. It will be shown once it is reviewed." : "Uploaded.",
+        text: (result.status === "pending" ? "Uploaded. It will be shown once it is reviewed." : "Uploaded.") + (result.notice ? ` ${result.notice}` : ""),
       });
       router.refresh();
     } catch (error) {

@@ -5,6 +5,7 @@ import { registerCreative } from "../actions";
 import { browserClient } from "../../../lib/supabase-browser";
 import { AD_CATEGORIES } from "../../../lib/categories";
 import { ratioLabel } from "../../../lib/surface-math";
+import { sizeAdvice } from "../../../lib/creative-size";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -83,7 +84,10 @@ export default function UploadForm({ onUploaded, embedded = false }) {
       if (result?.error) return fail(result.error);
 
       setStatus("done");
-      setMessage(onUploaded ? `“${result.creative.name}” is added.` : `“${result.creative.name}” is in the library. Pick it on any placement.`);
+      setMessage(
+        (onUploaded ? `“${result.creative.name}” is added.` : `“${result.creative.name}” is in the library. Pick it on any placement.`) +
+          (result.notice ? ` ${result.notice}` : ""),
+      );
       onUploaded?.(result.creative);
       setFile(null);
       setPreview(null);
@@ -152,6 +156,7 @@ export default function UploadForm({ onUploaded, embedded = false }) {
             {(file.size / 1024 / 1024).toFixed(1)} MB
           </div>
           {uploading && <div className="upload-bar" aria-hidden="true" />}
+          {sizeAdvice(preview.width, preview.height) && <p className="muted" role="status">{sizeAdvice(preview.width, preview.height).text}</p>}
         </div>
       )}
 

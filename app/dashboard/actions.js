@@ -12,6 +12,7 @@ import { MAX_OWN_CREATIVES, OWN_PICTURE_TYPES } from "../../lib/own-creatives";
 import { validateProfile } from "../../lib/targeting";
 import { parseAbout } from "../../lib/game-about";
 import { coverValue, parseCover } from "../../lib/game-cover";
+import { fitStoredPicture } from "../../lib/creative-image";
 
 // Every action writes through the user's own client, so row-level security is
 // what actually enforces ownership. The owner_id below is convenience, not the
@@ -223,12 +224,20 @@ export async function registerCreative({ name, path, type, size, width, height, 
   const cleanName = String(name ?? "").trim().slice(0, 120) || "Untitled creative";
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
 
+  // Bigger than the SDK can use: made smaller now, the original is not kept.
+  const fitted = await fitStoredPicture(serviceClient(), { path, type, width: px(width), height: px(height) });
+  if (fitted.error) {
+    await db.storage.from("creatives").remove([path]);
+    return { error: fitted.error };
+  }
+  path = fitted.path;
+
   const row = {
     owner_id: user.id,
     name: cleanName,
     storage_path: path,
-    width_px: px(width),
-    height_px: px(height),
+    width_px: fitted.resized ? fitted.width : px(width),
+    height_px: fitted.resized ? fitted.height : px(height),
   };
   let { data, error } = await db
     .from("creatives")
@@ -247,7 +256,7 @@ export async function registerCreative({ name, path, type, size, width, height, 
   }
 
   revalidatePath("/dashboard/creatives");
-  return { ok: true, creative: data };
+  return { ok: true, creative: data, path, width: row.width_px, height: row.height_px, notice: fitted.notice };
 }
 
 // ---------------------------------------------------------------- a developer's own creatives
@@ -302,6 +311,13 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   }
 
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
+  // Bigger than the SDK can use: made smaller now, the original is not kept.
+  const fitted = await fitStoredPicture(serviceClient(), { path, type, width: px(width), height: px(height) });
+  if (fitted.error) {
+    await cleanup();
+    return { error: fitted.error };
+  }
+  path = fitted.path;
   // Users may not set a creative's kind or status themselves (column grants, migration 0004), so the
   // row is written with the service role. The user and the placement's owner were checked above.
   const { data: creative, error } = await serviceClient()
@@ -310,8 +326,8 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
       owner_id: user.id,
       name: String(name ?? "").trim().slice(0, 120) || "Own creative",
       storage_path: path,
-      width_px: px(width),
-      height_px: px(height),
+      width_px: fitted.resized ? fitted.width : px(width),
+      height_px: fitted.resized ? fitted.height : px(height),
       kind: "own",
       status: "approved",
     })
@@ -341,7 +357,7 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   }
 
   revalidatePath("/dashboard", "layout");
-  return { ok: true, assignmentId: assignment.id, creativeId: creative.id, name: creative.name };
+  return { ok: true, assignmentId: assignment.id, creativeId: creative.id, name: creative.name, notice: fitted.notice };
 }
 
 /** Changes one of the developer's own pictures: switched on or off, and how it is framed. */

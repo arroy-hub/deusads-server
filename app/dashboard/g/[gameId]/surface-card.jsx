@@ -308,6 +308,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
       // Same picture, now with its real id. The save has already refreshed the page data.
       setPending((all) => all.map((item) => (item.assignmentId === tempId ? { ...item, assignmentId: result.assignmentId, id: result.creativeId ?? item.id, uploading: false } : item)));
       setSelectedId(result.assignmentId);
+      if (result.notice) setNote({ tone: "ok", text: result.notice });
     } catch (error) {
       setPending((all) => all.filter((item) => item.assignmentId !== tempId));
       URL.revokeObjectURL(localUrl);
