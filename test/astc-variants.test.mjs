@@ -55,7 +55,8 @@ assert.equal(file.readUInt32LE(12), h);
   execFileSync(bin, ["-ds", path.join(dir, "top.astc"), path.join(dir, "top.png"), "-silent"]);
   const back = await sharp(path.join(dir, "top.png")).ensureAlpha().raw().toBuffer();
   let se = 0;
-  for (let i = 0; i < raw.length; i++) if (i % 4 !== 3) se += (raw[i] - back[i]) ** 2;
+  // the file is stored bottom row first, so the decoded picture is the source turned upside down
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 3; c++) se += (raw[(y * w + x) * 4 + c] - back[((h - 1 - y) * w + x) * 4 + c]) ** 2;
   const psnr = 10 * Math.log10((255 * 255) / (se / (raw.length * 0.75)));
   assert.ok(psnr > 38, `PSNR ${psnr.toFixed(1)} dB is too low`);
   assert.deepEqual(readdirSync(dir).sort(), ["top.astc", "top.png"]);
