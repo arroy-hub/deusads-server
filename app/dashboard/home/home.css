@@ -508,11 +508,11 @@ body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
 /* ---- Slim window header: the header only names the section, so it stays a thin strip (about 58px instead of 107px) ---- */
 .hm .hdr{padding:8px 0 0}
 .hm .hdr-gap{height:8px}
-.hm .plate-row{padding:0 40px}
-.hm .plate{gap:11px;padding:4px 16px 4px 4px;border-radius:14px;box-shadow:0 0 0 1px rgba(60,35,20,.07),0 4px 12px rgba(60,35,20,.14)}
-.hm .plate-ic{width:36px;height:36px;border-radius:10px}
-.hm .plate-ic svg{width:20px;height:20px}
-.hm .plate h1{font-size:16.5px;line-height:1.15;letter-spacing:-.015em}
-.hm .plate small{display:block;font-size:12px;line-height:1.2;color:var(--ink-2)}
+.hm .plate-row{padding:0 40px 0 14px}
+.hm .plate{gap:12px;padding:4px 18px 4px 4px;border-radius:15px;box-shadow:0 0 0 1px rgba(60,35,20,.07),0 4px 12px rgba(60,35,20,.14)}
+.hm .plate-ic{width:41px;height:41px;border-radius:11px}
+.hm .plate-ic svg{width:22px;height:22px}
+.hm .plate h1{font-size:18px;line-height:1.15;letter-spacing:-.015em}
+.hm .plate small{display:block;font-size:12.5px;line-height:1.2;color:var(--ink-2)}
 .hm.lb .work{padding-top:22px}
-@media (max-width:860px){.hm .plate-row{padding:0 16px}}
+@media (max-width:860px){.hm .plate-row{padding:0 10px}}
