@@ -803,7 +803,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
             <div><h1>{title}</h1><small>{lede}</small></div>
           </div>
         </div>
-        <div style={{ height: 22 }} />
+        <div className="hdr-gap" />
       </div>
       <div className="work hm-work">
         {view.name === "home" && (

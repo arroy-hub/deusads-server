@@ -504,3 +504,16 @@ body.hero-light .hm .hero-next b{color:var(--ink)}
 body.hero-light .hm .hero-next .hn-go{background:var(--signal);color:#fff;box-shadow:0 4px 12px rgba(201,74,36,.3)}
 body.hero-light .hm .hero-next .hn-go:hover{background:#b8421d}
 body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
+
+/* ---- Slim window header: the header only names the section, so it stays one thin strip (about 52px instead of 107px) ---- */
+.hm .hdr{padding:8px 0 0}
+.hm .hdr-gap{height:8px}
+.hm .plate-row{padding:0 40px}
+.hm .plate{gap:10px;height:36px;padding:0 16px 0 4px;border-radius:12px;box-shadow:0 0 0 1px rgba(60,35,20,.07),0 4px 12px rgba(60,35,20,.14)}
+.hm .plate-ic{width:28px;height:28px;border-radius:8px}
+.hm .plate-ic svg{width:17px;height:17px}
+.hm .plate > div{display:flex;align-items:baseline;gap:10px}
+.hm .plate h1{font-size:15.5px;line-height:1;letter-spacing:-.01em}
+.hm .plate small{font-size:12px;line-height:1;color:var(--ink-3)}
+.hm.lb .work{padding-top:22px}
+@media (max-width:860px){.hm .plate-row{padding:0 16px}.hm .plate small{display:none}}
