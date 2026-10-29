@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { HEADER_BYTES, encodeVariant, ladderFor, levelBytes, makeVariants, mipSizes, removeVariants, totalBytes, variantSize, variantsBySource } from "../lib/astc-variants.js";
+import { HEADER_BYTES, encodeVariant, ladderFor, levelBytes, makeVariants, mipSizes, packVariant, removeVariants, unpackVariant, totalBytes, variantSize, variantsBySource } from "../lib/astc-variants.js";
 
 // the ladder never goes above the picture and ends at the picture's own size
 assert.deepEqual(ladderFor(800, 400), [800]);
@@ -62,6 +62,16 @@ assert.equal(file.readUInt32LE(12), h);
   assert.deepEqual(readdirSync(dir).sort(), ["top.astc", "top.png"]);
 }
 
+// packed for sending: smaller, flagged, and unpacks to exactly the same file
+{
+  const packed = packVariant(file);
+  assert.ok(packed.length < file.length);
+  assert.equal(packed.readUInt8(7) & 2, 2);
+  assert.equal(packed.readUInt32LE(8), w);
+  assert.ok(unpackVariant(packed).equals(file));
+  assert.equal(unpackVariant(file), file); // not packed: unchanged
+}
+
 // transparency is flagged
 const clear = await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 0.4 } } }).png().toBuffer();
 assert.equal((await encodeVariant(clear, { width: 64, height: 64, alpha: true })).readUInt8(7), 1);
@@ -103,6 +113,7 @@ function stub(files, rows) {
   assert.deepEqual(made.map((r) => r.width), [1024, 1600]);
   assert.deepEqual(made.map((r) => r.height), [576, 900]);
   assert.ok(made.every((r) => r.alpha === false && r.bytes > 0));
+  assert.ok(made.every((r) => unpackVariant(files.get(`variants/${r.storage_path}`)).length === totalBytes(r.width, r.height)));
   assert.equal(rows.length, 2);
   assert.equal((await makeVariants(service, "u1/pic.png")).length, 0); // again: nothing new
   const map = await variantsBySource(service, ["u1/pic.png", "other.png"]);
