@@ -473,10 +473,10 @@
   box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 22px 44px -18px rgba(54,26,18,.55),0 2px 6px rgba(54,26,18,.18)}
 .hm .hello.hero::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.10;mix-blend-mode:overlay;pointer-events:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>")}
 .hm .hello.hero::after{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.28),rgba(255,255,255,0) 70%);pointer-events:none}
-.hm .hero-txt{position:relative;z-index:1;max-width:min(60%,740px)}
+.hm .hero-txt{position:relative;z-index:1;max-width:min(62%,740px)}
 .hm .hero .hello-eye{color:#f0b9a4}
 .hm .hero h2,.hm .hero .hello-t{color:#fff}
-.hm .hero p{color:rgba(255,255,255,.7);margin-top:7px;font-size:15px}
+.hm .hero p{color:rgba(255,255,255,.7);margin-top:7px;font-size:14.5px}
 .hm .hero-art{position:absolute;right:0;top:0;height:100%;width:min(640px,56%);z-index:0;pointer-events:none}
 .hm .hero-next{display:inline-flex;align-items:center;gap:12px;margin-top:22px;padding:6px 6px 6px 16px;border-radius:99px;background:rgba(255,255,255,.09);box-shadow:0 0 0 1px rgba(255,255,255,.16) inset;backdrop-filter:blur(6px);max-width:100%}
 .hm .hero-next .hn-k{font:800 10.5px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#f0b9a4;white-space:nowrap}
@@ -514,6 +514,6 @@ body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
 .hm .plate-ic svg{width:24px;height:24px}
 .hm .plate h1{font-size:19.5px;line-height:1.15;letter-spacing:-.015em}
 .hm .plate small{display:block;font-size:13px;line-height:1.2;color:var(--ink-2)}
-.hm.lb .work{padding:22px 60px 0}
-@media (max-width:1180px){.hm.lb .work{padding:22px 40px 0}}
+.hm.lb .work{padding:22px 84px 0 76px}
+@media (max-width:1180px){.hm.lb .work{padding:22px 48px 0 44px}}
 @media (max-width:860px){.hm .plate-row{padding:0 10px}.hm.lb .work{padding:20px 16px 0}}
