@@ -579,6 +579,53 @@ function FitTitle({ children }) {
   return <h2 ref={ref} className="hello-t">{children}</h2>;
 }
 
+
+/** The picture in the Home hero: a floating ad frame in a dark VR room (floor grid, orbit rings, a gaze ray). Pure decoration. */
+function HeroArt() {
+  const grid = [];
+  for (let i = -9; i <= 9; i++) grid.push(<line key={`v${i}`} x1={340 + i * 16} y1="168" x2={340 + i * 62} y2="262" />);
+  [172, 178, 187, 199, 215, 236, 262].forEach((y) => grid.push(<line key={`h${y}`} x1="0" y1={y} x2="640" y2={y} />));
+  return (
+    <svg className="hero-art" viewBox="0 0 640 262" preserveAspectRatio="xMaxYMid meet" aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id="ha-glow" cx="50%" cy="46%" r="52%"><stop offset="0" stopColor="#ff9a7e" stopOpacity=".55" /><stop offset=".55" stopColor="#c94a24" stopOpacity=".16" /><stop offset="1" stopColor="#c94a24" stopOpacity="0" /></radialGradient>
+        <linearGradient id="ha-frame" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ffe6d8" /><stop offset=".5" stopColor="#f2a184" /><stop offset="1" stopColor="#c94a24" /></linearGradient>
+        <linearGradient id="ha-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2c1a15" /><stop offset="1" stopColor="#b8512f" /></linearGradient>
+        <linearGradient id="ha-floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".34" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+        <linearGradient id="ha-fade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".3" stopColor="#fff" /></linearGradient>
+        <mask id="ha-m"><rect width="640" height="262" fill="url(#ha-fade)" /></mask>
+        <clipPath id="ha-clip"><path d="M236 62 L404 40 L404 172 L236 154 Z" /></clipPath>
+        <filter id="ha-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9" /></filter>
+      </defs>
+      <g mask="url(#ha-m)">
+        <ellipse cx="330" cy="116" rx="300" ry="190" fill="url(#ha-glow)" />
+        <g fill="none" stroke="#fff" strokeOpacity=".13" strokeWidth="1.2"><circle cx="322" cy="104" r="70" /><circle cx="322" cy="104" r="108" strokeDasharray="2 7" strokeOpacity=".3" /><circle cx="322" cy="104" r="148" /><circle cx="322" cy="104" r="196" strokeOpacity=".07" /></g>
+        <g stroke="#ffd3c0" strokeOpacity=".28" strokeWidth="1">{grid}</g>
+        <rect x="0" y="168" width="640" height="94" fill="url(#ha-floor)" opacity=".28" />
+        <path d="M236 154 L404 172 L404 230 L236 212 Z" fill="url(#ha-frame)" opacity=".16" />
+        <ellipse cx="322" cy="190" rx="132" ry="14" fill="#ff8a63" opacity=".5" filter="url(#ha-blur)" />
+        <g>
+          <path d="M228 56 L412 33 L412 180 L228 160 Z" fill="url(#ha-frame)" opacity=".9" />
+          <path d="M236 62 L404 40 L404 172 L236 154 Z" fill="url(#ha-sky)" />
+          <g clipPath="url(#ha-clip)">
+            <circle className="ha-sun" cx="330" cy="92" r="30" fill="#ffd9bf" opacity=".92" />
+            <circle className="ha-sun" cx="330" cy="92" r="46" fill="#ffb08e" opacity=".22" />
+            <path d="M236 150 L282 108 L318 138 L356 96 L404 142 L404 172 L236 154 Z" fill="#6e2f1f" />
+            <path d="M236 160 L296 126 L340 150 L404 118 L404 180 L236 170 Z" fill="#3b1c14" opacity=".9" />
+          </g>
+          <rect x="248" y="50" width="42" height="15" rx="7.5" transform="rotate(-7 269 57)" fill="#fff" opacity=".92" />
+          <text x="269" y="61" fontSize="9" fontWeight="800" textAnchor="middle" fill="#b8421d" transform="rotate(-7 269 57)" fontFamily="Inter,system-ui,sans-serif" letterSpacing=".6">AD</text>
+        </g>
+        <path d="M120 262 L316 104" stroke="#fff" strokeOpacity=".5" strokeWidth="1.2" strokeDasharray="1 6" strokeLinecap="round" fill="none" />
+        <circle cx="316" cy="104" r="4.5" fill="#fff" /><circle cx="316" cy="104" r="11" fill="none" stroke="#fff" strokeOpacity=".5" />
+        <g transform="rotate(-9 468 70)"><rect x="436" y="40" width="68" height="36" rx="11" fill="#fff" fillOpacity=".1" stroke="#fff" strokeOpacity=".3" /><path d="M458 50 L458 66 L472 58 Z" fill="#ffd3c0" /><rect x="478" y="52" width="18" height="3.5" rx="1.75" fill="#fff" fillOpacity=".6" /><rect x="478" y="60" width="12" height="3.5" rx="1.75" fill="#fff" fillOpacity=".35" /></g>
+        <g transform="rotate(6 556 128)"><rect x="522" y="110" width="64" height="36" rx="11" fill="#fff" fillOpacity=".1" stroke="#fff" strokeOpacity=".3" /><circle cx="544" cy="128" r="9" fill="#ffd3c0" /><path d="M540 128 L543 131 L548.5 124.5" stroke="#9b4d38" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /><rect x="559" y="123" width="16" height="3.5" rx="1.75" fill="#fff" fillOpacity=".55" /><rect x="559" y="130" width="10" height="3.5" rx="1.75" fill="#fff" fillOpacity=".3" /></g>
+        <g fill="#fff">{[[200, 40, 1.8, .7], [276, 22, 1.4, .5], [420, 24, 2, .6], [372, 202, 1.6, .5], [520, 112, 1.6, .5], [128, 150, 1.4, .4], [600, 60, 1.8, .6], [560, 206, 1.4, .4], [90, 40, 1.2, .35]].map(([x, y, r, o], i) => <circle key={i} cx={x} cy={y} r={r} opacity={o} />)}</g>
+      </g>
+    </svg>
+  );
+}
+
 let toastTimer = null;
 function toast(message) {
   if (typeof document === "undefined") return;
@@ -722,11 +769,24 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
   }, [view.name, view.slug]);
 
   const toggleOpen = (id) => setOpen((now) => ({ ...now, [id]: !now[id] }));
+  // The hero: greeting, one next step (the current Get started step, or what waits in Needs attention) and the picture.
+  const nextStep = data.checklist.find((step) => !step.done);
+  const goTo = (key) => () => document.querySelector(`[data-k="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   const hello = (
-    <section className="hello">
-      <div className="hello-eye">{today}</div>
-      <FitTitle>{`${isNew ? "Welcome, " : "Welcome back, "}${name}`}</FitTitle>
-      <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
+    <section className="hello hero">
+      <div className="hero-txt">
+        <div className="hello-eye">{today}</div>
+        <FitTitle>{`${isNew ? "Welcome, " : "Welcome back, "}${name}`}</FitTitle>
+        <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
+        {nextStep ? (
+          <div className="hero-next"><span className="hn-k">Next step</span><b>{nextStep.title}</b><Link href={nextStep.href} className="btn hn-go">{nextStep.action}</Link></div>
+        ) : data.strips.length > 0 ? (
+          <div className="hero-next"><span className="hn-k">Needs attention</span><b>{data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b><button type="button" className="btn hn-go" onClick={goTo("na")}>Review</button></div>
+        ) : (
+          <div className="hero-next"><span className="hn-k">All clear</span><b>Nothing needs you right now</b></div>
+        )}
+      </div>
+      <HeroArt />
     </section>
   );
 
