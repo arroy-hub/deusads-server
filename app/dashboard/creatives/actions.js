@@ -7,7 +7,9 @@ import { FORMATS, aspectClose, normalizeSafeZone } from "../../../lib/formats";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { cleanFolderName, cleanFormatCrops, moveInOrder, orderCreatives } from "../../../lib/creative-library";
 import { loadCreativeEditor } from "../../../lib/advertiser-data";
+import { after } from "next/server";
 import { fitStoredPicture } from "../../../lib/creative-image";
+import { makeVariants, removeVariants } from "../../../lib/astc-variants";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
@@ -127,6 +129,7 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     for (const row of old ?? []) {
       await me.service.from("creative_assets").delete().eq("id", row.id);
       await me.service.storage.from("creatives").remove([row.storage_path]);
+      await removeVariants(me.service, [row.storage_path]).catch(() => null);
     }
   }
 
@@ -151,6 +154,13 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     return { error: isSchemaOutdated(error) || error?.code === "42P01" ? MISSING : "Could not save. Try again." };
   }
 
+  after(async () => {
+    try {
+      await makeVariants(me.service, path);
+    } catch (error) {
+      console.error("[DeusADS] compressed copies failed:", path, error?.message);
+    }
+  });
   refresh(creative.id);
   return { ok: true, status, notice: fitted.notice };
 }
@@ -172,6 +182,7 @@ export async function deleteAsset({ assetId }) {
   const { error } = await me.service.from("creative_assets").delete().eq("id", asset.id);
   if (error) return { error: "Could not delete the image." };
   await me.service.storage.from("creatives").remove([asset.storage_path]);
+  await removeVariants(me.service, [asset.storage_path]).catch(() => null);
 
   refresh(creative.id);
   return { ok: true };

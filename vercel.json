@@ -1,4 +1,16 @@
 {
-  "regions": ["fra1"],
-  "crons": [{ "path": "/v1/cron/sync", "schedule": "0 4 * * *" }]
+  "regions": [
+    "fra1"
+  ],
+  "crons": [
+    {
+      "path": "/v1/cron/sync",
+      "schedule": "0 4 * * *"
+    }
+  ],
+  "functions": {
+    "app/dashboard/**/*.js": {
+      "maxDuration": 60
+    }
+  }
 }
