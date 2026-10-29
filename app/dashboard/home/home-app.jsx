@@ -779,7 +779,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
         <FitTitle>{`${isNew ? "Welcome, " : "Welcome back, "}${name}`}</FitTitle>
         <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
         {nextStep ? (
-          <div className="hero-next"><span className="hn-k">Next step</span><b>{nextStep.title}</b><Link href={nextStep.href} className="btn hn-go">{nextStep.action}</Link></div>
+          <div className="hero-next"><span className="hn-k">Next step</span><b>{nextStep.title}</b></div>
         ) : data.strips.length > 0 ? (
           <div className="hero-next"><span className="hn-k">Needs attention</span><b>{data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b><button type="button" className="btn hn-go" onClick={goTo("na")}>Review</button></div>
         ) : (

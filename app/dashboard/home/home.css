@@ -523,3 +523,4 @@ body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
 .hm .hero-next .hn-go{border-radius:10px}
 .hm .hello .hello-t{padding-bottom:.16em;margin-bottom:-.16em}
 .hm .ga{grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:14px}
+.hm .hero-next:not(:has(.hn-go)){padding:11px 18px}
