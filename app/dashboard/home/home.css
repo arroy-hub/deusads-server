@@ -514,6 +514,6 @@ body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
 .hm .plate-ic svg{width:24px;height:24px}
 .hm .plate h1{font-size:19.5px;line-height:1.15;letter-spacing:-.015em}
 .hm .plate small{display:block;font-size:13px;line-height:1.2;color:var(--ink-2)}
-.hm.lb .work{padding:22px 84px 0 76px}
+.hm.lb .work{padding:22px 84px 0 65px}
 @media (max-width:1180px){.hm.lb .work{padding:22px 48px 0 44px}}
 @media (max-width:860px){.hm .plate-row{padding:0 10px}.hm.lb .work{padding:20px 16px 0}}
