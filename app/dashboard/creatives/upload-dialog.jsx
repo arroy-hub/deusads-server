@@ -6,6 +6,7 @@ import { browserClient } from "../../../lib/supabase-browser";
 import { AD_CATEGORIES } from "../../../lib/categories";
 import { IcUpload } from "../_cabinet/icons";
 import { SAMPLES, drawSample } from "../_cabinet/samples";
+import { sizeAdvice } from "../../../lib/creative-size";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -25,6 +26,7 @@ export default function UploadDialog({ title = "Add a creative", lede = "A PNG o
   const [over, setOver] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(""); // the picture was made smaller on upload; shown before the pop-up closes
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [samples, setSamples] = useState(null);
   useLayoutEffect(() => { if (ref.current && !ref.current.open) ref.current.showModal(); }, []);
@@ -59,6 +61,7 @@ export default function UploadDialog({ title = "Add a creative", lede = "A PNG o
   }
   const sample = (s) => take(new File([s.blob], `${s.id}.png`, { type: "image/png" }), s.label);
   const ratio = pic ? (pic.w / pic.h).toFixed(2) : null;
+  const advice = pic ? sizeAdvice(pic.w, pic.h) : null;
 
   async function add() {
     if (!pic || !name.trim() || !category || busy) return;
@@ -75,8 +78,13 @@ export default function UploadDialog({ title = "Add a creative", lede = "A PNG o
       const result = await registerCreative({ name: name.trim(), path, type: pic.file.type, size: pic.file.size, width: pic.w, height: pic.h, adCategory: category });
       if (result?.error) throw new Error(result.error);
       // The stored picture's own address: the local preview address stops working once this pop-up closes.
-      const stored = db.storage.from("creatives").getPublicUrl(path).data.publicUrl;
-      await onUploaded?.({ ...result.creative, url: stored || pic.url, width: pic.w, height: pic.h }, { folderId: folder || null });
+      const stored = db.storage.from("creatives").getPublicUrl(result.path || path).data.publicUrl;
+      await onUploaded?.({ ...result.creative, url: stored || pic.url, width: result.width || pic.w, height: result.height || pic.h }, { folderId: folder || null });
+      if (result.notice) {
+        setNotice(result.notice);
+        setBusy(false);
+        return;
+      }
       ref.current?.close();
     } catch (problem) {
       setError(problem?.message || "Connection lost. Try again.");
@@ -120,11 +128,19 @@ export default function UploadDialog({ title = "Add a creative", lede = "A PNG o
               </div>
             </div>
           )}
+          {advice && !notice && <p className={advice.tone === "warn" ? "error" : "rd-dsub"} role="status">{advice.text}</p>}
+          {notice && <p className="error" role="status">{notice}</p>}
           {error && <p className="error" role="alert">{error}</p>}
         </div>
         <div className="rd-dfoot">
-          <button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Cancel</button>
-          <button type="button" className="button" disabled={!pic || !name.trim() || !category || busy} aria-busy={busy} onClick={add}>{busy ? "Uploading…" : submit}</button>
+          {notice ? (
+            <button type="button" className="button" onClick={() => ref.current?.close()}>OK</button>
+          ) : (
+            <>
+              <button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Cancel</button>
+              <button type="button" className="button" disabled={!pic || !name.trim() || !category || busy} aria-busy={busy} onClick={add}>{busy ? "Uploading…" : submit}</button>
+            </>
+          )}
         </div>
       </div>
     </dialog>

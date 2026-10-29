@@ -166,12 +166,14 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
     if (error) throw new Error("Upload failed. Try again.");
     const result = await registerAsset({ creativeId: creative.id, formatId, path, type: file.type, size: file.size, width: picture.width, height: picture.height });
     if (result?.error) throw new Error(result.error);
+    return result.notice || "";
   }
 
   async function save() {
     setBusy(true);
     flash("");
     const stop = (text) => { setBusy(false); flash(text, "error"); router.refresh(); };
+    const notices = []; // pictures that were made smaller on upload: the pop-up stays open so the advertiser reads it
     try {
       if (name.trim() && name.trim() !== creative.name) {
         const renamed = await renameCreative({ creativeId: creative.id, name });
@@ -184,7 +186,8 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           if (removed?.error) return stop(removed.error);
         }
       }
-      for (const [formatId, picture] of Object.entries(own)) if (picture.file) await upload(picture, formatId);
+      for (const [formatId, picture] of Object.entries(own)) if (picture.file) { const notice = await upload(picture, formatId); if (notice) notices.push(notice); }
+      if (notices.length) flash(notices.join(" "), "ok");
       // Framing: only what differs from the automatic crop, and only for shapes the main picture still covers.
       const keep = Object.fromEntries(Object.entries(crops).filter(([fid, c]) => !own[fid] && auto[fid]?.fits && !sameCrop(clampCrop(c, imageAspect, FORMATS.find((f) => f.id === fid).aspect), clampCrop(auto[fid].crop, imageAspect, FORMATS.find((f) => f.id === fid).aspect))));
       if (JSON.stringify(keep) !== JSON.stringify(editor.formatCrops ?? {})) {
@@ -198,7 +201,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
     setDirty(false);
     onSaved?.();
     router.refresh();
-    dialog.current?.close();
+    if (!notices.length) dialog.current?.close();
   }
 
   async function removeCreative() {

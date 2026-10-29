@@ -13,6 +13,7 @@ import { cropFromRow } from "../../../lib/surface-math";
 import { syncBookingSchedule } from "../../../lib/schedule";
 import { rotate } from "../../../lib/rotation";
 import { choosePictures } from "../../../lib/manifest-pick";
+import { variantsBySource } from "../../../lib/astc-variants";
 import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
 import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
@@ -126,12 +127,20 @@ export const GET = guarded(async function GET(request) {
   const notSuspended = servable.filter((item) => !suspended.has(item.advertiserId));
   const notBlocked = notSuspended.filter((item) => !disabled.has(item.placementId) && allowed(item));
   const chosen = rotate(notBlocked.filter(campaignAllows));
-  const placements = chosen.map(({ row }) => ({
-    id: row.placements.external_id,
-    creativeId: row.creatives.id,
-    imageUrl: shown.get(row).imageUrl,
-    crop: shown.get(row).crop,
-  }));
+  // Compressed copies (migration 0055) of the pictures being served, for SDKs that can use them (headsets, phones).
+  // Older SDKs ignore the field; a picture without copies simply has no `variants`.
+  const variants = await variantsBySource(db, chosen.map(({ row }) => shown.get(row).path)).catch(() => new Map());
+  const placements = chosen.map(({ row }) => {
+    const picked = shown.get(row);
+    const copies = variants.get(picked.path);
+    return {
+      id: row.placements.external_id,
+      creativeId: row.creatives.id,
+      imageUrl: picked.imageUrl,
+      crop: picked.crop,
+      ...(copies?.length ? { variants: copies } : {}),
+    };
+  });
 
   // Counted after the answer has gone out: the fill rate is for the developer's dashboard, not for the game.
   await afterResponse(() => recordFill(db, game, { levels: [rows, eligible, servable, notSuspended, notBlocked], chosen, disabled }));

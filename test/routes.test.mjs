@@ -183,7 +183,7 @@ await build({
   platform: "node",
   format: "esm",
   outdir: out,
-  external: ["@supabase/*"],
+  external: ["@supabase/*", "sharp"],
   // next/server needs a running Next.js request; the stand-in is described in the file.
   alias: { "next/server": join(process.cwd(), "test", "stubs", "next-server.mjs") },
   logLevel: "error",

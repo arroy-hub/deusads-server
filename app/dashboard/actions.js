@@ -12,12 +12,25 @@ import { MAX_OWN_CREATIVES, OWN_PICTURE_TYPES } from "../../lib/own-creatives";
 import { validateProfile } from "../../lib/targeting";
 import { parseAbout } from "../../lib/game-about";
 import { coverValue, parseCover } from "../../lib/game-cover";
+import { fitStoredPicture } from "../../lib/creative-image";
+import { makeVariants, removeVariants } from "../../lib/astc-variants";
 
 // Every action writes through the user's own client, so row-level security is
 // what actually enforces ownership. The owner_id below is convenience, not the
 // security boundary: a forged value is rejected by the database.
 
 const MAX_BYTES = 8 * 1024 * 1024;
+
+/** Prepares the compressed copies of a picture once the response is sent. Failures are logged; the picture is still served as PNG/JPG. */
+function prepareVariants(path) {
+  after(async () => {
+    try {
+      await makeVariants(serviceClient(), path);
+    } catch (error) {
+      console.error("[DeusADS] compressed copies failed:", path, error?.message);
+    }
+  });
+}
 
 /** After a game changes what it is or opens a placement, campaigns started by audience pick up what now fits. Runs after the response. */
 function resyncCampaigns() {
@@ -223,12 +236,20 @@ export async function registerCreative({ name, path, type, size, width, height, 
   const cleanName = String(name ?? "").trim().slice(0, 120) || "Untitled creative";
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
 
+  // Bigger than the SDK can use: made smaller now, the original is not kept.
+  const fitted = await fitStoredPicture(serviceClient(), { path, type, width: px(width), height: px(height) });
+  if (fitted.error) {
+    await db.storage.from("creatives").remove([path]);
+    return { error: fitted.error };
+  }
+  path = fitted.path;
+
   const row = {
     owner_id: user.id,
     name: cleanName,
     storage_path: path,
-    width_px: px(width),
-    height_px: px(height),
+    width_px: fitted.resized ? fitted.width : px(width),
+    height_px: fitted.resized ? fitted.height : px(height),
   };
   let { data, error } = await db
     .from("creatives")
@@ -246,8 +267,9 @@ export async function registerCreative({ name, path, type, size, width, height, 
     return { error: "Uploaded the image but could not save it." };
   }
 
+  prepareVariants(path);
   revalidatePath("/dashboard/creatives");
-  return { ok: true, creative: data };
+  return { ok: true, creative: data, path, width: row.width_px, height: row.height_px, notice: fitted.notice };
 }
 
 // ---------------------------------------------------------------- a developer's own creatives
@@ -302,6 +324,13 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
   }
 
   const px = (value) => (Number.isInteger(value) && value > 0 && value < 20000 ? value : null);
+  // Bigger than the SDK can use: made smaller now, the original is not kept.
+  const fitted = await fitStoredPicture(serviceClient(), { path, type, width: px(width), height: px(height) });
+  if (fitted.error) {
+    await cleanup();
+    return { error: fitted.error };
+  }
+  path = fitted.path;
   // Users may not set a creative's kind or status themselves (column grants, migration 0004), so the
   // row is written with the service role. The user and the placement's owner were checked above.
   const { data: creative, error } = await serviceClient()
@@ -310,8 +339,8 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
       owner_id: user.id,
       name: String(name ?? "").trim().slice(0, 120) || "Own creative",
       storage_path: path,
-      width_px: px(width),
-      height_px: px(height),
+      width_px: fitted.resized ? fitted.width : px(width),
+      height_px: fitted.resized ? fitted.height : px(height),
       kind: "own",
       status: "approved",
     })
@@ -340,8 +369,9 @@ export async function addOwnCreative({ placementId, path, name, type, size, widt
     };
   }
 
+  prepareVariants(path);
   revalidatePath("/dashboard", "layout");
-  return { ok: true, assignmentId: assignment.id, creativeId: creative.id, name: creative.name };
+  return { ok: true, assignmentId: assignment.id, creativeId: creative.id, name: creative.name, notice: fitted.notice };
 }
 
 /** Changes one of the developer's own pictures: switched on or off, and how it is framed. */
@@ -401,6 +431,7 @@ export async function deleteOwnCreative({ assignmentId }) {
     if (error) return { error: "Could not delete the creative." };
     const { error: storageError } = await db.storage.from("creatives").remove([creative.storage_path]);
     if (storageError) console.warn("[DeusADS] own picture file not removed:", creative.storage_path, storageError.message);
+    await removeVariants(serviceClient(), [creative.storage_path]).catch(() => null);
   } else {
     const { error } = await db.from("assignments").delete().eq("id", assignmentId);
     if (error) return { error: "Could not delete the creative." };
@@ -507,6 +538,7 @@ export async function deleteCreative({ creativeId }) {
   const { error } = await db.from("creatives").delete().eq("id", id);
   if (error) return { error: "Could not delete the creative." };
   if (extra?.length) await db.storage.from("creatives").remove(extra.map((row) => row.storage_path));
+  await removeVariants(serviceClient(), [creative.storage_path, ...(extra ?? []).map((row) => row.storage_path)]).catch(() => null);
 
   // The row is gone either way; a file that will not delete is only wasted space.
   const { error: storageError } = await db.storage.from("creatives").remove([creative.storage_path]);

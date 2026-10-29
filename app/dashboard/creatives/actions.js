@@ -7,6 +7,9 @@ import { FORMATS, aspectClose, normalizeSafeZone } from "../../../lib/formats";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { cleanFolderName, cleanFormatCrops, moveInOrder, orderCreatives } from "../../../lib/creative-library";
 import { loadCreativeEditor } from "../../../lib/advertiser-data";
+import { after } from "next/server";
+import { fitStoredPicture } from "../../../lib/creative-image";
+import { makeVariants, removeVariants } from "../../../lib/astc-variants";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
@@ -57,6 +60,7 @@ export async function saveSafeZone({ creativeId, x, y, w, h }) {
  * An existing picture for the same standard format is replaced.
  */
 export async function registerAsset({ creativeId, formatId, path, type, size, width, height }) {
+  // `path`, `width` and `height` are reassigned below when the picture is made smaller.
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
 
@@ -78,8 +82,8 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     await cleanup();
     return { error: "Images must be under 8 MB." };
   }
-  const w = Number(width);
-  const h = Number(height);
+  let w = Number(width);
+  let h = Number(height);
   if (!(Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 && w < 20000 && h < 20000)) {
     await cleanup();
     return { error: "This file does not open as an image." };
@@ -99,6 +103,18 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     }
   }
 
+  // Bigger than the SDK can use: made smaller now, the original is not kept.
+  const fitted = await fitStoredPicture(me.service, { path, type, width: w, height: h });
+  if (fitted.error) {
+    await cleanup();
+    return { error: fitted.error };
+  }
+  if (fitted.resized) {
+    path = fitted.path;
+    w = fitted.width;
+    h = fitted.height;
+  }
+
   // Replacing: the old picture for this format goes first (one per standard format).
   if (format) {
     const { data: old, error: oldError } = await me.service
@@ -113,6 +129,7 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     for (const row of old ?? []) {
       await me.service.from("creative_assets").delete().eq("id", row.id);
       await me.service.storage.from("creatives").remove([row.storage_path]);
+      await removeVariants(me.service, [row.storage_path]).catch(() => null);
     }
   }
 
@@ -123,7 +140,7 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     .insert({
       creative_id: creative.id,
       format_id: format ? format.id : null,
-      aspect: Math.round(aspect * 1000) / 1000,
+      aspect: Math.round(aspect * 1000) / 1000, // of the picture as uploaded; a smaller copy has the same shape
       storage_path: path,
       width_px: w,
       height_px: h,
@@ -137,8 +154,15 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     return { error: isSchemaOutdated(error) || error?.code === "42P01" ? MISSING : "Could not save. Try again." };
   }
 
+  after(async () => {
+    try {
+      await makeVariants(me.service, path);
+    } catch (error) {
+      console.error("[DeusADS] compressed copies failed:", path, error?.message);
+    }
+  });
   refresh(creative.id);
-  return { ok: true, status };
+  return { ok: true, status, notice: fitted.notice };
 }
 
 /** Remove one extra picture of one of the caller's creatives. */
@@ -158,6 +182,7 @@ export async function deleteAsset({ assetId }) {
   const { error } = await me.service.from("creative_assets").delete().eq("id", asset.id);
   if (error) return { error: "Could not delete the image." };
   await me.service.storage.from("creatives").remove([asset.storage_path]);
+  await removeVariants(me.service, [asset.storage_path]).catch(() => null);
 
   refresh(creative.id);
   return { ok: true };
