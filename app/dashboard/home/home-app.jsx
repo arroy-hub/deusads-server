@@ -710,8 +710,12 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
     const el = root.current;
     const { dir, ghost, y0, oldW } = job;
     const D = 90, T = 480, OUT = "cubic-bezier(.3,.7,.4,1)", IN = "cubic-bezier(.22,1,.36,1)", F = "cubic-bezier(.4,0,.6,1)";
-    const move = (node, from, to, easing, fill) => node.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }], { duration: T, easing, fill });
-    const fade = (node, from, to, duration, delay, fill) => node.animate([{ opacity: from }, { opacity: to }], { duration, delay, easing: F, fill });
+    // The first frame after the switch is expensive (new view + ghost get painted). Animations created now would already be
+    // part-way through when it appears, which reads as a jump. So they start paused on their first keyframe and play after it.
+    const started = [];
+    const go = (animation) => { animation.pause(); started.push(animation); return animation; };
+    const move = (node, from, to, easing, fill) => go(node.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }], { duration: T, easing, fill }));
+    const fade = (node, from, to, duration, delay, fill) => go(node.animate([{ opacity: from }, { opacity: to }], { duration, delay, easing: F, fill }));
     ghost.querySelectorAll(".plate-ic, .plate > div").forEach((node) => fade(node, 1, 0, T * 0.45, 0, "forwards"));
     ghost.querySelectorAll(".hm-work").forEach((node) => { move(node, 0, -dir * D, OUT, "forwards"); fade(node, 1, 0, T * 0.5, 0, "forwards"); });
     el.querySelectorAll(".hm-work").forEach((node) => { move(node, dir * D, 0, IN, "backwards"); fade(node, 0, 1, T * 0.55, T * 0.12, "backwards"); });
@@ -719,12 +723,13 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
     if (plate) {
       const nw = plate.getBoundingClientRect().width;
       plate.querySelectorAll(".plate-ic, .plate > div").forEach((node) => fade(node, 0, 1, T * 0.55, T * 0.15, "backwards"));
-      if (oldW && Math.abs(oldW - nw) > 1) { plate.style.overflow = "hidden"; const grow = plate.animate([{ width: `${oldW}px` }, { width: `${nw}px` }], { duration: T, easing: IN }); grow.onfinish = () => { plate.style.overflow = ""; }; }
+      if (oldW && Math.abs(oldW - nw) > 1) { plate.style.overflow = "hidden"; const grow = go(plate.animate([{ width: `${oldW}px` }, { width: `${nw}px` }], { duration: T, easing: IN })); grow.onfinish = () => { plate.style.overflow = ""; }; }
     }
+    requestAnimationFrame(() => requestAnimationFrame(() => started.forEach((animation) => animation.play())));
     setTimeout(() => {
       ghost.remove();
       document.documentElement.style.overflowX = "";
-    }, T + 40);
+    }, T + 400);
   }, [view.name, view.slug]);
 
   const toggleOpen = (id) => setOpen((now) => ({ ...now, [id]: !now[id] }));
