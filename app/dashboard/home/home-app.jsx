@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRailView } from "../role-view";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
 import { GD0, GSPEC, PLATES, applyGlow, glowStyle } from "./glow";
@@ -579,6 +579,12 @@ function FitTitle({ children }) {
   return <h2 ref={ref} className="hello-t">{children}</h2>;
 }
 
+
+/** The picture in the Home hero: the warm layered oval of the DeusADS site (decoration only). */
+function HeroArt() {
+  return <div className="hero-art" aria-hidden="true" />;
+}
+
 let toastTimer = null;
 function toast(message) {
   if (typeof document === "undefined") return;
@@ -596,7 +602,6 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
   const role = choices ? (railView === "advertiser" ? "adv" : "dev") : roleProp;
   const data = choices ? choices[role] : dataProp;
   const path = usePathname();
-  const router = useRouter();
   const view = viewOf(path);
   const isNew = data.mode === "new";
   const [blocks, setBlocksState] = useState(() => Object.fromEntries(BLOCKS.map(([key]) => [key, true])));
@@ -607,6 +612,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
   const [filter, setFilter] = useState("all");
   const root = useRef(null);
   const pending = useRef(null);
+  const homeY = useRef(0);
   const previous = useRef(view.name);
 
   // What a person switched off stays off in this browser.
@@ -682,17 +688,17 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
       if (gh) { gh.style.background = "transparent"; gh.style.borderBottom = "0"; gh.querySelector(".cover")?.remove(); }
       const gp = ghost.querySelector(".plate");
       if (gp) { gp.style.background = "transparent"; gp.style.boxShadow = "none"; }
-      document.body.appendChild(ghost);
+      el.after(ghost); // beside the real view (not in <body>), so it inherits the same shell styles and looks identical
       document.documentElement.style.overflowX = "hidden";
       const y0 = window.scrollY;
-      // keep the page as tall as it was, so the browser does not clamp the scroll position up when the new view is shorter
-      el.style.minHeight = y0 > 0 ? `${rect.height}px` : "";
+      if (dir > 0) homeY.current = y0; // where Home was left, so coming back puts the person there again
       pending.current = { dir, ghost, y0, oldW };
-    } else if (root.current) {
-      root.current.style.minHeight = "";
     }
-    router.push(href, { scroll: false });
-  }, [router]);
+    // The three views share one layout and their pages render nothing, so there is nothing to fetch: change the address
+    // in place (Next keeps usePathname in sync with it). Going through router.push waited for a server round trip first,
+    // which showed as a pause before the slide and let the site-wide "loading" veil flash over the page.
+    window.history.pushState(null, "", href);
+  }, []);
 
   // The new view is on screen: slide it in, fade the ghost of the old one out.
   useLayoutEffect(() => {
@@ -702,10 +708,17 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
     if (!job || !root.current) return;
     pending.current = null;
     const el = root.current;
-    const { dir, ghost, y0, oldW } = job;
+    const { dir, ghost, oldW } = job;
+    // The ghost of the old view is fixed on screen exactly where it was, so the page itself can move to its new place
+    // before the first frame: the top of a guide or the news list when going in, the old spot on Home when coming back.
+    window.scrollTo({ top: dir > 0 ? 0 : homeY.current, behavior: "instant" });
     const D = 90, T = 480, OUT = "cubic-bezier(.3,.7,.4,1)", IN = "cubic-bezier(.22,1,.36,1)", F = "cubic-bezier(.4,0,.6,1)";
-    const move = (node, from, to, easing, fill) => node.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }], { duration: T, easing, fill });
-    const fade = (node, from, to, duration, delay, fill) => node.animate([{ opacity: from }, { opacity: to }], { duration, delay, easing: F, fill });
+    // The first frame after the switch is expensive (new view + ghost get painted). Animations created now would already be
+    // part-way through when it appears, which reads as a jump. So they start paused on their first keyframe and play after it.
+    const started = [];
+    const go = (animation) => { animation.pause(); started.push(animation); return animation; };
+    const move = (node, from, to, easing, fill) => go(node.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }], { duration: T, easing, fill }));
+    const fade = (node, from, to, duration, delay, fill) => go(node.animate([{ opacity: from }, { opacity: to }], { duration, delay, easing: F, fill }));
     ghost.querySelectorAll(".plate-ic, .plate > div").forEach((node) => fade(node, 1, 0, T * 0.45, 0, "forwards"));
     ghost.querySelectorAll(".hm-work").forEach((node) => { move(node, 0, -dir * D, OUT, "forwards"); fade(node, 1, 0, T * 0.5, 0, "forwards"); });
     el.querySelectorAll(".hm-work").forEach((node) => { move(node, dir * D, 0, IN, "backwards"); fade(node, 0, 1, T * 0.55, T * 0.12, "backwards"); });
@@ -713,20 +726,34 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
     if (plate) {
       const nw = plate.getBoundingClientRect().width;
       plate.querySelectorAll(".plate-ic, .plate > div").forEach((node) => fade(node, 0, 1, T * 0.55, T * 0.15, "backwards"));
-      if (oldW && Math.abs(oldW - nw) > 1) { plate.style.overflow = "hidden"; const grow = plate.animate([{ width: `${oldW}px` }, { width: `${nw}px` }], { duration: T, easing: IN }); grow.onfinish = () => { plate.style.overflow = ""; }; }
+      if (oldW && Math.abs(oldW - nw) > 1) { plate.style.overflow = "hidden"; const grow = go(plate.animate([{ width: `${oldW}px` }, { width: `${nw}px` }], { duration: T, easing: IN })); grow.onfinish = () => { plate.style.overflow = ""; }; }
     }
+    requestAnimationFrame(() => requestAnimationFrame(() => started.forEach((animation) => animation.play())));
     setTimeout(() => {
       ghost.remove();
       document.documentElement.style.overflowX = "";
-    }, T + 40);
+    }, T + 400);
   }, [view.name, view.slug]);
 
   const toggleOpen = (id) => setOpen((now) => ({ ...now, [id]: !now[id] }));
+  // The hero: greeting, one next step (the current Get started step, or what waits in Needs attention) and the picture.
+  const nextStep = data.checklist.find((step) => !step.done);
+  const goTo = (key) => () => document.querySelector(`[data-k="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   const hello = (
-    <section className="hello">
-      <div className="hello-eye">{today}</div>
-      <FitTitle>{`${isNew ? "Welcome, " : "Welcome back, "}${name}`}</FitTitle>
-      <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
+    <section className="hello hero">
+      <div className="hero-txt">
+        <div className="hello-eye">{today}</div>
+        <FitTitle>{`${isNew ? "Welcome, " : "Welcome back, "}${name}`}</FitTitle>
+        <p>Take a look at what needs your attention, or set up the widgets the way you like.</p>
+        {nextStep ? (
+          <div className="hero-next"><span className="hn-k">Next step</span><b>{nextStep.title}</b></div>
+        ) : data.strips.length > 0 ? (
+          <div className="hero-next"><span className="hn-k">Needs attention</span><b>{data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b><button type="button" className="btn hn-go" onClick={goTo("na")}>Review</button></div>
+        ) : (
+          <div className="hero-next"><span className="hn-k">All clear</span><b>Nothing needs you right now</b></div>
+        )}
+      </div>
+      <HeroArt />
     </section>
   );
 
@@ -743,7 +770,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
             <div><h1>{title}</h1><small>{lede}</small></div>
           </div>
         </div>
-        <div style={{ height: 22 }} />
+        <div className="hdr-gap" />
       </div>
       <div className="work hm-work">
         {view.name === "home" && (
