@@ -10,14 +10,14 @@ const fail = (error, status = 400) => NextResponse.json({ error }, { status, hea
  * The chat with the assistant.
  *   { action: "ask", question, history: [{ role, text }] }  ->  { outcome, reply, source, escalation, logId }
  *   { action: "rate", logId, rating: "up" | "down" }        ->  { ok }
- * Admins try the assistant from the admin page, not here.
+ * Everyone signed in may ask, an admin included (the admin's chat is the same one, without the hand-over to the developer).
+ * Trying unsaved settings stays on the admin's Support page.
  */
 export async function POST(request) {
   const body = await request.json().catch(() => null);
   if (!body) return fail("Could not read the message.");
   const me = await getMember();
   if (!me) return fail("Your session expired. Sign in again.", 401);
-  if (me.role === "admin") return fail("Admins try the assistant on the Support page.", 403);
   const actor = { id: me.user.id, role: me.role };
 
   if (body.action === "rate") {

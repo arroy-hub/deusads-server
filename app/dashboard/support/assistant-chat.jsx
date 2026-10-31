@@ -12,18 +12,25 @@ const DOWN = "I couldn’t reach the assistant. You can pass your question to th
 const STARTERS = ["Where is my API key?", "Banners don’t show in game", "How do I pause a campaign?"];
 const GREETING_OFF = "Hi! The assistant isn’t working right now. You can still send your message: a person will reply as soon as it’s their turn in the queue.";
 const NOT_READY = "The assistant isn’t working right now, so I can’t answer. Pass your question to the developer: a person will reply as soon as it’s their turn, here and in your bell.";
+// An admin is the developer: nobody to hand a question over to, and the switch is theirs.
+const GREETING_OFF_ADMIN = "Hi! The assistant is switched off, so it can’t answer yet. Turn it on in Support → Assistant (it also needs ANTHROPIC_API_KEY and at least one enabled guide article).";
+const NOT_READY_ADMIN = "The assistant isn’t working right now. Turn it on in Support → Assistant.";
 
 let counter = 0;
 const uid = () => `m${(counter += 1)}`;
 
 /**
  * The assistant chat. `mode="page"`: the chat of the Assistant tab, with the "Advanced" button that swaps the input for the
- * full form to the developer. `mode="popup"`: the chat only (the pop-up from the corner button). Everything the person
+ * full form to the developer. `mode="popup"`: the chat only (the pop-up from the corner button).
+ * `canHandOver` is false for an admin: the chat is the same, without "Send to developer" and the form to the developer. Everything the person
  * types stays in the chat; "Send to developer" turns the last question into a request and leaves a link to it.
  * `assistantOn` is false until the assistant itself is switched on by the admin.
  */
-export default function AssistantChat({ role, mode = "page", assistantOn = false, greeting, seed, onSeedUsed, onOpenRequest }) {
-  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : GREETING_OFF, actions: !assistantOn && mode === "page", chips: assistantOn ? STARTERS : undefined }]);
+export default function AssistantChat({ role, mode = "page", assistantOn = false, canHandOver = true, greeting, seed, onSeedUsed, onOpenRequest }) {
+  // The hand-over chips only exist when there is someone to hand over to.
+  const offer = (chips) => (canHandOver ? chips : chips.filter((chip) => chip !== SEND && chip !== NOT_SOLVED));
+  const notReady = canHandOver ? NOT_READY : NOT_READY_ADMIN;
+  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : (canHandOver ? GREETING_OFF : GREETING_OFF_ADMIN), actions: !assistantOn && mode === "page" && canHandOver, chips: assistantOn ? STARTERS : undefined }]);
   const [me, setMe] = useState(null); // the person's own card, for their face beside their messages
   useEffect(() => {
     let gone = false;
@@ -68,7 +75,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
       await new Promise((done) => setTimeout(done, 450));
       setThinking(false);
       last.current = { logId: null, escalation: null };
-      return push({ kind: "bot", body: NOT_READY, chips: [SEND] });
+      return push({ kind: "bot", body: notReady, chips: offer([SEND]) });
     }
     let data = null;
     try {
@@ -81,13 +88,13 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
     setThinking(false);
     if (!data || data.error) {
       last.current = { logId: null, escalation: null };
-      return push({ kind: "bot", body: data?.error || DOWN, chips: [SEND] });
+      return push({ kind: "bot", body: data?.error || DOWN, chips: offer([SEND]) });
     }
     last.current = { logId: data.logId ?? null, escalation: data.escalation ?? null };
-    if (data.outcome === "answered") return push({ kind: "bot", body: data.reply, source: data.source, chips: [HELPED, NOT_SOLVED] });
-    if (data.outcome === "limit") return push({ kind: "bot", body: data.reply, chips: [SEND] });
-    if (data.outcome === "off") return push({ kind: "bot", body: NOT_READY, chips: [SEND] });
-    return push({ kind: "bot", body: data.reply, chips: [SEND] });
+    if (data.outcome === "answered") return push({ kind: "bot", body: data.reply, source: data.source, chips: offer([HELPED, NOT_SOLVED]) });
+    if (data.outcome === "limit") return push({ kind: "bot", body: data.reply, chips: offer([SEND]) });
+    if (data.outcome === "off") return push({ kind: "bot", body: notReady, chips: offer([SEND]) });
+    return push({ kind: "bot", body: data.reply, chips: offer([SEND]) });
   }
 
   async function rate(rating) {
@@ -139,7 +146,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
         </div>
       ) : (
         <div className="sp-input">
-          {mode === "page" && (
+          {mode === "page" && canHandOver && (
             <button type="button" className="sp-ib" title="Write a detailed message straight to the developer, without the assistant" aria-label="Advanced: detailed message to the developer" onClick={() => openForm("question")}>
               <PenIcon />
             </button>
@@ -177,7 +184,7 @@ function ChatMessage({ m, me, follow, onChip, onOpen, onAction }) {
         {follow ? <span className="sp-who sp-gap" aria-hidden="true" /> : <Face card={mine ? me : null} mark={mine ? "You" : "D"} />}
         <div>
           <div className="sp-bub"><span className="sp-text">{m.body}</span>{m.source && <span className="sp-source">{m.source}</span>}{m.shots?.map((url) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={url} className="sp-shot" src={url} alt="Screenshot" />)}</div>
-          {m.chips && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
+          {m.chips?.length > 0 && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
         </div>
       </div>
       {m.actions && (

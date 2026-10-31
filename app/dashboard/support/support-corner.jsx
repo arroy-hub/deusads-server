@@ -34,6 +34,8 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
 
   if (pathname.startsWith("/dashboard/support")) return null;
 
+  // An admin has no one to write to (the admin is the developer): the button opens the assistant chat at once.
+  const isAdmin = role === "admin";
   const choose = (next) => { setMenu(false); setSent(null); setMode(next); if (next === "bot") setBotSeen(true); };
   const close = () => { setMode(null); setSent(null); };
   const goRequests = (id) => { close(); navigating(); router.push(id ? `/dashboard/support?tab=requests&open=${id}` : "/dashboard/support?tab=requests"); };
@@ -41,7 +43,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
 
   return (
     <div className="sp-corner" ref={zone}>
-      <button type="button" className="sp-fab" aria-label="Help and feedback" aria-haspopup="menu" aria-expanded={menu || popOpen} onClick={() => (popOpen ? close() : setMenu((v) => !v))}>
+      <button type="button" className="sp-fab" aria-label="Help and feedback" aria-haspopup="menu" aria-expanded={menu || popOpen} onClick={() => (popOpen ? close() : isAdmin ? choose("bot") : setMenu((v) => !v))}>
         <ChatIcon size={24} />
         {unread > 0 && <i aria-label={`${unread} unread`}>{unread}</i>}
       </button>
@@ -66,7 +68,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
             <span className={`sp-fm-ic${mode === "dev" ? "" : " is-bot"}`}>{mode === "dev" ? <PenIcon /> : "D"}</span>
             <div><b>{mode === "dev" ? "Message the developer" : "Ask the assistant"}</b><small>{mode === "dev" ? "Goes straight to the developer" : "Quick answers about the dashboard"}</small></div>
             <span className="sp-grow" />
-            {mode === "bot" && <button type="button" className="sp-ib is-flat" title="Open in full window" aria-label="Open in full window" onClick={() => { close(); navigating(); router.push("/dashboard/support"); }}><OpenIcon /></button>}
+            {mode === "bot" && !isAdmin && <button type="button" className="sp-ib is-flat" title="Open in full window" aria-label="Open in full window" onClick={() => { close(); navigating(); router.push("/dashboard/support"); }}><OpenIcon /></button>}
             <button type="button" className="sp-ib is-flat" title="Close" aria-label="Close" onClick={close}><CloseIcon size={16} /></button>
           </header>
           <div className="sp-pop-body">
@@ -83,7 +85,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
               </div>
             ))}
             <div className="sp-bot-wrap" hidden={mode !== "bot"}>
-              {botSeen && <AssistantChat role={role} mode="popup" assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
+              {botSeen && <AssistantChat role={role} mode="popup" canHandOver={!isAdmin} assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
             </div>
           </div>
         </section>

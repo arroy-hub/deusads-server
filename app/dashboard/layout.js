@@ -80,7 +80,7 @@ export default async function DashboardLayout({ children }) {
     // An admin: requests waiting for an answer. Anyone else: replies from the developer not read yet (migration 0052).
     admin ? supportWaiting(serviceClient()) : unreadSupport(db, user?.id),
     // Whether the assistant answers yet (switched on by an admin, key present): the corner chat greets accordingly.
-    admin ? null : botStatus(serviceClient()),
+    botStatus(serviceClient()),
   ]);
   const requests = 0; // bookings approve themselves: nothing waits for the developer
   const schemaBehind = admin && !schemaVerdict(applied).ok;
@@ -143,7 +143,9 @@ export default async function DashboardLayout({ children }) {
 
       <div className="content">
         <main className="main">{children}</main>
-        {!admin && <SupportCorner role={role} unread={supportUnread} assistantOn={assistant?.on ?? false} greeting={assistant?.greeting} />}
+        {/* An admin gets the same corner button, with the assistant only: there is nobody else to write to, and the
+            waiting requests are on the Support page (supportUnread is their count there, not unread replies). */}
+        <SupportCorner role={role} unread={admin ? 0 : supportUnread} assistantOn={assistant?.on ?? false} greeting={assistant?.greeting} />
         <NavFade />
         <EnterReveal />
       </div>
