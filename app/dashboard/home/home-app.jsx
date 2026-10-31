@@ -751,7 +751,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
           (() => {
             const body = (
               <>
-                <span className="hn-k">Needs attention</span>
+                <span className="hn-k">Latest update</span>
                 <b>{last ? last.text : data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b>
                 {last?.href && <span className="hn-chev" aria-hidden="true"><Ic name="chevr" size={16} width={2.2} /></span>}
               </>
