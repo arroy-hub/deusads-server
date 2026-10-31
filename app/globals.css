@@ -9151,7 +9151,8 @@ body.ig-dragging *{cursor:grabbing!important}
 }
 .si-dark { position: absolute; inset: 0 auto 0 0; width: 100%; background: var(--si-dark); transition: width .85s var(--si-ease), opacity .45s ease, box-shadow .3s ease; }
 .si.is-shrunk .si-dark { width: var(--si-rail, 260px); box-shadow: inset -1px 0 0 #322f2b; }
-.si.is-faded .si-dark, .si.is-faded .si-mark {
+.si.is-faded .si-dark, .si.is-faded .si-mark { opacity: 0; }
+.si-mark {
   position: absolute;
   z-index: 2;
   left: max(28px, env(safe-area-inset-left, 0px));
