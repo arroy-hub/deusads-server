@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRailView } from "../role-view";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
 import { GD0, GSPEC, PLATES, applyGlow, glowStyle } from "./glow";
@@ -602,7 +602,6 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
   const role = choices ? (railView === "advertiser" ? "adv" : "dev") : roleProp;
   const data = choices ? choices[role] : dataProp;
   const path = usePathname();
-  const router = useRouter();
   const view = viewOf(path);
   const isNew = data.mode === "new";
   const [blocks, setBlocksState] = useState(() => Object.fromEntries(BLOCKS.map(([key]) => [key, true])));
@@ -688,7 +687,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
       if (gh) { gh.style.background = "transparent"; gh.style.borderBottom = "0"; gh.querySelector(".cover")?.remove(); }
       const gp = ghost.querySelector(".plate");
       if (gp) { gp.style.background = "transparent"; gp.style.boxShadow = "none"; }
-      document.body.appendChild(ghost);
+      el.after(ghost); // beside the real view (not in <body>), so it inherits the same shell styles and looks identical
       document.documentElement.style.overflowX = "hidden";
       const y0 = window.scrollY;
       // keep the page as tall as it was, so the browser does not clamp the scroll position up when the new view is shorter
@@ -697,8 +696,11 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
     } else if (root.current) {
       root.current.style.minHeight = "";
     }
-    router.push(href, { scroll: false });
-  }, [router]);
+    // The three views share one layout and their pages render nothing, so there is nothing to fetch: change the address
+    // in place (Next keeps usePathname in sync with it). Going through router.push waited for a server round trip first,
+    // which showed as a pause before the slide and let the site-wide "loading" veil flash over the page.
+    window.history.pushState(null, "", href);
+  }, []);
 
   // The new view is on screen: slide it in, fade the ghost of the old one out.
   useLayoutEffect(() => {
