@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestReset, signIn, signUp } from "./actions";
+import Logo from "../logo";
 
 /**
  * The sign-in screen: the dark of the side menu over the whole screen, the wordmark in the corner and one white
@@ -186,7 +187,7 @@ export default function SignIn({ notice }) {
     <div className="si" ref={rootRef}>
       <div className="si-dark" aria-hidden="true" />
       <div className="si-mark" aria-hidden="true">
-        Deus<span>ADS</span>
+        <Logo />
       </div>
 
       <div className="si-stage">

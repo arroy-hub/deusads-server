@@ -55,18 +55,9 @@ export default function EnterReveal() {
         const mark = cover.querySelector(".si-mark");
         let narrow = false;
         if (!phone && rail && real && mark) {
-          const css = getComputedStyle(real);
-          const size = parseFloat(css.fontSize) || 17;
-          const line = parseFloat(css.lineHeight);
-          Object.assign(mark.style, {
-            fontFamily: css.fontFamily,
-            fontWeight: css.fontWeight,
-            letterSpacing: css.letterSpacing,
-            lineHeight: Number.isFinite(line) ? String(line / size) : "1.2",
-          });
           const from = mark.getBoundingClientRect();
           const to = real.getBoundingClientRect();
-          const scale = size / (parseFloat(getComputedStyle(mark).fontSize) || 22);
+          const scale = to.width / (from.width || 1);
           cover.style.setProperty("--si-rail", `${rail.getBoundingClientRect().width}px`);
           mark.dataset.to = `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${scale})`;
           narrow = true;

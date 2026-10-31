@@ -1454,11 +1454,12 @@ body {
 }
 
 .rail-mark {
-  font-size: 1.0625rem;
-  font-weight: 700;
   display: block;
-  line-height: 1.2;
+  width: 96px;
+  line-height: 0;
 }
+
+.rail-mark svg { display: block; width: 100%; height: auto; }
 
 .rail-role {
   font-size: 0.8125rem;
@@ -6043,10 +6044,6 @@ th.num .sort-button {
   color: #fff;
 }
 
-.rail-mark span {
-  color: #ff9a7e;
-}
-
 .rail-role,
 .rail-heading {
   color: var(--rail-dim);
@@ -6602,7 +6599,7 @@ th.num .sort-button {
 .is-adv .rail { padding: 16px 12px; gap: 20px; }
 .is-adv .rail-brand { padding: 0 6px 16px; gap: 10px; }
 .is-adv .rail-logo { width: 28px; height: 28px; border-radius: 7px; font-weight: 800; font-size: 15px; }
-.is-adv .rail-mark { font-size: 15px; font-weight: 800; letter-spacing: 0; }
+.is-adv .rail-mark { width: 88px; }
 .is-adv .rail-role { font-size: 11px; }
 .is-adv .rail-group { gap: 2px; }
 .is-adv .rail-link { min-height: 36px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
@@ -9154,24 +9151,19 @@ body.ig-dragging *{cursor:grabbing!important}
 }
 .si-dark { position: absolute; inset: 0 auto 0 0; width: 100%; background: var(--si-dark); transition: width .85s var(--si-ease), opacity .45s ease, box-shadow .3s ease; }
 .si.is-shrunk .si-dark { width: var(--si-rail, 260px); box-shadow: inset -1px 0 0 #322f2b; }
-.si.is-faded .si-dark, .si.is-faded .si-mark { opacity: 0; }
-.si-mark {
+.si.is-faded .si-dark, .si.is-faded .si-mark {
   position: absolute;
   z-index: 2;
   left: max(28px, env(safe-area-inset-left, 0px));
   top: calc(26px + env(safe-area-inset-top, 0px));
+  width: 96px;
   margin: 0;
   color: #fff;
-  font-family: "Manrope", "Instrument Sans", system-ui, sans-serif;
-  font-weight: 800;
-  font-size: 22px;
-  line-height: 1.2;
-  white-space: nowrap;
   transform-origin: 0 0;
   transition: transform .85s var(--si-ease), opacity .45s ease;
   pointer-events: none;
 }
-.si-mark span { color: #ff9a7e; }
+.si-mark svg, .si-leave-mark svg { display: block; width: 100%; height: auto; }
 
 .si-stage {
   position: absolute;
@@ -9266,7 +9258,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .si-leave.is-cover { opacity: 1; }
 .si-leave.is-wide { width: 100% !important; }
 .si-leave-mark { position: fixed; z-index: 5001; margin: 0; color: #fff; white-space: nowrap; transform-origin: 0 0; pointer-events: none; transition: transform .85s cubic-bezier(.76, 0, .24, 1); }
-.si-leave-mark span { color: #ff9a7e; }
 
 @media (prefers-reduced-motion: reduce) {
   .si *, .si-leave, .si-leave-mark, .shell.is-entering *, .shell.is-leaving .content { transition: none !important; animation: none !important; }
