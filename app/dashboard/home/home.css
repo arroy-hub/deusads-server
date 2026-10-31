@@ -524,3 +524,7 @@ body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
 .hm .hello .hello-t{padding-bottom:.16em;margin-bottom:-.16em}
 .hm .ga{grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:14px}
 .hm .hero-next:not(:has(.hn-go)){padding:11px 18px}
+
+/* hero picture = the warm layered oval from the site (assets/geo-rings-warm), in the lower right, clear of the title */
+.hm .hero-art{width:62%;background:url("/home/geo-rings-warm.webp") right -170px bottom -50px/auto 124% no-repeat;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 10%);mask-image:linear-gradient(to right,transparent 0,#000 10%)}
+body.hero-light .hm .hero-art{filter:none;mix-blend-mode:normal;opacity:.95}
