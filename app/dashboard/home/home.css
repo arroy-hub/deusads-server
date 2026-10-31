@@ -528,5 +528,5 @@ body.hero-light .hm .hero-art .ha-sun{filter:invert(1) hue-rotate(180deg)}
 /* hero picture = the warm layered oval from the site (assets/geo-rings-warm). Placement is set by custom properties:
    --ax / --ay: offset from the right / bottom edge, --as: height of the picture (of the banner), --fx / --fy: -1 flips, --af: fade of its left edge */
 .hm .hero-art{position:absolute;inset:0;width:auto;height:auto;overflow:hidden}
-.hm .hero-art::before{content:"";position:absolute;right:var(--ax,-170px);bottom:var(--ay,-50px);height:var(--as,150%);aspect-ratio:1985/700;background:url("/home/geo-rings-warm.webp") center/100% 100% no-repeat;transform:scale(var(--fx,-1),var(--fy,1));-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--af,12%));mask-image:linear-gradient(to right,transparent 0,#000 var(--af,12%))}
+.hm .hero-art::before{content:"";position:absolute;right:var(--ax,-170px);bottom:var(--ay,-50px);height:var(--as,150%);aspect-ratio:var(--art-ar,1985/700);background:var(--art-img,url("/home/geo-rings-warm.webp")) center/100% 100% no-repeat;transform:scale(var(--fx,-1),var(--fy,1));-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--af,12%));mask-image:linear-gradient(to right,transparent 0,#000 var(--af,12%))}
 body.hero-light .hm .hero-art{filter:none;mix-blend-mode:normal;opacity:.95}
