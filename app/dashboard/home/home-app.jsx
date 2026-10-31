@@ -748,7 +748,16 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
         {nextStep ? (
           <div className="hero-next"><span className="hn-k">Next step</span><b>{nextStep.title}</b></div>
         ) : data.strips.length > 0 ? (
-          <div className="hero-next"><span className="hn-k">Needs attention</span><b>{last ? last.text : data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b>{last?.href && <Link href={last.href} className="btn hn-go hn-arrow" aria-label="Open"><Ic name="arrowr" size={16} width={2.4} /></Link>}</div>
+          (() => {
+            const body = (
+              <>
+                <span className="hn-k">Needs attention</span>
+                <b>{last ? last.text : data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b>
+                {last?.href && <span className="hn-chev" aria-hidden="true"><Ic name="chevr" size={16} width={2.2} /></span>}
+              </>
+            );
+            return last?.href ? <Link href={last.href} className="hero-next hn-link">{body}</Link> : <div className="hero-next">{body}</div>;
+          })()
         ) : (
           <div className="hero-next"><span className="hn-k">All clear</span><b>Nothing needs you right now</b></div>
         )}
