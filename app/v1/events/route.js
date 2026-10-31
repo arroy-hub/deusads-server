@@ -129,6 +129,10 @@ export const POST = guarded(async function POST(request) {
     if (installId) row.install_id = installId;
     // How the view was seen (SDK 0.11+, migration 0035). Left out when the SDK sent none.
     Object.assign(row, attentionFrom(item));
+    // The two levels of an impression (SDK 0.13+, migration 0057): viewable by the IAB in-game standard, and the share of the
+    // screen this banner had to cover to count. Left out when the SDK sent none (older SDKs), so such a view is never
+    // mistaken for one that was not viewable.
+    Object.assign(row, viewabilityFrom(item));
     // Only set when the place is known, which needs migration 0021: a database without the
     // column must not make the whole batch fall back to the old way of storing views.
     const placeId = placeIds.get(placeKey(placementId, item?.scene, item?.path));
@@ -165,6 +169,19 @@ export const POST = guarded(async function POST(request) {
     .from("impressions")
     .upsert(rows, { onConflict: "game_id,event_id", ignoreDuplicates: true })
     .select("id");
+
+  if (insertError && isSchemaOutdated(insertError) && rows.some((row) => "viewable" in row)) {
+    // 0057 not applied yet: keep everything but the two levels.
+    warnSchemaOutdated("POST /v1/events", "0057_viewable_impressions.sql");
+    for (const row of rows) {
+      delete row.viewable;
+      delete row.screen_floor;
+    }
+    ({ data, error: insertError } = await db
+      .from("impressions")
+      .upsert(rows, { onConflict: "game_id,event_id", ignoreDuplicates: true })
+      .select("id"));
+  }
 
   if (insertError && isSchemaOutdated(insertError) && rows.some((row) => "interactions" in row)) {
     // 0036 not applied yet: keep everything but the touches.
@@ -262,6 +279,21 @@ function attentionFrom(item) {
     view_distance: Math.round(Math.min(distance, 99_999) * 100) / 100,
     screen_fraction: Number.isFinite(fraction) ? Math.round(Math.min(Math.max(fraction, 0), 1) * 10_000) / 10_000 : null,
     view_angle: Number.isFinite(angle) ? Math.round(Math.min(Math.max(angle, 0), 180) * 10) / 10 : null,
+  };
+}
+
+/**
+ * The two levels of an impression (SDK 0.13+, migration 0057): whether it was viewable by the IAB in-game standard
+ * (1.5% of the screen, under 55 degrees, half visible, one second in a row) and the share of the screen the banner had
+ * to cover to count at all, by its size. Only a real true or false counts as an answer: anything else is no answer, so
+ * old or odd clients leave the column empty ("not measured at this level") rather than saying "not viewable".
+ */
+function viewabilityFrom(item) {
+  if (typeof item?.viewable !== "boolean") return {};
+  const floor = Number(item?.screenFloor);
+  return {
+    viewable: item.viewable,
+    screen_floor: Number.isFinite(floor) && floor > 0 ? Math.round(Math.min(floor, 1) * 10_000) / 10_000 : null,
   };
 }
 

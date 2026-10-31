@@ -20,6 +20,7 @@ const perfLog = []; // what add_session_performance was asked to add, one entry 
 let interactionsMissing = false; // migration 0036 not applied: no placements.interactive, no impressions.interactions
 let shapeMissing = false; // migration 0051 not applied: no shape_blocked, shape_level, shape_worst
 let attentionMissing = false; // migration 0035 not applied: impressions has no view_distance and friends
+let viewableMissing = false; // migration 0057 not applied: impressions has no viewable, screen_floor
 let contextMissing = false; // migration 0034 not applied: game_sessions has no player-context columns
 let cropMissing = false; // 0002 applied, 0003 not yet
 let targetingMissing = false; // 0017 applied, 0018 not yet
@@ -71,6 +72,9 @@ globalThis.fetch = async (input, init = {}) => {
     return fail(400, "42703", "column does not exist");
   }
   if (attentionMissing && table === "impressions" && /view_distance/.test(text)) {
+    return fail(400, "42703", "column does not exist");
+  }
+  if (viewableMissing && table === "impressions" && /\"viewable\"|screen_floor/.test(text)) {
     return fail(400, "42703", "column does not exist");
   }
   if (contextMissing && table === "game_sessions" && /device_model|country|platform/.test(text)) {
@@ -520,6 +524,48 @@ for (const [label, bad] of [["i2", "bad id!"], ["i3", 42], ["i4", "x".repeat(80)
   assert.equal(row("m8").visible_seconds, 1.2);
 
   delete db.ad_opportunities;
+}
+
+// --- two levels of an impression (migration 0057, SDK 0.13+): viewable by the IAB in-game standard, and the size floor
+{
+  const batch = async (list) => (await post(events, { sessionId: "lv1", installId: INSTALL, sdkVersion: "0.13.0", impressions: list })).json();
+  const row = (id) => db.impressions.find((i) => i.event_id === id);
+  const seen = { distance: 1, screenFraction: 0.02, angle: 10 };
+
+  // a view says whether it was viewable and which share of the screen its size asked for (rounded to the column)
+  r = await batch([imp("v1", { ...seen, viewable: true, screenFloor: 0.004 }), imp("v2", { ...seen, viewable: false, screenFloor: 0.0060432 })]);
+  assert.equal(r.accepted, 2);
+  assert.equal(row("v1").viewable, true);
+  assert.equal(row("v1").screen_floor, 0.004);
+  assert.equal(row("v2").viewable, false);
+  assert.equal(row("v2").screen_floor, 0.006);
+
+  // an SDK before 0.13 says nothing: such a view is "not measured at this level", never "not viewable"
+  r = await batch([imp("v3", seen)]);
+  assert.equal(r.accepted, 1);
+  assert.equal(row("v3").viewable, undefined);
+  assert.equal(row("v3").screen_floor, undefined);
+
+  // only a real true or false is an answer
+  r = await batch([imp("v4", { ...seen, viewable: "yes", screenFloor: 0.01 }), imp("v5", { ...seen, viewable: 1 }), imp("v6", { ...seen, viewable: null })]);
+  assert.equal(r.accepted, 3);
+  for (const id of ["v4", "v5", "v6"]) assert.equal(row(id).viewable, undefined, id);
+
+  // a floor that makes no sense is stored empty, a huge one is pulled in; neither sinks the batch
+  r = await batch([imp("v7", { ...seen, viewable: true, screenFloor: "x" }), imp("v8", { ...seen, viewable: true, screenFloor: 5 }), imp("v9", { ...seen, viewable: true, screenFloor: -1 })]);
+  assert.equal(r.accepted, 3);
+  assert.equal(row("v7").screen_floor, null);
+  assert.equal(row("v8").screen_floor, 1);
+  assert.equal(row("v9").screen_floor, null);
+
+  // 0035 in but 0057 not: the view counts with everything else, only the two levels are left out
+  viewableMissing = true;
+  r = await batch([imp("v10", { ...seen, distance: 2, viewable: true, screenFloor: 0.004 })]);
+  viewableMissing = false;
+  assert.equal(r.accepted, 1);
+  assert.equal(row("v10").viewable, undefined);
+  assert.equal(row("v10").screen_floor, undefined);
+  assert.equal(row("v10").view_distance, 2, "the attention figures are kept");
 }
 
 // --- interactions (migration 0036): placements marked Interactive, touches during a view
