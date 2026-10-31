@@ -9783,7 +9783,7 @@ body.ig-dragging *{cursor:grabbing!important}
 .wt-top .tabs button.tab[aria-current="page"] { border: 0; }
 .wt-top .tab .cp-count { text-shadow: none; }
 .wt-top:not(:has(.tabs)) { padding-bottom: 18px; }
-.wt-top h1 .cb-ig-i { vertical-align: middle; }
+
 .mg.gp { padding-bottom: 0; }
 /* windows whose content sits in 40px side margins under the shared header */
 .main:has(> .wt-win) { padding: 0; max-width: none; }
