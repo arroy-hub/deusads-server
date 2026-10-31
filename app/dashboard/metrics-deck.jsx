@@ -4,7 +4,7 @@ import { useState, useRef, useLayoutEffect, useEffect, useContext, cloneElement 
 import { PanelCtx } from "./panel-context";
 import { createPortal } from "react-dom";
 import { formatCount } from "../../lib/analytics.js";
-import { attentionFigures } from "../../lib/attention.js";
+import { attentionFigures, pickAttention } from "../../lib/attention.js";
 import { formatDay } from "../../lib/analytics.js";
 import { audienceTable } from "../../lib/audience.js";
 
@@ -347,18 +347,21 @@ function Reach({ m, dev }) {
   return out;
 }
 
-function Attention({ m, dev }) {
+function Attention({ m, dev, source }) {
   const out = [];
-  if (ok(m.attention)) {
-    const f = attentionFigures(m.attention.row);
+  // the developer's switch (Advertisers / My creatives / All) decides what the Attention cards count
+  const att = dev ? pickAttention(m.attention, source) : m.attention;
+  const whose = dev && source === "own" ? "Your own creatives. " : dev && source === "all" ? "Advertisers and your own creatives. " : "";
+  if (ok(att)) {
+    const f = attentionFigures(att.row);
     if (!f.empty) {
       const top = Math.max(f.opportunities, 1);
       out.push(
-        <Card key="fun" span={5} title={dev ? "From a chance to an engaged view" : "From a chance to an engaged view"} sub="Every time the ad came into view, and how far it got">
+        <Card key="fun" span={5} title={dev ? "From a chance to an engaged view" : "From a chance to an engaged view"} sub={`${whose}Every time the ad came into view, and how far it got`}>
           <ul className="ig-funnel">
             {[
               { label: "Engaged", v: f.engaged, c: ADV, note: f.engagedRate != null ? `${pct(f.engagedRate)} of seen · 3 s+ from 3 m` : "" },
-              { label: "Seen long enough", v: f.measured, c: "#d9744f", note: f.viewability != null ? `${pct(f.viewability)} of chances` : "" },
+              { label: "Seen long enough", v: f.measured, c: "#d9744f", note: f.viewability != null ? `${pct(f.viewability)} of chances${f.viewableRate != null ? `, ${pct(f.viewableRate)} viewable by the IAB standard` : ""}` : "" },
               { label: "Chances to be seen", v: f.opportunities, c: "#e8b5a3", note: "times the ad came into view" },
             ].map((s) => (
               <li key={s.label}>
@@ -371,13 +374,23 @@ function Attention({ m, dev }) {
         <Card key="len" span={3} title="How long views lasted" sub={`Median ${sec(f.medianSeconds)}`}>
           <Cols items={f.buckets.map((b) => ({ label: b.label, v: b.count }))} valueText={(v) => `${Math.round((v / Math.max(f.measured, 1)) * 100)}%`} />
         </Card>,
-        <Card key="geo" span={4} title="How the ad was looked at" sub="Average over the measured views">
+        <Card key="geo" span={4} title="How the ad was looked at" sub={`${whose}Average over the measured views`}>
           <div className="ig-scales">
             <Scale label="Distance" value={f.avgDistance} text={f.avgDistance == null ? "—" : `${f.avgDistance.toFixed(1)} m`} max={10} left="close" right="10 m" />
             <Scale label="Angle" value={f.avgAngle} text={f.avgAngle == null ? "—" : `${Math.round(f.avgAngle)}°`} max={90} left="straight at it" right="90°" />
             <Scale label="Share of the screen" value={f.avgFraction} text={pct(f.avgFraction)} max={0.25} left="0%" right="25%" />
           </div>
         </Card>,
+        f.viewableRate != null && (
+          <Card key="iab" span={4} title="Viewable by the IAB standard" sub={`${whose}1.5% of the screen, under 55 degrees, 1 s in a row. Views from SDK before 0.13 are estimated.`}>
+            <div className="ig-ringrow">
+              <Ring size={128} stroke={16} parts={[{ v: f.viewableRate, color: ADV }, { v: 1 - f.viewableRate, color: TRACK }]} big={pct(f.viewableRate)} small="viewable" />
+              <div className="ig-stats is-col">
+                <Stat label="Viewable views" value={num(f.viewable)} sub={`of ${num(f.measured)} seen long enough`} />
+              </div>
+            </div>
+          </Card>
+        ),
       );
     } else out.push(<Note key="an" title="How well the ads were seen">Seen-time, distance and angle arrive with SDK 0.11 or newer. Nothing measured in this period yet.</Note>);
   }
@@ -581,7 +594,9 @@ const GROUPS = [
 ];
 
 // narrowest comfortable width (px) of blocks that open at their shortest horizontal size
-const MINPX = { rep: 280, freq: 330, fun: 250, len: 210, geo: 250, int: 490, plat: 340, dev: 280, cty: 230, min: 290 };
+// what the board still shows when the switch says My creatives: the table and the Attention cards, which follow the switch
+const OWN_KEYS = new Set(["table", "fun", "len", "geo", "iab"]);
+const MINPX = { rep: 280, freq: 330, fun: 250, len: 210, geo: 250, iab: 280, int: 490, plat: 340, dev: 280, cty: 230, min: 290 };
 const MINPX_ADV = { int: 280 };
 const RESP = new Set(["fps", "st", "ld", "dv"]); // four across on a wide screen, two by two on a narrower one
 const DEFAULTS = { developer: ["ring", "rep", "freq", "why", "pl"], advertiser: ["rep", "freq", "fun", "len", "geo"] };
@@ -662,7 +677,7 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
 
   // the catalogue of widgets, in group order; what each shows follows the chart's filters through `model`
   const catalog = GROUPS.filter((g) => !g.devOnly || dev).map((g) => {
-    const cards = g.render({ m: model, dev }).filter(Boolean).map((el, i) => ({ el, i })).sort((a, b) => (a.el.props.o ?? 0) - (b.el.props.o ?? 0) || a.i - b.i);
+    const cards = g.render({ m: model, dev, source }).filter(Boolean).map((el, i) => ({ el, i })).sort((a, b) => (a.el.props.o ?? 0) - (b.el.props.o ?? 0) || a.i - b.i);
     return { id: g.id, label: g.label, items: cards.map(({ el }) => ({ key: String(el.key), title: el.props.title, el })) };
   }).filter((g) => g.items.length > 0);
   if (days) catalog.push({ id: "data", label: "Data", items: [{ key: "table", title: "Impressions by day", el: <DailyTable key="table" days={days} dev={dev} source={source} /> }] });
@@ -872,8 +887,8 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
             </div>
           </div>
           <div className="ig-grid" ref={grid}>
-            {ownOnly && chosen.some((k) => k !== "table") ? <Note title="Advertisers' ads only">These figures describe advertisers' ads. Choose All or Advertisers above the chart to see them. Your own creatives are not measured this way.</Note> : null}
-            {ownOnly ? items.filter((el) => el.key === "table") : items}
+            {ownOnly && chosen.some((k) => !OWN_KEYS.has(k)) ? <Note title="Advertisers' ads only">Only the Attention cards can show your own creatives. The other figures describe advertisers' ads: choose All or Advertisers above the chart to see them.</Note> : null}
+            {ownOnly ? items.filter((el) => OWN_KEYS.has(el.key)) : items}
             {chosen.length === 0 && <div className="ig-empty">No widgets on the board. Open <b>Widgets</b> and tick the ones you want.</div>}
           </div>
           {drag && <div className="ig-ghost" style={{ left: drag.x + 14, top: drag.y + 14 }}>{drag.title}</div>}

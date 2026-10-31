@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { BUCKETS, ENGAGED_METRES, ENGAGED_SECONDS, attentionFigures, loadAttention } from "../lib/attention.js";
+import { ATTENTION_SOURCES, BUCKETS, ENGAGED_METRES, ENGAGED_SECONDS, attentionFigures, loadAttention, loadAttentionBySource, pickAttention } from "../lib/attention.js";
 
 assert.equal(ENGAGED_SECONDS, 3);
 assert.equal(ENGAGED_METRES, 3);
@@ -47,11 +47,53 @@ assert.equal(unseen.empty, false);
 assert.deepEqual(attentionFigures(null).buckets.map((bucket) => bucket.count), [0, 0, 0, 0]);
 assert.equal(attentionFigures(undefined).empty, true);
 
+// viewable by the IAB in-game standard (migration 0057, SDK 0.13+)
+const viewable = attentionFigures({ measured: 200, opportunities: 400, viewable: "50" });
+assert.equal(viewable.viewable, 50);
+assert.equal(viewable.viewableRate, 0.25);
+// before 0057 the column is not in the answer: unknown, not 0%
+const before = attentionFigures({ measured: 200, opportunities: 400 });
+assert.equal(before.viewable, null);
+assert.equal(before.viewableRate, null);
+// nothing measured: no rate; never above 100%
+assert.equal(attentionFigures({ measured: 0, opportunities: 5, viewable: 0 }).viewableRate, null);
+assert.equal(attentionFigures({ measured: 10, viewable: 99 }).viewableRate, 1);
+assert.equal(attentionFigures({ measured: 10, viewable: 0 }).viewableRate, 0, "none viewable is a real 0%");
+
 // loading: a failing call (migration 0035 not run) turns the panel off
 assert.deepEqual(await loadAttention(async () => ({ data: [{ measured: 1 }] })), { row: { measured: 1 }, missing: false });
 assert.deepEqual(await loadAttention(async () => ({ data: [] })), { row: null, missing: false });
 const failed = await loadAttention(async () => ({ error: { code: "42883" } }));
 assert.equal(failed.missing, true);
 assert.equal(failed.row, null);
+
+// the three sources the Performance page switches between (migration 0057 gave game_attention() p_source)
+assert.deepEqual(ATTENTION_SOURCES, ["adv", "own", "all"]);
+{
+  const asked = [];
+  const bySource = await loadAttentionBySource(async (source) => {
+    asked.push(source);
+    return { data: [{ measured: { adv: 10, own: 3, all: 13 }[source], opportunities: 20 }] };
+  });
+  assert.deepEqual([...asked].sort(), ["adv", "all", "own"], "every source is asked for");
+  // the plain answer is the advertisers', so a reader that knows nothing of sources keeps working
+  assert.equal(bySource.missing, false);
+  assert.equal(bySource.row.measured, 10);
+  assert.equal(pickAttention(bySource, "own").row.measured, 3);
+  assert.equal(pickAttention(bySource, "all").row.measured, 13);
+  assert.equal(pickAttention(bySource, "adv").row.measured, 10);
+
+  // a database without 0057: the advertisers' call has no source and still works, the other two are missing
+  const old = await loadAttentionBySource(async (source) => (source === "adv" ? { data: [{ measured: 7 }] } : { error: { code: "PGRST202" } }));
+  assert.equal(old.missing, false);
+  assert.equal(old.row.measured, 7);
+  assert.equal(pickAttention(old, "own").missing, true);
+  assert.equal(pickAttention(old, "all").missing, true);
+  assert.equal(pickAttention(old, "adv").row.measured, 7);
+
+  // no split (an advertiser's answer, or none at all): whatever the source, the plain answer
+  assert.deepEqual(pickAttention({ row: { measured: 1 }, missing: false }, "own"), { row: { measured: 1 }, missing: false });
+  assert.equal(pickAttention(undefined, "own"), undefined);
+}
 
 console.log("attention: ok");

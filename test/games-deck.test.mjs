@@ -14,6 +14,8 @@ assert.equal(attention.opportunities, 60);
 assert.equal(attention.median_seconds, 3.5);
 assert.equal(attention.avg_distance, 2);
 assert.equal(attention.avg_angle, null);
+assert.equal(attention.viewable, null, "no game answered it: unknown, not 0");
+assert.equal(mergeAttention([[{ measured: 10, viewable: 4 }], [{ measured: 30, viewable: "12" }]])[0].viewable, 16);
 
 // the limiter never runs more than n tasks at once
 const gate = limiter(2);
