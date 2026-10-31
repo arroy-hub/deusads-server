@@ -314,6 +314,13 @@ p {
   pointer-events: none;
 }
 
+.surface-frame.is-pulled-back {
+  /* Transparent edges of a pulled-back picture show as a light checkerboard. */
+  background-color: #fff;
+  background-image: conic-gradient(#eceae6 25%, transparent 0 50%, #eceae6 0 75%, transparent 0);
+  background-size: 14px 14px;
+}
+
 .surface-frame.is-adjusting {
   border-color: var(--ink);
   box-shadow: 0 0 0 9999px rgba(240, 241, 244, 0.35);

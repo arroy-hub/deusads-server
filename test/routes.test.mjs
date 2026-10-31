@@ -268,6 +268,16 @@ db.assignments[0].crop_x = -3;
 r = await getManifest();
 assert.deepEqual(r.body.placements[0].crop, { zoom: 8, x: 0, y: 0.6 });
 
+// --- a picture pulled back below the fit is kept down to 0.5 and no further
+db.assignments[0].crop_zoom = 0.7;
+db.assignments[0].crop_x = 0.5;
+db.assignments[0].crop_y = 0.5;
+r = await getManifest();
+assert.equal(r.body.placements[0].crop.zoom, 0.7, "zoom below 1 reaches the SDK");
+db.assignments[0].crop_zoom = 0.1;
+r = await getManifest();
+assert.equal(r.body.placements[0].crop.zoom, 0.5, "zoom is floored at 0.5");
+
 // --- targeting (migration 0018): a booked creative shows only in a game that fits it
 {
   const booked = (creativeId, advertiserId, targeting) => ({

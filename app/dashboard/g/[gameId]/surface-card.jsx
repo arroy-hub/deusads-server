@@ -9,6 +9,7 @@ import { MAX_OWN_CREATIVES, OWN_PICTURE_MAX_BYTES, OWN_PICTURE_TYPES } from "../
 import {
   DEFAULT_CROP,
   MAX_ZOOM,
+  MIN_ZOOM,
   clampCrop,
   imagePlacement,
   normalizeCrop,
@@ -325,12 +326,16 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   else if (justSaved) badge = { tone: "done", text: "Saved" };
   else if (dirty) badge = { tone: "draft", text: "Not saved" };
 
+  // Pulled back past the fit: the picture no longer covers the frame, so the edges are transparent.
+  const pullWindow = visibleWindow(imageAspect, aspect, crop.zoom);
+  const pulledBack = pullWindow.w > 1 || pullWindow.h > 1;
   const frameClass = [
     "surface-frame",
     dirty && !saving && !adjusting ? "is-draft" : "",
     saving ? "is-saving" : "",
     justSaved ? "is-saved" : "",
     adjusting ? "is-adjusting" : "",
+    pulledBack ? "is-pulled-back" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -521,7 +526,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                     type="button"
                     className="own-zoom-button"
                     onClick={() => setCrop({ ...crop, zoom: clampZoom(crop.zoom / 1.15) })}
-                    disabled={crop.zoom <= 1}
+                    disabled={crop.zoom <= MIN_ZOOM}
                     aria-label="Zoom out"
                   >
                     −
@@ -529,7 +534,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   <input
                     type="range"
                     className="own-range"
-                    min="1"
+                    min={MIN_ZOOM}
                     max={MAX_ZOOM}
                     step="0.01"
                     value={crop.zoom}
@@ -545,7 +550,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                   >
                     +
                   </button>
-                  <span className="surface-zoom">{crop.zoom.toFixed(1)}×</span>
+                  <span className="surface-zoom">{crop.zoom.toFixed(2).replace(/0$/, "")}×</span>
                 </div>
                 <div className="own-bar">
                   <button type="button" className="link-button own-terra" onClick={() => setCrop(DEFAULT_CROP)} disabled={!framed}>
@@ -621,7 +626,7 @@ function TrashIcon() {
 }
 
 function clampZoom(zoom) {
-  return Math.min(MAX_ZOOM, Math.max(1, zoom));
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
 function CheckIcon() {
