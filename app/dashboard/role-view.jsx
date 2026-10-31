@@ -47,7 +47,7 @@ export function RoleMenu({ views }) {
   return (
     <>
       {(views[view] ?? views.admin).map((group, index) => (
-        <div className="rail-group" key={`${view}${group.heading ?? index}`}>
+        <div className={`rail-group${group.foot ? " is-foot" : ""}`} key={`${view}${group.heading ?? index}`}>
           {group.heading && <div className="rail-heading">{group.heading}</div>}
           {group.items.map((item) => <NavLink key={item.key + item.href} item={item} />)}
         </div>

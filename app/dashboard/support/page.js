@@ -10,10 +10,11 @@ export const metadata = { title: "Help & feedback" };
 export default async function HelpPage({ searchParams }) {
   const me = await getMember();
   if (!me) redirect("/login");
-  // An admin answers requests instead of sending them: their page is Support (admin side).
-  if (me.role === "admin") redirect("/dashboard/admin/support");
   const { tab, open } = await searchParams;
-  const [mine, assistant] = await Promise.all([loadMyRequests(me.service, me.user.id), botStatus(me.service)]);
+  // An admin answers requests instead of sending them (that is the Support page): here they only try the assistant, so
+  // there are no requests of their own to load.
+  const admin = me.role === "admin";
+  const [mine, assistant] = await Promise.all([admin ? { requests: [], folders: [], outdated: false } : loadMyRequests(me.service, me.user.id), botStatus(me.service)]);
   return (
     <SupportPage
       role={me.role}
@@ -22,8 +23,8 @@ export default async function HelpPage({ searchParams }) {
       outdated={mine.outdated}
       assistantOn={assistant.on}
       greeting={assistant.greeting}
-      initialTab={tab === "requests" ? "requests" : "assistant"}
-      initialOpen={typeof open === "string" ? open : null}
+      initialTab={tab === "requests" && !admin ? "requests" : "assistant"}
+      initialOpen={typeof open === "string" && !admin ? open : null}
     />
   );
 }

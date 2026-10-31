@@ -125,8 +125,9 @@ export default async function DashboardLayout({ children }) {
           <RoleMenu
             views={{
               admin: groups.filter((group) => !group.heading?.startsWith("As a")),
-              advertiser: groups.filter((group) => group.heading === "As an advertiser").map((group) => ({ ...group, heading: null })),
-              developer: groups.filter((group) => group.heading === "As a developer").map((group) => ({ ...group, heading: null })),
+              // Help & feedback is at the foot of every view.
+              advertiser: [...groups.filter((group) => group.heading === "As an advertiser").map((group) => ({ ...group, heading: null })), ...groups.filter((group) => group.foot)],
+              developer: [...groups.filter((group) => group.heading === "As a developer").map((group) => ({ ...group, heading: null })), ...groups.filter((group) => group.foot)],
             }}
           />
         )}

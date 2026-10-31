@@ -25,7 +25,8 @@ assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard/home");
 assert.equal(homeFor("advertiser"), "/dashboard");
 
-// Help & feedback: at the foot of the menu for developers and advertisers, with the unread count; not for an admin
+// Help & feedback: at the foot of the menu for developers and advertisers, with the unread count; an admin has it too
+// (the assistant to try), but never with a badge: their own waiting requests are counted on Support
 for (const role of ["developer", "advertiser"]) {
   const groups = menuFor(role, { support: 2 });
   const foot = groups.at(-1);
@@ -34,7 +35,11 @@ for (const role of ["developer", "advertiser"]) {
   assert.equal(foot.items[0].href, "/dashboard/support");
   assert.equal(foot.items[0].badge, 2);
 }
-assert.ok(!menuFor("admin").some((group) => group.foot), "an admin has no Help & feedback entry");
+const adminFoot = menuFor("admin", { support: 5 }).at(-1);
+assert.ok(adminFoot.foot && adminFoot.items.length === 1 && adminFoot.items[0].label === "Help & feedback", "an admin has Help & feedback at the foot");
+assert.equal(adminFoot.items[0].href, "/dashboard/support");
+assert.equal(adminFoot.items[0].badge, 0, "the admin's waiting requests are not counted on Help & feedback");
+assert.equal(menuFor("admin", { support: 5 }).flatMap((group) => group.items).find((item) => item.label === "Support").badge, 5, "Support keeps the waiting count");
 
 // the Creatives tab and a creative's page count as being inside Campaigns
 const campaignsItem = menuFor("advertiser").flatMap((group) => group.items).find((item) => item.key === "campaigns");

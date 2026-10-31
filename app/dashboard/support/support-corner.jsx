@@ -68,7 +68,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
             <span className={`sp-fm-ic${mode === "dev" ? "" : " is-bot"}`}>{mode === "dev" ? <PenIcon /> : "D"}</span>
             <div><b>{mode === "dev" ? "Message the developer" : "Ask the assistant"}</b><small>{mode === "dev" ? "Goes straight to the developer" : "Quick answers about the dashboard"}</small></div>
             <span className="sp-grow" />
-            {mode === "bot" && !isAdmin && <button type="button" className="sp-ib is-flat" title="Open in full window" aria-label="Open in full window" onClick={() => { close(); navigating(); router.push("/dashboard/support"); }}><OpenIcon /></button>}
+            {mode === "bot" && <button type="button" className="sp-ib is-flat" title="Open in full window" aria-label="Open in full window" onClick={() => { close(); navigating(); router.push("/dashboard/support"); }}><OpenIcon /></button>}
             <button type="button" className="sp-ib is-flat" title="Close" aria-label="Close" onClick={close}><CloseIcon size={16} /></button>
           </header>
           <div className="sp-pop-body">
