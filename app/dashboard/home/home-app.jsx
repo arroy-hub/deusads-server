@@ -239,10 +239,19 @@ function Tip({ role, active, hide }) {
     };
   }, [n]);
 
+  // The timer and the bar share one clock: hovering pauses both, leaving resumes them where they stopped.
+  // Only a new tip (or a lap of a hidden tab) starts a full TIP_MS again.
+  const left = useRef(TIP_MS);
+  const since = useRef(0);
+  useEffect(() => { left.current = TIP_MS; }, [index, lap]);
   useEffect(() => {
     if (hover || !active) return undefined;
-    const timer = setTimeout(() => { if (!document.hidden) step(1); else setLap((value) => value + 1); }, TIP_MS);
-    return () => clearTimeout(timer);
+    since.current = performance.now();
+    const timer = setTimeout(() => { if (!document.hidden) step(1); else setLap((value) => value + 1); }, left.current);
+    return () => {
+      clearTimeout(timer);
+      left.current = Math.max(0, left.current - (performance.now() - since.current));
+    };
   }, [index, hover, lap, active, step]);
 
   const [title, body] = list[index % n];
@@ -254,13 +263,13 @@ function Tip({ role, active, hide }) {
     </span>
   );
   return (
-    <section className="panel blk hasx tipblk" data-k="tp" onMouseEnter={() => setHover(true)} onMouseLeave={() => { setHover(false); setLap((value) => value + 1); }}>
+    <section className="panel blk hasx tipblk" data-k="tp" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       {hide && (
         <button type="button" className="blk-x" onClick={hide} aria-label="Hide Tip" data-tip="Hide this block">
           <Ic name="x" size={14} width={2.2} />
         </button>
       )}
-      <Head title="Tip" icon="bulb" left={nav} under={<i key={`${index}-${lap}`} className="tip-prog" style={{ animationDuration: `${TIP_MS}ms` }} />} />
+      <Head title="Tip" icon="bulb" left={nav} under={<i key={`${index}-${lap}`} className="tip-prog" style={{ animationDuration: `${TIP_MS}ms`, animationPlayState: hover ? "paused" : "running" }} />} />
       <div className="blk-b" ref={box}>
         <div className="news" ref={text}><h3>{title}</h3><p>{body}</p></div>
       </div>
