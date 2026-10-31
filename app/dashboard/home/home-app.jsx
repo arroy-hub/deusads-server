@@ -612,6 +612,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
   const [filter, setFilter] = useState("all");
   const root = useRef(null);
   const pending = useRef(null);
+  const homeY = useRef(0);
   const previous = useRef(view.name);
 
   // What a person switched off stays off in this browser.
@@ -690,11 +691,8 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
       el.after(ghost); // beside the real view (not in <body>), so it inherits the same shell styles and looks identical
       document.documentElement.style.overflowX = "hidden";
       const y0 = window.scrollY;
-      // keep the page as tall as it was, so the browser does not clamp the scroll position up when the new view is shorter
-      el.style.minHeight = y0 > 0 ? `${rect.height}px` : "";
+      if (dir > 0) homeY.current = y0; // where Home was left, so coming back puts the person there again
       pending.current = { dir, ghost, y0, oldW };
-    } else if (root.current) {
-      root.current.style.minHeight = "";
     }
     // The three views share one layout and their pages render nothing, so there is nothing to fetch: change the address
     // in place (Next keeps usePathname in sync with it). Going through router.push waited for a server round trip first,
@@ -710,7 +708,10 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
     if (!job || !root.current) return;
     pending.current = null;
     const el = root.current;
-    const { dir, ghost, y0, oldW } = job;
+    const { dir, ghost, oldW } = job;
+    // The ghost of the old view is fixed on screen exactly where it was, so the page itself can move to its new place
+    // before the first frame: the top of a guide or the news list when going in, the old spot on Home when coming back.
+    window.scrollTo({ top: dir > 0 ? 0 : homeY.current, behavior: "instant" });
     const D = 90, T = 480, OUT = "cubic-bezier(.3,.7,.4,1)", IN = "cubic-bezier(.22,1,.36,1)", F = "cubic-bezier(.4,0,.6,1)";
     // The first frame after the switch is expensive (new view + ghost get painted). Animations created now would already be
     // part-way through when it appears, which reads as a jump. So they start paused on their first keyframe and play after it.
