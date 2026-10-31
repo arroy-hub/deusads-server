@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import {
   DEFAULT_SETTINGS, REASON, buildMessages, buildSystemPrompt, cleanArticle, cleanSettings, dayStart, decide, finishAnswer,
-  gapList, guideText, lowConfidence, mustGoToPerson, overBudget, parseAnswer, percent, sourceLine,
+  gapList, guideText, lowConfidence, mustGoToPerson, overBudget, parseAnswer, percent, pickArticles, PICK_LIMIT, sourceLine,
 } from "../lib/support-bot-rules.js";
 import { assistantRateProblem } from "../lib/support-rules.js";
 
@@ -95,3 +95,31 @@ assert.equal(gaps[0].count, 2);
 assert.equal(gaps.length, 2);
 
 console.log("support-bot tests passed");
+
+// which articles go to the model: the ones that share words with the question, best first
+const GUIDE = [
+  { id: "k", title: "Where is my API key?", keywords: "api key, key", answer: "Open your game, then the Settings tab.", more: "" },
+  { id: "show", title: "Banners are not showing in my game", keywords: "banners not showing, ads not showing, no ads, баннеры не показываются, реклама не отображается", answer: "Go through these in order. The game says Connected.", more: "" },
+  { id: "cre", title: "My creatives do not show in banners", keywords: "my creative not showing, креатив не показывается", answer: "The creative is approved, the campaign is Live.", more: "" },
+  { id: "eng", title: "Where can I see my engaged views?", keywords: "engaged views, engaged, attention, вовлеченные просмотры", answer: "Engaged views are in the Attention widgets.", more: "" },
+  { id: "data", title: "What data does the SDK collect from players?", keywords: "player data, privacy, sdk statistics, какие данные собирает sdk", answer: "The SDK sends usage figures: an anonymous install ID, platform, device model.", more: "" },
+  { id: "pw", title: "How do I change my password?", keywords: "change password, пароль", answer: "Open your account, then Sign-in & security.", more: "" },
+  { id: "lang", title: "Do you speak my language?", keywords: "language, russian, по-русски", answer: "Right now the bot works only in English.", more: "" },
+  { id: "off", title: "Hidden one", keywords: "banners showing", answer: "Never.", more: "", enabled: false },
+];
+const top = (q, history) => pickArticles(GUIDE, q, history).map((a) => a.id);
+assert.equal(top("Banners arent showing in my game")[0], "show");
+assert.equal(top("Banners do not show my creatives")[0], "cre");
+assert.equal(top("where I can see my engaged views?")[0], "eng");
+assert.equal(top("what kind on player statistics do you collect from sdk?")[0], "data");
+assert.equal(top("баннеры не показываются у меня в игре")[0], "show");
+assert.equal(top("привет! ты говоришь по-русски?")[0], "lang");
+assert.ok(!top("banners showing").includes("off"), "a switched-off article never goes to the model");
+assert.deepEqual(top("zzzz qqqq"), [], "nothing in common, nothing sent");
+assert.deepEqual(top(""), []);
+assert.equal(top("how do I do that again", [{ role: "user", text: "how do I change my password" }])[0], "pw", "a follow-up keeps the topic of the last turns");
+const many = Array.from({ length: 60 }, (_, i) => ({ id: `x${i}`, title: `Banner topic ${i}`, keywords: "banner", answer: "text", more: "" }));
+assert.equal(pickArticles(many, "banner").length, PICK_LIMIT);
+assert.equal(pickArticles(many, "banner", [], 5).length, 5);
+
+console.log("support-bot picking: ok");

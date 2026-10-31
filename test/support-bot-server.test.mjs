@@ -10,7 +10,7 @@ let calls = 0;
 globalThis.fetch = async (_url, init) => {
   calls += 1;
   const body = JSON.parse(init.body);
-  assert.ok(body.system[0].text.includes("<guide>"));
+  assert.ok(body.system.includes("<guide>"));
   assert.ok(body.messages.at(-1).content.startsWith("<user_question>"));
   return { ok: reply !== "down", status: 500, json: async () => ({ content: [{ type: "text", text: JSON.stringify(reply) }], usage: { input_tokens: 800, output_tokens: 60 } }) };
 };
