@@ -613,13 +613,7 @@ function HeroArt() {
             <path d="M236 150 L282 108 L318 138 L356 96 L404 142 L404 172 L236 154 Z" fill="#6e2f1f" />
             <path d="M236 160 L296 126 L340 150 L404 118 L404 180 L236 170 Z" fill="#3b1c14" opacity=".9" />
           </g>
-          <rect x="248" y="50" width="42" height="15" rx="7.5" transform="rotate(-7 269 57)" fill="#fff" opacity=".92" />
-          <text x="269" y="61" fontSize="9" fontWeight="800" textAnchor="middle" fill="#b8421d" transform="rotate(-7 269 57)" fontFamily="Inter,system-ui,sans-serif" letterSpacing=".6">AD</text>
         </g>
-        <path d="M120 262 L316 104" stroke="#fff" strokeOpacity=".5" strokeWidth="1.2" strokeDasharray="1 6" strokeLinecap="round" fill="none" />
-        <circle cx="316" cy="104" r="4.5" fill="#fff" /><circle cx="316" cy="104" r="11" fill="none" stroke="#fff" strokeOpacity=".5" />
-        <g transform="rotate(-9 468 70)"><rect x="436" y="40" width="68" height="36" rx="11" fill="#fff" fillOpacity=".1" stroke="#fff" strokeOpacity=".3" /><path d="M458 50 L458 66 L472 58 Z" fill="#ffd3c0" /><rect x="478" y="52" width="18" height="3.5" rx="1.75" fill="#fff" fillOpacity=".6" /><rect x="478" y="60" width="12" height="3.5" rx="1.75" fill="#fff" fillOpacity=".35" /></g>
-        <g transform="rotate(6 556 128)"><rect x="522" y="110" width="64" height="36" rx="11" fill="#fff" fillOpacity=".1" stroke="#fff" strokeOpacity=".3" /><circle cx="544" cy="128" r="9" fill="#ffd3c0" /><path d="M540 128 L543 131 L548.5 124.5" stroke="#9b4d38" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /><rect x="559" y="123" width="16" height="3.5" rx="1.75" fill="#fff" fillOpacity=".55" /><rect x="559" y="130" width="10" height="3.5" rx="1.75" fill="#fff" fillOpacity=".3" /></g>
         <g fill="#fff">{[[200, 40, 1.8, .7], [276, 22, 1.4, .5], [420, 24, 2, .6], [372, 202, 1.6, .5], [520, 112, 1.6, .5], [128, 150, 1.4, .4], [600, 60, 1.8, .6], [560, 206, 1.4, .4], [90, 40, 1.2, .35]].map(([x, y, r, o], i) => <circle key={i} cx={x} cy={y} r={r} opacity={o} />)}</g>
       </g>
     </svg>
