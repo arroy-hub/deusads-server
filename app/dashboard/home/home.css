@@ -534,3 +534,11 @@ body.hero-light .hm .hero-art{filter:none;mix-blend-mode:normal;opacity:.95}
 /* The three views differ in height, so the page scrollbar can appear or vanish when the slide switches view and the
    whole window used to jump sideways by its width; keep its track in place while Home is open (scrollbar-gutter alone is not honoured for the page itself). */
 html:has(.hm.pg){overflow-y:scroll}
+
+.hm .hero-next.hn-link{text-decoration:none;cursor:pointer;transition:background .15s}
+.hm .hero-next.hn-link:hover{background:rgba(255,255,255,.15)}
+.hm .hero-next .hn-chev{display:grid;place-items:center;flex:none;color:#f0b9a4;transition:transform .2s}
+.hm .hero-next.hn-link:hover .hn-chev{transform:translateX(4px);color:#fff}
+.hm .hero-next.hn-link:focus-visible{outline:2px solid #fff;outline-offset:3px}
+body.hero-light .hm .hero-next .hn-chev{color:var(--ink-3)}
+body.hero-light .hm .hero-next.hn-link:hover .hn-chev{color:var(--signal-ink)}
