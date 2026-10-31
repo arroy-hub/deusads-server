@@ -13,6 +13,7 @@ import { menuFor, homeFor, ROLE_LABEL } from "../../lib/nav";
 import { avatarUrlOf } from "../../lib/account-data";
 import { initials as initialsOf, needsAttention } from "../../lib/account-rules";
 import AccountMenu from "./account-menu";
+import Logo from "../logo";
 import NavLink from "./nav-link";
 import { RoleMenu, RoleSwitch } from "./role-view";
 import NotificationsBell from "./notifications-bell";
@@ -101,8 +102,8 @@ export default async function DashboardLayout({ children }) {
       <nav className="rail" aria-label="Main">
         <div className="rail-brand">
           <div>
-            <Link href={homeFor(role)} className="rail-mark">
-              Deus<span>ADS</span>
+            <Link href={homeFor(role)} className="rail-mark" aria-label="DeusADS">
+              <Logo />
             </Link>
             {admin ? <RoleSwitch /> : <div className="rail-role">{ROLE_LABEL[role] ?? "Developer"}</div>}
           </div>
