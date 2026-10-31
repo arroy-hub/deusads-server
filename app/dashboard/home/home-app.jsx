@@ -738,7 +738,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
   const toggleOpen = (id) => setOpen((now) => ({ ...now, [id]: !now[id] }));
   // The hero: greeting, one next step (the current Get started step, or the latest event from Recent activity while something waits in Needs attention) and the picture.
   const nextStep = data.checklist.find((step) => !step.done);
-  const goTo = (key) => () => document.querySelector(`[data-k="${key}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const last = data.activity[0]; // the pill repeats the newest Recent activity row and opens the same place
   const hello = (
     <section className="hello hero">
       <div className="hero-txt">
@@ -748,7 +748,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
         {nextStep ? (
           <div className="hero-next"><span className="hn-k">Next step</span><b>{nextStep.title}</b></div>
         ) : data.strips.length > 0 ? (
-          <div className="hero-next"><span className="hn-k">Needs attention</span><b>{data.activity[0]?.text ?? (data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`)}</b><button type="button" className="btn hn-go" onClick={goTo("na")}>Review</button></div>
+          <div className="hero-next"><span className="hn-k">Needs attention</span><b>{last ? last.text : data.strips.length === 1 ? "1 item is waiting" : `${data.strips.length} items are waiting`}</b>{last?.href && <Link href={last.href} className="btn hn-go hn-arrow" aria-label="Open"><Ic name="arrowr" size={16} width={2.4} /></Link>}</div>
         ) : (
           <div className="hero-next"><span className="hn-k">All clear</span><b>Nothing needs you right now</b></div>
         )}
