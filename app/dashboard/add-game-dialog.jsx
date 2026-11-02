@@ -205,8 +205,9 @@ export default function AddGameDialog({ gamesCount = 0 }) {
         ref={dialogRef}
         className="ag"
         aria-labelledby="add-game-title"
-        onClose={closed}
+        onClose={(event) => event.target === event.currentTarget && closed()} // not the pop-ups inside it (countries)
         onCancel={(event) => {
+          if (event.target !== event.currentTarget) return;
           if (busy) event.preventDefault(); // do not drop a game that is being saved
         }}
         onClick={(event) => {

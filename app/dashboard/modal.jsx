@@ -24,8 +24,14 @@ export default function Modal({ open, onClose, title, children, footer, busy = f
       ref={ref}
       className={`modal${wide ? " modal-wide" : ""}`}
       aria-labelledby={titleId}
-      onClose={onClose}
+      onClose={(event) => {
+        // A pop-up can sit inside another one (the countries inside Add game). React passes `close` up the tree of
+        // components, so without this the outer pop-up would think it was closed and throw its draft away.
+        event.stopPropagation();
+        onClose?.(event);
+      }}
       onCancel={(event) => {
+        event.stopPropagation();
         if (busy) event.preventDefault();
       }}
     >
