@@ -9225,6 +9225,8 @@ body.ig-dragging *{cursor:grabbing!important}
 .si-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .4); border-top-color: #fff; animation: nav-spin .7s linear infinite; }
 .si-foot { border-top: 1px solid #efe7de; padding-top: 20px; font-size: 14px; color: #6b5f56; text-align: center; }
 .si-foot .si-link { font-size: 14px; }
+.si-demo { border-top: 1px solid #efe7de; padding-top: 16px; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 14px; font-size: 13px; color: #8a7e74; text-align: center; }
+.si-demo .si-link { font-size: 13px; }
 .si :focus-visible { outline: 2px solid #c94a24; outline-offset: 2px; }
 .si-probe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; z-index: -1; }
 @media (max-width: 480px) {
