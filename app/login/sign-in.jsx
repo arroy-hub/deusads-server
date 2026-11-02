@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestReset, signIn, signUp } from "./actions";
+import { requestReset, signIn } from "./actions";
 import Logo from "../logo";
 
 /**
  * The sign-in screen: the dark of the side menu over the whole screen, the wordmark in the corner and one white
- * card (Sign in, Create an account, Reset your password). After a sign-in the button keeps its spinner while the
+ * card (Sign in, Reset your password). After a sign-in the button keeps its spinner while the
  * dashboard loads underneath a still copy of this screen; once it is there, app/dashboard/enter-reveal.jsx plays
  * the animation over the real page: the card dissolves, the dark narrows into the real side menu, the wordmark
  * slides to its place and the page fades in. On a phone the dark just fades.
@@ -21,14 +21,13 @@ const NOTICES = {
   expired: "This link has expired, was already used or was opened in another browser. Sign in, or ask for a new link.",
 };
 
-const TITLE = { signin: "Sign in", signup: "Create an account", reset: "Reset your password" };
+const TITLE = { signin: "Sign in", reset: "Reset your password" };
 const SUB = {
   signin: "to your DeusADS cabinet",
-  signup: "Choose whether you publish games or advertise in them.",
   reset: "We'll email you a link. It signs you in and opens your account, where you set a new password.",
 };
-const GO = { signin: "Sign in", signup: "Create account", reset: "Send link" };
-const BUSY = { signin: "Signing in…", signup: "Creating…", reset: "Sending…" };
+const GO = { signin: "Sign in", reset: "Send link" };
+const BUSY = { signin: "Signing in…", reset: "Sending…" };
 
 const EMAIL_KEY = "deus-last-email";
 const HINT_DELAY = 700; // ms the pointer rests on "Remember me" before its hint shows
@@ -57,7 +56,6 @@ export default function SignIn({ notice }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [accountType, setAccountType] = useState("developer");
   const [message, setMessage] = useState(notice && NOTICES[notice] ? { tone: "notice", text: NOTICES[notice] } : null);
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(false);
@@ -153,23 +151,6 @@ export default function SignIn({ notice }) {
         enter(result.home);
         return;
       }
-      if (mode === "signup") {
-        const result = await signUp({ email, password, accountType });
-        if (!result?.ok) {
-          setBusy(false);
-          fail(result?.error);
-          return;
-        }
-        if (result.signedIn) {
-          enter(result.home);
-          return;
-        }
-        setBusy(false);
-        setMode("signin");
-        setPassword("");
-        setMessage({ tone: "notice", text: "Check your email to confirm the address, then sign in." });
-        return;
-      }
       const result = await requestReset({ email });
       setBusy(false);
       if (!result?.ok) {
@@ -213,32 +194,12 @@ export default function SignIn({ notice }) {
                 className="si-input"
                 type="email"
                 inputMode="email"
-                autoComplete={mode === "signup" ? "email" : "username"}
+                autoComplete="username"
                 placeholder="you@company.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>
-
-            {mode === "signup" && (
-              <fieldset className="si-roles">
-                <legend>I am</legend>
-                <label className="si-role" htmlFor="si-type-developer">
-                  <input id="si-type-developer" type="radio" name="si-type" checked={accountType === "developer"} onChange={() => setAccountType("developer")} />
-                  <span>
-                    <b>A developer</b>
-                    <span>I publish games and show ads in them.</span>
-                  </span>
-                </label>
-                <label className="si-role" htmlFor="si-type-advertiser">
-                  <input id="si-type-advertiser" type="radio" name="si-type" checked={accountType === "advertiser"} onChange={() => setAccountType("advertiser")} />
-                  <span>
-                    <b>An advertiser</b>
-                    <span>I want to advertise in games.</span>
-                  </span>
-                </label>
-              </fieldset>
-            )}
 
             {mode !== "reset" && (
               <div className="si-field">
@@ -256,8 +217,8 @@ export default function SignIn({ notice }) {
                     ref={passwordRef}
                     className="si-input"
                     type={showPassword ? "text" : "password"}
-                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                    placeholder={mode === "signup" ? "At least 8 characters" : "Your password"}
+                    autoComplete="current-password"
+                    placeholder="Your password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                   />
@@ -303,29 +264,13 @@ export default function SignIn({ notice }) {
             </button>
           </form>
 
-          <div className="si-foot">
-            {mode === "signin" && (
-              <>
-                New to DeusADS?{" "}
-                <button type="button" className="si-link" onClick={() => switchTo("signup")}>
-                  Create an account
-                </button>
-              </>
-            )}
-            {mode === "signup" && (
-              <>
-                Already have an account?{" "}
-                <button type="button" className="si-link" onClick={() => switchTo("signin")}>
-                  Sign in
-                </button>
-              </>
-            )}
-            {mode === "reset" && (
+          {mode === "reset" && (
+            <div className="si-foot">
               <button type="button" className="si-link" onClick={() => switchTo("signin")}>
                 Back to sign in
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </section>
       </div>
 

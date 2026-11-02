@@ -9205,7 +9205,7 @@ body.ig-dragging *{cursor:grabbing!important}
 
 .si-form { display: flex; flex-direction: column; gap: 18px; margin: 0; }
 .si-field { display: flex; flex-direction: column; gap: 6px; }
-.si-field label, .si-roles legend, .si-check label { font-size: 14px; font-weight: 600; color: #241d19; }
+.si-field label, .si-check label { font-size: 14px; font-weight: 600; color: #241d19; }
 .si-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .si-input { box-sizing: border-box; width: 100%; min-height: 44px; margin: 0; border: 1px solid #d8cabd; border-radius: 8px; padding: 0 12px; background: #fff; color: #241d19; font: inherit; font-size: 15px; }
 .si-input::placeholder { color: #7a6e64; }
@@ -9219,13 +9219,6 @@ body.ig-dragging *{cursor:grabbing!important}
 .si-check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: #c94a24; cursor: pointer; }
 .si-check label { cursor: pointer; }
 .si-check small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: #6b5f56; }
-.si-roles { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
-.si-roles legend { padding: 0; margin-bottom: 6px; }
-.si-role { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #e6ddd3; border-radius: 10px; cursor: pointer; }
-.si-role:has(input:checked) { border-color: #e7b9a4; background: #fdf3ee; }
-.si-role input { flex: none; margin: 3px 0 0; accent-color: #c94a24; }
-.si-role b { display: block; font-size: 14px; font-weight: 600; color: #241d19; }
-.si-role span span { display: block; font-size: 13px; color: #6b5f56; }
 .si-go { box-sizing: border-box; width: 100%; min-height: 46px; margin: 0; border: 1px solid #b8421d; border-radius: 8px; background: #b8421d; color: #fff; font: inherit; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
 .si-go:hover { background: #a63a18; }
 .si-go:disabled { opacity: .85; cursor: progress; }

@@ -8,10 +8,9 @@ import { SITE } from "../../lib/account-server";
 import { isEmail } from "../../lib/account-rules";
 import { SESSION_COOKIE, newSession, seal, sessionCookieOptions, supabaseCookieOptions } from "../../lib/session-policy";
 
-// The three things the sign-in screen does. They run on the server so that every cookie of the sign-in
+// The two things the sign-in screen does. There is no self-service sign-up: accounts are created by an admin. They run on the server so that every cookie of the sign-in
 // (Supabase's and deus_session) gets the lifetime the person chose with "Remember me".
 
-const MIN_PASSWORD = 8;
 const GONE = "Connection lost. Try again.";
 
 async function client(remember) {
@@ -37,7 +36,7 @@ async function landing(db, userId, fallback = "developer") {
 function signInProblem(error) {
   const text = String(error?.message ?? "");
   if (/invalid login credentials/i.test(text)) return "Wrong email or password. Check them and try again.";
-  if (/not confirmed/i.test(text)) return "Confirm your email first: open the link we sent you when you signed up.";
+  if (/not confirmed/i.test(text)) return "Confirm your email first: open the link we sent you.";
   if (/rate|too many/i.test(text)) return "Too many attempts. Wait a minute and try again.";
   return "Could not sign in. Try again.";
 }
@@ -52,31 +51,6 @@ export async function signIn({ email, password, remember }) {
   if (error || !data?.user) return { error: error?.message === "" ? GONE : signInProblem(error) };
   await startSession(store, keep);
   return { ok: true, ...(await landing(db, data.user.id)) };
-}
-
-/** A new account. Usually the email must be confirmed first; if the project skips that, the person is signed in at once. */
-export async function signUp({ email, password, accountType }) {
-  const address = String(email ?? "").trim();
-  if (!isEmail(address.toLowerCase())) return { error: "Enter a valid email address." };
-  if (String(password ?? "").length < MIN_PASSWORD) return { error: `The password needs at least ${MIN_PASSWORD} characters.` };
-  const type = accountType === "advertiser" ? "advertiser" : "developer";
-  const { store, db } = await client(false);
-  const { data, error } = await db.auth
-    .signUp({ email: address, password: String(password), options: { data: { account_type: type } } })
-    .catch(() => ({ error: { message: "" } }));
-  if (error) {
-    const text = String(error.message ?? "");
-    if (!text) return { error: GONE };
-    if (/already/i.test(text)) return { error: "This email already has an account. Sign in instead." };
-    if (/password/i.test(text)) return { error: text };
-    if (/rate|too many/i.test(text)) return { error: "Too many attempts. Wait a minute and try again." };
-    return { error: "Could not create the account. Try again." };
-  }
-  if (data?.session && data.user) {
-    await startSession(store, false);
-    return { ok: true, signedIn: true, ...(await landing(db, data.user.id, type)) };
-  }
-  return { ok: true, confirm: true };
 }
 
 /**
