@@ -23,7 +23,7 @@ const NOTICES = {
 
 const TITLE = { signin: "Sign in", reset: "Reset your password" };
 const SUB = {
-  signin: "to your DeusADS cabinet",
+  signin: "Deus at dashboard",
   reset: "We'll email you a link. It signs you in and opens your account, where you set a new password.",
 };
 const GO = { signin: "Sign in", reset: "Send link" };
@@ -282,7 +282,6 @@ export default function SignIn({ notice }) {
 
           {mode === "signin" && (
             <div className="si-demo">
-              Try it with a test account:
               {DEMO.map((account) => (
                 <button key={account.email} type="button" className="si-link" onClick={() => fillDemo(account)} disabled={busy || entering}>
                   {account.label}
