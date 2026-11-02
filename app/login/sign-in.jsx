@@ -29,13 +29,6 @@ const SUB = {
 const GO = { signin: "Sign in", reset: "Send link" };
 const BUSY = { signin: "Signing in…", reset: "Sending…" };
 
-// Ready-made test accounts for the RVO reviewers: a press on a link below the form fills in the email and password.
-// Both are demo accounts with made-up data (no admin rights). Delete this list and the "si-demo" block to remove the links.
-const DEMO = [
-  { label: "Test developer", email: "rvo-developer@example.com", password: "DeusDev-Tf8mQ3-vW6nR1" },
-  { label: "Test advertiser", email: "rvo-advertiser@example.com", password: "DeusAdv-Hk4pZ7-yB2sL9" },
-];
-
 const EMAIL_KEY = "deus-last-email";
 const HINT_DELAY = 700; // ms the pointer rests on "Remember me" before its hint shows
 const GIVE_UP = 20000; // ms: if the dashboard never arrives, the still copy of this screen goes away
@@ -108,15 +101,6 @@ export default function SignIn({ notice }) {
     setPassword("");
     setShowPassword(false);
     setTimeout(() => emailRef.current?.focus(), 0);
-  };
-
-  const fillDemo = (account) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    setRemember(false);
-    setShowPassword(false);
-    setMessage(null);
-    setTimeout(() => rootRef.current?.querySelector(".si-go")?.focus(), 0);
   };
 
   /**
@@ -279,16 +263,6 @@ export default function SignIn({ notice }) {
               {busy ? BUSY[mode] : GO[mode]}
             </button>
           </form>
-
-          {mode === "signin" && (
-            <div className="si-demo">
-              {DEMO.map((account) => (
-                <button key={account.email} type="button" className="si-link" onClick={() => fillDemo(account)} disabled={busy || entering}>
-                  {account.label}
-                </button>
-              ))}
-            </div>
-          )}
 
           {mode === "reset" && (
             <div className="si-foot">
