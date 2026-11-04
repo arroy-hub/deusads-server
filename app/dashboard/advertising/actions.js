@@ -12,7 +12,7 @@ import {
   parseDateRange,
 } from "../../../lib/booking-rules";
 import { describeBooking } from "../../../lib/bookings-data";
-import { notify, notifyMany } from "../../../lib/notify";
+import { notify, notifyMany, notifyGoingLive } from "../../../lib/notify";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { parseTargeting } from "../../../lib/targeting";
 import { isCategory } from "../../../lib/categories";
@@ -54,7 +54,7 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
   if (creative.status === "rejected") return { error: "That creative was rejected. Upload another one." };
 
   const lookup = (columns) => service.from("placements").select(columns).in("id", ids).is("removed_at", null);
-  let { data: placements, error: placementsError } = await lookup("id, owner_id, open_to_advertisers");
+  let { data: placements, error: placementsError } = await lookup("id, owner_id, game_id, open_to_advertisers");
   // Before migration 0014 there is no switch: every live placement can be requested.
   if (placementsError) ({ data: placements } = await lookup("id, owner_id"));
   else if ((placements ?? []).some((placement) => !placement.open_to_advertisers)) {
@@ -127,7 +127,8 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
         ...(dated ? { starts_on: range.startsOn, ends_on: range.endsOn } : {}),
       }))
     )
-    .select("id, developer_id");
+    .select("id, developer_id, placement_id");
+  const gameOf = new Map(fresh.map((placement) => [placement.id, placement.game_id]));
   if (isSchemaOutdated(error)) return { error: "Dates need migration 0013 in the Supabase SQL editor first." };
   if (error?.code === "23505") return { error: "This creative is already booked on one of those placements. Refresh the list." };
   if (error) return { error: "Could not send the requests. Try again." };
@@ -144,7 +145,7 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     }
     if (status === "approved") {
       outcome.approved += 1;
-      goingLive.push(booking.developer_id);
+      goingLive.push({ developerId: booking.developer_id, gameId: gameOf.get(booking.placement_id) ?? null });
     } else if (status === "rejected" || status === "cancelled") outcome.rejected += 1;
     else outcome.waiting += 1;
   }
@@ -153,13 +154,7 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
   await service.from("campaigns").update({ plan: null }).eq("id", campaign.id);
 
   // Each developer hears once, however many of their placements were booked.
-  await notifyMany(
-    service,
-    goingLive,
-    "A new ad is showing in your game. You can pause or block it in the game's Campaigns tab.",
-    "/dashboard/games",
-    "dev_campaign"
-  );
+  await notifyGoingLive(service, goingLive);
 
   revalidatePath("/dashboard/advertising");
   revalidatePath("/dashboard/admin/bookings");

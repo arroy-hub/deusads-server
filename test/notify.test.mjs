@@ -65,4 +65,19 @@ await notify(db, { accountId: null, text: "x" });
 await notify(db, { accountId: "a", text: "" });
 assert.equal(db.inserted.length, 0);
 
+// a new ad going live: one notice per developer, straight to the Campaigns tab of the game
+{
+  const { liveNotices, gameCampaignsLink } = await import("../lib/notify.js");
+  assert.equal(gameCampaignsLink("g1"), "/dashboard/g/g1?tab=campaigns");
+  const one = liveNotices([{ developerId: "d1", gameId: "g1" }, { developerId: "d1", gameId: "g1" }, { developerId: null, gameId: "g9" }]);
+  assert.equal(one.length, 1, "one notice per developer, however many placements");
+  assert.equal(one[0].accountId, "d1");
+  assert.equal(one[0].link, "/dashboard/g/g1?tab=campaigns");
+  const many = liveNotices([{ developerId: "d1", gameId: "g1" }, { developerId: "d1", gameId: "g2" }, { developerId: "d2", gameId: "g3" }]);
+  assert.equal(many.find((n) => n.accountId === "d1").link, "/dashboard/games", "several games: the list of games");
+  assert.match(many.find((n) => n.accountId === "d1").text, /several of your games/);
+  assert.equal(many.find((n) => n.accountId === "d2").link, "/dashboard/g/g3?tab=campaigns");
+  assert.equal(liveNotices([{ developerId: "d1", gameId: null }])[0].link, "/dashboard/games", "unknown game: the list");
+  assert.deepEqual(liveNotices([]), []);
+}
 console.log("notify: all checks passed");
