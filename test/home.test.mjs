@@ -1,7 +1,7 @@
 // The Home page rules and content. Run: node test/home.test.mjs
 import assert from "node:assert/strict";
 import { homeMode, developerChecklist, advertiserChecklist, advertiserStrips, developerStrips, activityWhen } from "../lib/home-rules.js";
-import { ART, GUIDE_CARDS, GUIDE_LIST, NEWS, TIPS, guideBySlug, slugOf } from "../lib/home-content.js";
+import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, TIPS, guideBySlug, slugOf } from "../lib/home-content.js";
 
 // new or active
 assert.equal(homeMode("developer", { games: 0 }), "new");
@@ -71,6 +71,11 @@ for (const role of ["dev", "adv"]) {
   }
   assert.ok(TIPS[role].length >= 3 && TIPS[role].every((tip) => tip.length === 2));
   for (const item of NEWS[role]) assert.ok(item.body || item.items || item.s, `${item.id} has text`);
+  // newest first, and Home's What's new shows exactly the top entry of All news
+  const stamps = NEWS[role].map((item) => Date.parse(item.d));
+  assert.ok(stamps.every((ms, i) => !Number.isNaN(ms) && (i === 0 || ms <= stamps[i - 1])), `${role} news is newest first`);
+  assert.equal(LATEST[role].title, NEWS[role][0].t);
+  assert.equal(LATEST[role].text, NEWS[role][0].s);
 }
 assert.equal(guideBySlug("nope"), null);
 assert.equal(slugOf("Placements, scenes and folders"), "placements-scenes-and-folders");
