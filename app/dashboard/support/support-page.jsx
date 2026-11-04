@@ -10,11 +10,10 @@ import { SupportTop } from "./support-ui";
 const HEAD = {
   assistant: ["Help & feedback", "Ask the assistant, or write to the developer — screenshots welcome"],
   requests: ["Help & feedback", "Ask the assistant, or write to the developer — screenshots welcome"],
-  admin: ["Help & feedback", "Try the assistant the way developers and advertisers see it"],
 };
 
 /**
- * Help & feedback for developers and advertisers: the Assistant tab (chat, with a full form to the developer behind the
+ * Help & feedback, the same for every role (an admin included): the Assistant tab (chat, with a full form to the developer behind the
  * pen button) and My requests (strips, folders, the conversation as a pop-up). The tab and the open request are kept in
  * the address (?tab=requests&open=<id>) so a link from the bell opens the right conversation.
  */
@@ -25,9 +24,7 @@ export default function SupportPage({ role, requests, folders, outdated, initial
   const [seed, setSeed] = useState(null);
   const tabs = useRef({});
   const unread = requests.filter((r) => r.unread).length;
-  // An admin is the developer: there is no one to write to and no requests of their own, so the page is the assistant alone.
-  const admin = role === "admin";
-  const [title, lede] = HEAD[admin ? "admin" : tab];
+  const [title, lede] = HEAD[tab];
 
   const setAddress = useCallback((next, id) => {
     try {
@@ -84,24 +81,22 @@ export default function SupportPage({ role, requests, folders, outdated, initial
       <SupportTop title={title} sub={lede}>
         <nav className="tabs" role="tablist" aria-label="Help sections" onKeyDown={onKeyDown}>
           <button type="button" ref={(el) => { tabs.current.assistant = el; }} className="tab" role="tab" id="sp-tab-assistant" aria-selected={tab === "assistant"} aria-current={tab === "assistant" ? "page" : undefined} aria-controls="sp-panel-assistant" tabIndex={tab === "assistant" ? 0 : -1} onClick={() => choose("assistant")}>Assistant</button>
-          {!admin && <button type="button" ref={(el) => { tabs.current.requests = el; }} className="tab" role="tab" id="sp-tab-requests" aria-selected={tab === "requests"} aria-current={tab === "requests" ? "page" : undefined} aria-controls="sp-panel-requests" tabIndex={tab === "requests" ? 0 : -1} onClick={() => choose("requests")}>My requests{unread > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Replies you have not read">{unread}</span>}</button>}
+          <button type="button" ref={(el) => { tabs.current.requests = el; }} className="tab" role="tab" id="sp-tab-requests" aria-selected={tab === "requests"} aria-current={tab === "requests" ? "page" : undefined} aria-controls="sp-panel-requests" tabIndex={tab === "requests" ? 0 : -1} onClick={() => choose("requests")}>My requests{unread > 0 && <span className="cp-count" style={{ marginLeft: "0.5rem" }} title="Replies you have not read">{unread}</span>}</button>
         </nav>
       </SupportTop>
 
       <div id="sp-panel-assistant" role="tabpanel" aria-labelledby="sp-tab-assistant" hidden={tab !== "assistant"}>
         <div className="cx-body sp-assistant">
           <div className="sp-chat-card">
-            <AssistantChat role={role} mode="page" canHandOver={!admin} assistantOn={assistantOn} greeting={greeting} seed={seed} onSeedUsed={() => setSeed(null)} onOpenRequest={openRequest} />
+            <AssistantChat role={role} mode="page" canHandOver assistantOn={assistantOn} greeting={greeting} seed={seed} onSeedUsed={() => setSeed(null)} onOpenRequest={openRequest} />
           </div>
         </div>
       </div>
-      {!admin && (
-        <div id="sp-panel-requests" role="tabpanel" aria-labelledby="sp-tab-requests" hidden={tab !== "requests"}>
-          <RequestsTab requests={requests} folders={folders} outdated={outdated} onOpen={openRequest} onNew={() => startForm({ type: "question", title: "", text: "" })} />
-        </div>
-      )}
+      <div id="sp-panel-requests" role="tabpanel" aria-labelledby="sp-tab-requests" hidden={tab !== "requests"}>
+        <RequestsTab requests={requests} folders={folders} outdated={outdated} onOpen={openRequest} onNew={() => startForm({ type: "question", title: "", text: "" })} />
+      </div>
 
-      {openId && !admin && (
+      {openId && (
         <RequestWindow
           key={openId}
           id={openId}

@@ -11,10 +11,9 @@ export default async function HelpPage({ searchParams }) {
   const me = await getMember();
   if (!me) redirect("/login");
   const { tab, open } = await searchParams;
-  // An admin answers requests instead of sending them (that is the Support page): here they only try the assistant, so
-  // there are no requests of their own to load.
-  const admin = me.role === "admin";
-  const [mine, assistant] = await Promise.all([admin ? { requests: [], folders: [], outdated: false } : loadMyRequests(me.service, me.user.id), botStatus(me.service)]);
+  // Every role sees the same Help & feedback: the Assistant tab with the detailed message, and My requests. An admin answers
+  // other people's requests on the Support page; what they write here is a request of their own, like anyone's.
+  const [mine, assistant] = await Promise.all([loadMyRequests(me.service, me.user.id), botStatus(me.service)]);
   return (
     <SupportPage
       role={me.role}
@@ -23,8 +22,8 @@ export default async function HelpPage({ searchParams }) {
       outdated={mine.outdated}
       assistantOn={assistant.on}
       greeting={assistant.greeting}
-      initialTab={tab === "requests" && !admin ? "requests" : "assistant"}
-      initialOpen={typeof open === "string" && !admin ? open : null}
+      initialTab={tab === "requests" ? "requests" : "assistant"}
+      initialOpen={typeof open === "string" ? open : null}
     />
   );
 }
