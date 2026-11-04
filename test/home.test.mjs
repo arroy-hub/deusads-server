@@ -1,7 +1,7 @@
 // The Home page rules and content. Run: node test/home.test.mjs
 import assert from "node:assert/strict";
 import { homeMode, developerChecklist, advertiserChecklist, advertiserStrips, developerStrips, activityWhen } from "../lib/home-rules.js";
-import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, TIPS, guideBySlug, slugOf } from "../lib/home-content.js";
+import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, TIPS, groupChanges, guideBySlug, slugOf } from "../lib/home-content.js";
 
 // new or active
 assert.equal(homeMode("developer", { games: 0 }), "new");
@@ -76,6 +76,20 @@ for (const role of ["dev", "adv"]) {
   assert.ok(stamps.every((ms, i) => !Number.isNaN(ms) && (i === 0 || ms <= stamps[i - 1])), `${role} news is newest first`);
   assert.equal(LATEST[role].title, NEWS[role][0].t);
   assert.equal(LATEST[role].text, NEWS[role][0].s);
+}
+// patch notes: one block per label, New before Improved before Fixed, every change kept once
+{
+  const grouped = groupChanges([["Improved", "b", "x"], ["New", "a", "x"], ["Improved", "c", "x"], ["Fixed", "d", "x"], ["New", "e", "x"]]);
+  assert.deepEqual(grouped.map(([tag]) => tag), ["New", "Improved", "Fixed"]);
+  assert.deepEqual(grouped[0][1].map(([title]) => title), ["a", "e"]);
+  assert.deepEqual(grouped[1][1].map(([title]) => title), ["b", "c"]);
+  for (const role of ["dev", "adv"]) {
+    for (const item of NEWS[role].filter((entry) => entry.items)) {
+      const tags = groupChanges(item.items).map(([tag]) => tag);
+      assert.equal(new Set(tags).size, tags.length, `${item.id} repeats a label`);
+      assert.equal(groupChanges(item.items).reduce((sum, [, list]) => sum + list.length, 0), item.items.length);
+    }
+  }
 }
 assert.equal(guideBySlug("nope"), null);
 assert.equal(slugOf("Placements, scenes and folders"), "placements-scenes-and-folders");

@@ -329,6 +329,7 @@
 .hm .chg-fixed{color:var(--ink-3)}
 .hm .chg-i h4{font:700 15px/1.3 Inter,system-ui,sans-serif;letter-spacing:-.01em;margin:0;color:var(--ink)}
 .hm .chg-i p{font-size:13.5px;line-height:1.6;color:var(--ink-2);margin:4px 0 0}
+.hm .chg-list{display:grid;gap:16px;min-width:0}
 @media (max-width:560px){.hm .chg-i{grid-template-columns:1fr;gap:8px}}
 .hm .mag-sign{font:500 12px Inter,system-ui,sans-serif;color:var(--ink-3)}
 .hm .mag-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
