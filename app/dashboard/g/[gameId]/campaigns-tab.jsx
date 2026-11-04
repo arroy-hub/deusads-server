@@ -139,6 +139,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   for (const campaign of model.campaigns) {
     if (campaign.isNew || campaign.creatives.some((creative) => creative.isNew)) lead.current.add(campaign.id);
   }
+  const tagOf = (campaign) => (campaign.isNew ? "New campaign" : campaign.creatives.some((creative) => creative.isNew) ? "New creative" : "");
   const staysFirst = (campaign) => anyNew(campaign) || lead.current.has(campaign.id);
   const byId = useMemo(() => new Map(campaigns.map((campaign) => [campaign.id, campaign])), [campaigns]);
 
@@ -146,6 +147,11 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   // until the developer touches the row, so they can see what is new.
   useEffect(() => {
     if (!focusCampaign || !byId.has(focusCampaign)) return;
+    setView("camp");
+    setStatus("all");
+    setCategory("all");
+    setQuery("");
+    setNote(null);
     setOpen((previous) => ({ ...previous, [focusCampaign]: true }));
     setFlash(focusCampaign);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -524,7 +530,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
               {shown.map((campaign) => {
                 const key = campaign.state.key;
                 const isOpen = Boolean(open[campaign.id]);
-                const tag = campaign.isNew ? "New campaign" : campaign.creatives.some((creative) => creative.isNew) ? "New creative" : "";
+                const tag = tagOf(campaign);
                 const [pillClass, pillText] = PILL[key];
                 const stopped = key === "paused" || key === "advpaused" || isBlocked(key);
                 const chart = isOpen && campaign.totals.views > 0 ? buildChart(campaign.creatives, days, { period, mode: chartMode, pick }) : null;
@@ -700,6 +706,9 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                   const [pillClass, pillText] = PILL[key];
                   const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused" && state !== "advpaused");
                   const here = noteForAdv(group.id);
+                  const freshCampaigns = group.campaigns.filter((campaign) => campaign.isNew).length;
+                  const freshCreatives = group.campaigns.filter((campaign) => !campaign.isNew && campaign.creatives.some((creative) => creative.isNew)).length;
+                  const advTag = freshCampaigns ? (freshCampaigns === 1 ? "New campaign" : `${freshCampaigns} new campaigns`) : freshCreatives ? (freshCreatives === 1 ? "New creative" : `${freshCreatives} new creatives`) : "";
                   return (
                     <div key={group.id}>
                       <div className="cp-crow">
@@ -707,7 +716,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                         <div className="cp-cname">
                           <span className="cp-avt" style={{ background: colorOfName(group.name) }} aria-hidden="true">{group.name.charAt(0).toUpperCase()}</span>
                           <div>
-                            <strong>{group.name}</strong>
+                            <div><strong>{group.name}</strong> {advTag && <span className="cp-tag">{advTag}</span>}</div>
                             <div className="cp-meta">{parts.join(" · ")}</div>
                             <div className="cp-meta">{[...new Set(group.campaigns.map((campaign) => categoryLabel(campaign.category)))].join(", ")}</div>
                             <Note value={here} />
@@ -731,7 +740,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                             return (
                               <div className="cp-nrow" key={campaign.id}>
                                 <div>
-                                  <button type="button" className="cp-lnk" title="Open in Campaigns" onClick={() => openInCampaigns(campaign)}>{campaign.name}<i>↗</i></button>
+                                  <button type="button" className="cp-lnk" title="Open in Campaigns" onClick={() => openInCampaigns(campaign)}>{campaign.name}<i>↗</i></button>{tagOf(campaign) && <> <span className="cp-tag">{tagOf(campaign)}</span></>}
                                   <div className="cp-meta cp-sub">{categoryLabel(campaign.category)} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
                                   <Note value={noteFor(campaign.id)} />
                                 </div>
