@@ -11,9 +11,9 @@ import { compactCount, plural, sortCampaigns } from "../../../lib/campaign-cards
 
 const SORTS = [["status", "Status"], ["impressions", "Impressions"], ["name", "Name"], ["dates", "Start date"]];
 const SORT_NAME = Object.fromEntries(SORTS);
-/** The sections of the grouped view, in this order; Draft and Ended start folded. */
+/** The sections of the grouped view, in this order; only Ended starts folded (a saved draft must be seen at once). */
 const SECTIONS = STATUS_GROUPS.slice(1);
-const FOLDED = { draft: true, ended: true };
+const FOLDED = { ended: true };
 const SECTION_TONE = { live: "live", paused: "warn", upcoming: "sched", draft: "mute", ended: "mute" };
 
 const ListIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>;
