@@ -10,7 +10,7 @@ import CreativeEditor from "../../creatives/[id]/creative-editor";
 import CampaignCard from "../c/[campaignId]/settings/campaign-card";
 import CategoryIcon from "../category-icon";
 import { FORMATS, coverageByFormat, pickImage } from "../../../../lib/formats";
-import { completionOptions, creativeMark, creativeToComplete, previewCover } from "../../../../lib/wizard-preview";
+import { completionOptions, creativeMark, creativeToComplete, previewCover, shapesCovered } from "../../../../lib/wizard-preview";
 import { AD_CATEGORIES } from "../../../../lib/categories";
 import { COVERS, COVER_MAX_BYTES } from "../../../../lib/game-cover";
 import { cropToStrip } from "../../../../lib/cover-image";
@@ -498,9 +498,9 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                                 setShapeMenu({ id: row.format.id, left: box ? Math.max(0, Math.min(at.left - box.left, box.width - 288)) : 0, top: box ? at.bottom - box.top + 4 : 0 });
                               }}><IcPlus size={16} /></button></span>
                             : <span className="nwc-look" style={{ "--a": row.format.aspect, backgroundImage: row.url ? `url("${row.url}")` : undefined }} />}
-                          {mark && <span className="nwc-lnum" title={`Creative ${mark.text}: ${by?.name ?? ""}`}>{mark.text}</span>}
-                        </span>
+                                                  </span>
                         <b>{row.format.label.split(" ")[0]}</b>
+                        {mark && <span className="nwc-lnum" title={`Creative ${mark.text}: ${by?.name ?? ""}`}>{mark.text}</span>}
                       </div>
                     );
                   })}
@@ -524,7 +524,15 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
               <section className="nwc-panel">
                 <div className="nwc-bh"><span className="nwc-eb">Creatives</span><span>{word(picked.length, "creative is", "creatives are")} connected to this campaign</span></div>
                 <ul className="nwc-clist">
-                  {picked.map((c) => <li key={c.id} title={c.name}>{c.name}</li>)}
+                  {picked.map((c) => (
+                    <li key={c.id}>
+                      <button type="button" className="nwc-clink" disabled={busy} title={`Open ${c.name} to work with its shapes`} onClick={() => openEditor("picture", null, c.id)}>
+                        <span className="nwc-cname">{c.name}</span>
+                        <small>{`${shapesCovered(c)} of ${FORMATS.length} shapes`}</small>
+                        <span className="nwc-cgo">Edit shapes</span>
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               </section>
               <section className="nwc-ready">

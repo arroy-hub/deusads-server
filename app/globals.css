@@ -9839,7 +9839,8 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 
 /* ===== New campaign, How it will look: which creative a picture belongs to, and the menu of a shape without a picture ===== */
 .nwc-panel.is-look { position: relative; }
-.nwc-lnum { position: absolute; left: 50%; top: 0; transform: translateX(-50%); z-index: 1; padding: 0 4px; border-radius: 6px; background: rgba(255, 255, 255, .88); border: 1px solid var(--line); color: var(--ink-2); font-size: 9.5px; font-weight: 600; line-height: 12px; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nwc-lt { align-content: start; }
+.nwc-lnum { padding: 0 4px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font-size: 9.5px; font-weight: 600; line-height: 12px; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .nwc-clist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink); }
 .nwc-clist li { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nwc-clist li::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3, #8c7f73); }
@@ -9851,3 +9852,11 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .nwc-smenu button b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nwc-smenu button span { font-size: 11.5px; color: var(--ink-2); }
 .nwc-smenu button.is-new { margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--line); border-radius: 0 0 7px 7px; }
+.nwc-clist li { overflow: visible; }
+.nwc-clink { display: flex; align-items: baseline; gap: 10px; flex: 1 1 auto; min-width: 0; padding: 3px 0; border: 0; background: none; color: var(--ink, #241d19); font: inherit; text-align: left; cursor: pointer; }
+.nwc-clink:disabled { cursor: default; opacity: .6; }
+.nwc-clink .nwc-cname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nwc-clink small { flex: none; font-size: 11.5px; color: var(--ink-3, #8c7f73); }
+.nwc-clink .nwc-cgo { flex: none; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--signal-ink, #b8421d); }
+.nwc-clink:hover:not(:disabled) .nwc-cname, .nwc-clink:focus-visible .nwc-cname { text-decoration: underline; text-underline-offset: 2px; }
+.nwc-clink:focus-visible { outline: 2px solid var(--signal-ink, #b8421d); outline-offset: 2px; border-radius: 4px; }
