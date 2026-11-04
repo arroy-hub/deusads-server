@@ -10,6 +10,7 @@ import CreativeEditor from "../../creatives/[id]/creative-editor";
 import CampaignCard from "../c/[campaignId]/settings/campaign-card";
 import CategoryIcon from "../category-icon";
 import { FORMATS, coverageByFormat, pickImage } from "../../../../lib/formats";
+import { creativeToComplete, previewCover } from "../../../../lib/wizard-preview";
 import { AD_CATEGORIES } from "../../../../lib/categories";
 import { COVERS, COVER_MAX_BYTES } from "../../../../lib/game-cover";
 import { cropToStrip } from "../../../../lib/cover-image";
@@ -204,9 +205,12 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
 
   /** The creative editor opens over the wizard (on the Audience tab when asked); the wizard stays as it is. */
   async function openEditor(tab = "picture", shape = null) {
-    if (!chosen || busy) return;
+    // A missing shape is added to the creative that is closest to covering them all (the preview counts the creatives together,
+    // so the first one picked may be the one that lacks the most); otherwise the first picked creative.
+    const target = shape && picked.length > 1 ? creativeToComplete(picked) : chosen;
+    if (!target || busy) return;
     setBusy(true); setError("");
-    const r = await openCreativeEditor({ creativeId: chosen.id }).catch(() => ({ error: "Connection lost. Try again." }));
+    const r = await openCreativeEditor({ creativeId: target.id }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (r?.error) return setError(r.error);
     setEditor({ data: r.editor, tab, shape });
@@ -261,11 +265,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const noPicture = (aspect) => picked.length > 0 && aspect && picked.every((c) => pickImage({ creative: shapeOf(c), assets: c.assets ?? [], surfaceAspect: aspect }).kind === "none");
   const reachPlacements = audienceGames.flatMap((g) => g.placements);
   const covers = picked.map((c) => coverageByFormat({ creative: shapeOf(c), assets: c.assets ?? [] }));
-  const cover = FORMATS.map((f) => {
-    const rows = covers.map((cv) => cv.find((r) => r.format.id === f.id));
-    const at = rows.findIndex((r) => r && r.kind !== "none");
-    return { format: f, kind: at >= 0 ? rows[at].kind : "none", url: at >= 0 ? picked[at].url : "" };
-  });
+  const cover = previewCover(picked);
   const missing = cover.filter((r) => r.kind === "none").map((r) => ({ id: r.format.id, label: r.format.label.split(" ")[0] }));
   const missingPlacements = reachPlacements.filter((p) => noPicture(p.aspect)).length;
   const coveredFormats = cover.length - missing.length;

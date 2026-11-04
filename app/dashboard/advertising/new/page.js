@@ -59,11 +59,17 @@ export default async function NewBookingPage({ searchParams }) {
   if (creativeRows?.length) {
     const { data: assetRows } = await service
       .from("creative_assets")
-      .select("creative_id, format_id, aspect, status")
+      .select("creative_id, format_id, aspect, status, storage_path")
       .in("creative_id", creativeRows.map((item) => item.id));
     for (const row of assetRows ?? []) {
       if (!assetsOf.has(row.creative_id)) assetsOf.set(row.creative_id, []);
-      assetsOf.get(row.creative_id).push({ formatId: row.format_id, aspect: Number(row.aspect), status: row.status });
+      assetsOf.get(row.creative_id).push({
+        formatId: row.format_id,
+        aspect: Number(row.aspect),
+        status: row.status,
+        // the picture itself, for the preview of the shape it was made for
+        url: row.storage_path ? service.storage.from("creatives").getPublicUrl(row.storage_path).data.publicUrl : "",
+      });
     }
   }
 
