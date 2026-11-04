@@ -27,10 +27,13 @@ for (const width of [0, 320, 400, 520, 675, 676, 900, 1400, 2000]) {
       const items = autos(n, weights);
       const list = order(items, packSpans(items, width));
       assert.ok(list.every((span) => Number.isInteger(span) && span >= 3), `spans ok (n=${n}, width=${width}): ${list}`);
-      for (const row of rowsOf(list)) {
+      const rows = rowsOf(list);
+      for (const row of rows) {
         assert.equal(row.reduce((a, b) => a + b, 0), COLS, `a row fills the board (n=${n}, width=${width}): ${list}`);
-        assert.ok(row.length >= 2, `never one card on a row (n=${n}, width=${width}): ${list}`);
-        assert.ok(row.length <= (width >= 676 ? 3 : 4), `rows are not crowded (n=${n}, width=${width}): ${list}`);
+        const last = row === rows[rows.length - 1];
+        assert.ok(row.length >= 2 || (last && width < 466), `one card on a row only as the odd one out of a narrow board (n=${n}, width=${width}): ${list}`);
+        assert.ok(row.length <= 3, `rows are not crowded (n=${n}, width=${width}): ${list}`);
+        if (width >= 466) assert.ok(row.every((span) => (span * (width - 11 * 8)) / 12 + (span - 1) * 8 >= 149), `no card under 150 px (n=${n}, width=${width}): ${list}`);
       }
     }
   }
@@ -39,6 +42,9 @@ for (const width of [0, 320, 400, 520, 675, 676, 900, 1400, 2000]) {
 // ---- the usual cases
 assert.deepEqual(order(autos(4), packSpans(autos(4), 500)), [6, 6, 6, 6], "narrow board, 4 cards: two by two");
 assert.deepEqual(order(autos(5), packSpans(autos(5), 500)), [6, 6, 4, 4, 4], "narrow board, 5 cards: 2 and 3, not 2, 2 and 1");
+assert.deepEqual(order(autos(5), packSpans(autos(5), 400)), [6, 6, 6, 6, 12], "a side panel of 400 px: two across, the odd one out alone, never three of 120 px");
+assert.deepEqual(order(autos(3), packSpans(autos(3), 380)), [6, 6, 12]);
+assert.deepEqual(order(autos(3), packSpans(autos(3), 520)), [4, 4, 4], "from 466 px three of 150 px are fine");
 assert.deepEqual(order(autos(5), packSpans(autos(5), 900)), [4, 4, 4, 6, 6], "wide board, 5 cards: 3 and 2");
 assert.deepEqual(order(autos(7), packSpans(autos(7), 900)), [4, 4, 4, 6, 6, 6, 6], "7 cards: 3, 2 and 2, not 3, 3 and 1");
 assert.deepEqual(order(autos(6), packSpans(autos(6), 900)), [4, 4, 4, 4, 4, 4]);
