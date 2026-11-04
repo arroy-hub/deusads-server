@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getMember } from "../../../lib/admin";
+import { markSeen } from "../../../lib/attention-seen";
 
 /** Marks the caller's own unread notifications as read. */
 export async function markAllRead() {
@@ -33,4 +34,11 @@ export async function markRead(id) {
     .is("read_at", null);
   if (error) return { error: "Could not update. Try again." };
   return { ok: true };
+}
+
+/** The caller opened an item of 'Needs action': it leaves the bell and the counter goes down (until it changes). */
+export async function markAttentionSeen(sig) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  return markSeen(me.service, me.user.id, [sig]);
 }

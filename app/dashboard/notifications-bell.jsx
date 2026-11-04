@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { markAllRead, markRead } from "./notifications/actions";
+import { markAllRead, markAttentionSeen, markRead } from "./notifications/actions";
 
 const TABS = [
   { key: "all", label: "All" },
@@ -30,14 +30,17 @@ function ago(date) {
  *
  * It lists only what is unread. Opening a notification (a click anywhere on its row) marks that one as read and it
  * leaves the bell; "Mark all as read" does the same for every notification in the bell and touches nothing else:
- * Recent activity on Home keeps its history, and "Needs action" is not a notification, so it stays until it is done.
+ * Recent activity on Home keeps its history. "Needs action" is a notification too: opening an item (a click anywhere on
+ * its row) shows the person the problem and the item leaves the bell with the counter going down; it returns only when
+ * it changes (lib/attention-seen.js). The Needs attention list on Home is not affected.
  */
-export default function NotificationsBell({ items, unread, attention = [] }) {
+export default function NotificationsBell({ items, unread, attention: attentionAll = [] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("all");
   const [gone, setGone] = useState(() => new Set()); // read in this session, hidden at once, before the server catches up
+  const [goneAction, setGoneAction] = useState(() => new Set()); // 'Needs action' items opened in this session, hidden at once
   const box = useRef(null);
 
   // A fresh list from the server replaces what was hidden by hand.
@@ -78,6 +81,15 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
     if (!event.target.closest?.("a")) router.push(item.link);
   }
 
+  /** A click on an item of 'Needs action': it is seen, so it leaves the bell; the page it points to is opened. */
+  function openAction(item, event) {
+    setGoneAction((previous) => new Set(previous).add(item.sig ?? item.key));
+    markAttentionSeen(item.sig ?? item.key).catch(() => null);
+    setOpen(false);
+    if (!event.target.closest?.("a")) router.push(item.href);
+  }
+
+  const attention = attentionAll.filter((item) => !goneAction.has(item.sig ?? item.key));
   const list = items.filter((item) => !item.read_at && !gone.has(item.id));
   const unreadNow = Math.max(0, unread - (items.length - list.length));
   const count = attention.length + unreadNow;
@@ -135,14 +147,26 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
               </div>
               <ul className="bell-list">
                 {attention.map((item) => (
-                  <li key={item.key} className="bell-item">
+                  <li
+                    key={item.key}
+                    className="bell-item"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => openAction(item, event)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openAction(item, event);
+                      }
+                    }}
+                  >
                     <span className={`bell-icon bell-${item.tone}`} aria-hidden="true">
                       {item.tone === "bad" ? "!" : item.tone === "warn" ? "!" : "i"}
                     </span>
                     <div>
                       <strong>{item.title}</strong>
                       <p>{item.text}</p>
-                      <Link href={item.href} className="bell-action" onClick={() => setOpen(false)}>
+                      <Link href={item.href} className="bell-action">
                         {item.action} →
                       </Link>
                     </div>

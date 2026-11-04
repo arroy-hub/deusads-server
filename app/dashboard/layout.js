@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { userClient, currentUser } from "../../lib/supabase-server";
 import { currentRole, getMember } from "../../lib/admin";
 import { loadAttention } from "../../lib/advertiser-data";
+import { loadSeen, unseen } from "../../lib/attention-seen";
 import { isSchemaOutdated, serviceClient } from "../../lib/api";
 import { registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
@@ -37,7 +38,14 @@ async function Bell({ db, user, role }) {
     user ? db.from("notifications").select("id, text, link, created_at, read_at").is("read_at", null).order("created_at", { ascending: false }).limit(15) : { data: null },
     // An advertiser's bell also lists what needs action (rejected creatives, format gaps, limited campaigns, reports).
     role === "advertiser"
-      ? getMember().then((me) => (me ? loadAttention(me.service, me) : [])).catch(() => [])
+      ? getMember()
+          .then(async (me) => {
+            if (!me) return [];
+            const items = await loadAttention(me.service, me);
+            // Items the person already opened are not shown again (until their signature changes).
+            return unseen(items, await loadSeen(me.service, me.user.id));
+          })
+          .catch(() => [])
       : [],
   ]);
   return <NotificationsBell items={latest?.data ?? []} unread={unread} attention={attention} />;
