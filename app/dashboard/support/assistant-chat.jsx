@@ -3,11 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Face, PenIcon, followFlags, RequestForm, SendIcon, TypeIcon, buildContext, submitSupport } from "./support-ui";
 import { TYPE_LABEL } from "../../../lib/support-rules";
+import { answerToOffer } from "../../../lib/support-bot-rules";
 
-const GREETING_ON = "Hi! I can answer questions about the dashboard. If I can’t help, I’ll pass it to the developer — you can add a screenshot.";
+const GREETING_ON = "Hi! I can answer questions about the dashboard. If I can’t help, I can send your question to the developer — you can add a screenshot.";
 const HELPED = "That helped";
 const NOT_SOLVED = "Not solved — send to developer";
 const SEND = "Send to developer";
+const YES_CHIP = "Yes, send it";
+const NO_CHIP = "No, thanks";
+const NOT_SENT = "Okay, I haven’t sent anything. Ask me something else any time.";
+const ADMIN_UNSURE = "I’m not sure about this one, so I won’t guess. Add or improve a guide article for it in Support → Assistant.";
 const DOWN = "I couldn’t reach the assistant. You can pass your question to the developer.";
 const STARTERS = ["Where is my API key?", "Banners don’t show in game", "How do I pause a campaign?"];
 const GREETING_OFF = "Hi! The assistant isn’t working right now. You can still send your message: a person will reply as soon as it’s their turn in the queue.";
@@ -28,7 +33,7 @@ const uid = () => `m${(counter += 1)}`;
  */
 export default function AssistantChat({ role, mode = "page", assistantOn = false, canHandOver = true, greeting, seed, onSeedUsed, onOpenRequest }) {
   // The hand-over chips only exist when there is someone to hand over to.
-  const offer = (chips) => (canHandOver ? chips : chips.filter((chip) => chip !== SEND && chip !== NOT_SOLVED));
+  const offer = (chips) => (canHandOver ? chips : chips.filter((chip) => chip !== SEND && chip !== NOT_SOLVED && chip !== YES_CHIP && chip !== NO_CHIP));
   const notReady = canHandOver ? NOT_READY : NOT_READY_ADMIN;
   const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : (canHandOver ? GREETING_OFF : GREETING_OFF_ADMIN), actions: !assistantOn && mode === "page" && canHandOver, chips: assistantOn ? STARTERS : undefined }]);
   const [me, setMe] = useState(null); // the person's own card, for their face beside their messages
@@ -61,12 +66,25 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
 
   // The last answer's log id and the reason it was passed on: they travel with "Send to developer".
   const last = useRef({ logId: null, escalation: null });
+  // The assistant offered to send a question to the developer and waits for a yes or a no; `pending` is that question.
+  const offered = useRef(false);
+  const pending = useRef("");
 
   async function ask(question) {
     const q = question.trim();
     if (!q || thinking) return;
     if (q === HELPED) return helped();
     if (q === NOT_SOLVED || q === SEND) return handoff(q === NOT_SOLVED);
+    // An answer to the offer (a chip or typed): yes sends the question, no leaves it. Anything else is a new question.
+    const reply = canHandOver && offered.current ? (q === YES_CHIP ? "yes" : q === NO_CHIP ? "no" : answerToOffer(q)) : null;
+    if (reply) {
+      setText("");
+      offered.current = false;
+      push({ kind: "user", body: q });
+      return reply === "yes" ? handoff(false) : push({ kind: "bot", body: NOT_SENT });
+    }
+    offered.current = false;
+    pending.current = q;
     setText("");
     const history = messages.filter((m) => m.kind === "user" || m.kind === "bot").slice(-8).map((m) => ({ role: m.kind === "user" ? "user" : "assistant", text: m.body }));
     push({ kind: "user", body: q });
@@ -75,6 +93,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
       await new Promise((done) => setTimeout(done, 450));
       setThinking(false);
       last.current = { logId: null, escalation: null };
+      offered.current = canHandOver;
       return push({ kind: "bot", body: notReady, chips: offer([SEND]) });
     }
     let data = null;
@@ -88,13 +107,16 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
     setThinking(false);
     if (!data || data.error) {
       last.current = { logId: null, escalation: null };
+      offered.current = canHandOver;
       return push({ kind: "bot", body: data?.error || DOWN, chips: offer([SEND]) });
     }
     last.current = { logId: data.logId ?? null, escalation: data.escalation ?? null };
     if (data.outcome === "answered") return push({ kind: "bot", body: data.reply, source: data.source, chips: offer([HELPED, NOT_SOLVED]) });
+    offered.current = canHandOver;
     if (data.outcome === "limit") return push({ kind: "bot", body: data.reply, chips: offer([SEND]) });
     if (data.outcome === "off") return push({ kind: "bot", body: notReady, chips: offer([SEND]) });
-    return push({ kind: "bot", body: data.reply, chips: offer([SEND]) });
+    // The assistant is unsure: it offers, it does not send. Nothing reaches the developer until the person says yes.
+    return push({ kind: "bot", body: canHandOver ? data.reply : ADMIN_UNSURE, chips: offer([YES_CHIP, NO_CHIP]) });
   }
 
   async function rate(rating) {
@@ -109,7 +131,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
   }
 
   async function handoff(notSolved = false) {
-    const question = lastQuestion();
+    const question = pending.current || lastQuestion();
     if (!question || busy) return;
     if (notSolved) rate("down");
     setBusy(true);
@@ -119,6 +141,7 @@ export default function AssistantChat({ role, mode = "page", assistantOn = false
     );
     setBusy(false);
     if (result.error) return push({ kind: "bot", body: result.error });
+    offered.current = false;
     push({ kind: "sys", body: "Sent to the developer", requestId: result.id, number: result.number, type: "question" });
   }
 
@@ -184,7 +207,7 @@ function ChatMessage({ m, me, follow, onChip, onOpen, onAction }) {
         {follow ? <span className="sp-who sp-gap" aria-hidden="true" /> : <Face card={mine ? me : null} mark={mine ? "You" : "D"} />}
         <div>
           <div className="sp-bub"><span className="sp-text">{m.body}</span>{m.source && <span className="sp-source">{m.source}</span>}{m.shots?.map((url) => /* eslint-disable-next-line @next/next/no-img-element */ <img key={url} className="sp-shot" src={url} alt="Screenshot" />)}</div>
-          {m.chips?.length > 0 && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
+          {m.chips?.length > 0 && <div className="sp-chips">{m.chips.map((chip) => <button key={chip} type="button" className={`sp-chip${chip === SEND || chip === NOT_SOLVED || chip === YES_CHIP ? " is-go" : ""}`} onClick={() => onChip(chip)}>{chip}</button>)}</div>}
         </div>
       </div>
       {m.actions && (

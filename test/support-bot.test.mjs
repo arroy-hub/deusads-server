@@ -1,7 +1,7 @@
 // The rules of the assistant. Run: node test/support-bot.test.mjs
 import assert from "node:assert/strict";
 import {
-  DEFAULT_SETTINGS, REASON, buildMessages, buildSystemPrompt, cleanArticle, cleanSettings, dayStart, decide, finishAnswer,
+  DEFAULT_SETTINGS, REASON, answerToOffer, buildMessages, buildSystemPrompt, cleanArticle, cleanSettings, dayStart, decide, finishAnswer,
   gapList, guideText, lowConfidence, mustGoToPerson, overBudget, parseAnswer, percent, pickArticles, PICK_LIMIT, sourceLine,
 } from "../lib/support-bot-rules.js";
 import { assistantRateProblem } from "../lib/support-rules.js";
@@ -21,6 +21,20 @@ assert.equal(cleanSettings({ maxday: 1 }).maxday, 5);
 assert.equal(cleanSettings({ always: { money: false } }).always.money, false);
 assert.equal(cleanSettings({ always: { money: false } }).always.legal, true);
 assert.equal(cleanSettings({ greet: "  " }).greet, DEFAULT_SETTINGS.greet);
+// the assistant offers to send a question on, it never claims to have sent it
+assert.ok(!/passed it|I’ve passed|I've passed/.test(DEFAULT_SETTINGS.hand));
+assert.ok(/send your question to the developer/.test(DEFAULT_SETTINGS.hand));
+assert.equal(cleanSettings({ hand: "I’m not sure about this one, so I won’t guess. I’ve passed it to the developer together with the page you’re on — you’ll get a bell notification when there is a reply." }).hand, DEFAULT_SETTINGS.hand);
+assert.equal(cleanSettings({ hand: "Let me ask a human." }).hand, "Let me ask a human.");
+assert.equal(answerToOffer("yes"), "yes");
+assert.equal(answerToOffer(" Yes! "), "yes");
+assert.equal(answerToOffer("да"), "yes");
+assert.equal(answerToOffer("Yes, send it"), "yes");
+assert.equal(answerToOffer("no thanks"), "no");
+assert.equal(answerToOffer("нет"), "no");
+assert.equal(answerToOffer("yes but how do I pause a campaign?"), null);
+assert.equal(answerToOffer("How do I pause a campaign?"), null);
+assert.equal(answerToOffer(""), null);
 
 // guide article validation
 assert.ok(cleanArticle({ title: "", answer: "x" }).error);

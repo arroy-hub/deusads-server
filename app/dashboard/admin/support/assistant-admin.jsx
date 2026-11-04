@@ -174,7 +174,7 @@ export default function AssistantAdmin() {
               <Row title="Account deletion and legal" hint="Anything the guide must not decide"><Switch on={settings.always.legal} onChange={(v) => setAlways("legal", v)} label="Account deletion and legal" /></Row>
               <Row title="Upset messages" hint="Angry or very negative tone"><Switch on={settings.always.angry} onChange={(v) => setAlways("angry", v)} label="Upset messages" /></Row>
               <Row title="“I want a human”" hint="As soon as the user asks for you"><Switch on={settings.always.human} onChange={(v) => setAlways("human", v)} label="I want a human" /></Row>
-              <div className="sb-row is-col"><div><b>Message to the user when it passes the question</b></div><textarea className="field" rows={3} maxLength={400} value={settings.hand} onChange={(e) => set({ hand: e.target.value })} aria-label="Message when passing a question" /></div>
+              <div className="sb-row is-col"><div><b>Message when it cannot answer (it offers to send the question to the developer)</b></div><textarea className="field" rows={3} maxLength={400} value={settings.hand} onChange={(e) => set({ hand: e.target.value })} aria-label="Message when passing a question" /></div>
             </div>
             <div className="sb-wd">
               <h2>Limits</h2><small>Stops one person from using up the assistant</small>
