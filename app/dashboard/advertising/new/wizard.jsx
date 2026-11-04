@@ -10,7 +10,7 @@ import CreativeEditor from "../../creatives/[id]/creative-editor";
 import CampaignCard from "../c/[campaignId]/settings/campaign-card";
 import CategoryIcon from "../category-icon";
 import { FORMATS, coverageByFormat, pickImage } from "../../../../lib/formats";
-import { creativeToComplete, previewCover } from "../../../../lib/wizard-preview";
+import { completionOptions, creativeMark, creativeToComplete, previewCover } from "../../../../lib/wizard-preview";
 import { AD_CATEGORIES } from "../../../../lib/categories";
 import { COVERS, COVER_MAX_BYTES } from "../../../../lib/game-cover";
 import { cropToStrip } from "../../../../lib/cover-image";
@@ -118,6 +118,19 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [editor, setEditor] = useState(null); // { data, tab } while the creative editor is open
+  const [shapeMenu, setShapeMenu] = useState(null); // { id, left, top }: the menu of a shape that has no picture
+  const lookPanel = useRef(null);
+  const shapeMenuBox = useRef(null);
+  const shapeTrigger = useRef(null);
+  useEffect(() => {
+    if (!shapeMenu) return undefined;
+    shapeMenuBox.current?.querySelector("button")?.focus();
+    const away = (event) => { if (!event.target.closest?.(".nwc-smenu, .nwc-addpic" )) setShapeMenu(null); };
+    const escape = (event) => { if (event.key === "Escape") { setShapeMenu(null); shapeTrigger.current?.focus(); } };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", escape); };
+  }, [shapeMenu]);
 
   // The header of the campaign card: a colour, or a picture that is stored once the campaign exists.
   const savedColour = start?.cover?.colourId ?? "";
@@ -204,10 +217,10 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   }
 
   /** The creative editor opens over the wizard (on the Audience tab when asked); the wizard stays as it is. */
-  async function openEditor(tab = "picture", shape = null) {
-    // A missing shape is added to the creative that is closest to covering them all (the preview counts the creatives together,
-    // so the first one picked may be the one that lacks the most); otherwise the first picked creative.
-    const target = shape && picked.length > 1 ? creativeToComplete(picked) : chosen;
+  async function openEditor(tab = "picture", shape = null, creativeId = null) {
+    // The creative asked for (the menu of a missing shape); else the one closest to covering all shapes when there is a shape
+    // (the preview counts the creatives together, so the first one picked may lack the most); else the first picked creative.
+    const target = (creativeId && picked.find((c) => c.id === creativeId)) || (shape && picked.length > 1 ? creativeToComplete(picked) : chosen);
     if (!target || busy) return;
     setBusy(true); setError("");
     const r = await openCreativeEditor({ creativeId: target.id }).catch(() => ({ error: "Connection lost. Try again." }));
@@ -467,20 +480,51 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                 <div className="nwc-fact"><span className="nwc-eb">Placements</span><div className="nwc-num">{audiencePlacements}<small>today</small></div><p>of {games.length} registered games; grows as games join</p></div>
                 <div className="nwc-fact"><span className="nwc-eb">Schedule</span><div className="nwc-num">{lengthDays != null ? lengthDays : "∞"}<small>{lengthDays != null ? (lengthDays === 1 ? "day" : "days") : "until stopped"}</small></div><p>{startsOn ? `Starts ${fmtDay(startsOn)}` : "Starts when approved"}{endsOn ? ` · ends ${fmtDay(endsOn)}` : ""}</p></div>
               </div>
-              <section className="nwc-panel">
+              <section className="nwc-panel is-look" ref={lookPanel}>
                 <div className="nwc-bh"><span className="nwc-eb">How it will look</span><span>Your image in each placement shape · {coveredFormats} of {FORMATS.length} covered</span></div>
                 <div className="nwc-lgrid">
-                  {cover.map((row) => (
-                    <div key={row.format.id} className="nwc-lt">
-                      <span className="nwc-lbox">
-                        {row.kind === "none"
-                          ? <span className="nwc-look is-none" style={{ "--a": row.format.aspect }}><button type="button" className="nwc-addpic" disabled={busy} aria-label={`Add a picture for the ${row.format.label}`} title="Add a picture for this shape" onClick={() => openEditor("picture", row.format.id)}><IcPlus size={16} /></button></span>
-                          : <span className="nwc-look" style={{ "--a": row.format.aspect, backgroundImage: row.url ? `url("${row.url}")` : undefined }} />}
-                      </span>
-                      <b>{row.format.label.split(" ")[0]}</b>
-                    </div>
-                  ))}
+                  {cover.map((row) => {
+                    const mark = row.by ? creativeMark(picked, row.by) : null;
+                    const by = row.by ? picked.find((c) => c.id === row.by) : null;
+                    return (
+                      <div key={row.format.id} className="nwc-lt">
+                        <span className="nwc-lbox">
+                          {row.kind === "none"
+                            ? <span className="nwc-look is-none" style={{ "--a": row.format.aspect }}><button type="button" className="nwc-addpic" disabled={busy} aria-haspopup="menu" aria-expanded={shapeMenu?.id === row.format.id} aria-label={`Add a picture for the ${row.format.label}`} title="Add a picture for this shape" onClick={(event) => {
+                                if (shapeMenu?.id === row.format.id) return setShapeMenu(null);
+                                const at = event.currentTarget.getBoundingClientRect();
+                                const box = lookPanel.current?.getBoundingClientRect();
+                                shapeTrigger.current = event.currentTarget;
+                                setShapeMenu({ id: row.format.id, left: box ? Math.max(0, Math.min(at.left - box.left, box.width - 288)) : 0, top: box ? at.bottom - box.top + 4 : 0 });
+                              }}><IcPlus size={16} /></button></span>
+                            : <span className="nwc-look" style={{ "--a": row.format.aspect, backgroundImage: row.url ? `url("${row.url}")` : undefined }} />}
+                          {mark && <span className="nwc-lnum" title={`Creative ${mark.text}: ${by?.name ?? ""}`}>{mark.text}</span>}
+                        </span>
+                        <b>{row.format.label.split(" ")[0]}</b>
+                      </div>
+                    );
+                  })}
                 </div>
+                {picked.length > 1 && (
+                  <ol className="nwc-llegend" aria-label="The creatives of this campaign">
+                    {picked.map((c, index) => <li key={c.id}><b>{index + 1}</b><span title={c.name}>{c.name}</span></li>)}
+                  </ol>
+                )}
+                {shapeMenu && (
+                  <div className="nwc-smenu" role="menu" ref={shapeMenuBox} aria-label={`Add a picture for the ${FORMATS.find((f) => f.id === shapeMenu.id)?.label ?? ""}`} style={{ left: shapeMenu.left, top: shapeMenu.top }}>
+                    <div className="nwc-smenu-h">{`Add a picture for ${FORMATS.find((f) => f.id === shapeMenu.id)?.label ?? "this shape"}`}</div>
+                    {completionOptions(picked).map((o) => (
+                      <button key={o.id} type="button" role="menuitem" onClick={() => { const shape = shapeMenu.id; setShapeMenu(null); openEditor("picture", shape, o.id); }}>
+                        <b>{`Add it to “${o.name}”`}</b>
+                        <span>{`${picked.length > 1 ? `Creative ${o.number} of ${picked.length} · ` : ""}covers ${o.covered} of ${o.total} shapes`}</span>
+                      </button>
+                    ))}
+                    <button type="button" role="menuitem" className="is-new" onClick={() => { setShapeMenu(null); setUploading(true); }}>
+                      <b>Upload a new creative</b>
+                      <span>It joins this campaign next to the ones picked</span>
+                    </button>
+                  </div>
+                )}
               </section>
               <section className="nwc-ready">
                 <div className="nwc-bh"><span className="nwc-eb">Ready to start</span></div>

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { creativeToComplete, previewCover, shapesCovered } from "../lib/wizard-preview.js";
+import { completionOptions, creativeMark, creativeToComplete, previewCover, shapesCovered } from "../lib/wizard-preview.js";
 
 // the case from the wizard: a tall sample with one picture of its own for 3:1, and a 16:9 picture
 const night = {
@@ -44,5 +44,28 @@ assert.equal(creativeToComplete([night, shipping]).id, "night", "and on a tie th
 assert.equal(creativeToComplete([night]).id, "night");
 assert.equal(creativeToComplete([]), null);
 assert.equal(creativeToComplete([shipping, { ...shipping, id: "other" }]).id, "ship", "equal: the first");
+
+// ---- the mark over a picture: which of the creatives it belongs to
+const three = [night, shipping, { ...shipping, id: "third" }];
+assert.deepEqual(creativeMark(three, "ship"), { number: 2, total: 3, text: "2 of 3" });
+assert.equal(creativeMark(three, "third").text, "3 of 3");
+assert.equal(creativeMark([night], "night"), null, "a single creative needs no mark");
+assert.equal(creativeMark(three, "gone"), null, "an unknown creative has none");
+// every tile that shows a picture can be marked with the creative that shows it
+for (const r of previewCover([night, shipping])) {
+  if (r.kind === "none") assert.equal(r.by, null);
+  else assert.ok(creativeMark([night, shipping], r.by), `${r.format.id}: marked`);
+}
+
+// ---- the menu of a shape without a picture: the creatives it can be added to, the fullest first
+const bare2 = { ...night, assets: [] };
+const options = completionOptions([bare2, shipping]);
+assert.deepEqual(options.map((o) => o.id), ["ship", "night"], "the creative that covers most shapes comes first");
+assert.deepEqual(options.map((o) => o.number), [2, 1], "and keeps the number it has among the picked");
+assert.equal(options[0].total, 7);
+assert.equal(options[0].covered, shapesCovered(shipping));
+assert.deepEqual(completionOptions([night, shipping]).map((o) => o.id), ["night", "ship"], "equal: in the order picked");
+assert.deepEqual(completionOptions([night]).map((o) => o.id), ["night"], "one creative: one option");
+assert.deepEqual(completionOptions([]), []);
 
 console.log("wizard-preview tests passed");
