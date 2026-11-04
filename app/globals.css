@@ -9857,6 +9857,10 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .nwc-clink:disabled { cursor: default; opacity: .6; }
 .nwc-clink .nwc-cname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nwc-clink small { flex: none; font-size: 11.5px; color: var(--ink-3, #8c7f73); }
-.nwc-clink .nwc-cgo { flex: none; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--signal-ink, #b8421d); }
 .nwc-clink:hover:not(:disabled) .nwc-cname, .nwc-clink:focus-visible .nwc-cname { text-decoration: underline; text-underline-offset: 2px; }
 .nwc-clink:focus-visible { outline: 2px solid var(--signal-ink, #b8421d); outline-offset: 2px; border-radius: 4px; }
+.nwc-lnav { display: inline-flex; align-items: center; gap: 1px; }
+.nwc-lstep { display: grid; place-items: center; width: 16px; height: 16px; padding: 0 0 1px; border: 0; border-radius: 4px; background: none; color: var(--ink-2); font-size: 14px; line-height: 1; cursor: pointer; }
+.nwc-lstep:hover:not(:disabled), .nwc-lstep:focus-visible { background: var(--surface); color: var(--ink, #241d19); outline: none; }
+.nwc-lstep:focus-visible { box-shadow: inset 0 0 0 1.5px var(--signal-ink, #b8421d); }
+.nwc-lstep:disabled { opacity: .3; cursor: default; }

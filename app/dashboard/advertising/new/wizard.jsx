@@ -10,7 +10,7 @@ import CreativeEditor from "../../creatives/[id]/creative-editor";
 import CampaignCard from "../c/[campaignId]/settings/campaign-card";
 import CategoryIcon from "../category-icon";
 import { FORMATS, coverageByFormat, pickImage } from "../../../../lib/formats";
-import { completionOptions, creativeMark, creativeToComplete, previewCover, shapesCovered } from "../../../../lib/wizard-preview";
+import { completionOptions, creativeToComplete, previewCover, shapesCovered, showing, stepShowing } from "../../../../lib/wizard-preview";
 import { AD_CATEGORIES } from "../../../../lib/categories";
 import { COVERS, COVER_MAX_BYTES } from "../../../../lib/game-cover";
 import { cropToStrip } from "../../../../lib/cover-image";
@@ -118,6 +118,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [editor, setEditor] = useState(null); // { data, tab } while the creative editor is open
+  const [paged, setPaged] = useState({}); // shape id -> the creative whose picture the tile was paged to
   const [shapeMenu, setShapeMenu] = useState(null); // { id, left, top }: the menu of a shape that has no picture
   const lookPanel = useRef(null);
   const shapeMenuBox = useRef(null);
@@ -484,8 +485,9 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                 <div className="nwc-bh"><span className="nwc-eb">How it will look</span><span>Your image in each placement shape · {coveredFormats} of {FORMATS.length} covered</span></div>
                 <div className="nwc-lgrid">
                   {cover.map((row) => {
-                    const mark = row.by ? creativeMark(picked, row.by) : null;
-                    const by = row.by ? picked.find((c) => c.id === row.by) : null;
+                    const view = showing(row, paged[row.format.id]);
+                    const by = view ? picked.find((c) => c.id === view.by) : null;
+                    const step = (direction) => setPaged((previous) => ({ ...previous, [row.format.id]: stepShowing(row, view.by, direction) }));
                     return (
                       <div key={row.format.id} className="nwc-lt">
                         <span className="nwc-lbox">
@@ -497,10 +499,16 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                                 shapeTrigger.current = event.currentTarget;
                                 setShapeMenu({ id: row.format.id, left: box ? Math.max(0, Math.min(at.left - box.left, box.width - 288)) : 0, top: box ? at.bottom - box.top + 4 : 0 });
                               }}><IcPlus size={16} /></button></span>
-                            : <span className="nwc-look" style={{ "--a": row.format.aspect, backgroundImage: row.url ? `url("${row.url}")` : undefined }} />}
+                            : <span className="nwc-look" style={{ "--a": row.format.aspect, backgroundImage: view?.url ? `url("${view.url}")` : undefined }} />}
                                                   </span>
                         <b>{row.format.label.split(" ")[0]}</b>
-                        {mark && <span className="nwc-lnum" title={`Creative ${mark.text}: ${by?.name ?? ""}`}>{mark.text}</span>}
+                        {view && picked.length > 1 && (
+                          <span className="nwc-lnav">
+                            <button type="button" className="nwc-lstep" disabled={view.total < 2} aria-label={`Show the previous creative in the ${row.format.label}`} onClick={() => step(-1)}>{"‹"}</button>
+                            <span className="nwc-lnum" title={by?.name ?? ""} aria-live="polite">{view.position}/{view.total}</span>
+                            <button type="button" className="nwc-lstep" disabled={view.total < 2} aria-label={`Show the next creative in the ${row.format.label}`} onClick={() => step(1)}>{"›"}</button>
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -529,7 +537,6 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                       <button type="button" className="nwc-clink" disabled={busy} title={`Open ${c.name} to work with its shapes`} onClick={() => openEditor("picture", null, c.id)}>
                         <span className="nwc-cname">{c.name}</span>
                         <small>{`${shapesCovered(c)} of ${FORMATS.length} shapes`}</small>
-                        <span className="nwc-cgo">Edit shapes</span>
                       </button>
                     </li>
                   ))}
@@ -540,7 +547,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                 <ul className="nwc-chk">
                   <li><span className={`nwc-tk ${inReview.length === 0 ? "" : "is-wait"}`}>{inReview.length === 0 ? "✓" : "!"}</span><span>{picked.length === 1 ? <>Creative <b>{chosen?.name}</b> {inReview.length === 0 ? "is approved." : "is in review. Ads start when it is approved."}</> : inReview.length === 0 ? <><b>{picked.length} creatives</b> are approved.</> : <><b>{inReview.length} of {picked.length} creatives</b> are in review. They start when approved.</>}</span></li>
                   <li><span className={`nwc-tk ${audienceGames.length > 0 ? "" : "is-wait"}`}>{audienceGames.length > 0 ? "✓" : "!"}</span><span>{audienceGames.length > 0 ? <><b>{audienceGames.length} of {games.length} games</b> fit today; new ones are added automatically.</> : "No game fits yet. The campaign waits and starts showing by itself when one does."}</span></li>
-                  {missing.length > 0 && <li><span className="nwc-tk is-wait">!</span><span>{missing.length === 1 ? "One shape has" : `${missing.length} shapes have`} no picture.{missingPlacements > 0 ? ` The ad will not show in ${missingPlacements} of ${reachPlacements.length} placements today.` : " Placements of those shapes will not show it."}<span className="nwc-gaps">{missing.map((m) => <button key={m.id} type="button" className="nwc-gap" disabled={busy} title={`Add a picture for ${m.label}`} onClick={() => openEditor("picture", m.id)}><IcPlus size={12} />{m.label}</button>)}</span></span></li>}
+                  {missing.length > 0 && <li><span className="nwc-tk is-wait">!</span><span>{missing.length === 1 ? "One shape has" : `${missing.length} shapes have`} no picture ({missing.map((m) => m.label).join(", ")}).{missingPlacements > 0 ? ` The ad will not show in ${missingPlacements} of ${reachPlacements.length} placements today.` : " Placements of those shapes will not show it."}</span></li>}
                   <li><span className="nwc-tk">✓</span><span>{startsOn ? `Starts ${fmtDay(startsOn)}` : "Starts when the creative is approved"}, {endsOn ? `runs until ${fmtDay(endsOn)}.` : "runs until you stop it."}</span></li>
                 </ul>
               </section>

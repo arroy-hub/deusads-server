@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { completionOptions, creativeMark, creativeToComplete, previewCover, shapesCovered } from "../lib/wizard-preview.js";
+import { completionOptions, creativeToComplete, previewCover, shapesCovered, showing, stepShowing } from "../lib/wizard-preview.js";
 
 // the case from the wizard: a tall sample with one picture of its own for 3:1, and a 16:9 picture
 const night = {
@@ -45,17 +45,39 @@ assert.equal(creativeToComplete([night]).id, "night");
 assert.equal(creativeToComplete([]), null);
 assert.equal(creativeToComplete([shipping, { ...shipping, id: "other" }]).id, "ship", "equal: the first");
 
-// ---- the mark over a picture: which of the creatives it belongs to
+// ---- paging through the creatives of a tile
 const three = [night, shipping, { ...shipping, id: "third" }];
-assert.deepEqual(creativeMark(three, "ship"), { number: 2, total: 3, text: "2/3" });
-assert.equal(creativeMark(three, "third").text, "3/3");
-assert.equal(creativeMark([night], "night"), null, "a single creative needs no mark");
-assert.equal(creativeMark(three, "gone"), null, "an unknown creative has none");
-// every tile that shows a picture can be marked with the creative that shows it
-for (const r of previewCover([night, shipping])) {
-  if (r.kind === "none") assert.equal(r.by, null);
-  else assert.ok(creativeMark([night, shipping], r.by), `${r.format.id}: marked`);
+const pageCover = previewCover(three);
+for (const r of pageCover) {
+  if (r.kind === "none") { assert.deepEqual(r.shows, []); assert.equal(showing(r), null); assert.equal(stepShowing(r, null, 1), null); continue; }
+  assert.equal(showing(r).by, r.by, `${r.format.id}: the default is what the tile shows first`);
+  assert.equal(showing(r).total, r.shows.length);
+  assert.ok(r.shows.every((s) => s.kind !== "none" && three.some((c) => c.id === s.id)), `${r.format.id}: only creatives that cover the shape`);
+  // going round: after `total` steps forward (or back) we are where we started, having seen each creative once
+  for (const direction of [1, -1]) {
+    let id = r.by;
+    const seen = new Set();
+    for (let i = 0; i < r.shows.length; i++) { seen.add(id); id = stepShowing(r, id, direction); }
+    assert.equal(id, r.by, `${r.format.id}: a full round comes back`);
+    assert.equal(seen.size, r.shows.length, `${r.format.id}: every creative once`);
+  }
 }
+const wide = pageCover.find((r) => r.format.id === "r16x9");
+assert.deepEqual(wide.shows.map((s) => s.id), ["ship", "third"], "16:9 is covered by the two 16:9 creatives, in the order picked");
+assert.equal(stepShowing(wide, "ship", 1), "third");
+assert.equal(stepShowing(wide, "third", 1), "ship", "round the end");
+assert.equal(stepShowing(wide, "ship", -1), "third", "and back round the start");
+assert.equal(showing(wide, "third").position, 2);
+assert.equal(showing(wide, "gone").by, wide.by, "an unknown creative: the default");
+const banner = pageCover.find((r) => r.format.id === "r3x1");
+assert.equal(banner.shows[0].id, "night", "the own 3:1 picture comes with its creative");
+assert.equal(banner.shows[0].url, "https://x/my-banner.png");
+assert.equal(banner.by, "night", "and is shown first, before an automatic crop");
+// a shape only one creative covers cannot be paged
+const only = previewCover([night]).find((r) => r.format.id === "r3x1");
+assert.equal(only.shows.length, 1);
+assert.equal(stepShowing(only, "night", 1), "night");
+assert.equal(showing(only).total, 1);
 
 // ---- the menu of a shape without a picture: the creatives it can be added to, the fullest first
 const bare2 = { ...night, assets: [] };
