@@ -145,7 +145,7 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
     }
     if (status === "approved") {
       outcome.approved += 1;
-      goingLive.push({ developerId: booking.developer_id, gameId: gameOf.get(booking.placement_id) ?? null });
+      goingLive.push({ developerId: booking.developer_id, gameId: gameOf.get(booking.placement_id) ?? null, campaignId: campaign.id });
     } else if (status === "rejected" || status === "cancelled") outcome.rejected += 1;
     else outcome.waiting += 1;
   }

@@ -44,7 +44,7 @@ const TABS = [
 export default async function GamePage({ params, searchParams }) {
   const { gameId } = await params;
   const query = await searchParams;
-  const { tab: requested, placement: focusParam } = query;
+  const { tab: requested, placement: focusParam, campaign: focusCampaign } = query;
   const tab = TABS.some(([key]) => key === requested) ? requested : "placements";
   const db = await userClient();
 
@@ -173,7 +173,7 @@ export default async function GamePage({ params, searchParams }) {
         </p>
       )}
 
-      {tab === "campaigns" && campaigns?.days && <CampaignsTab gameId={game.id} model={campaigns} />}
+      {tab === "campaigns" && campaigns?.days && <CampaignsTab gameId={game.id} model={campaigns} focusCampaign={typeof focusCampaign === "string" ? focusCampaign : null} />}
       {tab === "campaigns" && campaigns?.error === "migration" && (
         <p className="notice">
           Run <code>supabase/migrations/0023_game_ad_controls.sql</code> in the Supabase SQL editor to turn the Campaigns tab on.

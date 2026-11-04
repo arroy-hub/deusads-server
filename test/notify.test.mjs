@@ -79,5 +79,8 @@ assert.equal(db.inserted.length, 0);
   assert.equal(many.find((n) => n.accountId === "d2").link, "/dashboard/g/g3?tab=campaigns");
   assert.equal(liveNotices([{ developerId: "d1", gameId: null }])[0].link, "/dashboard/games", "unknown game: the list");
   assert.deepEqual(liveNotices([]), []);
+  assert.equal(gameCampaignsLink("g1", "c1"), "/dashboard/g/g1?tab=campaigns&campaign=c1");
+  assert.equal(liveNotices([{ developerId: "d1", gameId: "g1", campaignId: "c1" }, { developerId: "d1", gameId: "g1", campaignId: "c1" }])[0].link, "/dashboard/g/g1?tab=campaigns&campaign=c1", "opens the campaign that was added");
+  assert.equal(liveNotices([{ developerId: "d1", gameId: "g1", campaignId: "c1" }, { developerId: "d1", gameId: "g1", campaignId: "c2" }])[0].link, "/dashboard/g/g1?tab=campaigns", "two campaigns: the tab, not one of them");
 }
 console.log("notify: all checks passed");

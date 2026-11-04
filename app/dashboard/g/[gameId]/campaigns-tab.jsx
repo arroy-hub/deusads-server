@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AD_CATEGORIES, categoryLabel } from "../../../../lib/categories";
 import { iconStyle } from "../../../../lib/category-icons";
 import { blockedCategories, campaignState, controlMap, planChange } from "../../../../lib/game-controls";
@@ -78,7 +78,7 @@ const csvCell = (value) => {
 
 const colorOfName = (name) => AVATARS[name.split("").reduce((n, ch) => n + ch.charCodeAt(0), 0) % AVATARS.length];
 
-export default function CampaignsTab({ gameId, model }) {
+export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const { days } = model;
   const [controls, setControls] = useState(model.controls);
   const [categoryRows, setCategoryRows] = useState(model.categoryRows);
@@ -132,13 +132,30 @@ export default function CampaignsTab({ gameId, model }) {
   }, [model.campaigns, ctx, period, cleared]);
 
   const anyNew = (campaign) => campaign.isNew || campaign.creatives.some((creative) => creative.isNew);
+
+  // What was new when the tab opened keeps its place at the top while the tab stays open. Opening a campaign clears its
+  // "New" tag; without this the list re-sorted under the click and the campaign jumped to the bottom.
+  const lead = useRef(new Set());
+  for (const campaign of model.campaigns) {
+    if (campaign.isNew || campaign.creatives.some((creative) => creative.isNew)) lead.current.add(campaign.id);
+  }
+  const staysFirst = (campaign) => anyNew(campaign) || lead.current.has(campaign.id);
   const byId = useMemo(() => new Map(campaigns.map((campaign) => [campaign.id, campaign])), [campaigns]);
+
+  // Coming from a notification (?campaign=): that campaign opens, is highlighted and scrolled into view. Its "New" tag stays
+  // until the developer touches the row, so they can see what is new.
+  useEffect(() => {
+    if (!focusCampaign || !byId.has(focusCampaign)) return;
+    setOpen((previous) => ({ ...previous, [focusCampaign]: true }));
+    setFlash(focusCampaign);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusCampaign]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = campaigns.filter((campaign) => {
       const key = campaign.state.key;
-      if (status === "new" && !anyNew(campaign)) return false;
+      if (status === "new" && !staysFirst(campaign)) return false;
       if (status === "active" && key !== "active") return false;
       if (status === "paused" && key !== "paused" && key !== "advpaused") return false;
       if (status === "blocked" && !isBlocked(key)) return false;
@@ -155,7 +172,7 @@ export default function CampaignsTab({ gameId, model }) {
       if (sort === "adv") return a.advertiser.localeCompare(b.advertiser);
       if (sort === "advdesc") return b.advertiser.localeCompare(a.advertiser);
       if (sort === "old") return a.startedAt - b.startedAt;
-      return (anyNew(b) ? 1 : 0) - (anyNew(a) ? 1 : 0) || b.startedAt - a.startedAt;
+      return (staysFirst(b) ? 1 : 0) - (staysFirst(a) ? 1 : 0) || b.startedAt - a.startedAt;
     });
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,7 +335,7 @@ export default function CampaignsTab({ gameId, model }) {
   function toggleOpen(campaign) {
     const opening = !open[campaign.id];
     setOpen({ ...open, [campaign.id]: opening });
-    if (opening && anyNew(campaign)) {
+    if (anyNew(campaign)) {
       const ids = campaign.creatives.filter((creative) => creative.isNew).map((creative) => creative.id);
       setCleared((previous) => ({ ...previous, [campaign.id]: true, ...Object.fromEntries(ids.map((id) => [id, true])) }));
       markSeen({ gameId, campaignId: campaign.id, creativeIds: campaign.creatives.map((creative) => creative.id) }).catch(() => {});
@@ -507,7 +524,7 @@ export default function CampaignsTab({ gameId, model }) {
               {shown.map((campaign) => {
                 const key = campaign.state.key;
                 const isOpen = Boolean(open[campaign.id]);
-                const tag = campaign.creatives.some((creative) => creative.isNew) ? "New creative" : campaign.isNew ? "New" : "";
+                const tag = campaign.isNew ? "New campaign" : campaign.creatives.some((creative) => creative.isNew) ? "New creative" : "";
                 const [pillClass, pillText] = PILL[key];
                 const stopped = key === "paused" || key === "advpaused" || isBlocked(key);
                 const chart = isOpen && campaign.totals.views > 0 ? buildChart(campaign.creatives, days, { period, mode: chartMode, pick }) : null;

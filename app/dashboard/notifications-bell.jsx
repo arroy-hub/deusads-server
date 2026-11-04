@@ -125,6 +125,7 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
             </div>
           )}
 
+          <div className="bell-body">
           {empty && <p className="bell-empty">Nothing new. Decisions on your creatives and bookings show up here.</p>}
 
           {showAction && attention.length > 0 && (
@@ -184,6 +185,7 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
               </ul>
             </>
           )}
+          </div>
         </div>
       )}
     </div>
