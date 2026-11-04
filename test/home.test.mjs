@@ -33,7 +33,7 @@ assert.equal(strips[1].tone, "sched");
 assert.equal(strips[1].icon, "clock");
 assert.equal(strips[1].primary, false);
 
-// a developer's strips: quiet games first, new campaigns near today
+// a developer's strips: quiet games first, then what is new in a game's campaigns
 const now = Date.parse("2026-10-28T12:00:00Z");
 const dev = developerStrips({
   now,
@@ -42,16 +42,18 @@ const dev = developerStrips({
     { id: "b", name: "Beta", placements: 0, quietDays: null },
     { id: "c", name: "Gamma", placements: 4, quietDays: 2 },
   ],
-  campaigns: [
-    { id: "1", gameId: "c", game: "Gamma", advertiser: "Acme", campaign: "Sale", startsOn: "2026-10-28" },
-    { id: "2", gameId: "c", game: "Gamma", advertiser: "Acme", campaign: "Old", startsOn: "2026-09-01" },
-    { id: "3", gameId: "c", game: "Gamma", advertiser: "Acme", campaign: "Soon", startsOn: "2026-10-30" },
+  fresh: [
+    { gameId: "c", game: "Gamma", campaigns: 2, creatives: 1 },
+    { gameId: "a", game: "Alpha", campaigns: 0, creatives: 2 },
+    { gameId: "z", game: "Zeta", campaigns: 0, creatives: 0 },
   ],
 });
-assert.deepEqual(dev.map((item) => item.key), ["quiet:a", "empty:b", "campaign:1", "campaign:3"]);
+assert.deepEqual(dev.map((item) => item.key), ["quiet:a", "empty:b", "new:c", "new:a"]);
 assert.match(dev[0].text, /No signal from the SDK for 9 days · its 3 placements are not updating/);
-assert.match(dev[2].text, /started today/);
-assert.match(dev[3].text, /starts in 2 days/);
+assert.equal(dev[2].title, "2 new campaigns and 1 new creative in Gamma");
+assert.equal(dev[2].href, "/dashboard/g/c?tab=campaigns");
+assert.equal(dev[3].title, "2 new creatives in Alpha");
+assert.match(dev[3].text, /already running/);
 assert.deepEqual(developerStrips({ games: [{ id: "d", name: "D", placements: 1, quietDays: 1 }], now }), []);
 
 // when a notification happened

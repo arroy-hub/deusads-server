@@ -360,6 +360,11 @@ export default function GameCard({ game }) {
   return (
     <article className="gm-card">
       <div className="gm-cover" style={{ background: game.coverCss }} />
+      {game.news > 0 && (
+        <Link href={`/dashboard/g/${game.id}?tab=campaigns`} className="cp-count gm-new" title={`${plural(game.news, "campaign")} with something new`} aria-label={`${plural(game.news, "campaign")} with something new in ${game.name}`}>
+          {game.news}
+        </Link>
+      )}
       <div className="gm-menu" ref={box}>
         <button type="button" className="gm-dots" aria-label="Game actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((value) => !value)}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

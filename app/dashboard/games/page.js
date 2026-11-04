@@ -1,11 +1,9 @@
 import Link from "next/link";
 import WindowTop, { PlateIcon } from "../window-top";
-import { userClient, currentUser } from "../../../lib/supabase-server";
+import { userClient } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
-import { loadDigest, registerVisit } from "../../../lib/overview-data";
-import { dayLabel } from "../../../lib/campaigns-view";
-import Digest from "./digest";
+import { newByGame } from "../../../lib/overview-data";
 import AddGameDialog from "../add-game-dialog";
 import GameCard from "./game-card";
 import { coverBackground, parseCover } from "../../../lib/game-cover";
@@ -48,15 +46,13 @@ export default async function GamesPage({ searchParams }) {
     if (!(error && ["42703", "PGRST204", "PGRST100"].includes(error.code))) break;
   }
 
-  // When the SDK last asked (migration 0024), what is new in each game, and the summary of the visit before this one.
-  const user = await currentUser();
+  // When the SDK last asked (migration 0024), and what is new in each game (shown as a marker on its card).
   const service = serviceClient();
   const signals = await db.from("games").select("id, last_signal_at");
   const signalOf = new Map(signals.error ? [] : (signals.data ?? []).map((row) => [row.id, row.last_signal_at]));
   const now = Date.now();
   const withConnection = (games ?? []).map((game) => ({ ...game, connection: signals.error ? null : connection(signalOf.get(game.id) ?? null, now) }));
-  const visit = await registerVisit(service, user?.id, now).catch(() => null);
-  const lines = await loadDigest({ service, userId: user?.id, games: withConnection.filter((game) => game.connection), visit, now }).catch(() => []);
+  const fresh = await newByGame(service, withConnection.map((game) => game.id)).catch(() => new Map());
 
   const iconOf = (game) => (game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : "");
 
@@ -126,6 +122,7 @@ export default async function GamesPage({ searchParams }) {
       placements: placementsOf.get(game.id) ?? 0,
       placementsTotal: placementsOf.get(game.id) ?? 0,
       campaigns: campaignsOf.get(game.id)?.size ?? 0,
+      news: fresh.get(game.id)?.news ?? 0,
       coverCss: coverBackground(coverOf.get(game.id), index, coverUrl),
       defaultCss: coverBackground(null, index),
       coverKind: cover.kind,
@@ -152,8 +149,6 @@ export default async function GamesPage({ searchParams }) {
       </WindowTop>
 
       <div className="mg-work">
-        {lines.length > 0 && <Digest since={dayLabel(String(visit.since_at).slice(0, 10))} lines={lines} />}
-
         {tab === "performance" && (
           <>
             {performance?.model && <GamesPerformance model={performance.model} deckLayout={deckLayout} />}

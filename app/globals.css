@@ -9813,3 +9813,7 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
   .bell-body::-webkit-scrollbar-thumb { background: #d6d0c8; border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
   .bell-body::-webkit-scrollbar-thumb:hover { background: #bdb6ac; background-clip: content-box; }
 }
+
+/* My games: a game with something new in its campaigns carries the same number as its Campaigns tab, top left of the card. */
+.gm-new { position: absolute; left: 12px; top: 12px; z-index: 3; min-width: 22px; height: 22px; font-size: 12px; box-shadow: 0 0 0 2px #fff; text-decoration: none; }
+.gm-new:hover { filter: brightness(1.08); }
