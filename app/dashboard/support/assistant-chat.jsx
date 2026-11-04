@@ -34,8 +34,9 @@ const uid = () => `m${(counter += 1)}`;
 export default function AssistantChat({ role, mode = "page", assistantOn = false, canHandOver = true, greeting, seed, onSeedUsed, onOpenRequest }) {
   // The hand-over chips only exist when there is someone to hand over to.
   const offer = (chips) => (canHandOver ? chips : chips.filter((chip) => chip !== SEND && chip !== NOT_SOLVED && chip !== YES_CHIP && chip !== NO_CHIP));
-  const notReady = canHandOver ? NOT_READY : NOT_READY_ADMIN;
-  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : (canHandOver ? GREETING_OFF : GREETING_OFF_ADMIN), actions: !assistantOn && mode === "page" && canHandOver, chips: assistantOn ? STARTERS : undefined }]);
+  const isAdmin = role === "admin"; // an admin can write to the developer like anyone, and is also the one who switches the assistant on
+  const notReady = isAdmin ? NOT_READY_ADMIN : NOT_READY;
+  const [messages, setMessages] = useState(() => [{ id: uid(), at: Date.now(), kind: "bot", body: assistantOn ? (greeting || GREETING_ON) : (isAdmin ? GREETING_OFF_ADMIN : GREETING_OFF), actions: !assistantOn && mode === "page" && canHandOver, chips: assistantOn ? STARTERS : undefined }]);
   const [me, setMe] = useState(null); // the person's own card, for their face beside their messages
   useEffect(() => {
     let gone = false;

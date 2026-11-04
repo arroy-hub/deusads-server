@@ -10,7 +10,7 @@ const fail = (error, status = 400) => NextResponse.json({ error }, { status, hea
  * The chat with the assistant.
  *   { action: "ask", question, history: [{ role, text }] }  ->  { outcome, reply, source, escalation, logId }
  *   { action: "rate", logId, rating: "up" | "down" }        ->  { ok }
- * Everyone signed in may ask, an admin included (the admin's chat is the same one, without the hand-over to the developer).
+ * Everyone signed in may ask, an admin included (the same chat for every role).
  * Trying unsaved settings stays on the admin's Support page.
  */
 export async function POST(request) {

@@ -9,7 +9,7 @@ import { navigating } from "../_cabinet/nav";
 const OpenIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M10 6H5v13h13v-5" /></svg>;
 
 /**
- * The round help button in the bottom-right corner of every dashboard page (developer and advertiser). It opens a small
+ * The round help button in the bottom-right corner of every dashboard page (every role, an admin included). It opens a small
  * menu with two choices: message the developer (a form, straight to the developer) or ask the assistant (a chat). The
  * chat keeps its conversation while the person moves between pages. Not shown on the Help & feedback page itself.
  */
@@ -34,8 +34,6 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
 
   if (pathname.startsWith("/dashboard/support")) return null;
 
-  // An admin has no one to write to (the admin is the developer): the button opens the assistant chat at once.
-  const isAdmin = role === "admin";
   const choose = (next) => { setMenu(false); setSent(null); setMode(next); if (next === "bot") setBotSeen(true); };
   const close = () => { setMode(null); setSent(null); };
   const goRequests = (id) => { close(); navigating(); router.push(id ? `/dashboard/support?tab=requests&open=${id}` : "/dashboard/support?tab=requests"); };
@@ -43,7 +41,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
 
   return (
     <div className="sp-corner" ref={zone}>
-      <button type="button" className="sp-fab" aria-label="Help and feedback" aria-haspopup="menu" aria-expanded={menu || popOpen} onClick={() => (popOpen ? close() : isAdmin ? choose("bot") : setMenu((v) => !v))}>
+      <button type="button" className="sp-fab" aria-label="Help and feedback" aria-haspopup="menu" aria-expanded={menu || popOpen} onClick={() => (popOpen ? close() : setMenu((v) => !v))}>
         <ChatIcon size={24} />
         {unread > 0 && <i aria-label={`${unread} unread`}>{unread}</i>}
       </button>
@@ -85,7 +83,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
               </div>
             ))}
             <div className="sp-bot-wrap" hidden={mode !== "bot"}>
-              {botSeen && <AssistantChat role={role} mode="popup" canHandOver={!isAdmin} assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
+              {botSeen && <AssistantChat role={role} mode="popup" canHandOver assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
             </div>
           </div>
         </section>
