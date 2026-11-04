@@ -9796,3 +9796,9 @@ body.ig-dragging *{cursor:grabbing!important}
 
 /* On windows with the shared header the reserved scrollbar gutter showed as a blank strip at the right edge when the page is short */
 html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
+
+/* A notification row is one big click target: it marks itself read (the bell lists only unread ones). */
+.bell-update { cursor: pointer; }
+.bell-update:hover { background: #f7f5f2; }
+.bell-update:focus-visible { outline: 2px solid #b4472e; outline-offset: -2px; }
+.bell-update a { color: inherit; }
