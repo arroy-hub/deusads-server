@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { syncAllCampaigns } from "../../lib/campaign-sync";
+import { reconcileFit } from "../../lib/audience-watch";
 import { userClient } from "../../lib/supabase-server";
 import { isSchemaOutdated, serviceClient } from "../../lib/api";
 import { isCategory } from "../../lib/categories";
@@ -33,13 +34,15 @@ function prepareVariants(path) {
 }
 
 /** After a game changes what it is or opens a placement, campaigns started by audience pick up what now fits. Runs after the response. */
-function resyncCampaigns() {
+function resyncCampaigns(gameId = null) {
   after(async () => {
     try {
       await syncAllCampaigns(serviceClient());
     } catch {
       // the daily run catches up
     }
+    // Then what the game fits now against what was remembered: campaigns that stopped (or started again) are told to both sides.
+    if (gameId) await reconcileFit(serviceClient(), { gameId }).catch(() => null);
   });
 }
 
@@ -128,7 +131,7 @@ export async function saveGame({ gameId, name, genres, platforms, languages, cou
   if (isSchemaOutdated(error)) return { error: about !== undefined ? "The database needs the update (migration 0031) first." : NEEDS_TARGETING_MIGRATION };
   if (error || !data) return { error: "Could not save. Try again." };
 
-  if (withProfile) resyncCampaigns();
+  if (withProfile) resyncCampaigns(data.id);
   revalidatePath("/dashboard", "layout");
   return { ok: true, name: clean, value: withProfile ? described.value : null, about: about === undefined ? null : more.value };
 }

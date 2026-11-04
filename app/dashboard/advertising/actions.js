@@ -13,6 +13,7 @@ import {
 } from "../../../lib/booking-rules";
 import { describeBooking } from "../../../lib/bookings-data";
 import { notify, notifyMany, notifyGoingLive } from "../../../lib/notify";
+import { reconcileFit } from "../../../lib/audience-watch";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { parseTargeting } from "../../../lib/targeting";
 import { isCategory } from "../../../lib/categories";
@@ -566,6 +567,7 @@ export async function setCampaignAudience({ campaignId, targeting }) {
 
   // A campaign started by audience books the games that now fit.
   await syncCampaign(me.service, campaign.id).catch(() => null);
+  await reconcileFit(me.service, { campaignId: campaign.id }).catch(() => null); // the audience changed: who stopped fitting, who fits again
   revalidatePath("/dashboard", "layout");
   return { ok: true, targeting: parsed.value };
 }
