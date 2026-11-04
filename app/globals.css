@@ -9818,3 +9818,13 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 /* .mg a sets the link colour to the surrounding text, so the white digit has to be asked for here. */
 .gm-card .gm-new { position: absolute; left: 12px; top: 12px; z-index: 3; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; color: #fff; text-decoration: none; }
 .gm-card .gm-new:hover { filter: brightness(1.08); }
+
+/* ===== The side panel keeps the height of the window and does not move with the page ===== */
+/* Whatever sits at its foot (Help & feedback) stays at the same place however long the page is. It stays visible (no clipping)
+   so the bell's panel can open beside it. Only a long list of games inside My games scrolls, within the panel. On a short
+   window or a narrow one the panel is part of the page again. */
+.rail { position: sticky; top: 0; height: 100vh; height: 100dvh; align-self: start; box-sizing: border-box; }
+.rail-group:not(.is-foot) { min-height: 0; flex: 0 1 auto; }
+.rail-sub { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #4a4540 transparent; }
+@media (max-height: 560px) { .rail { position: relative; height: auto; align-self: stretch; } }
+@media (max-width: 800px) { .rail { position: relative; height: auto; align-self: auto; } }
