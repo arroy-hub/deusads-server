@@ -16,6 +16,7 @@ import {
   totalsFor,
 } from "../../../../lib/campaigns-view";
 import { changeAds, markSeen, reportCreative, setCategoryBlocked } from "./campaign-actions";
+import { audienceWords } from "../../../../lib/audience-fit";
 
 // "started 20 Oct" only for a day that has come; a day still ahead reads "starts 20 Oct".
 const startedWord = (iso) => (iso && iso > new Date().toISOString().slice(0, 10) ? "starts" : "started");
@@ -25,13 +26,14 @@ const PILL = {
   paused: ["p-paused", "Paused"],
   advpaused: ["p-paused", "Paused · advertiser"],
   blocked: ["p-blocked", "Blocked"],
+  nofit: ["p-off", "Not shown \u00b7 audience"],
   blockedcat: ["p-blocked", "Blocked · category"],
   blockedadv: ["p-blocked", "Blocked · advertiser"],
   mixed: ["p-paused", "Partly active"],
   waiting: ["p-off", "Waiting"],
   ended: ["p-ended", "Ended"],
 };
-const ROW_CLASS = { paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
+const ROW_CLASS = { nofit: "s-inactive", paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
 const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === "blockedadv";
 
 const REASONS = ["Not suitable for my audience", "Low quality creative", "Competitor", "Misleading or inappropriate", "Other"];
@@ -115,7 +117,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   // Every campaign with its state and figures for the chosen period.
   const campaigns = useMemo(() => {
     return model.campaigns.map((campaign) => {
-      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused }, ctx);
+      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused, fit: campaign.audience }, ctx);
       const creatives = campaign.creatives.map((creative) => {
         const own = ctx.controls.get(`creative:${creative.id}`);
         return { ...creative, isNew: creative.isNew && !cleared[creative.id], blocked: own?.state === "blocked", reason: own?.reason ?? "", totals: totalsFor(creative.figures, period) };
@@ -268,7 +270,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   function bulk(action) {
     const eligible = selectedIds.filter((id) => {
       const key = byId.get(id).state.key;
-      if (action === "pause") return key === "active" || key === "waiting";
+      if (action === "pause") return key === "active" || key === "waiting" || key === "nofit";
       if (action === "resume") return key === "paused";
       if (action === "unblock") return key === "blocked";
       return key !== "ended" && key !== "blocked";
@@ -424,7 +426,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
 
   const actionButtons = (campaign, key) => (
     <>
-      {key === "active" || key === "waiting" ? (
+      {key === "active" || key === "waiting" || key === "nofit" ? (
         <button type="button" className="cp-ib" title="Pause in this game" aria-label={`Pause ${campaign.name}`} disabled={busy} onClick={() => campaignAction(campaign, "pause")}><PauseIcon /></button>
       ) : null}
       {key === "paused" ? (
@@ -548,6 +550,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                           <Note value={here} />
                           {key === "blocked" && campaign.state.reason && <div className="cp-meta">Your reason: {campaign.state.reason}</div>}
                           {key === "advpaused" && <div className="cp-meta">The advertiser paused this campaign. It shows again when they resume it.</div>}
+                          {key === "nofit" && campaign.audience && <div className="cp-meta">Not shown: {audienceWords(campaign.audience)}. It shows again if your game fits again.</div>}
                           {key === "blockedadv" && <div className="cp-meta">Blocked together with {campaign.advertiser}. Unblock the advertiser to change it.</div>}
                         </div>
                       </div>
@@ -622,7 +625,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                         <div className="cp-srow shead" aria-hidden="true"><span /><span /><span>Creative</span><span>Status</span><span className="cp-num">Impressions</span><span className="cp-num">Avg. visible</span><span /></div>
                         {campaign.creatives.map((creative) => {
                           const campaignOff = key !== "active" && key !== "ended" && key !== "waiting";
-                          const label = creative.blocked ? "Blocked" : creative.base === "ended" || key === "ended" ? "Ended" : campaignOff || key === "waiting" ? (key === "waiting" ? "Waiting" : "Not shown") : creative.base === "waiting" ? "Waiting" : "Showing";
+                          const label = creative.blocked ? "Blocked" : creative.audience && creative.base !== "ended" && key !== "ended" ? "Not shown" : creative.base === "ended" || key === "ended" ? "Ended" : campaignOff || key === "waiting" ? (key === "waiting" ? "Waiting" : "Not shown") : creative.base === "waiting" ? "Waiting" : "Showing";
                           const pill = creative.blocked ? "p-blocked" : label === "Showing" ? "p-active" : label === "Ended" ? "p-ended" : "p-off";
                           const zooming = zoomId === creative.id;
                           const small = fit(creative.aspect, 72, 50);
@@ -642,6 +645,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                   {chartMode === "creative" && chart && <i className="cp-dot" style={{ background: chart.colorOf.get(creative.id) }} />}
                                   <strong>{creative.name}</strong>{creative.format && <span className="cp-fmt">{creative.format}</span>} {creative.isNew && <span className="cp-tag">New</span>}
                                   {creative.blocked && creative.reason && <div className="cp-meta cp-sub">Your reason: {creative.reason}</div>}
+                                  {creative.audience && !creative.blocked && <div className="cp-meta cp-sub">Not shown: {audienceWords(creative.audience)}.</div>}
                                 </div>
                                 <div><span className={`cp-pill ${pill}`}>{label}</span></div>
                                 <div className="cp-num">{number(creative.totals.views)}</div>
@@ -691,6 +695,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                   else if (states.every((state) => state === "blockedcat")) key = "blockedcat";
                   else if (states.every(isBlocked)) key = "blocked";
                   else if (states.every((state) => state === "waiting")) key = "waiting";
+                  else if (states.includes("nofit")) key = "nofit";
                   else key = "ended";
                   const total = addTotals(group.campaigns.map((campaign) => campaign.totals));
                   const isOpen = Boolean(openAdv[group.id]);
@@ -701,10 +706,12 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                     const paused = states.filter((state) => state === "paused" || state === "advpaused").length;
                     const blockedN = states.filter(isBlocked).length;
                     if (paused) parts.push(`${paused} paused`);
+                    const unfitN = states.filter((state) => state === "nofit").length;
+                    if (unfitN) parts.push(`${unfitN} not shown (audience)`);
                     if (blockedN) parts.push(`${blockedN} blocked`);
                   }
                   const [pillClass, pillText] = PILL[key];
-                  const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused" && state !== "advpaused");
+                  const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused" && state !== "advpaused" && state !== "nofit");
                   const here = noteForAdv(group.id);
                   const freshCampaigns = group.campaigns.filter((campaign) => campaign.isNew).length;
                   const freshCreatives = group.campaigns.filter((campaign) => !campaign.isNew && campaign.creatives.some((creative) => creative.isNew)).length;

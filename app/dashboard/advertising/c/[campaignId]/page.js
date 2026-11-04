@@ -30,12 +30,13 @@ export default async function CampaignReportPage({ params, searchParams }) {
   const showing = games.filter((game) => game.state === "showing").length;
   const paused = games.filter((game) => game.state === "paused" || game.state === "category").length;
   const blocked = games.filter((game) => game.state === "blocked").length;
+  const unfit = games.filter((game) => game.state === "audience").length;
   const note = deliveryNote(games, status);
   const impressionsDelta = deltaText(totals.impressions, previous.impressions);
   const avgNow = totals.avg_visible_seconds == null ? null : Number(totals.avg_visible_seconds);
   const avgDelta = deltaSeconds(avgNow, previous.avgVisible);
   const hours = avgNow == null ? null : (avgNow * Number(totals.impressions)) / 3600;
-  const heldLine = [paused > 0 ? `${paused} paused` : "", blocked > 0 ? `${blocked} with a blocked creative` : ""].filter(Boolean).join(" · ");
+  const heldLine = [paused > 0 ? `${paused} paused` : "", blocked > 0 ? `${blocked} with a blocked creative` : "", unfit > 0 ? `${unfit} not matching the audience` : ""].filter(Boolean).join(" · ");
   const cards = await loadGameCards(me.service, games);
   const creativeRows = report.creativeRows.map((item) => ({ ...item, f: report.compare.creatives[item.id] ?? compareFigures(null) }));
   const gameCompare = games.map((game) => ({ ...game, name: game.game, tags: report.gameTags[game.id] ?? "", card: cards[game.id], f: report.compare.games[game.id] ?? compareFigures(null) }));

@@ -4,6 +4,7 @@ import { userClient } from "../../../lib/supabase-server";
 import { serviceClient } from "../../../lib/api";
 import { connection } from "../../../lib/connection";
 import { newByGame } from "../../../lib/overview-data";
+import { fitOf, loadFitInputs } from "../../../lib/audience-fit";
 import AddGameDialog from "../add-game-dialog";
 import GameCard from "./game-card";
 import { coverBackground, parseCover } from "../../../lib/game-cover";
@@ -68,12 +69,15 @@ export default async function GamesPage({ searchParams }) {
     placementsOf.set(row.game_id, (placementsOf.get(row.game_id) ?? 0) + 1);
     gameOfPlacement.set(row.id, row.game_id);
   }
-  // Campaigns that have an approved booking on one of the game's placements.
-  const bookingRows = await db.from("bookings").select("campaign_id, placement_id").eq("status", "approved");
+  // Campaigns that have an approved booking on one of the game's placements and whose audience the game still fits.
+  const bookingRows = await db.from("bookings").select("campaign_id, creative_id, placement_id").eq("status", "approved");
+  const bookingList = bookingRows.error ? [] : (bookingRows.data ?? []);
+  const fitInputs = await loadFitInputs(service, { campaignIds: bookingList.map((row) => row.campaign_id), creativeIds: bookingList.map((row) => row.creative_id), gameIds: withConnection.map((game) => game.id) }).catch(() => null);
   const campaignsOf = new Map();
-  for (const row of bookingRows.error ? [] : (bookingRows.data ?? [])) {
+  for (const row of bookingList) {
     const gameId = gameOfPlacement.get(row.placement_id);
     if (!gameId) continue;
+    if (fitOf(fitInputs, { campaignId: row.campaign_id, creativeId: row.creative_id, gameId })) continue;
     if (!campaignsOf.has(gameId)) campaignsOf.set(gameId, new Set());
     campaignsOf.get(gameId).add(row.campaign_id);
   }

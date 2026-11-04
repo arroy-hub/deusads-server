@@ -59,7 +59,7 @@ export default function PlacementsView({ campaignId, report, games, shown, filte
                 {skipped.has(game.id) ? (
                   <span className="ov-pill ov-ended">Excluded by you</span>
                 ) : (
-                  <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
+                  <span className={`ov-pill ov-${game.state === "showing" ? "live" : game.state === "paused" || game.state === "category" || game.state === "audience" ? "paused" : game.state === "blocked" ? "blocked" : "waiting"}`}>{game.label}</span>
                 )}
 <div className="cp-game-num">{game.impressions > 0 && !skipped.has(game.id) ? formatCount(game.impressions) : "—"}</div>
                 {report.rules && placementsOf.has(game.id) && (

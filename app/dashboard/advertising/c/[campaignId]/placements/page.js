@@ -28,7 +28,7 @@ export default async function CampaignPlacementsPage({ params, searchParams }) {
     placementsOf.get(booking.gameId).set(booking.placementId, booking);
   }
   const skipped = new Set(report.excludedGameIds ?? []);
-  const isHeld = (game) => game.state === "paused" || game.state === "blocked" || game.state === "category";
+  const isHeld = (game) => game.state === "paused" || game.state === "blocked" || game.state === "category" || game.state === "audience";
   const filter = FILTERS.some(([key]) => key === query?.show) ? query.show : "all";
   const shown = games.filter((game) => (filter === "showing" ? game.state === "showing" && !skipped.has(game.id) : filter === "held" ? isHeld(game) : filter === "excluded" ? skipped.has(game.id) : true));
   const count = (key) => games.filter((game) => (key === "showing" ? game.state === "showing" && !skipped.has(game.id) : key === "held" ? isHeld(game) : key === "excluded" ? skipped.has(game.id) : true)).length;
