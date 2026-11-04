@@ -6,6 +6,10 @@
     {
       "path": "/v1/cron/sync",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/v1/keepalive",
+      "schedule": "0 7 * * *"
     }
   ],
   "functions": {

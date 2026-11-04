@@ -1,0 +1,32 @@
+name: Keep Supabase awake
+
+# Backup to the daily Vercel Cron in vercel.json. A Supabase Free project is paused after 7 days without
+# database activity; this calls the same read-only route twice a day from GitHub, independently of Vercel.
+# A failed run (the site or the database not answering) makes GitHub e-mail the repository owner.
+on:
+  schedule:
+    - cron: "23 5,17 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /v1/keepalive
+        run: |
+          set -eu
+          for attempt in 1 2 3 4 5; do
+            body=$(curl -sS --max-time 40 -w '\n%{http_code}' https://deusads-server.vercel.app/v1/keepalive || true)
+            code=$(printf '%s' "$body" | tail -n1)
+            echo "attempt $attempt: HTTP $code"
+            if [ "$code" = "200" ] && printf '%s' "$body" | grep -q '"ok":true'; then
+              echo "database answered"
+              exit 0
+            fi
+            sleep $((attempt * 20))
+          done
+          echo "keep-alive failed after 5 attempts" >&2
+          exit 1
