@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRailView } from "../role-view";
 import { usePathname } from "next/navigation";
-import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, guideBySlug, slugOf } from "../../../lib/home-content";
+import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, groupChanges, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
 import { GD0, GSPEC, PLATES, applyGlow, glowStyle } from "./glow";
 
@@ -468,10 +468,14 @@ function Magazine({ item, collapse, open }) {
         <div className="mag-head"><p className="lead">{item.lead}</p></div>
         <div className="mag-body">
           <div className="chg">
-            {item.items.map(([tag, title, text]) => (
-              <section key={title} className="chg-i">
+            {groupChanges(item.items).map(([tag, entries]) => (
+              <section key={tag} className="chg-i">
                 <span className={`chg-t chg-${tag.toLowerCase()}`}>{tag}</span>
-                <div><h4>{title}</h4><p>{text}</p></div>
+                <div className="chg-list">
+                  {entries.map(([title, text]) => (
+                    <div key={title} className="chg-e"><h4>{title}</h4><p>{text}</p></div>
+                  ))}
+                </div>
               </section>
             ))}
           </div>
