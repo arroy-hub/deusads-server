@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { saveDeckLayout } from "../deck-actions";
+import { packSpans } from "../../../lib/deck-pack";
 import { Info, StatBtn } from "./ui";
 
 const Ctx = createContext(null);
@@ -91,6 +92,21 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
     return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); };
   }, [menu]);
 
+  // the width of the board decides how many cards share a row (two or three, never one by itself): lib/deck-pack.js
+  const gridRef = useRef(null);
+  const [gridW, setGridW] = useState(0);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const set = () => setGridW(el.clientWidth);
+    set();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const spans = packSpans(chosen.map((k) => ({ key: k, weight: byKey[k]?.w })), gridW);
+
   const toggle = (k) => onSel(on.has(k) ? chosen.filter((x) => x !== k) : [...chosen, k]);
   const group = (gid, v) => {
     const keys = widgets.filter((w) => w.g === gid).map((w) => w.k);
@@ -154,13 +170,14 @@ function Board({ widgets, groups, byKey, chosen, defaults, sub, onSel }) {
           )}
         </div>
       </div>
-      <div className="cb-ig-grid">
+      <div className="cb-ig-grid" ref={gridRef}>
         {chosen.map((k) => {
           const w = byKey[k];
           return (
             <div
               key={k}
-              className={`cb-ig-card cb-ig-s${w.w ?? 6}${over === k ? " cb-over" : ""}${dragging === k ? " cb-dragging" : ""}`}
+              className={`cb-ig-card${over === k ? " cb-over" : ""}${dragging === k ? " cb-dragging" : ""}`}
+              style={{ gridColumn: `span ${spans[k] ?? 12}` }}
               draggable
               onDragStart={(e) => { drag.current = k; setDragging(k); try { e.dataTransfer.setData("text/plain", k); e.dataTransfer.effectAllowed = "move"; } catch {} }}
               onDragOver={(e) => { if (drag.current) { e.preventDefault(); setOver(drag.current !== k ? k : null); } }}

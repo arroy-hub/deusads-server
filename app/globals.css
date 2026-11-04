@@ -9828,3 +9828,11 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .rail-sub { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #4a4540 transparent; }
 @media (max-height: 560px) { .rail { position: relative; height: auto; align-self: stretch; } }
 @media (max-width: 800px) { .rail { position: relative; height: auto; align-self: auto; } }
+
+/* ===== Widget boards: the width of the board decides the columns (lib/deck-pack.js), not the width of the window ===== */
+/* Cards used to drop to one per row below 900 px of window; the board now keeps two or three across at any width. */
+@media (max-width: 900px) {
+  .ig-w3 { grid-column: span 3; } .ig-w4 { grid-column: span 4; } .ig-w5 { grid-column: span 5; } .ig-w6 { grid-column: span 6; }
+  .ig-w7 { grid-column: span 7; } .ig-w8 { grid-column: span 8; } .ig-w9 { grid-column: span 9; } .ig-w10 { grid-column: span 10; }
+  .ig-w11 { grid-column: span 11; } .ig-w12 { grid-column: 1 / -1; }
+}

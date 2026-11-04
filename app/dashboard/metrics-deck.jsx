@@ -7,6 +7,7 @@ import { formatCount } from "../../lib/analytics.js";
 import { attentionFigures, pickAttention } from "../../lib/attention.js";
 import { formatDay } from "../../lib/analytics.js";
 import { audienceTable } from "../../lib/audience.js";
+import { packSpans } from "../../lib/deck-pack";
 
 const ADV = "#c94a24", OWN = "#3d6fd1", GREEN = "#2f7d5b", AMBER = "#c28a1a", PLUM = "#8a5a9e", GREY = "#9b9086", TRACK = "#ece4da", INK = "#241d19";
 const PALETTE = [ADV, OWN, GREEN, AMBER, PLUM, GREY];
@@ -593,12 +594,8 @@ const GROUPS = [
   { id: "perf", label: "Game performance", line: "How the game and the SDK ran. Only you see this.", render: Performance, devOnly: true },
 ];
 
-// narrowest comfortable width (px) of blocks that open at their shortest horizontal size
 // what the board still shows when the switch says My creatives: the table and the Attention cards, which follow the switch
 const OWN_KEYS = new Set(["table", "fun", "len", "geo", "iab"]);
-const MINPX = { rep: 280, freq: 330, fun: 250, len: 210, geo: 250, iab: 280, int: 490, plat: 340, dev: 280, cty: 230, min: 290 };
-const MINPX_ADV = { int: 280 };
-const RESP = new Set(["fps", "st", "ld", "dv"]); // four across on a wide screen, two by two on a narrower one
 const DEFAULTS = { developer: ["ring", "rep", "freq", "why", "pl"], advertiser: ["rep", "freq", "fun", "len", "geo"] };
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -810,12 +807,13 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
     }
   };
 
+  // what each card gets of the 12 columns follows the width of the board: two across when it is narrow, three when three fit,
+  // never one by itself; a width the person set by hand is kept (lib/deck-pack.js)
+  const shown = ownOnly ? chosen.filter((k) => OWN_KEYS.has(k)) : chosen;
+  const spans = packSpans(shown.map((k) => ({ key: k, fixed: sizes[k]?.w, weight: byKey[k].el.props.span })), gridW);
   const items = chosen.map((k) => {
     const x = byKey[k];
-    const minPx = (!dev && MINPX_ADV[k]) || MINPX[k];
-    const colW = (gridW - 11 * 8) / 12;
-    const minSpan = minPx && gridW > 0 ? Math.ceil((minPx + 8) / (colW + 8)) : null;
-    const w = clamp(sizes[k]?.w ?? minSpan ?? x.el.props.span ?? 12, 3, 12);
+    const w = spans[k] ?? 12;
     const h = sizes[k]?.h;
     spansRef.current[k] = w;
     const tools = (
@@ -827,7 +825,7 @@ export default function MetricsDeck({ kind, model, source = "all", days, initial
       </div>
     );
     return (
-      <div key={k} data-key={k} className={`ig-item ig-w${w}${RESP.has(k) && w === 3 && sizes[k]?.w == null ? " ig-r6" : ""}${drag?.key === k ? " is-dragging" : ""}`} style={h ? { minHeight: h } : undefined}>
+      <div key={k} data-key={k} className={`ig-item ig-w${w}${drag?.key === k ? " is-dragging" : ""}`} style={h ? { minHeight: h } : undefined}>
         {cloneElement(x.el, { o: undefined, aside: tools, info: INFO[k] })}
         <span className="ig-rs ig-rs-e" title="Drag to change the width · double-click to reset" onPointerDown={(e) => startResize(e, k, "x")} onDoubleClick={() => clearSize(k)} />
         <span className="ig-rs ig-rs-s" title="Drag to change the height · double-click to reset" onPointerDown={(e) => startResize(e, k, "y")} onDoubleClick={() => clearSize(k)} />
