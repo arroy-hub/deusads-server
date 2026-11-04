@@ -110,7 +110,9 @@ export default async function CreativeFormatsPage({ params, searchParams }) {
                 {FORMATS.length - coverage.missingFormats.length} of {FORMATS.length} formats ready.
               </strong>{" "}
               {coverage.missingPlacements === 0
-                ? "Every placement open to advertisers can show this creative."
+                ? coverage.oddPlacements > 0
+                  ? `Every placement of a standard shape can show this creative. ${coverage.oddPlacements} open ${coverage.oddPlacements === 1 ? "placement has" : "placements have"} an unusual shape that no standard format covers, so ${coverage.oddPlacements === 1 ? "it" : "they"} cannot show it.`
+                  : "Every placement open to advertisers can show this creative."
                 : `Not shown in ${coverage.missingPlacements} of ${coverage.placements} open placements: no picture for ${coverage.missingLabels.join(", ")}. Cropping the main image would cut your safe zone, so upload a picture made for each missing format below.`}
             </p>
           </div>

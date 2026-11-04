@@ -1,5 +1,6 @@
 // Advertiser Overview and campaign report rules. Run: node test/advertiser-overview.test.mjs
 import assert from "node:assert/strict";
+import { FORMATS } from "../lib/formats.js";
 import {
   attentionItems,
   campaignStatus,
@@ -127,6 +128,18 @@ assert.equal(share.find((row) => row.id === "r9x16").share, 0.5);
 assert.equal(share.find((row) => row.id === "r3x1").impressions, 0);
 assert.equal(share.at(-1).id, "other");
 assert.equal(formatShare([], new Map()).every((row) => row.share === 0), true);
+
+// placements of an unusual shape have no format to add a picture for: reported apart, never counted as missing
+const allFormats = FORMATS.map((format) => ({ formatId: format.id, aspect: format.aspect, status: "approved" }));
+const odd = coverageSummary({ creative: wide, assets: allFormats, placements: [{ aspect: 16 / 9 }, { aspect: 9 / 16 }, { aspect: 4 }, { aspect: 3 }] });
+assert.deepEqual(odd.missingLabels, [], "every standard format is covered");
+assert.equal(odd.missingPlacements, 0, "so nothing the advertiser can fix is left");
+assert.equal(odd.oddPlacements, 1, "the 4:1 placement cannot be covered by any format");
+const oddOnly = attentionItems({ gaps: [{ id: "c9", name: "All formats", missingLabels: odd.missingLabels, missingPlacements: odd.missingPlacements }] });
+assert.equal(oddOnly.length, 0, "no notice when every standard format is added");
+assert.equal(attentionItems({ gaps: [{ id: "c8", name: "No labels", missingLabels: [], missingPlacements: 2 }] }).length, 0, "a notice with nothing to add is not shown");
+const partly = coverageSummary({ creative: wide, assets: [{ formatId: "r1x1", aspect: 1, status: "approved" }], placements: [{ aspect: 16 / 9 }, { aspect: 1 }, { aspect: 9 / 16 }, { aspect: 4 }] });
+assert.deepEqual([partly.missingLabels.join(), partly.missingPlacements, partly.oddPlacements], ["3:4,9:16,3:1", 1, 1], "adding one format lowers the count, the others stay listed");
 
 // attention: most urgent first, gaps without missing placements are silent
 const items = attentionItems({
