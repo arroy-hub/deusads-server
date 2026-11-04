@@ -505,18 +505,13 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                     );
                   })}
                 </div>
-                {picked.length > 1 && (
-                  <ol className="nwc-llegend" aria-label="The creatives of this campaign">
-                    {picked.map((c, index) => <li key={c.id}><b>{index + 1}</b><span title={c.name}>{c.name}</span></li>)}
-                  </ol>
-                )}
                 {shapeMenu && (
                   <div className="nwc-smenu" role="menu" ref={shapeMenuBox} aria-label={`Add a picture for the ${FORMATS.find((f) => f.id === shapeMenu.id)?.label ?? ""}`} style={{ left: shapeMenu.left, top: shapeMenu.top }}>
                     <div className="nwc-smenu-h">{`Add a picture for ${FORMATS.find((f) => f.id === shapeMenu.id)?.label ?? "this shape"}`}</div>
                     {completionOptions(picked).map((o) => (
                       <button key={o.id} type="button" role="menuitem" onClick={() => { const shape = shapeMenu.id; setShapeMenu(null); openEditor("picture", shape, o.id); }}>
                         <b>{`Add it to “${o.name}”`}</b>
-                        <span>{`${picked.length > 1 ? `Creative ${o.number} of ${picked.length} · ` : ""}covers ${o.covered} of ${o.total} shapes`}</span>
+                        <span>{`Covers ${o.covered} of ${o.total} shapes`}</span>
                       </button>
                     ))}
                     <button type="button" role="menuitem" className="is-new" onClick={() => { setShapeMenu(null); setUploading(true); }}>
@@ -525,6 +520,12 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                     </button>
                   </div>
                 )}
+              </section>
+              <section className="nwc-panel">
+                <div className="nwc-bh"><span className="nwc-eb">Creatives</span><span>{word(picked.length, "creative is", "creatives are")} connected to this campaign</span></div>
+                <ul className="nwc-clist">
+                  {picked.map((c) => <li key={c.id} title={c.name}>{c.name}</li>)}
+                </ul>
               </section>
               <section className="nwc-ready">
                 <div className="nwc-bh"><span className="nwc-eb">Ready to start</span></div>

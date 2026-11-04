@@ -47,8 +47,8 @@ assert.equal(creativeToComplete([shipping, { ...shipping, id: "other" }]).id, "s
 
 // ---- the mark over a picture: which of the creatives it belongs to
 const three = [night, shipping, { ...shipping, id: "third" }];
-assert.deepEqual(creativeMark(three, "ship"), { number: 2, total: 3, text: "2 of 3" });
-assert.equal(creativeMark(three, "third").text, "3 of 3");
+assert.deepEqual(creativeMark(three, "ship"), { number: 2, total: 3, text: "2/3" });
+assert.equal(creativeMark(three, "third").text, "3/3");
 assert.equal(creativeMark([night], "night"), null, "a single creative needs no mark");
 assert.equal(creativeMark(three, "gone"), null, "an unknown creative has none");
 // every tile that shows a picture can be marked with the creative that shows it

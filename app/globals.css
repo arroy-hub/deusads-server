@@ -9839,11 +9839,10 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 
 /* ===== New campaign, How it will look: which creative a picture belongs to, and the menu of a shape without a picture ===== */
 .nwc-panel.is-look { position: relative; }
-.nwc-lnum { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); z-index: 1; padding: 0 6px; border-radius: 999px; background: var(--ink, #241d19); color: #fff; font-size: 10px; font-weight: 700; line-height: 15px; white-space: nowrap; box-shadow: 0 1px 4px rgba(36, 29, 25, .3); }
-.nwc-llegend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--ink-2); }
-.nwc-llegend li { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.nwc-llegend b { flex: none; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--ink, #241d19); color: #fff; font-size: 10px; line-height: 16px; text-align: center; }
-.nwc-llegend span { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nwc-lnum { position: absolute; left: 50%; top: 0; transform: translateX(-50%); z-index: 1; padding: 0 4px; border-radius: 6px; background: rgba(255, 255, 255, .88); border: 1px solid var(--line); color: var(--ink-2); font-size: 9.5px; font-weight: 600; line-height: 12px; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nwc-clist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink); }
+.nwc-clist li { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nwc-clist li::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3, #8c7f73); }
 .nwc-smenu { position: absolute; z-index: 40; width: 280px; max-width: calc(100% - 8px); padding: 6px; display: grid; gap: 2px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(36, 29, 25, .18); }
 .nwc-smenu-h { padding: 4px 8px 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3, #8c7f73); }
 .nwc-smenu button { display: grid; gap: 1px; width: 100%; padding: 8px; border: 0; border-radius: 7px; background: none; color: var(--ink, #241d19); text-align: left; cursor: pointer; font: inherit; }
