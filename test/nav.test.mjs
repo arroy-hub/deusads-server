@@ -1,6 +1,7 @@
 // Menus per role and the Home steps. Run: node test/nav.test.mjs
 import assert from "node:assert/strict";
 import { menuFor, homeFor, isActive } from "../lib/nav.js";
+import { NAV_ICONS } from "../lib/nav-icons.js";
 import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 
 const labels = (role) => menuFor(role).filter((group) => !group.foot).flatMap((group) => group.items.map((item) => item.label));
@@ -23,7 +24,10 @@ assert.equal(section("As a developer"), labels("developer").join(), "an admin ge
 assert.ok(!labels("developer").includes("Campaigns"), "developers do not see the advertiser menu");
 assert.equal(homeFor("admin"), "/dashboard/admin");
 assert.equal(homeFor("developer"), "/dashboard/home");
-assert.equal(homeFor("advertiser"), "/dashboard");
+assert.equal(homeFor("advertiser"), "/dashboard/home", "an advertiser lands on Home, like a developer");
+assert.equal(menuFor("advertiser").flatMap((group) => group.items).find((item) => item.key === "overview").href, "/dashboard", "the Overview keeps its own page");
+assert.notEqual(NAV_ICONS.overview, NAV_ICONS.home, "Overview and Home do not share an icon");
+assert.equal(new Set(Object.values(NAV_ICONS)).size, Object.keys(NAV_ICONS).length, "every menu icon is different");
 
 // Help & feedback: at the foot of the menu for developers and advertisers, with the unread count; an admin has it too
 // (the assistant to try), but never with a badge: their own waiting requests are counted on Support

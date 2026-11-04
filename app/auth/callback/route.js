@@ -20,7 +20,7 @@ export async function GET(request) {
   const code = searchParams.get("code");
   // Where to go afterwards: only a path inside the dashboard (an email-change link comes back to the account page).
   const next = searchParams.get("next");
-  const target = next && /^\/dashboard(\/|\?|$)/.test(next) && !next.startsWith("//") ? next : "/dashboard";
+  const target = next && /^\/dashboard(\/|\?|$)/.test(next) && !next.startsWith("//") ? next : "/";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?notice=expired`);
