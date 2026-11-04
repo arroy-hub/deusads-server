@@ -34,7 +34,7 @@ async function Bell({ db, user, role }) {
   const [unread, latest, attention] = await Promise.all([
     unreadCount(db, user?.id),
     // The notifications table comes with migration 0013; without it: none.
-    user ? db.from("notifications").select("id, text, link, created_at, read_at").order("created_at", { ascending: false }).limit(15) : { data: null },
+    user ? db.from("notifications").select("id, text, link, created_at, read_at").is("read_at", null).order("created_at", { ascending: false }).limit(15) : { data: null },
     // An advertiser's bell also lists what needs action (rejected creatives, format gaps, limited campaigns, reports).
     role === "advertiser"
       ? getMember().then((me) => (me ? loadAttention(me.service, me) : [])).catch(() => [])

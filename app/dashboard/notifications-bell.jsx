@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { markAllRead } from "./notifications/actions";
+import { markAllRead, markRead } from "./notifications/actions";
 
 const TABS = [
   { key: "all", label: "All" },
@@ -27,13 +27,23 @@ function ago(date) {
  * action (an advertiser's rejected creatives, format gaps, limited campaigns, reports) and updates
  * (decisions and bookings). Grouped, with counts, opened by one click; it closes on a click outside,
  * on Escape and when an item is followed. Not a page of its own.
+ *
+ * It lists only what is unread. Opening a notification (a click anywhere on its row) marks that one as read and it
+ * leaves the bell; "Mark all as read" does the same for every notification in the bell and touches nothing else:
+ * Recent activity on Home keeps its history, and "Needs action" is not a notification, so it stays until it is done.
  */
 export default function NotificationsBell({ items, unread, attention = [] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("all");
+  const [gone, setGone] = useState(() => new Set()); // read in this session, hidden at once, before the server catches up
   const box = useRef(null);
+
+  // A fresh list from the server replaces what was hidden by hand.
+  useEffect(() => {
+    setGone(new Set());
+  }, [items, unread]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,17 +63,29 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
 
   async function readAll() {
     setBusy(true);
+    setGone(new Set(items.map((item) => item.id)));
     await markAllRead().catch(() => null);
     setBusy(false);
     router.refresh();
   }
 
-  const count = attention.length + unread;
+  /** A click on a notification: it counts as read and leaves the bell; a link in it is followed. */
+  function openOne(item, event) {
+    setGone((previous) => new Set(previous).add(item.id));
+    markRead(item.id).catch(() => null);
+    if (!item.link) return;
+    setOpen(false);
+    if (!event.target.closest?.("a")) router.push(item.link);
+  }
+
+  const list = items.filter((item) => !item.read_at && !gone.has(item.id));
+  const unreadNow = Math.max(0, unread - (items.length - list.length));
+  const count = attention.length + unreadNow;
   const shown = count > 99 ? "99+" : String(count);
   const showAction = tab !== "updates";
   const showUpdates = tab !== "action";
-  const empty = (showAction ? attention.length : 0) + (showUpdates ? items.length : 0) === 0;
-  const tabCount = { all: attention.length + items.length, action: attention.length, updates: items.length };
+  const empty = (showAction ? attention.length : 0) + (showUpdates ? list.length : 0) === 0;
+  const tabCount = { all: attention.length + list.length, action: attention.length, updates: list.length };
 
   return (
     <div className="bell" ref={box}>
@@ -85,14 +107,14 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
         <div className="bell-panel" role="dialog" aria-label="Notifications">
           <div className="bell-head">
             <strong>Notifications</strong>
-            {unread > 0 && (
+            {unreadNow > 0 && (
               <button type="button" className="link-button" onClick={readAll} disabled={busy}>
                 {busy ? "Saving…" : "Mark all as read"}
               </button>
             )}
           </div>
 
-          {attention.length + items.length > 0 && (
+          {attention.length + list.length > 0 && (
             <div className="bell-tabs" role="tablist" aria-label="Show">
               {TABS.map((item) => (
                 <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className="bell-tab" onClick={() => setTab(item.key)}>
@@ -103,7 +125,7 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
             </div>
           )}
 
-          {empty && <p className="bell-empty">Nothing yet. Decisions on your creatives and bookings show up here.</p>}
+          {empty && <p className="bell-empty">Nothing new. Decisions on your creatives and bookings show up here.</p>}
 
           {showAction && attention.length > 0 && (
             <>
@@ -129,27 +151,30 @@ export default function NotificationsBell({ items, unread, attention = [] }) {
             </>
           )}
 
-          {showUpdates && items.length > 0 && (
+          {showUpdates && list.length > 0 && (
             <>
               {attention.length > 0 && (
                 <div className="bell-group">
-                  Updates <span>· {items.length}</span>
+                  Updates <span>· {list.length}</span>
                 </div>
               )}
               <ul className="bell-list">
-                {items.map((item) => (
-                  <li key={item.id} className={`bell-item bell-update${item.read_at ? "" : " is-unread"}`}>
-                    <span className="bell-icon bell-good" aria-hidden="true">
-                      ✓
-                    </span>
+                {list.map((item) => (
+                  <li
+                    key={item.id}
+                    className="bell-item bell-update is-unread"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => openOne(item, event)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openOne(item, event);
+                      }
+                    }}
+                  >
                     <div>
-                      {item.link ? (
-                        <Link href={item.link} onClick={() => setOpen(false)}>
-                          {item.text}
-                        </Link>
-                      ) : (
-                        <span>{item.text}</span>
-                      )}
+                      {item.link ? <Link href={item.link}>{item.text}</Link> : <span>{item.text}</span>}
                     </div>
                     <time className="bell-time" dateTime={String(item.created_at)}>
                       {ago(item.created_at)}
