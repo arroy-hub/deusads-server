@@ -50,7 +50,7 @@ assert.equal(coverageSummary({ creative: { aspect: null }, assets: [], placement
 // a control note says what the developer did
 assert.equal(controlKind(""), "");
 assert.equal(controlKind("The developer paused this campaign in this game. It shows again when they resume it."), "paused");
-assert.equal(controlKind("The developer blocked this campaign in this game. Reason: Too many ads."), "blocked");
+assert.equal(controlKind("The developer blocked this campaign in this game. Reason: Creatives are too flashy or aggressive."), "blocked");
 assert.equal(controlKind("The developer blocked your account in this game, so none of your ads show here."), "blocked");
 assert.equal(controlKind("This game does not show ads of this category."), "category");
 

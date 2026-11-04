@@ -262,7 +262,7 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
   await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report about a creative in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes", "admin_reports");
 
   let block = null;
-  if (alsoBlock) block = await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Reported to DeusADS", comment: "" });
+  if (alsoBlock) block = await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Blocked pending a DeusADS review", comment: "" });
   revalidatePath("/dashboard/admin/disputes");
   return {
     ok: true,

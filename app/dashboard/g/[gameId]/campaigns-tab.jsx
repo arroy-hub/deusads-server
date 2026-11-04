@@ -36,7 +36,18 @@ const PILL = {
 const ROW_CLASS = { nofit: "s-inactive", paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
 const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === "blockedadv";
 
-const REASONS = ["Not suitable for my audience", "Low quality creative", "Competitor", "Misleading or inappropriate", "Other"];
+// What a developer may give as the reason for pausing or blocking an ad; the advertiser reads it next to the status.
+const REASONS = [
+  "Content not suited to my audience",
+  "Unwanted type of content in the creatives",
+  "Creatives are too flashy or aggressive",
+  "Creatives are too busy or cluttered",
+  "Low picture quality",
+  "Clashes with the look of my game",
+  "Competes with my game",
+  "Misleading or inappropriate",
+  "Other",
+];
 const SENSITIVE = ["alcohol_tobacco", "gambling", "dating_adult"];
 const STATUS_FILTERS = [["all", "All"], ["new", "New"], ["active", "Active"], ["paused", "Paused"], ["blocked", "Blocked"], ["ended", "Ended"]];
 const AVATARS = ["#c94a24", "#3b6fb6", "#2f9e8f", "#b8862b", "#8a63b8", "#c2527a"];
