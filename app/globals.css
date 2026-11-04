@@ -5748,7 +5748,7 @@ th.num .sort-button {
 .cp-ptab { border: 0; background: transparent; padding: 12px 14px; font: inherit; font-size: 15px; font-weight: 600; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; white-space: nowrap; }
 .cp-ptab:hover { color: var(--ink); }
 .cp-ptab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--signal); }
-.cp-count { font-size: 11px; font-weight: 600; background: var(--signal); color: #fff; border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; line-height: 1; letter-spacing: 0; text-indent: 0; text-align: center; font-variant-numeric: normal; }
+.cp-count { font-size: 11px; font-weight: 600; background: var(--signal); color: #fff; border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; display: inline-block; line-height: 18px; letter-spacing: 0; text-indent: 0; text-align: center; font-variant-numeric: normal; }
 .cp-tool { padding: 12px 16px 4px; border-bottom: 1px solid #efe7de; }
 .cp-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
 .cp-filters label { font-size: 12px; color: var(--ink-2); }
