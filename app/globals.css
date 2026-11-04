@@ -5748,7 +5748,7 @@ th.num .sort-button {
 .cp-ptab { border: 0; background: transparent; padding: 12px 14px; font: inherit; font-size: 15px; font-weight: 600; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; white-space: nowrap; }
 .cp-ptab:hover { color: var(--ink); }
 .cp-ptab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--signal); }
-.cp-count { font-size: 11px; font-weight: 600; background: var(--signal); color: #fff; border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; }
+.cp-count { font-size: 11px; font-weight: 600; background: var(--signal); color: #fff; border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; line-height: 1; letter-spacing: 0; text-indent: 0; text-align: center; font-variant-numeric: normal; }
 .cp-tool { padding: 12px 16px 4px; border-bottom: 1px solid #efe7de; }
 .cp-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
 .cp-filters label { font-size: 12px; color: var(--ink-2); }
@@ -7861,7 +7861,7 @@ a.gm-mi { text-decoration: none; }
 
 .rail-bell .bell-button, .rail-bell .bell-wait { width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: #a8a29a; }
 .rail-bell .bell-button:hover, .rail-bell .bell-button[aria-expanded="true"] { background: #322f2b; color: #fff; }
-.rail-bell .bell-badge { top: 3px; right: 2px; min-width: 15px; height: 15px; padding: 0 4px; font-size: 10px; line-height: 15px; background: #b4472e; }
+.rail-bell .bell-badge { top: -3px; right: auto; left: 20px; min-width: 15px; height: 15px; padding: 0 4px; font-size: 10px; line-height: 15px; background: #b4472e; }
 .is-adv .rail-bell .bell-button { width: 32px; height: 32px; border: 0; }
 .rail-acct { padding: 0 0 10px; margin-bottom: 6px; border-bottom: 1px solid #322f2b; }
 .acc-wrap { position: relative; }
@@ -9815,5 +9815,6 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 }
 
 /* My games: a game with something new in its campaigns carries the same number as its Campaigns tab, top left of the card. */
-.gm-new { position: absolute; left: 12px; top: 12px; z-index: 3; min-width: 22px; height: 22px; font-size: 12px; box-shadow: 0 0 0 2px #fff; text-decoration: none; }
-.gm-new:hover { filter: brightness(1.08); }
+/* .mg a sets the link colour to the surrounding text, so the white digit has to be asked for here. */
+.gm-card .gm-new { position: absolute; left: 12px; top: 12px; z-index: 3; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; color: #fff; text-decoration: none; }
+.gm-card .gm-new:hover { filter: brightness(1.08); }
