@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { completionOptions, creativeToComplete, previewCover, shapesCovered, showing, stepShowing } from "../lib/wizard-preview.js";
+import { addableCreatives, completionOptions, creativeToComplete, previewCover, shapesCovered, showing, stepShowing } from "../lib/wizard-preview.js";
 
 // the case from the wizard: a tall sample with one picture of its own for 3:1, and a 16:9 picture
 const night = {
@@ -89,5 +89,12 @@ assert.equal(options[0].covered, shapesCovered(shipping));
 assert.deepEqual(completionOptions([night, shipping]).map((o) => o.id), ["night", "ship"], "equal: in the order picked");
 assert.deepEqual(completionOptions([night]).map((o) => o.id), ["night"], "one creative: one option");
 assert.deepEqual(completionOptions([]), []);
+
+// ---- adding a creative from the review step: the library without the picked and the rejected ones
+const library = [{ id: "a", status: "approved" }, { id: "b", status: "pending" }, { id: "c", status: "rejected" }, { id: "d", status: "approved" }];
+assert.deepEqual(addableCreatives(library, ["a"]).map((c) => c.id), ["b", "d"], "not picked, not rejected, library order");
+assert.deepEqual(addableCreatives(library, []).map((c) => c.id), ["a", "b", "d"]);
+assert.deepEqual(addableCreatives(library, ["a", "b", "d"]), [], "everything picked: nothing to add");
+assert.deepEqual(addableCreatives(null, null), []);
 
 console.log("wizard-preview tests passed");

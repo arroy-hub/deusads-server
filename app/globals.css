@@ -9864,3 +9864,16 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .nwc-lstep:hover:not(:disabled), .nwc-lstep:focus-visible { background: var(--surface); color: var(--ink, #241d19); outline: none; }
 .nwc-lstep:focus-visible { box-shadow: inset 0 0 0 1.5px var(--signal-ink, #b8421d); }
 .nwc-lstep:disabled { opacity: .3; cursor: default; }
+.nwc-cdrop { flex: none; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.nwc-cdrop:hover:not(:disabled), .nwc-cdrop:focus-visible { background: var(--surface); color: var(--ink, #241d19); outline: none; }
+.nwc-cdrop:focus-visible { box-shadow: 0 0 0 2px var(--signal-ink, #b8421d); }
+.nwc-cdrop:disabled { opacity: .4; cursor: default; }
+.nwc-addwrap { position: relative; justify-self: start; }
+.nwc-addcr { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px dashed #d8cabd; border-radius: 8px; background: none; color: var(--signal-ink, #b8421d); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.nwc-addcr:hover:not(:disabled), .nwc-addcr[aria-expanded='true'] { background: var(--surface); }
+.nwc-addcr:disabled { opacity: .5; cursor: default; }
+.nwc-addwrap .nwc-smenu { left: 0; top: calc(100% + 4px); }
+.nwc-smenu.is-list { width: 320px; max-height: 300px; overflow-y: auto; }
+.nwc-smenu.is-list button { grid-template-columns: 36px minmax(0, 1fr); column-gap: 10px; align-items: center; }
+.nwc-smenu.is-list button .nwc-mthumb { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 6px; background: var(--surface) center / cover no-repeat; }
+.nwc-smenu.is-list button .nwc-mthumb.is-plus { display: grid; place-items: center; border: 1.5px dashed #d8cabd; background: none; color: var(--signal-ink, #b8421d); }
