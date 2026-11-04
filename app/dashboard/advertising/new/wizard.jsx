@@ -6,6 +6,7 @@ import Link from "next/link";
 import { launchCampaign, saveDraft, setCampaignCover } from "../actions";
 import { moveCreative, openCreativeEditor } from "../../creatives/actions";
 import UploadDialog from "../../creatives/upload-dialog";
+import AddCreativesDialog from "./add-creatives-dialog";
 import CreativeEditor from "../../creatives/[id]/creative-editor";
 import CampaignCard from "../c/[campaignId]/settings/campaign-card";
 import CategoryIcon from "../category-icon";
@@ -118,18 +119,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [editor, setEditor] = useState(null); // { data, tab } while the creative editor is open
-  const [addMenu, setAddMenu] = useState(false); // the list of library creatives to add, in the Creatives panel of the review
-  const addBox = useRef(null);
-  const addButton = useRef(null);
-  useEffect(() => {
-    if (!addMenu) return undefined;
-    addBox.current?.querySelector("[role='menuitem']")?.focus();
-    const away = (event) => { if (!event.target.closest?.(".nwc-addwrap")) setAddMenu(false); };
-    const escape = (event) => { if (event.key === "Escape") { setAddMenu(false); addButton.current?.focus(); } };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", escape); };
-  }, [addMenu]);
+  const [adding, setAdding] = useState(false); // the pop-up to add library creatives to the campaign, from the review
   const [paged, setPaged] = useState({}); // shape id -> the creative whose picture the tile was paged to
   const [shapeMenu, setShapeMenu] = useState(null); // { id, left, top }: the menu of a shape that has no picture
   const lookPanel = useRef(null);
@@ -554,25 +544,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                     </li>
                   ))}
                 </ul>
-                <div className="nwc-addwrap">
-                  <button type="button" className="nwc-addcr" ref={addButton} aria-haspopup="menu" aria-expanded={addMenu} disabled={busy} onClick={() => setAddMenu(!addMenu)}><IcPlus size={14} />Add a creative</button>
-                  {addMenu && (
-                    <div className="nwc-smenu is-list" role="menu" ref={addBox} aria-label="Add a creative to this campaign">
-                      {addableCreatives(usable, picked.map((c) => c.id)).map((item) => (
-                        <button key={item.id} type="button" role="menuitem" onClick={() => { setAddMenu(false); setCreativeIds((ids) => (ids.includes(item.id) ? ids : [...ids, item.id])); }}>
-                          <span className="nwc-mthumb" style={{ backgroundImage: item.url ? `url("${item.url}")` : undefined }} />
-                          <b>{item.name}</b>
-                          <span>{`${shapesCovered(item)} of ${FORMATS.length} shapes${item.status === "approved" ? "" : " · in review"}`}</span>
-                        </button>
-                      ))}
-                      <button type="button" role="menuitem" className="is-new" onClick={() => { setAddMenu(false); setUploading(true); }}>
-                        <span className="nwc-mthumb is-plus"><IcPlus size={16} /></span>
-                        <b>Upload a new creative</b>
-                        <span>A PNG or JPG; it joins your library and this campaign</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button type="button" className="nwc-addcr" aria-haspopup="dialog" disabled={busy} onClick={() => setAdding(true)}><IcPlus size={14} />Add a creative</button>
               </section>
               <section className="nwc-ready">
                 <div className="nwc-bh"><span className="nwc-eb">Ready to start</span></div>
@@ -626,6 +598,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
       </div>
 
       {editor && <CreativeEditor editor={editor.data} initialShape={editor.shape} onClose={() => setEditor(null)} />}
+      {adding && <AddCreativesDialog items={addableCreatives(usable, picked.map((c) => c.id))} onClose={() => setAdding(false)} onUpload={() => setUploading(true)} onAdd={(ids) => setCreativeIds((current) => [...current, ...ids.filter((id) => !current.includes(id))])} />}
       {uploading && <UploadDialog title="Upload a creative" lede="A PNG or JPG under 8 MB. It joins your library and is picked here." submit="Upload and pick" onClose={() => setUploading(false)} onUploaded={uploaded} />}
     </div>
   );
