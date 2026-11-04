@@ -137,6 +137,7 @@ assert.equal(odd.missingPlacements, 0, "so nothing the advertiser can fix is lef
 assert.equal(odd.oddPlacements, 1, "the 4:1 placement cannot be covered by any format");
 const oddOnly = attentionItems({ gaps: [{ id: "c9", name: "All formats", missingLabels: odd.missingLabels, missingPlacements: odd.missingPlacements }] });
 assert.equal(oddOnly.length, 0, "no notice when every standard format is added");
+assert.equal(attentionItems({ gaps: [{ id: "c7", name: "Weekend — 1:1", missingLabels: ["3:4", "9:16"], missingPlacements: 40 }] })[0].text, "Still missing a picture for 3:4, 9:16. Once each of them has one, this notice goes away.", "the notice names what is still missing");
 assert.equal(attentionItems({ gaps: [{ id: "c8", name: "No labels", missingLabels: [], missingPlacements: 2 }] }).length, 0, "a notice with nothing to add is not shown");
 const partly = coverageSummary({ creative: wide, assets: [{ formatId: "r1x1", aspect: 1, status: "approved" }], placements: [{ aspect: 16 / 9 }, { aspect: 1 }, { aspect: 9 / 16 }, { aspect: 4 }] });
 assert.deepEqual([partly.missingLabels.join(), partly.missingPlacements, partly.oddPlacements], ["3:4,9:16,3:1", 1, 1], "adding one format lowers the count, the others stay listed");
