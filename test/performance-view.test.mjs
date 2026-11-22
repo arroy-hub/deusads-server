@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import {
   BREAKDOWNS, NONE, UNKNOWN, advShare, assembleFocus, assembleList, buildPlan, cellFrom, chunkScopes, createScopes, dayCells,
-  compactCount, defaultBreakdown, emptyCell, facetOptions, figures, isFiltered, labelOf, membersOf, niceTop, parseParams, passes, ratio, sceneKeys, toQuery, valuesOf, windowOf,
+  compactCount, defaultBreakdown, emptyCell, facetOptions, figures, isFiltered, labelOf, membersOf, niceTop, parseParams, passes, ratio, sceneKeys, selectionMembers, selectionRows, toQuery, valuesOf, windowOf,
 } from "../lib/performance-view.js";
 
 const place = (id, scene, path = "obj") => ({ id, scene, path });
@@ -445,5 +445,33 @@ assert.deepEqual(focus.shown.adv.map((c) => c.views), [...focus.shown.adv.map((c
 assert.equal(focus.shown.own[0].name, "Your creative", "an own creative with no name on file is still called something");
 assert.equal(run(withState({ focus: "poster" })).where.spots.length, 0);
 assert.equal(run(withState({ focus: "dead" })).placement.off, true);
+
+// ---- the widgets under the chart follow the chart's selection (migration 0060)
+{
+  const state = (extra = {}) => ({ ...parseParams({}), by: "placement", ...extra });
+  const scopeOf = (plan) => plan.scopes.find((scope) => scope.key === plan.chartScope);
+
+  // nothing chosen: the whole game, the widgets are asked as before
+  assert.equal(selectionMembers(scopeOf(buildPlan({ items, state: state(), ctx }))), null);
+  assert.equal(selectionMembers(undefined), null);
+
+  // a ticked placement: only its members
+  const ticked = selectionMembers(scopeOf(buildPlan({ items, state: state({ ticked: ["poster"] }), ctx })));
+  assert.deepEqual(ticked.map((member) => member.placement), ["poster"]);
+
+  // one placement opened on its own
+  const focus = selectionMembers(scopeOf(buildPlan({ items, state: state({ focus: "sign" }), ctx })));
+  assert.deepEqual(focus, [{ placement: "sign" }]);
+
+  // rows that come per placement are cut to the chosen ones, by id or by external id; a failed call passes through
+  const within = selectionRows(ticked, items);
+  assert.deepEqual(
+    within({ data: [{ external_id: "plc_poster" }, { external_id: "plc_sign" }, { placement_id: "poster", external_id: "x" }, { placement_id: "sign" }], error: null }).data,
+    [{ external_id: "plc_poster" }, { placement_id: "poster", external_id: "x" }],
+  );
+  const failed = { data: null, error: { code: "42883" } };
+  assert.equal(within(failed), failed);
+  assert.deepEqual(selectionRows([], items)({ data: [{ external_id: "plc_poster" }] }).data, []);
+}
 
 console.log("performance-view: all checks passed");
