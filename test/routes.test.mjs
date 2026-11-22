@@ -258,6 +258,14 @@ const getManifest = async () => {
 r = await getManifest();
 assert.equal(r.status, 200);
 assert.deepEqual(r.body.placements[0].crop, { zoom: 2, x: 0.25, y: 0.6 }, "manifest carries the crop");
+assert.equal("serverUrl" in r.body, false, "no move set: the manifest names no other address");
+process.env.SDK_SERVER_URL = "https://api2.deusads.com/";
+const moved = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": GAME.api_key } }));
+assert.equal((await moved.json()).serverUrl, "https://api2.deusads.com", "a move set on the deployment reaches the game");
+process.env.SDK_SERVER_URL = "https://evil.example";
+const refused = await manifest.GET(new Request("https://x/v1/manifest", { headers: { "x-deusads-key": GAME.api_key } }));
+assert.equal("serverUrl" in (await refused.json()), false, "an address outside deusads.com is never sent");
+delete process.env.SDK_SERVER_URL;
 
 // --- crop columns not migrated yet: the default fit, not an error
 cropMissing = true;

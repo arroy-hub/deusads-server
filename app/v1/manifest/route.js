@@ -19,6 +19,7 @@ import { switchedOff } from "../../../lib/placement-organization";
 import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
 import { campaignMayServe, effectivePause } from "../../../lib/campaign-rules";
 import { slotStates } from "../../../lib/fill-rate";
+import { sdkServerUrl } from "../../../lib/server-address";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,9 @@ export const OPTIONS = preflight;
  * (no creative, no fallback texture): `disabled` holds placement ids that show nothing anywhere
  * (the placement itself or its folder is off, or every place it stands in is too distorted: migration 0051), `disabledScenes` holds scene names in which every
  * placement shows nothing. SDKs before 0.6 ignore both and keep their fallback texture there.
+ *
+ * `serverUrl` is present only when SDK_SERVER_URL is set on the deployment: it tells released games to use
+ * another address from their next launch (see lib/server-address.js).
  */
 export const GET = guarded(async function GET(request) {
   const { game, db, error } = await authenticateGame(request);
@@ -145,7 +149,15 @@ export const GET = guarded(async function GET(request) {
   // Counted after the answer has gone out: the fill rate is for the developer's dashboard, not for the game.
   await afterResponse(() => recordFill(db, game, { levels: [rows, eligible, servable, notSuspended, notBlocked], chosen, disabled }));
 
-  return json({ version: 1, placements, disabled: off.disabled, disabledScenes: off.disabledScenes });
+  // serverUrl is there only while games are being moved to another address (SDK 0.14 and later; older ones ignore it).
+  const moveTo = sdkServerUrl();
+  return json({
+    version: 1,
+    placements,
+    disabled: off.disabled,
+    disabledScenes: off.disabledScenes,
+    ...(moveTo ? { serverUrl: moveTo } : {}),
+  });
 });
 
 // Newest schema first; each step back drops what a missing migration added.
