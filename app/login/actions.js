@@ -54,7 +54,7 @@ export async function signIn({ email, password, remember }) {
 }
 
 /**
- * Sends the password-reset email. Its link signs the person in (in this browser) and opens Your account →
+ * Sends the password-reset email. Its link signs the person in and opens Your account →
  * Sign-in, where a new password can be set without the old one for 30 minutes. The answer is the same
  * whether or not the email has an account, so the screen does not reveal who is registered.
  */

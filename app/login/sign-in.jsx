@@ -157,7 +157,7 @@ export default function SignIn({ notice }) {
         fail(result?.error);
         return;
       }
-      setMessage({ tone: "notice", text: "If this email has an account, a link is on its way. Open it in this browser." });
+      setMessage({ tone: "notice", text: "If this email has an account, a link is on its way." });
     } catch {
       setBusy(false);
       fail("Connection lost. Try again.");
