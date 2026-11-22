@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset your password</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f2ed;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f2ed;">
+<tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+<tr><td style="padding:0 4px 16px 4px;font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:bold;letter-spacing:0.2px;color:#241d19;">Deus<span style="color:#c94a24;">ADS</span></td></tr>
+<tr><td style="background:#ffffff;border:1px solid #e6ddd3;border-radius:12px;padding:32px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;color:#241d19;">
+<h1 style="margin:0 0 12px 0;font-size:22px;line-height:28px;font-weight:bold;color:#241d19;">Reset your password</h1>
+<p style="margin:0 0 24px 0;font-size:15px;line-height:23px;color:#241d19;">We received a request to reset the password of your DeusADS account. The button opens your account, where you set a new one.</p>
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:8px;background:#c94a24;">
+<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/dashboard/account?tab=security" style="display:inline-block;padding:12px 22px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">Set a new password</a>
+</td></tr></table>
+<p style="margin:24px 0 0 0;font-size:13px;line-height:20px;color:#6f635a;">The link works once and for a limited time. If you did not ask for it, ignore this email: your password stays as it is.</p>
+<p style="margin:16px 0 0 0;font-size:13px;line-height:20px;color:#6f635a;">If the button does not open, copy this address into your browser:<br><a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/dashboard/account?tab=security" style="color:#b8421d;word-break:break-all;">{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/dashboard/account?tab=security</a></p>
+</td></tr>
+<tr><td style="padding:16px 4px 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8c7f73;">DeusADS &middot; <a href="{{ .SiteURL }}" style="color:#8c7f73;">app.deusads.com</a><br>This message was sent automatically. Replies to it are not read.</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
