@@ -12,6 +12,7 @@ import { cropToStrip } from "../../lib/cover-image";
 import { COVERS, COVER_MAX_BYTES, defaultCoverId } from "../../lib/game-cover";
 import { ABOUT_LISTS } from "../../lib/game-about";
 import { FIELDS, GENRES_HINT, MAX_GAME_GENRES, PROFILE_KEYS } from "../../lib/targeting";
+import { Busy, refreshPage, useWaitMark } from "./wait";
 
 const EMPTY = {
   name: "",
@@ -67,6 +68,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
   const [coverPick, setCoverPick] = useState(null); // a colour id, or null for the default
   const [cover, setCover] = useState(NO_PICTURE); // an uploaded picture
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const [fileError, setFileError] = useState("");
 
@@ -186,7 +188,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
     if (failed) return setError(`The game is added, but a picture was not saved: ${failed}`);
     created.current = null;
     setOpen(false);
-    router.refresh(); // the new game appears in the list behind
+    refreshPage(router); // the new game appears in the list behind
   }
 
   const defaultId = defaultCoverId(gamesCount);
@@ -346,7 +348,7 @@ export default function AddGameDialog({ gamesCount = 0 }) {
                 {created.current ? "Close" : "Cancel"}
               </button>
               <button className="ag-save" type="submit" disabled={busy || !complete} aria-busy={busy}>
-                {busy ? "Adding…" : created.current ? "Save pictures" : "Add game"}
+                {busy ? <Busy>Adding…</Busy> : created.current ? "Save pictures" : "Add game"}
               </button>
             </div>
           </form>

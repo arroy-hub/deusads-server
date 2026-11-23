@@ -9,6 +9,7 @@ import { MenuItem, MenuSep, Pop } from "../_cabinet/ui";
 import { IcCaret, IcFolder, IcGrip, IcMore, IcPencil, IcTrash, IcUpload } from "../_cabinet/icons";
 import { createFolder, deleteFolder, moveCreative, renameFolder } from "./actions";
 import { deleteCreative, renameCreative } from "../actions";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 const STATUS = { approved: ["Approved", "ov-live"], pending: ["In review", "ov-scheduled"], rejected: ["Rejected", "ov-bad"] };
 const F = ["r16x9", "r4x3", "r1x1", "r3x4", "r9x16", "r2x1", "r3x1"];
@@ -59,13 +60,14 @@ function CardMenu({ item, folders, onMove, onDelete }) {
 function DeleteDialog({ item, onClose, onConfirm }) {
   const ref = useRef(null);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   useLayoutEffect(() => { if (ref.current && !ref.current.open) ref.current.showModal(); }, []);
   return (
     <dialog ref={ref} className="modal rd-dialog" aria-labelledby="rd-del-title" onClose={onClose}>
       <div className="modal-box">
         <div className="rd-dhead"><div><h2 id="rd-del-title">Delete this creative?</h2><p className="rd-dsub">{item.name}</p></div><button type="button" className="modal-close" aria-label="Close" onClick={() => ref.current?.close()}>×</button></div>
         <div className="rd-dbody"><p className="rd-dhint">The picture and the pictures made for single shapes are deleted. This cannot be undone.</p></div>
-        <div className="rd-dfoot"><button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Keep</button><button type="button" className="button button-danger" disabled={busy} onClick={async () => { setBusy(true); await onConfirm(); ref.current?.close(); }}>{busy ? "Deleting…" : "Delete"}</button></div>
+        <div className="rd-dfoot"><button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Keep</button><button type="button" className="button button-danger" disabled={busy} onClick={async () => { setBusy(true); await onConfirm(); ref.current?.close(); }}>{busy ? <Busy>Deleting…</Busy> : "Delete"}</button></div>
       </div>
     </dialog>
   );
@@ -137,6 +139,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  useWaitMark(Boolean(deleting));
   const [problem, setProblem] = useState("");
 
   const block = useRef(null);
@@ -153,7 +156,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   useEffect(() => setItems(list), [list]);
   useEffect(() => setFolders(serverFolders), [serverFolders]);
 
-  const fail = (result, fallback = "Could not save. Try again.") => { setProblem(result?.error || fallback); router.refresh(); };
+  const fail = (result, fallback = "Could not save. Try again.") => { setProblem(result?.error || fallback); refreshPage(router); };
   const run = async (promise) => { const result = await promise.catch(() => ({ error: "Connection lost. Try again." })); if (result?.error) fail(result); else setProblem(""); return result; };
 
   const filtering = q || status !== "all" || shapes !== "all" || folderFilter !== "all";
@@ -204,7 +207,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   // A new creative goes first in the library (and into the folder chosen in the pop-up).
   const uploaded = async (creative, { folderId }) => {
     await moveCreative({ creativeId: creative.id, folderId, beforeId: items[0]?.id ?? null }).catch(() => null);
-    router.refresh();
+    refreshPage(router);
   };
 
   const anyOpen = folders.some((f) => !closed[f.id]);

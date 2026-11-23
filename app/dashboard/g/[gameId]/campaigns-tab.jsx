@@ -20,6 +20,7 @@ import { DEV_SHARE, earnedOf } from "../../../../lib/wallet";
 import { TestMark } from "../../wallet/parts";
 import { changeAds, markSeen, reportCreative, setCategoryBlocked } from "./campaign-actions";
 import { audienceWords } from "../../../../lib/audience-fit";
+import { useWaitMark } from "../../wait";
 
 // "started 20 Oct" only for a day that has come; a day still ahead reads "starts 20 Oct".
 const startedWord = (iso) => (iso && iso > new Date().toISOString().slice(0, 10) ? "starts" : "started");
@@ -105,6 +106,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const [recent, setRecent] = useState(model.recent);
   const [cleared, setCleared] = useState({});
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
 
   const [view, setView] = useState("camp");
   const [period, setPeriod] = useState(30);

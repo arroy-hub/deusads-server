@@ -11,6 +11,7 @@ import KeyNumbers from "../../key-numbers";
 import { Info } from "../../metrics-deck";
 import ReportFrame, { StatToggle } from "../../advertising/c/[campaignId]/report-frame";
 import { EarnedBlock, earnedText } from "../../earnings-parts";
+import { useWaitMark } from "../../wait";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const SW_LABEL = { all: "All", adv: "Advertisers", own: "My creatives" };
@@ -52,6 +53,7 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
+  useWaitMark(pending);
   const [state, setState] = useState(model.state);
   const [sort, setSort] = useState({ key: "views", dir: "desc" });
   const [folded, setFolded] = useState(() => new Set());

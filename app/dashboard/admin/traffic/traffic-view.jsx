@@ -7,6 +7,7 @@ import { LEVEL_LABEL } from "../../../../lib/admin-traffic";
 import { DeckShell, DeckToggle } from "../admin-deck";
 import { Band, Dropdown, Info, Pill, Seg, SortTh, gradientFor } from "../ui";
 import { useCards } from "../cards";
+import { useWaitMark } from "../../wait";
 
 const COLS = "minmax(0,1.4fr) 68px 68px minmax(0,1fr) 112px";
 const SORT_DEFAULTS = { game: "asc", views: "desc", marked: "desc", share: "desc", verdict: "asc" };
@@ -23,6 +24,7 @@ export default function TrafficView({ games, totals, rules, samples, pickedId, d
   const router = useRouter();
   const { open: openCard } = useCards();
   const [pending, go] = useTransition();
+  useWaitMark(pending);
   const [want, setWant] = useState(null);
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState(null);

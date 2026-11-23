@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "./account/actions";
 import { leaveDashboard } from "./leave";
+import { Busy } from "./wait";
 
 /**
  * The account block under the wordmark in the side menu: the picture, the company name and the email.
@@ -52,7 +53,7 @@ export default function AccountMenu({ company, email, avatarUrl, initials, atten
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" />
               </svg>
-              {pending ? "Signing out…" : "Sign out"}
+              {pending ? <Busy>Signing out…</Busy> : "Sign out"}
             </button>
           </div>
         )}

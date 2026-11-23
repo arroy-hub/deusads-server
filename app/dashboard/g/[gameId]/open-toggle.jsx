@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setPlacementOpen } from "../../actions";
+import { refreshPage, useWaitMark } from "../../wait";
 
 /** "Open to advertisers" switch for one placement; saves as soon as it is clicked. */
 export default function OpenToggle({ placementId, initial }) {
   const router = useRouter();
   const [open, setOpen] = useState(initial);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   async function change(event) {
@@ -22,7 +24,7 @@ export default function OpenToggle({ placementId, initial }) {
       setOpen(!next);
       return setError(result.error);
     }
-    router.refresh();
+    refreshPage(router);
   }
 
   return (

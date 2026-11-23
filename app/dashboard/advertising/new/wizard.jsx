@@ -26,6 +26,7 @@ import { IcCheck, IcPlus, IcWarn } from "../../_cabinet/icons";
 import { navigating } from "../../_cabinet/nav";
 import { RATE, count, credits, impressionsFor, parseAmount, round2 } from "../../../../lib/wallet";
 import { TopUpDialog } from "../../wallet/parts";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const POPULAR_LANGUAGES = ["en", "es", "de", "fr", "ru", "pt", "zh", "ja", "ko", "it", "tr", "pl"];
 const ALL_KEYS = [...PROFILE_KEYS, "exclude_genres", "exclude_countries"];
@@ -122,6 +123,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const [moreLang, setMoreLang] = useState(false);
   const [langQ, setLangQ] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   // The wallet (migration 0061): `wallet` is what is in it, or null when there is no wallet yet (then no budget is asked).
   const hasWallet = wallet != null;
@@ -221,7 +223,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
     setBusy(false);
     navigating();
     router.push("/dashboard/advertising");
-    router.refresh();
+    refreshPage(router);
   }
   async function submit() {
     if (busy) return;
@@ -232,7 +234,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
     setBusy(false);
     navigating();
     router.push("/dashboard/advertising");
-    router.refresh();
+    refreshPage(router);
   }
 
   /** The creative editor opens over the wizard (on the Audience tab when asked); the wizard stays as it is. */
@@ -255,7 +257,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
     setCreativeIds((ids) => [...ids, creative.id]);
     if (!name.trim()) setName(creative.name);
     await moveCreative({ creativeId: creative.id, folderId: null, beforeId: first }).catch(() => null);
-    router.refresh(); // the server list now holds the new creative
+    refreshPage(router); // the server list now holds the new creative
   }
   const toggleCreative = (id) => setCreativeIds((ids) => (ids.includes(id) ? (ids.length > 1 ? ids.filter((x) => x !== id) : ids) : [...ids, id]));
 
@@ -613,7 +615,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
               {step === 4 ? (
                 <>
                   <button type="button" className="nwc-btn is-quiet" onClick={draft} disabled={busy || !nameReady}>Save as draft</button>
-                  <button type="button" className="nwc-btn is-primary" onClick={submit} disabled={busy || picked.length === 0 || !nameReady || budgetBad || budgetOver}>{busy ? "Starting…" : "Start campaign"}</button>
+                  <button type="button" className="nwc-btn is-primary" onClick={submit} disabled={busy || picked.length === 0 || !nameReady || budgetBad || budgetOver}>{busy ? <Busy>Starting…</Busy> : "Start campaign"}</button>
                 </>
               ) : (
                 <button type="button" className="nwc-btn is-primary" onClick={() => { if (step === 1 && !name.trim() && chosen) setName(chosen.name); setStep(step + 1); }} disabled={!canNext || busy}>{nextLabel} →</button>

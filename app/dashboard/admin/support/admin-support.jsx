@@ -9,6 +9,7 @@ import { IcMore } from "../../_cabinet/icons";
 import { STATUS_LABEL, TYPE_LABEL, bulkAllowed, groupByPerson, waitHours, waitLabel } from "../../../../lib/support-rules";
 import { changeStatusMany } from "../../support/actions";
 import AssistantAdmin from "./assistant-admin";
+import { refreshPage, useWaitMark } from "../../wait";
 
 const PAGE = 30;
 const SORTS = { queue: [["wait", "Longest waiting"], ["count", "Most requests"], ["name", "Name A–Z"]], all: [["wait", "Waiting first"], ["recent", "Most recent"], ["count", "Most requests"], ["name", "Name A–Z"]] };
@@ -40,6 +41,7 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
   const [menu, setMenu] = useState(null); // owner id
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const all = tab === "all";
 
   useEffect(() => { if (initialOpen) setOpenId(initialOpen); }, [initialOpen]);
@@ -79,11 +81,11 @@ export default function AdminSupport({ requests, outdated, serverNow, initialTab
     if (result?.error) return setNotice(result.error);
     setNotice(`${noun(result.updated, "request", "requests")} updated${result.skipped ? `, ${result.skipped} skipped` : ""}.`);
     setPicked(new Set());
-    router.refresh();
+    refreshPage(router);
   }
 
   const openRequest = (id) => { setOpenId(id); try { const u = new URL(window.location.href); u.searchParams.set("open", id); window.history.replaceState(null, "", u); } catch {} };
-  const closeRequest = () => { setOpenId(null); try { const u = new URL(window.location.href); u.searchParams.delete("open"); window.history.replaceState(null, "", u); } catch {} router.refresh(); };
+  const closeRequest = () => { setOpenId(null); try { const u = new URL(window.location.href); u.searchParams.delete("open"); window.history.replaceState(null, "", u); } catch {} refreshPage(router); };
   const choose = (next) => { setTab(next); setShown(PAGE); setPicked(new Set()); setFilters((f) => ({ ...f, sort: "wait" })); try { const u = new URL(window.location.href); if (next === "all" || next === "assistant") u.searchParams.set("tab", next); else u.searchParams.delete("tab"); window.history.replaceState(null, "", u); } catch {} };
 
   const medianOld = (() => { const ws = waiting.map((r) => waitHours(r, now)).sort((a, b) => a - b); return ws.length ? { old: ws.at(-1), med: ws[Math.floor(ws.length / 2)] } : null; })();

@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { PRICE, RATE, budgetTone, count, credits, lastsAbout } from "../../../../../lib/wallet";
 import { Bar, BudgetDialog, Hint, MoneyChart } from "../../../wallet/parts";
+import { Figure } from "../../../wait";
 
 const WarnIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 8v5M12 16.5h.01M12 3l9.5 17h-19z" /></svg>
@@ -50,9 +51,9 @@ export default function BudgetPanel({ campaign, state, ended, statusLabel, avail
             {closed ? null : <button type="button" className="button button-quiet wl-sm" onClick={() => setAdding(true)}>Add budget</button>}
           </div>
           <div className="wl-bgrid">
-            <div><span className="cr-card-label">Spent</span><b>{credits(state.spent)}</b></div>
-            <div><span className="cr-card-label">{closed ? "Returned to wallet" : "Left"}</span><b>{credits(closed ? state.returned : state.left)}</b></div>
-            <div><span className="cr-card-label">Budget</span><b>{credits(state.budget)}</b></div>
+            <div><span className="cr-card-label">Spent</span><b><Figure>{credits(state.spent)}</Figure></b></div>
+            <div><span className="cr-card-label">{closed ? "Returned to wallet" : "Left"}</span><b><Figure>{credits(closed ? state.returned : state.left)}</Figure></b></div>
+            <div><span className="cr-card-label">Budget</span><b><Figure>{credits(state.budget)}</Figure></b></div>
             <div><span className="cr-card-label">{closed ? "Status" : "Lasts about"}</span><b>{closed ? statusLabel : lasts ?? "–"}</b></div>
           </div>
           <div className="wl-bigbar"><Bar pct={state.pct} tone={budgetTone({ ...state, out })} /></div>

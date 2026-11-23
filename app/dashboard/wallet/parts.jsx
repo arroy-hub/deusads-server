@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import Modal from "../modal";
 import { TEST_NOTE, count, credits, dayText, moneyTop, parseAmount, tickText, weekdayText } from "../../../lib/wallet";
 import { addBudget, topUp } from "./actions";
+import { Busy, Figure, refreshPage, useRefreshing, useWaitMark } from "../wait";
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
@@ -86,7 +87,7 @@ export function HeroAmount({ label, value, sub, extra = null, after = null }) {
   return (
     <>
       <span className="wl-hero-k">{label}</span>
-      <div className="wl-hero-row"><span className="wl-hero-v">{value}</span><span className="wl-hero-u">C.</span>{extra}</div>
+      <div className="wl-hero-row"><span className="wl-hero-v"><Figure>{value}</Figure></span><span className="wl-hero-u">C.</span>{extra}</div>
       <div className="wl-hero-foot"><span className="wl-hero-sub">{sub}</span>{after}</div>
     </>
   );
@@ -99,7 +100,7 @@ export function SumBlock({ hero, cells }) {
       <div className="wl-hero-main">{hero}</div>
       <dl className="wl-hero-side">
         {cells.map(([label, value, caption]) => (
-          <div key={label}><span><dt>{label}</dt><small>{caption}</small></span><dd>{value}</dd></div>
+          <div key={label}><span><dt>{label}</dt><small>{caption}</small></span><dd><Figure>{value}</Figure></dd></div>
         ))}
       </dl>
     </section>
@@ -108,9 +109,11 @@ export function SumBlock({ hero, cells }) {
 
 /** A titled table in a white box. `head`: [[label, numeric?]]. */
 export function TableBox({ title, tools = null, head, children, note = null, className = "" }) {
+  // while the page fetches its figures again the rows fade and a wheel turns beside the title
+  const waiting = useRefreshing();
   return (
-    <section className={`gp-panel gp-tablebox wl-box${className ? ` ${className}` : ""}`}>
-      <div className="gp-table-head"><h2>{title}</h2><div className="gp-tools">{tools}</div></div>
+    <section className={`gp-panel gp-tablebox wl-box${waiting ? " is-waiting" : ""}${className ? ` ${className}` : ""}`} aria-busy={waiting || undefined}>
+      <div className="gp-table-head"><h2>{title}{waiting && <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" />}</h2><div className="gp-tools">{tools}</div></div>
       <div className="gp-scroll">
         <table className="gp-table wl-table">
           <thead><tr>{head.map(([label, numeric], index) => <th key={index} className={numeric ? "num" : undefined}>{label}</th>)}</tr></thead>
@@ -236,6 +239,7 @@ export function TopUpDialog({ open, onClose, available, need = 0, onDone = null 
   const router = useRouter();
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   useEffect(() => {
     if (open) { setValue(String(need > 0 ? Math.ceil(need / 50) * 50 : 500)); setError(""); }
@@ -251,11 +255,11 @@ export function TopUpDialog({ open, onClose, available, need = 0, onDone = null 
     walletToast(`${credits(result.amount)} C. added to your wallet`);
     onDone?.(result);
     onClose();
-    router.refresh();
+    refreshPage(router);
   }
   return (
     <Modal open={open} onClose={onClose} title="Add credits" busy={busy} className="wl-dialog"
-      footer={<><button type="button" className="button button-quiet" onClick={onClose} disabled={busy}>Cancel</button><button type="button" className="button" onClick={submit} disabled={busy}>{busy ? "Adding…" : "Add credits"}</button></>}>
+      footer={<><button type="button" className="button button-quiet" onClick={onClose} disabled={busy}>Cancel</button><button type="button" className="button" onClick={submit} disabled={busy}>{busy ? <Busy>Adding…</Busy> : "Add credits"}</button></>}>
       <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
         <p className="muted wl-p">Type any amount. Credits are demo units: nothing is charged.</p>
         <AmountField value={value} onChange={setValue} label="Amount in credits" quick={[100, 500, 1000, 5000]} disabled={busy} />
@@ -271,6 +275,7 @@ export function BudgetDialog({ campaign, onClose, available }) {
   const router = useRouter();
   const [value, setValue] = useState("100");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const open = Boolean(campaign);
   useEffect(() => { if (open) { setValue("100"); setError(""); } }, [open, campaign?.id]);
@@ -286,11 +291,11 @@ export function BudgetDialog({ campaign, onClose, available }) {
     if (result?.error) return setError(result.error);
     walletToast(result.resumed ? `${campaign.name} is running again` : `${credits(result.amount)} C. added to the budget`);
     onClose();
-    router.refresh();
+    refreshPage(router);
   }
   return (
     <Modal open={open} onClose={onClose} title={`Add budget · ${campaign?.name ?? ""}`} busy={busy} className="wl-dialog"
-      footer={<><button type="button" className="button button-quiet" onClick={onClose} disabled={busy}>Cancel</button><button type="button" className="button" onClick={submit} disabled={busy}>{busy ? "Adding…" : "Add budget"}</button></>}>
+      footer={<><button type="button" className="button button-quiet" onClick={onClose} disabled={busy}>Cancel</button><button type="button" className="button" onClick={submit} disabled={busy}>{busy ? <Busy>Adding…</Busy> : "Add budget"}</button></>}>
       {campaign ? (
         <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
           <p className="muted wl-p">The amount moves from your wallet into this campaign’s budget. {state.out || state.closed ? "The campaign starts showing again by itself." : ""}</p>

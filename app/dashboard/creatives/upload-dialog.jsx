@@ -7,6 +7,7 @@ import { AD_CATEGORIES } from "../../../lib/categories";
 import { IcUpload } from "../_cabinet/icons";
 import { SAMPLES, drawSample } from "../_cabinet/samples";
 import { sizeAdvice } from "../../../lib/creative-size";
+import { Busy, useWaitMark } from "../wait";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -26,6 +27,7 @@ export default function UploadDialog({ title = "Add a creative", lede = "A PNG o
   const [over, setOver] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [notice, setNotice] = useState(""); // the picture was made smaller on upload; shown before the pop-up closes
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [samples, setSamples] = useState(null);
@@ -138,7 +140,7 @@ export default function UploadDialog({ title = "Add a creative", lede = "A PNG o
           ) : (
             <>
               <button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Cancel</button>
-              <button type="button" className="button" disabled={!pic || !name.trim() || !category || busy} aria-busy={busy} onClick={add}>{busy ? "Uploading…" : submit}</button>
+              <button type="button" className="button" disabled={!pic || !name.trim() || !category || busy} aria-busy={busy} onClick={add}>{busy ? <Busy>Uploading…</Busy> : submit}</button>
             </>
           )}
         </div>

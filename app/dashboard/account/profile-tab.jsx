@@ -6,6 +6,7 @@ import Avatar from "./avatar";
 import BillingStub from "./billing-stub";
 import { saveProfile } from "./actions";
 import { AVATAR_MAX_BYTES, ROLE_NAMES, checkProfile, initials } from "../../../lib/account-rules";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 const FIELDS = ["company", "contactName", "website", "country", "phone", "email"];
 
@@ -20,6 +21,7 @@ export default function ProfileTab({ view, admin, countries, say, goSecurity }) 
   const [picture, setPicture] = useState(null); // { file, preview } | { remove: true } | null
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
 
   const advertiser = view.role === "advertiser";
   const developer = view.role === "developer";
@@ -103,7 +105,7 @@ export default function ProfileTab({ view, admin, countries, say, goSecurity }) 
     setPicture(null);
     setErrors({});
     say("Saved");
-    router.refresh();
+    refreshPage(router);
   }
 
   const missingCompany = !value("company").trim();
@@ -257,7 +259,7 @@ export default function ProfileTab({ view, admin, countries, say, goSecurity }) 
               Discard
             </button>
             <button type="button" className="button" onClick={save} disabled={busy}>
-              {busy ? "Saving…" : "Save changes"}
+              {busy ? <Busy>Saving…</Busy> : "Save changes"}
             </button>
           </div>
         )}

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Info } from "../metrics-deck";
 import { PROGRESS, STATUS_LABEL, TYPE_LABEL, LIMITS, lockOf, toneOf, waitLabel } from "../../../lib/support-rules";
 import { PlateIcon } from "../window-top";
+import { Busy, useWaitMark } from "../wait";
 
 /** Small pieces used by the page, the corner pop-ups and the request window. */
 
@@ -196,6 +197,7 @@ export function RequestForm({ role, seed, withContext = false, onSent, onCancel,
   const [text, setText] = useState(seed?.text ?? "");
   const [withPage, setWithPage] = useState(true);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const picker = useShots();
 
@@ -230,7 +232,7 @@ export function RequestForm({ role, seed, withContext = false, onSent, onCancel,
       {error && <p className="sp-problem" role="alert">{error}</p>}
       <div className="sp-form-actions">
         <button type="button" className="button button-quiet" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
-        <button type="submit" className="button" disabled={busy}>{busy ? "Sending…" : "Send"}</button>
+        <button type="submit" className="button" disabled={busy}>{busy ? <Busy>Sending…</Busy> : "Send"}</button>
       </div>
     </form>
   );

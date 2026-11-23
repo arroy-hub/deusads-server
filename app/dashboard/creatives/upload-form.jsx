@@ -6,6 +6,7 @@ import { browserClient } from "../../../lib/supabase-browser";
 import { AD_CATEGORIES } from "../../../lib/categories";
 import { ratioLabel } from "../../../lib/surface-math";
 import { sizeAdvice } from "../../../lib/creative-size";
+import { Busy } from "../wait";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -162,7 +163,7 @@ export default function UploadForm({ onUploaded, embedded = false }) {
 
       <div className="upload-actions">
         <button className="button" type="submit" disabled={!preview || uploading} aria-busy={uploading}>
-          {uploading ? "Uploading…" : "Upload creative"}
+          {uploading ? <Busy>Uploading…</Busy> : "Upload creative"}
         </button>
         <span role="status" aria-live="polite" className={status === "error" ? "error" : "upload-done"}>
           {status === "done" && <Check />}

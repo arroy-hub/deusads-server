@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import MultiPick from "../../multi-pick";
 import { CountryAudience } from "../../country-tiers";
 import { FIELDS, countFitting, hasTargeting, targetingSummary } from "../../../../lib/targeting";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const EMPTY = { genres: [], exclude_genres: [], platforms: [], languages: [], countries: [], exclude_countries: [] };
 
@@ -28,6 +29,7 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
   const [audience, setAudience] = useState(start);
   const [saved, setSaved] = useState(start);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [note, setNote] = useState(null); // { tone, text }
 
   const targeting = toTargeting(audience);
@@ -60,7 +62,7 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
     setSaved(stored);
     setAudience(stored);
     setNote({ tone: "done", text: "Saved. Players get it the next time they start a game." });
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
@@ -108,7 +110,7 @@ export default function Audience({ creativeId, initial, catalog, embedded = fals
         <div className="row">
           {!embedded && (
             <button className="button" type="submit" disabled={busy || !changed}>
-              {busy ? "Saving…" : "Save audience"}
+              {busy ? <Busy>Saving…</Busy> : "Save audience"}
             </button>
           )}
           {hasTargeting(targeting) && (

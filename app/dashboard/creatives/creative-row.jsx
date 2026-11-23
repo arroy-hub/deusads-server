@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { deleteCreative, renameCreative } from "../actions";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 /**
  * One creative in the library: thumbnail, name (renamable), size, status and how
@@ -14,6 +15,7 @@ export default function CreativeRow({ id, name, url, size, status, note, usedBy,
   const [mode, setMode] = useState("view"); // view | rename | delete
   const [title, setTitle] = useState(name);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   async function save(event) {
@@ -26,7 +28,7 @@ export default function CreativeRow({ id, name, url, size, status, note, usedBy,
     setBusy(false);
     if (result?.error) return setError(result.error);
     setMode("view");
-    router.refresh();
+    refreshPage(router);
   }
 
   async function remove() {
@@ -35,7 +37,7 @@ export default function CreativeRow({ id, name, url, size, status, note, usedBy,
     const result = await deleteCreative({ creativeId: id }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setError(result.error);
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
@@ -100,7 +102,7 @@ export default function CreativeRow({ id, name, url, size, status, note, usedBy,
                 : "Delete this creative?"}
             </span>
             <button className="button button-danger" type="button" onClick={remove} disabled={busy}>
-              {busy ? "Deleting…" : "Delete"}
+              {busy ? <Busy>Deleting…</Busy> : "Delete"}
             </button>
             <button className="button button-quiet" type="button" onClick={() => setMode("view")} disabled={busy}>
               Cancel

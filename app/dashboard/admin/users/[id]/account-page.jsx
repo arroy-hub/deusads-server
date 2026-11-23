@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AccountBody, AccountTabs, ConfirmBar, RolePill, RoleSelect, StatusPill, tabOf } from "../../account-panel";
 import { Band, Icon } from "../../ui";
+import { refreshPage } from "../../../wait";
 
 /** Someone else's account as a page (mockup userA): the admin bar, the band with pills and role, the three tabs. */
 export default function AdminAccountPage({ u, initialTab }) {
@@ -17,7 +18,7 @@ export default function AdminAccountPage({ u, initialTab }) {
     if (next === "profile") url.searchParams.delete("tab"); else url.searchParams.set("tab", next === "notif" ? "notifications" : next);
     window.history.replaceState(null, "", url);
   };
-  const refresh = () => router.refresh();
+  const refresh = () => refreshPage(router);
   const after = (kind) => { setAsk(null); if (kind === "delete") router.push("/dashboard/admin/users"); else refresh(); };
   const menu = { position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#fff", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 12px 36px rgba(36,29,25,.18)", padding: 6, display: "grid", minWidth: 210, zIndex: 5 };
 

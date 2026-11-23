@@ -7,6 +7,7 @@ import { Band, Dropdown, IconBtn, Lnk, Seg, Th, toast } from "../ui";
 import { useCards } from "../cards";
 import { resolveDispute } from "../actions";
 import { outcomeText } from "../../../../lib/admin-disputes";
+import { refreshPage, useWaitMark } from "../../wait";
 
 const COLS = "56px minmax(0,1.2fr) minmax(250px,1.3fr) 58px 96px";
 const INFO = "Developer reports are about a creative: you can remove it from the platform. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
@@ -19,6 +20,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
   const [from, setFrom] = useState("all");
   const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(null);
+  useWaitMark(Boolean(busy));
 
   const inFrom = (r) => from === "all" || r.initiator === from;
   const count = (k) => rows.filter((r) => kindOf(r) === k && inFrom(r)).length;
@@ -32,7 +34,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
     if (result?.error) return toast(result.error);
     setConfirm(null);
     toast(decision === "remove" ? "Creative removed. Developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : `Report dismissed. ${adv ? "Both sides" : "Developer"} notified`);
-    router.refresh();
+    refreshPage(router);
   }
 
   const list = shown.length ? (

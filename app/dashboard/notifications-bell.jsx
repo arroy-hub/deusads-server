@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markAllRead, markAttentionSeen, markRead } from "./notifications/actions";
+import { Busy, refreshPage, useWaitMark } from "./wait";
 
 const TABS = [
   { key: "all", label: "All" },
@@ -38,6 +39,7 @@ export default function NotificationsBell({ items, unread, attention: attentionA
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [tab, setTab] = useState("all");
   const [gone, setGone] = useState(() => new Set()); // read in this session, hidden at once, before the server catches up
   const [goneAction, setGoneAction] = useState(() => new Set()); // 'Needs action' items opened in this session, hidden at once
@@ -69,7 +71,7 @@ export default function NotificationsBell({ items, unread, attention: attentionA
     setGone(new Set(items.map((item) => item.id)));
     await markAllRead().catch(() => null);
     setBusy(false);
-    router.refresh();
+    refreshPage(router);
   }
 
   /** A click on a notification: it counts as read and leaves the bell; a link in it is followed. */
@@ -121,7 +123,7 @@ export default function NotificationsBell({ items, unread, attention: attentionA
             <strong>Notifications</strong>
             {unreadNow > 0 && (
               <button type="button" className="link-button" onClick={readAll} disabled={busy}>
-                {busy ? "Saving…" : "Mark all as read"}
+                {busy ? <Busy>Saving…</Busy> : "Mark all as read"}
               </button>
             )}
           </div>

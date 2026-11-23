@@ -12,6 +12,7 @@ import { IcStop } from "../../../../_cabinet/icons";
 import { navigating } from "../../../../_cabinet/nav";
 import { Info } from "../../../../metrics-deck";
 import CampaignCard from "./campaign-card";
+import { Busy, refreshPage, useWaitMark } from "../../../../wait";
 
 /**
  * General settings of a campaign: the name and a schedule you can read at a glance (the bar, the two days, quick
@@ -28,6 +29,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
   const delBtn = useRef(null);
   const [why, setWhy] = useState(false); // the bubble that says a running campaign has to be stopped first
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [note, setNote] = useState({ tone: "", text: "" });
   const fileRef2 = useRef(null);
   // The picture behind the page and the card: a change waits for Save, like the name and the dates.
@@ -107,7 +109,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
     }
     setBusy(false);
     setNote({ tone: "ok", text: "Saved." });
-    router.refresh();
+    refreshPage(router);
   }
 
   async function remove() {
@@ -165,7 +167,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
         <div className="cs-bar" role="region" aria-label="Unsaved changes">
           <strong>Unsaved changes</strong>
           {note.text && note.tone === "error" && <span className="cs-bar-error" role="alert">{note.text}</span>}
-          <span className="cs-bar-actions"><button type="button" className="cs-bar-discard" disabled={busy} onClick={() => { setTitle(name); setFrom(starts); setUntil(ends); setHeader({ pick: null, blob: null, preview: "", removed: false }); setNote({ tone: "", text: "" }); }}>Discard</button><button type="button" className="cs-bar-save" disabled={busy || !title.trim() || bad} onClick={save}>{busy ? "Saving…" : "Save"}</button></span>
+          <span className="cs-bar-actions"><button type="button" className="cs-bar-discard" disabled={busy} onClick={() => { setTitle(name); setFrom(starts); setUntil(ends); setHeader({ pick: null, blob: null, preview: "", removed: false }); setNote({ tone: "", text: "" }); }}>Discard</button><button type="button" className="cs-bar-save" disabled={busy || !title.trim() || bad} onClick={save}>{busy ? <Busy>Saving…</Busy> : "Save"}</button></span>
         </div>
       )}
       {audience}
@@ -183,7 +185,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
             {asking && <p className="settings-help" role="status" style={{ marginTop: 8 }}>Delete “{name}”? This cannot be undone.</p>}
           </div>
           {asking ? (
-            <span className="cs-row-confirm"><button type="button" className="button button-danger" disabled={busy} onClick={remove}>{busy ? "Deleting…" : "Delete campaign"}</button><button type="button" className="button button-quiet" disabled={busy} onClick={() => setAsking(false)}>Keep</button></span>
+            <span className="cs-row-confirm"><button type="button" className="button button-danger" disabled={busy} onClick={remove}>{busy ? <Busy>Deleting…</Busy> : "Delete campaign"}</button><button type="button" className="button button-quiet" disabled={busy} onClick={() => setAsking(false)}>Keep</button></span>
           ) : (
             <span>
               <button ref={delBtn} type="button" className={`button button-quiet${hasOpen ? " is-blocked" : ""}`} aria-haspopup={hasOpen ? "dialog" : undefined} aria-expanded={hasOpen ? why : undefined} onClick={() => (hasOpen ? setWhy((v) => !v) : setAsking(true))}>Delete campaign</button>

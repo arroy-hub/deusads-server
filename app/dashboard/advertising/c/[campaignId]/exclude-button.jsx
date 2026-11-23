@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { excludeGame } from "../../actions";
+import { Busy, refreshPage, useWaitMark } from "../../../wait";
 
 /** Take a game out of the campaign (its placements stay booked) or bring it back. */
 export default function ExcludeButton({ campaignId, gameId, excluded }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   async function toggle() {
@@ -16,13 +18,13 @@ export default function ExcludeButton({ campaignId, gameId, excluded }) {
     const result = await excludeGame({ campaignId, gameId, excluded: !excluded }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setError(result.error);
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
     <>
       <button type="button" className="button button-quiet button-small" disabled={busy} onClick={toggle}>
-        {busy ? "…" : excluded ? "Show here again" : "Exclude"}
+        {busy ? <Busy /> : excluded ? "Show here again" : "Exclude"}
       </button>
       {error && <span className="error" role="alert">{error}</span>}
     </>

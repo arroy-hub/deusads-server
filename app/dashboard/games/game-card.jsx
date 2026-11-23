@@ -8,6 +8,7 @@ import { browserClient } from "../../../lib/supabase-browser";
 import { COVERS, COVER_MAX_BYTES } from "../../../lib/game-cover";
 import { cropToStrip } from "../../../lib/cover-image";
 import { setGameCover } from "../actions";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 const Chevron = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -199,6 +200,7 @@ function CoverDialog({ game, onClose }) {
   // pend: { preset: id | null (the default colour), blob?, preview? } until Save.
   const [pend, setPend] = useState({ preset: game.coverKind === "preset" ? game.coverId : null, blob: null, preview: "" });
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const [keepImage, setKeepImage] = useState(game.coverKind === "image");
   useEffect(() => () => pend.preview && URL.revokeObjectURL(pend.preview), [pend.preview]);
@@ -254,7 +256,7 @@ function CoverDialog({ game, onClose }) {
     }
     setBusy(false);
     if (result?.error) return setError(result.error);
-    router.refresh();
+    refreshPage(router);
     close();
   }
 
@@ -322,7 +324,7 @@ function CoverDialog({ game, onClose }) {
             </button>
             <span>
               <button type="button" className="gm-btn" disabled={busy} onClick={close}>Cancel</button>
-              <button type="button" className="gm-btn gm-btn-primary" disabled={busy} onClick={() => save(close)}>{busy ? "Saving…" : "Save"}</button>
+              <button type="button" className="gm-btn gm-btn-primary" disabled={busy} onClick={() => save(close)}>{busy ? <Busy>Saving…</Busy> : "Save"}</button>
             </span>
           </div>
         </>

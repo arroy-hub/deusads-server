@@ -9,6 +9,7 @@ import { sampleForShape } from "../../_cabinet/samples";
 import { IcCheck, IcImage, IcPlus, IcTrash, IcUpload, IcWarn } from "../../_cabinet/icons";
 import { deleteAsset, registerAsset, saveFormatCrops } from "../actions";
 import { deleteCreative, renameCreative } from "../../actions";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -65,6 +66,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [msg, setMsg] = useState({ tone: "", text: "" });
 
   useLayoutEffect(() => { if (dialog.current && !dialog.current.open) dialog.current.showModal(); }, []);
@@ -172,7 +174,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
   async function save() {
     setBusy(true);
     flash("");
-    const stop = (text) => { setBusy(false); flash(text, "error"); router.refresh(); };
+    const stop = (text) => { setBusy(false); flash(text, "error"); refreshPage(router); };
     const notices = []; // pictures that were made smaller on upload: the pop-up stays open so the advertiser reads it
     try {
       if (name.trim() && name.trim() !== creative.name) {
@@ -200,7 +202,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
     setBusy(false);
     setDirty(false);
     onSaved?.();
-    router.refresh();
+    refreshPage(router);
     if (!notices.length) dialog.current?.close();
   }
 
@@ -210,7 +212,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
     setBusy(false);
     if (result?.error) return flash(result.error, "error");
     onSaved?.();
-    router.refresh();
+    refreshPage(router);
     dialog.current?.close();
   }
 
@@ -317,7 +319,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           )}
           <span className="row">
             <button type="button" className="button button-quiet" disabled={busy} onClick={() => dialog.current?.close()}>Cancel</button>
-            <button type="button" className="button" disabled={busy || !dirty || !name.trim()} aria-busy={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+            <button type="button" className="button" disabled={busy || !dirty || !name.trim()} aria-busy={busy} onClick={save}>{busy ? <Busy>Saving…</Busy> : "Save"}</button>
           </span>
         </div>
       </div>

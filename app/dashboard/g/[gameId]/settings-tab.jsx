@@ -13,6 +13,7 @@ import { ABOUT_LISTS, parseStoreUrl } from "../../../../lib/game-about";
 import { cropToStrip } from "../../../../lib/cover-image";
 import { COVERS, COVER_MAX_BYTES, parseCover } from "../../../../lib/game-cover";
 import { navigating } from "../../_cabinet/nav";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const sameLists = (a, b) => PROFILE_KEYS.every((key) => [...a[key]].sort().join() === [...b[key]].sort().join());
 const NO_ICON = { blob: null, preview: "", removed: false };
@@ -47,6 +48,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
   const [icon, setIcon] = useState(NO_ICON); // a change waiting for Save
   const [header, setHeader] = useState(NO_COVER); // the same, for the header of the card
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [note, setNote] = useState(null); // { tone, text }
 
   useEffect(() => () => icon.preview && URL.revokeObjectURL(icon.preview), [icon.preview]);
@@ -160,7 +162,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
       const failed = await storeIcon(gameId, icon);
       if (failed) {
         setBusy(false);
-        router.refresh();
+        refreshPage(router);
         return setNote({ tone: "error", text: `Saved, but the icon was not: ${failed}` });
       }
       setIcon(NO_ICON);
@@ -170,7 +172,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
       const failed = await storeCover(gameId, header);
       if (failed) {
         setBusy(false);
-        router.refresh();
+        refreshPage(router);
         return setNote({ tone: "error", text: `Saved, but the header was not: ${failed}` });
       }
       setHeader(NO_COVER);
@@ -178,7 +180,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
 
     setBusy(false);
     flash("Saved.");
-    router.refresh();
+    refreshPage(router);
   }
 
   // What the bar says while there is something to save.
@@ -377,7 +379,7 @@ export default function SettingsTab({ gameId, name, apiKey, iconUrl, iconsReady,
                 Discard
               </button>
               <button type="button" className="st-bar-save" onClick={save} disabled={busy || !valid}>
-                {busy ? "Saving…" : "Save changes"}
+                {busy ? <Busy>Saving…</Busy> : "Save changes"}
               </button>
             </>
           )}
@@ -471,7 +473,7 @@ function KeyCard({ gameId, apiKey, link }) {
     if (result?.error) return setNote({ tone: "error", text: result.error });
     setShown(true);
     setNote({ tone: "done", text: "New key issued." });
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
@@ -520,7 +522,7 @@ function KeyCard({ gameId, apiKey, link }) {
           </p>
           <div className="st-rotate-actions">
             <button type="button" className="st-danger-fill" onClick={rotate} disabled={step === "working"}>
-              {step === "working" ? "Issuing…" : "Replace the key"}
+              {step === "working" ? <Busy>Issuing…</Busy> : "Replace the key"}
             </button>
             <button type="button" className="st-plain" onClick={() => setStep("idle")} disabled={step === "working"}>
               Cancel
@@ -620,6 +622,7 @@ function DeleteGame({ gameId, name }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [working, setWorking] = useState(false);
+  useWaitMark(Boolean(working));
   const [typed, setTyped] = useState("");
   const [note, setNote] = useState(null);
   const buttonRef = useRef(null);
@@ -646,7 +649,7 @@ function DeleteGame({ gameId, name }) {
     }
     navigating();
     router.push("/dashboard/games");
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
@@ -713,7 +716,7 @@ function DeleteGame({ gameId, name }) {
                   Cancel
                 </button>
                 <button type="submit" className="st-danger-fill" disabled={!ready || working}>
-                  {working ? "Deleting…" : "Delete forever"}
+                  {working ? <Busy>Deleting…</Busy> : "Delete forever"}
                 </button>
               </div>
             </form>

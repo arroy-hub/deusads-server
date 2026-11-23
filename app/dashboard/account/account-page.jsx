@@ -8,6 +8,7 @@ import SecurityTab from "./security-tab";
 import { signOut } from "./actions";
 import { leaveDashboard } from "../leave";
 import WindowTop, { PlateIcon } from "../window-top";
+import { Busy, useWaitMark } from "../wait";
 
 const TABS = ["profile", "security", "notifications"];
 
@@ -21,6 +22,7 @@ export default function AccountPage({ view, admin = false, countries, initialTab
   const [toast, setToast] = useState("");
   const timer = useRef(null);
   const [signingOut, startSignOut] = useTransition();
+  useWaitMark(signingOut);
 
   useEffect(() => () => clearTimeout(timer.current), []);
   const say = (text) => {
@@ -53,7 +55,7 @@ export default function AccountPage({ view, admin = false, countries, initialTab
         icon={<PlateIcon name="account" />}
         actions={!admin ? (
           <button type="button" className="button button-quiet" disabled={signingOut} onClick={() => leaveDashboard(() => startSignOut(() => signOut()))}>
-            {signingOut ? "Signing out…" : "Sign out"}
+            {signingOut ? <Busy>Signing out…</Busy> : "Sign out"}
           </button>
         ) : null}
       >

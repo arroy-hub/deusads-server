@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CloseIcon, LockIcon, Message, followFlags, SendIcon, ShotPicker, StripFace, submitSupport, toneStyle, useNow, useShots } from "./support-ui";
 import { lockOf } from "../../../lib/support-rules";
 import { openRequest } from "./actions";
+import { refreshPage, useWaitMark } from "../wait";
 
 const POLL_MS = 8000;
 
@@ -23,6 +24,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
   const [failed, setFailed] = useState("");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const picker = useShots();
   const list = useRef(null);
@@ -75,7 +77,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
     picker.clear();
     last.current = "";
     await load(false);
-    router.refresh();
+    refreshPage(router);
   }
 
   return (

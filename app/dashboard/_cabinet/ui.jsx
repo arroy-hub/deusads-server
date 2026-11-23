@@ -7,6 +7,7 @@ import { pauseCampaign, stopCampaign } from "../advertising/actions";
 import { credits } from "../../../lib/wallet";
 import { addD, diff, fmtDay, todayISO, TONE } from "./dates";
 import { IcCheck, IcChevron, IcPause, IcPlay, IcStop } from "./icons";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 /** A floating panel anchored to a button, drawn above everything so no table or card can cut it off. */
 export function Pop({ anchor, open, onClose, width = 230, align = "end", children, label }) {
@@ -174,6 +175,7 @@ export function PauseDialog({ name, campaignId, initial = "pause", status = "liv
   const [until, setUntil] = useState(addD(today, 10));
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   useLayoutEffect(() => { if (ref.current && !ref.current.open) ref.current.showModal(); }, []);
   const days = { "1d": 1, "3d": 3, "7d": 7 };
@@ -212,7 +214,7 @@ export function PauseDialog({ name, campaignId, initial = "pause", status = "liv
     setBusy(false);
     if (result?.error) return setError(result.error);
     setDone({ title, text });
-    router.refresh();
+    refreshPage(router);
   }
   const stop = choice === "stop";
   return (
@@ -251,7 +253,7 @@ export function PauseDialog({ name, campaignId, initial = "pause", status = "liv
           ) : (
             <>
               <button type="button" className="button button-quiet" onClick={() => ref.current?.close()} disabled={busy}>Cancel</button>
-              <button type="button" className={`button${stop ? " button-danger" : ""}`} onClick={apply} disabled={busy || !choice || (choice === "date" && !until)}>{busy ? "Saving…" : stop ? "Stop campaign" : choice === "resume" ? "Resume campaign" : "Pause campaign"}</button>
+              <button type="button" className={`button${stop ? " button-danger" : ""}`} onClick={apply} disabled={busy || !choice || (choice === "date" && !until)}>{busy ? <Busy>Saving…</Busy> : stop ? "Stop campaign" : choice === "resume" ? "Resume campaign" : "Pause campaign"}</button>
             </>
           )}
         </div>

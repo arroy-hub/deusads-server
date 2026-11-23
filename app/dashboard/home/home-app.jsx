@@ -10,6 +10,7 @@ import Ic from "./icons";
 import { GD0, GSPEC, PLATES, applyGlow, glowStyle } from "./glow";
 import { credits, dayText } from "../../../lib/wallet";
 import { TestMark, TopUpDialog } from "../wallet/parts";
+import { Figure } from "../wait";
 
 // The blocks a person can switch on and off, in the order they appear in the menu.
 const BLOCKS = [
@@ -171,7 +172,7 @@ function Wallet({ wallet, hide }) {
         <div className="hw-top">
           <div className="hw-main">
             <span className="hw-k">{adv ? "Available" : "Balance"}</span>
-            <b className="hw-v">{credits(adv ? wallet.available : wallet.balance)}</b>
+            <b className="hw-v"><Figure>{credits(adv ? wallet.available : wallet.balance)}</Figure></b>
             <span className="hw-u">C.</span>
           </div>
           {adv ? (
@@ -184,7 +185,7 @@ function Wallet({ wallet, hide }) {
         </div>
         {!adv && <p className="hw-delta"><Ic name="trend" size={15} width={2.4} /><b>+{credits(wallet.today)}</b> today</p>}
         <dl className="hw-rows">
-          {wallet.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+          {wallet.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd><Figure>{value}</Figure></dd></div>)}
         </dl>
         {wallet.flag && (
           <Link href={wallet.flag.href} className={`hw-flag${wallet.flag.tone === "stop" ? " is-stop" : ""}`}>

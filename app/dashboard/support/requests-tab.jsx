@@ -7,6 +7,7 @@ import { IcMore, IcPlus } from "../_cabinet/icons";
 import { CaretIcon, FolderIcon, FolderPlusIcon, StripFace, TrashIcon, toneStyle, useNow } from "./support-ui";
 import { STATUSES, STATUS_LABEL, TYPES, TYPE_LABEL } from "../../../lib/support-rules";
 import { newFolder, placeInFolder, removeFolder, renameFolder } from "./actions";
+import { refreshPage } from "../wait";
 
 const plural = (n) => `${n} ${n === 1 ? "request" : "requests"}`;
 const byPosition = (a, b) => a.position - b.position; // stable: ties keep the server's order
@@ -51,7 +52,7 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
   async function save(call, revert) {
     const result = await call().catch(() => ({ error: "Connection lost. Try again." }));
     if (result?.error) { revert?.(); say(result.error); return null; }
-    router.refresh();
+    refreshPage(router);
     return result;
   }
 

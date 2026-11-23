@@ -6,6 +6,7 @@ import Modal from "../../modal";
 import { createUser } from "../actions";
 import { Icon } from "../ui";
 import { MIN_PASSWORD, ROLES } from "../../../../lib/admin-rules";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const ROLE_HELP = {
   developer: "Adds games and sells placements.",
@@ -31,6 +32,7 @@ export default function AddUserDialog() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   const set = (key) => (event) => {
@@ -54,7 +56,7 @@ export default function AddUserDialog() {
     setBusy(false);
     if (result?.error) return setError(result.error);
     close();
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
@@ -80,7 +82,7 @@ export default function AddUserDialog() {
               Cancel
             </button>
             <button type="submit" form="add-user-form" className="button" disabled={busy || !complete} aria-busy={busy}>
-              {busy ? "Adding…" : "Add user"}
+              {busy ? <Busy>Adding…</Busy> : "Add user"}
             </button>
           </>
         }

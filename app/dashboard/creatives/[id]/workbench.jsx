@@ -6,6 +6,7 @@ import { browserClient } from "../../../../lib/supabase-browser";
 import { FORMATS, aspectClose, coverageByFormat, coverageWord, formatLabel, normalizeSafeZone } from "../../../../lib/formats";
 import { ratioLabel } from "../../../../lib/surface-math";
 import { deleteAsset, registerAsset, saveSafeZone } from "../actions";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -23,6 +24,7 @@ export default function Workbench({ creative, assets }) {
   const [centre, setCentre] = useState({ x: initial.x + initial.w / 2, y: initial.y + initial.h / 2 });
   const [saved, setSaved] = useState(true);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [message, setMessage] = useState({ tone: "", text: "" });
   const stage = useRef(null);
   const drag = useRef(null);
@@ -78,7 +80,7 @@ export default function Workbench({ creative, assets }) {
     if (result?.error) return setMessage({ tone: "error", text: result.error });
     setSaved(true);
     setMessage({ tone: "ok", text: "Saved." });
-    router.refresh();
+    refreshPage(router);
   }
 
   async function upload(formatId, file) {
@@ -116,7 +118,7 @@ export default function Workbench({ creative, assets }) {
         tone: "ok",
         text: (result.status === "pending" ? "Uploaded. It will be shown once it is reviewed." : "Uploaded.") + (result.notice ? ` ${result.notice}` : ""),
       });
-      router.refresh();
+      refreshPage(router);
     } catch (error) {
       setMessage({ tone: "error", text: error?.message || "Connection lost. Try again." });
     }
@@ -128,7 +130,7 @@ export default function Workbench({ creative, assets }) {
     const result = await deleteAsset({ assetId }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setMessage({ tone: "error", text: result.error });
-    router.refresh();
+    refreshPage(router);
   }
 
   const customAssets = assets.filter((asset) => !asset.formatId);
@@ -189,7 +191,7 @@ export default function Workbench({ creative, assets }) {
         </label>
         <div className="row">
           <button className="button" type="button" onClick={save} disabled={busy || saved}>
-            {busy ? "Saving…" : saved ? "Saved" : "Save safe zone"}
+            {busy ? <Busy>Saving…</Busy> : saved ? "Saved" : "Save safe zone"}
           </button>
         </div>
       </section>

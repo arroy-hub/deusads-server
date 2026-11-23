@@ -19,6 +19,7 @@ import NavLink from "./nav-link";
 import { RoleMenu, RoleSwitch } from "./role-view";
 import NotificationsBell from "./notifications-bell";
 import NavFade from "./nav-fade";
+import WaitChip from "./wait";
 import EnterReveal from "./enter-reveal";
 import SupportCorner from "./support/support-corner";
 import { botStatus } from "../../lib/support-bot";
@@ -157,6 +158,7 @@ export default async function DashboardLayout({ children }) {
             waiting requests are on the Support page (supportUnread is their count there, not unread replies). */}
         <SupportCorner role={role} unread={admin ? 0 : supportUnread} assistantOn={assistant?.on ?? false} greeting={assistant?.greeting} />
         <NavFade />
+        <WaitChip />
         <EnterReveal />
       </div>
     </div>

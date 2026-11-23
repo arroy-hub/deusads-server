@@ -7,6 +7,7 @@ import { CountryAudience } from "../../../../country-tiers";
 import GameIcon from "../../../../game-icon";
 import { setCampaignAudience } from "../../../actions";
 import { FIELDS, countFitting, fitsGame, hasTargeting, labelOf, targetingSummary } from "../../../../../../lib/targeting";
+import { Busy, refreshPage, useWaitMark } from "../../../../wait";
 
 const GROUPS = [["genres", "Genres", "on"], ["exclude_genres", "Skip genres", "off"], ["platforms", "Platforms and devices", ""], ["languages", "Languages", ""], ["countries", "Countries", "on"], ["exclude_countries", "Skip countries", "off"]];
 const FIELD_OF = { exclude_genres: "genres", exclude_countries: "countries" };
@@ -76,7 +77,7 @@ function AudienceEditor({ value, onChange, onSave, onClose, saved, catalog, busy
       )}
       {note && <p className={note.tone === "error" ? "error" : "upload-done"} role={note.tone === "error" ? "alert" : "status"}>{note.text}</p>}
       <div className="aud-ed-actions">
-        <button type="button" className="button" disabled={!changed || busy} onClick={onSave}>{busy ? "Saving…" : "Save audience"}</button>
+        <button type="button" className="button" disabled={!changed || busy} onClick={onSave}>{busy ? <Busy>Saving…</Busy> : "Save audience"}</button>
         {hasTargeting(targeting) && <button type="button" className="button button-quiet" disabled={busy} onClick={() => onChange(EMPTY)}>Show in every game</button>}
         <button type="button" className="button button-quiet" disabled={busy} onClick={onClose}>{changed ? "Discard" : "Close"}</button>
       </div>
@@ -91,6 +92,7 @@ export default function CampaignAudience({ campaignId, initial, catalog }) {
   const [saved, setSaved] = useState(toList(initial));
   const [value, setValue] = useState(toList(initial));
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [note, setNote] = useState(null);
   const savedTargeting = toTargeting(saved);
   const fitting = catalog ? countFitting(catalog, savedTargeting) : null;
@@ -105,7 +107,7 @@ export default function CampaignAudience({ campaignId, initial, catalog }) {
     setSaved(stored);
     setValue(stored);
     setOpen(false);
-    router.refresh();
+    refreshPage(router);
   }
   const close = () => { setValue(saved); setNote(null); setOpen(false); };
 

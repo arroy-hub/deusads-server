@@ -7,6 +7,7 @@ import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } f
 import { addressOf, locateUrl } from "../../../../lib/unity-link";
 import { changeTags, setPlaceType } from "../../placement-actions";
 import { Info } from "../../metrics-deck";
+import { useWaitMark } from "../../wait";
 
 // What the Placements tab adds to a placement's own card (the picture editor): the handle (grip, or a tick
 // box while editing), the name you rename by clicking it, the "⋮" menu, the on/off switch, and the row of chips
@@ -60,6 +61,7 @@ function shapeNote(places) {
 
 function useAction() {
   const [pending, startTransition] = useTransition();
+  useWaitMark(pending);
   const [message, setMessage] = useState(null);
   function run(promise, after, undo) {
     setMessage(null);

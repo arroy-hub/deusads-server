@@ -8,6 +8,7 @@ import { formatCount } from "../../../../../../lib/analytics";
 import { MenuItem, Pop } from "../../../../_cabinet/ui";
 import { IcChevron, IcLibrary, IcPlus, IcUpload } from "../../../../_cabinet/icons";
 import { addCreativesToCampaign, removeCreativeFromCampaign } from "../../../actions";
+import { Busy, refreshPage, useWaitMark } from "../../../../wait";
 
 const STATUS = { approved: ["Approved", "ov-live"], pending: ["In review", "ov-scheduled"], rejected: ["Rejected", "ov-bad"] };
 const SHORT = { r16x9: "16:9", r4x3: "4:3", r1x1: "1:1", r3x4: "3:4", r9x16: "9:16", r2x1: "2:1", r3x1: "3:1" };
@@ -18,6 +19,7 @@ function Picker({ library, taken, onClose, onAdd }) {
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState([]);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   useState(() => { setTimeout(() => ref.current && !ref.current.open && ref.current.showModal(), 0); });
   const pool = library.filter((c) => c.status !== "rejected" && !taken.includes(c.id) && (!q || c.name.toLowerCase().includes(q.toLowerCase())));
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -44,7 +46,7 @@ function Picker({ library, taken, onClose, onAdd }) {
             </div>
           )}
         </div>
-        <div className="rd-dfoot"><button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Cancel</button><button type="button" className="button" disabled={!picked.length || busy} onClick={async () => { setBusy(true); await onAdd(picked); ref.current?.close(); }}>{busy ? "Adding…" : picked.length ? `Add ${picked.length} ${picked.length === 1 ? "creative" : "creatives"}` : "Add"}</button></div>
+        <div className="rd-dfoot"><button type="button" className="button button-quiet" disabled={busy} onClick={() => ref.current?.close()}>Cancel</button><button type="button" className="button" disabled={!picked.length || busy} onClick={async () => { setBusy(true); await onAdd(picked); ref.current?.close(); }}>{busy ? <Busy>Adding…</Busy> : picked.length ? `Add ${picked.length} ${picked.length === 1 ? "creative" : "creatives"}` : "Add"}</button></div>
       </div>
     </dialog>
   );
@@ -58,6 +60,7 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
   const [fresh, setFresh] = useState([]);
   const [asking, setAsking] = useState(null);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [problem, setProblem] = useState("");
   const btn = useRef(null);
   const [menu, setMenu] = useState(false);
@@ -67,7 +70,7 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
     if (result?.error) return setFlash({ tone: "error", text: result.error });
     setFresh(ids);
     setFlash({ tone: "ok", text: result.added === 0 ? "Already in this campaign." : names.length === 1 ? `“${names[0]}” added to this campaign.` : `${names.length} creatives added to this campaign.` });
-    router.refresh();
+    refreshPage(router);
   }
   async function remove(item) {
     setBusy(true);
@@ -76,7 +79,7 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
     setBusy(false);
     if (result?.error) return setProblem(result.error);
     setAsking(null);
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
@@ -117,7 +120,7 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
                 <span className="cc-actions">
                   <Link href={`/dashboard/creatives/${item.id}`} className="button button-quiet button-small">Edit</Link>
                   {item.removable && (asking === item.id ? (
-                    <span className="confirm-inline"><span className="confirm-text">Remove from this campaign?</span><button type="button" className="button button-danger button-small" disabled={busy} onClick={() => remove(item)}>{busy ? "Removing…" : "Remove"}</button><button type="button" className="button button-quiet button-small" disabled={busy} onClick={() => setAsking(null)}>Keep</button></span>
+                    <span className="confirm-inline"><span className="confirm-text">Remove from this campaign?</span><button type="button" className="button button-danger button-small" disabled={busy} onClick={() => remove(item)}>{busy ? <Busy>Removing…</Busy> : "Remove"}</button><button type="button" className="button button-quiet button-small" disabled={busy} onClick={() => setAsking(null)}>Keep</button></span>
                   ) : <button type="button" className="button button-quiet button-small" onClick={() => { setProblem(""); setAsking(item.id); }}>Remove</button>)}
                 </span>
               </div>

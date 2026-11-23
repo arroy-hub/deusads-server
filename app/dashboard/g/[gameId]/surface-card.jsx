@@ -16,6 +16,7 @@ import {
   sameCrop,
   visibleWindow,
 } from "../../../../lib/surface-math";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const SAVED_FOR_MS = 2400;
 
@@ -47,6 +48,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
   const [adjusting, setAdjusting] = useState(false);
   const [status, setStatus] = useState("idle"); // idle | saving | saved | error
   const [busy, setBusy] = useState(""); // "" | "adding" | "deleting" | "toggling"
+  useWaitMark(Boolean(busy));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState(null); // { tone: "error" | "warn", text }
   const [sizes, setSizes] = useState({}); // picture id -> natural aspect, once loaded
@@ -212,7 +214,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
     setDrafts(({ [activeId]: _done, ...rest }) => rest);
     setStatus("saved");
     timer.current = setTimeout(() => setStatus("idle"), SAVED_FOR_MS);
-    router.refresh(); // figures at the top; does not block the card
+    refreshPage(router); // figures at the top; does not block the card
   }
 
   function cancelFraming() {
@@ -561,7 +563,7 @@ export default function SurfaceCard({ placementId, aspect, label, dims, items: s
                     Cancel
                   </button>
                   <button type="button" className="own-small-button is-solid" onClick={save} disabled={!dirty || working} aria-busy={saving}>
-                    {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+                    {saving ? <Busy>Saving…</Busy> : justSaved ? "Saved" : "Save"}
                   </button>
                 </div>
               </>

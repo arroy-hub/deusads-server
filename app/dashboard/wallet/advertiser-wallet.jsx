@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import WindowTop, { PlateIcon } from "../window-top";
 import { RATE, budgetTone, count, credits, creditNote, dayText } from "../../../lib/wallet";
 import { TONE } from "../_cabinet/dates";
+import { Figure, useRefreshing } from "../wait";
 import { Amount, Bar, BudgetDialog, HeroAmount, Hint, TableBox, TestMark, TopUpDialog } from "./parts";
 
 const campaignHref = (id) => `/dashboard/advertising/c/${id}`;
@@ -28,6 +29,7 @@ function runText(campaign) {
 export default function AdvertiserWallet({ wallet, campaigns, initialTab = "overview", openTopUp = false }) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
+  const refreshing = useRefreshing(); // the figures are being fetched again after credits or budget were added
   const [filter, setFilter] = useState("all");
   const [adding, setAdding] = useState(openTopUp);
   const [budgetFor, setBudgetFor] = useState(null);
@@ -75,10 +77,10 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
       <div className="wl-lay wl-layA">
         <section className="wl-hero wl-hero-solo">
           <div className="wl-hero-main">{hero}</div>
-          <dl className="wl-hero-strip">{cells.map(([label, value, caption]) => <div key={label}><dt>{label}</dt><dd>{value}</dd><small>{caption}</small></div>)}</dl>
+          <dl className="wl-hero-strip">{cells.map(([label, value, caption]) => <div key={label}><dt>{label}</dt><dd><Figure>{value}</Figure></dd><small>{caption}</small></div>)}</dl>
         </section>
-        <section className="gp-panel wl-ops">
-          <div className="wl-bhead"><h2>Latest operations</h2><span className="wl-spacer" /><button type="button" className="link-button" onClick={() => choose("history")}>See all</button></div>
+        <section className={`gp-panel wl-ops${refreshing ? " is-waiting" : ""}`} aria-busy={refreshing || undefined}>
+          <div className="wl-bhead"><h2>Latest operations{refreshing && <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" />}</h2><span className="wl-spacer" /><button type="button" className="link-button" onClick={() => choose("history")}>See all</button></div>
           {wallet.ops.length ? (
             <ul>
               {wallet.ops.slice(0, 4).map((op) => {

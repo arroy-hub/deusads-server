@@ -8,6 +8,7 @@ import { History } from "./history";
 import { BigPv, CardPopup, CatPill, Lnk, Pill, toast } from "./ui";
 import { UserCard } from "./user-card";
 import { STATES } from "../../../lib/admin-bookings";
+import { refreshPage, useWaitMark } from "../wait";
 
 const Ctx = createContext({ open: () => {}, closeAll: () => {} });
 /** Open any admin card from any admin screen: `const { open } = useCards(); open("booking", id)`. */
@@ -68,7 +69,7 @@ export function CardsProvider({ children }) {
     closeBase: () => write(null, over),
     closeAll: () => write(null, null),
     // after a change inside a card: the page behind it and the cards are read again
-    changed: () => router.refresh(),
+    changed: () => refreshPage(router),
   };
 
   return (
@@ -139,6 +140,7 @@ function DisputeCard({ d, api, onClose }) {
   const r = d.row;
   const adv = r.initiator === "advertiser";
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
   const noteRef = useRef(null);
@@ -309,6 +311,7 @@ function CreativeCard({ d, api, onClose }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   async function decide(decision) {
     setBusy(true);
     const call = row.kind === "asset" ? reviewAsset({ assetId: row.id, decision, note: reason }) : reviewCreative({ creativeId: row.id, decision, note: reason });

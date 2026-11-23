@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { categoryLabel } from "../../lib/categories";
 import { cancelBooking } from "./advertising/actions";
+import { Busy, refreshPage, useWaitMark } from "./wait";
 
 /**
  * One booking. `view` says who is looking: the advertiser can withdraw it and sees what the developer
@@ -12,6 +13,7 @@ import { cancelBooking } from "./advertising/actions";
 export default function BookingRow({ booking, view }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   const canCancel = view === "advertiser" && (booking.status === "pending" || booking.status === "approved");
@@ -22,7 +24,7 @@ export default function BookingRow({ booking, view }) {
     const result = await action().catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return setError(result.error);
-    router.refresh();
+    refreshPage(router);
   }
 
   const cancel = () => run(() => cancelBooking({ bookingId: booking.id }));
@@ -61,7 +63,7 @@ export default function BookingRow({ booking, view }) {
       <td className="actions-cell">
         {canCancel && (
           <button className="button button-quiet" type="button" disabled={busy} onClick={cancel}>
-            {busy ? "Saving…" : booking.status === "approved" ? "Stop campaign" : "Withdraw"}
+            {busy ? <Busy>Saving…</Busy> : booking.status === "approved" ? "Stop campaign" : "Withdraw"}
           </button>
         )}
       </td>

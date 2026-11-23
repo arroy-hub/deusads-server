@@ -7,6 +7,7 @@ import { setAccountRole, setSuspended } from "./actions";
 import { AVATAR_MAX_BYTES, ROLE_NAMES, agoLabel, checkProfile, emailChangeProblem, passwordProblem } from "../../../lib/account-rules";
 import { sectionsFor } from "../../../lib/notification-prefs";
 import { Icon, Pill, Tab, gradientFor, toast } from "./ui";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 /* The account of one person as the mockup draws it (userModal / userA / acctBody0): a big avatar, role and status pills,
    the Profile / Sign-in / Notifications tabs in .utabs + .upanel, the "Unsaved changes" bar, and the role / switch off /
@@ -52,6 +53,7 @@ function ProfilePanel({ view, countries, onChanged }) {
   const [picture, setPicture] = useState(null); // { file, preview } | { remove: true } | null
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [done, setDone] = useState("");
   const timer = useRef(null);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -149,7 +151,7 @@ function ProfilePanel({ view, countries, onChanged }) {
           <span className="cb-st-bar-text" role="status" aria-live="polite">{dirty ? `Unsaved changes: ${list(parts.map((p) => PART[p]))}.` : done}</span>
           {dirty && <>
             <button type="button" className="cb-st-bar-discard" onClick={discard} disabled={busy}>Discard</button>
-            <button type="button" className="cb-st-bar-save" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+            <button type="button" className="cb-st-bar-save" onClick={save} disabled={busy}>{busy ? <Busy>Saving…</Busy> : "Save changes"}</button>
           </>}
         </div>
       )}
@@ -163,6 +165,7 @@ function InlineForm({ fields, submit, note, run, close }) {
   const [values, setValues] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   async function go() {
     setBusy(true);
     setError("");
@@ -175,7 +178,7 @@ function InlineForm({ fields, submit, note, run, close }) {
       {fields.map(([key, label, type, auto]) => (
         <input key={key} className="cb-fld" type={type} placeholder={label} aria-label={label} autoComplete={auto ?? "off"} value={values[key] ?? ""} onChange={(e) => setValues((cur) => ({ ...cur, [key]: e.target.value }))} />
       ))}
-      <button type="button" className="cb-btn cb-s" disabled={busy} onClick={go}>{busy ? "Working…" : submit}</button>
+      <button type="button" className="cb-btn cb-s" disabled={busy} onClick={go}>{busy ? <Busy>Working…</Busy> : submit}</button>
       <button type="button" className="cb-btn cb-q cb-s" onClick={close}>Cancel</button>
       {(note || error) && <div style={{ flexBasis: "100%", ...(error ? problem : { fontSize: 13, color: "var(--ink-2)" }) }} role={error ? "alert" : undefined}>{error || note}</div>}
     </div>
@@ -296,6 +299,7 @@ export function RoleSelect({ u, onChanged }) {
 export function ConfirmBar({ u, kind, onCancel, onDone }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const name = u.company || u.email;
   const off = kind === "suspend" && !u.suspended;
@@ -312,12 +316,12 @@ export function ConfirmBar({ u, kind, onCancel, onDone }) {
     if (result?.error) return setError(result.error);
     toast(kind === "delete" ? "Account deleted" : u.suspended ? "Account switched on" : "Account switched off");
     onDone(kind);
-    router.refresh();
+    refreshPage(router);
   }
   return (
     <div className="cb-subrow" role="alert" style={{ flex: 1, margin: 0 }}>
       <span style={{ flex: "1 1 260px", fontSize: 13.5 }}>{text}{error && <span style={{ ...problem, display: "block" }}>{error}</span>}</span>
-      <button type="button" className={`cb-btn ${kind === "delete" || off ? "cb-d " : ""}cb-s`} disabled={busy} onClick={go}>{busy ? "Working…" : kind === "delete" ? "Delete account" : u.suspended ? "Switch on" : "Switch off"}</button>
+      <button type="button" className={`cb-btn ${kind === "delete" || off ? "cb-d " : ""}cb-s`} disabled={busy} onClick={go}>{busy ? <Busy>Working…</Busy> : kind === "delete" ? "Delete account" : u.suspended ? "Switch on" : "Switch off"}</button>
       <button type="button" className="cb-btn cb-q cb-s" disabled={busy} onClick={onCancel}>Cancel</button>
     </div>
   );

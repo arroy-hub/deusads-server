@@ -30,6 +30,7 @@ import {
 } from "../../placement-actions";
 import { CardPopups, OrgContext } from "./placement-card";
 import { SayBubble, pressOf } from "./say-bubble";
+import { Busy, useWaitMark } from "../../wait";
 
 const FILTER_KEYS = ["format", "status", "type", "folder", "tag", "scene", "sharing"];
 const CUSTOM = "__custom";
@@ -49,6 +50,7 @@ const FEW = 12; // with this many placements or fewer, every group starts open
  */
 export default function PlacementsOrganizer({ gameId, items: serverItems, folders: serverFolders, offScenes: serverOffScenes, focus }) {
   const [pending, startTransition] = useTransition();
+  useWaitMark(pending);
   // What the person just did, shown at once while the server catches up. Dropped when fresh data arrives or an action fails.
   const [shownNow, setShownNow] = useState(emptyShownNow);
   // Names just typed: shown (dimmed) until the server's own list carries them, so the old name never flashes back.
@@ -111,6 +113,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   const [viewName, setViewName] = useState("");
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(() => new Set()); // switches waiting for the server: p:<placement>, f:<folder>, s:<scene>
+  useWaitMark(busy.size > 0);
   const [newFolder, setNewFolder] = useState(null); // null: closed, string: being typed
   const [editFolder, setEditFolder] = useState(null); // { id, name }
   const [confirmFolder, setConfirmFolder] = useState(null); // folder whose trash was pressed once
@@ -694,11 +697,11 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
                 <input className="field" value={newFolder} maxLength={80} autoFocus placeholder="Folder name" disabled={pending} onChange={(event) => setNewFolder(event.target.value)} aria-label="New folder name" />
                 <div className="row">
                   <button className="button" type="submit" disabled={!newFolder.trim() || pending}>
-                    {pending ? "Creating…" : "Create folder"}
+                    {pending ? <Busy>Creating…</Busy> : "Create folder"}
                   </button>
                 </div>
                 <span role="status" aria-live="polite" className="settings-help">
-                  {pending ? "Saving the folder…" : ""}
+                  {pending ? <Busy>Saving the folder…</Busy> : ""}
                 </span>
               </form>
             )}

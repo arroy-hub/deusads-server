@@ -9,12 +9,14 @@ import {
   requestEmailChange, resendEmailChange, sendResetLink, signOutOthers, signOutSession,
 } from "./actions";
 import { agoLabel, deleteBlocker, emailChangeProblem, groupSessions, passwordProblem } from "../../../lib/account-rules";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 /** Inputs and an inline error; `run` returns an error text or null and the bubble closes on null. */
 function BubbleForm({ close, note, fields, submit, submitLabel, run }) {
   const [values, setValues] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const go = async () => {
     setBusy(true);
     setError("");
@@ -39,7 +41,7 @@ function BubbleForm({ close, note, fields, submit, submitLabel, run }) {
           Cancel
         </button>
         <button type="button" className="button" onClick={go} disabled={busy}>
-          {busy ? "Working…" : submitLabel}
+          {busy ? <Busy>Working…</Busy> : submitLabel}
         </button>
       </div>
     </>
@@ -50,10 +52,12 @@ export default function SecurityTab({ view, admin, say }) {
   const router = useRouter();
   const [pending, setPending] = useState(view.pendingEmail);
   const [others, startOthers] = useTransition();
+  useWaitMark(others);
   const [modal, setModal] = useState(null); // "blocked" | "delete"
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  useWaitMark(Boolean(deleting));
 
   const blocker = deleteBlocker({ role: view.role, games: view.games, runningCampaigns: view.runningCampaigns });
   const sessions = groupSessions(view.sessions ?? []);
@@ -82,7 +86,7 @@ export default function SecurityTab({ view, admin, say }) {
                     const result = await adminChangeEmail({ accountId: view.id, email });
                     if (result?.error) return result.error;
                     say("Email changed. They were told.");
-                    router.refresh();
+                    refreshPage(router);
                     return null;
                   }}
                 />
@@ -117,7 +121,7 @@ export default function SecurityTab({ view, admin, say }) {
                     const result = await adminSetPassword({ accountId: view.id, next, repeat });
                     if (result?.error) return result.error;
                     say("New password set. They were signed out everywhere.");
-                    router.refresh();
+                    refreshPage(router);
                     return null;
                   }}
                 />
@@ -182,7 +186,7 @@ export default function SecurityTab({ view, admin, say }) {
                   if (result?.error) return result.error;
                   setPending(result.pendingEmail);
                   say(`Confirmation sent to ${result.pendingEmail}`);
-                  router.refresh();
+                  refreshPage(router);
                   return null;
                 }}
               />
@@ -211,7 +215,7 @@ export default function SecurityTab({ view, admin, say }) {
                 if (result?.error) return say(result.error);
                 setPending(null);
                 say("Email change cancelled");
-                router.refresh();
+                refreshPage(router);
               }}
             >
               Cancel
@@ -237,7 +241,7 @@ export default function SecurityTab({ view, admin, say }) {
                   const result = await changePassword({ current, next, repeat });
                   if (result?.error) return result.error;
                   say("Password changed. Other devices were signed out.");
-                  router.refresh();
+                  refreshPage(router);
                   return null;
                 }}
               />
@@ -273,7 +277,7 @@ export default function SecurityTab({ view, admin, say }) {
                     const result = await signOutSession({ sessionIds: item.ids }).catch(() => ({ error: "Connection lost. Try again." }));
                     if (result?.error) return say(result.error);
                     say("Signed out on that device");
-                    router.refresh();
+                    refreshPage(router);
                   }}
                 >
                   Sign out
@@ -293,7 +297,7 @@ export default function SecurityTab({ view, admin, say }) {
                   const result = await signOutOthers().catch(() => ({ error: "Connection lost. Try again." }));
                   if (result?.error) return say(result.error);
                   say(`Signed out on ${result.count} other device${result.count === 1 ? "" : "s"}`);
-                  router.refresh();
+                  refreshPage(router);
                 })
               }
             >
@@ -338,7 +342,7 @@ export default function SecurityTab({ view, admin, say }) {
               Cancel
             </button>
             <button type="button" className="button button-danger" onClick={confirmDelete} disabled={deleting || !password}>
-              {deleting ? "Deleting…" : "Delete account"}
+              {deleting ? <Busy>Deleting…</Busy> : "Delete account"}
             </button>
           </>
         }

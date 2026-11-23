@@ -7,6 +7,7 @@ import { MenuItem, MenuSep, Pop } from "../_cabinet/ui";
 import { IcCopy, IcGear, IcGrid, IcMore, IcPause, IcPlay, IcReport } from "../_cabinet/icons";
 import { duplicateCampaign } from "./actions";
 import { navigating } from "../_cabinet/nav";
+import { Busy, useWaitMark } from "../wait";
 
 /** The ⋯ menu of a campaign: report, placements, settings, pause or resume, duplicate. Used on cards and on strips. */
 export default function RowMenu({ campaign, rules, onPause }) {
@@ -14,6 +15,7 @@ export default function RowMenu({ campaign, rules, onPause }) {
   const btn = useRef(null);
   const [open, setOpen] = useState(false);
   const [copying, setCopying] = useState(false);
+  useWaitMark(Boolean(copying));
   const [problem, setProblem] = useState("");
   const draft = campaign.status.key === "draft";
   const canPause = rules && campaign.canPause;
@@ -38,7 +40,7 @@ export default function RowMenu({ campaign, rules, onPause }) {
         <Link role="menuitem" className="rd-mi" href={`/dashboard/advertising/c/${campaign.id}/settings`} onClick={close}><span className="rd-mi-ic"><IcGear /></span><span className="rd-mi-text">Settings</span></Link>
         <MenuSep />
         {canPause && <MenuItem icon={paused ? <IcPlay /> : <IcPause />} onClick={() => { close(); onPause(paused ? "resume" : "pause"); }}>{paused ? "Resume…" : "Pause…"}</MenuItem>}
-        {rules && <MenuItem icon={<IcCopy />} onClick={copy} disabled={copying}>{copying ? "Copying…" : "Duplicate"}</MenuItem>}
+        {rules && <MenuItem icon={<IcCopy />} onClick={copy} disabled={copying}>{copying ? <Busy>Copying…</Busy> : "Duplicate"}</MenuItem>}
         {problem && <div className="rd-pop-note error" role="alert">{problem}</div>}
       </Pop>
     </>

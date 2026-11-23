@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CaretIcon, CloseIcon, Message, followFlags, ShotPicker, StripFace, TypeIcon, submitSupport, toneStyle, useNow, useShots } from "../../support/support-ui";
 import { STATUS_LABEL, TYPES, TYPE_LABEL, allowedStatuses } from "../../../../lib/support-rules";
 import { changeStatus, changeType, openRequest } from "../../support/actions";
+import { Busy, refreshPage, useWaitMark } from "../../wait";
 
 const POLL_MS = 8000;
 const QUICK = [
@@ -35,6 +36,7 @@ export default function AdminRequestWindow({ id, summary, onClose }) {
   const [text, setText] = useState("");
   const [note, setNote] = useState(false);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const [typeMenu, setTypeMenu] = useState(false);
   const picker = useShots();
@@ -77,7 +79,7 @@ export default function AdminRequestWindow({ id, summary, onClose }) {
     if (result?.error) return setError(result.error);
     last.current = "";
     await load(false);
-    router.refresh();
+    refreshPage(router);
   }
 
   async function send() {
@@ -93,7 +95,7 @@ export default function AdminRequestWindow({ id, summary, onClose }) {
     picker.clear();
     last.current = "";
     await load(false);
-    router.refresh();
+    refreshPage(router);
   }
 
   const typeTile = request && (
@@ -161,7 +163,7 @@ export default function AdminRequestWindow({ id, summary, onClose }) {
                 onPaste={(e) => { const files = [...(e.clipboardData?.files ?? [])]; if (files.some((f) => f.type.startsWith("image/"))) { e.preventDefault(); picker.add(files); } }}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); } }}
               />
-              <button type="button" className="button" disabled={busy || (!text.trim() && !picker.files.length)} onClick={send}>{busy ? "Sending…" : note ? "Save note" : "Send"}</button>
+              <button type="button" className="button" disabled={busy || (!text.trim() && !picker.files.length)} onClick={send}>{busy ? <Busy>Sending…</Busy> : note ? "Save note" : "Send"}</button>
             </div>
             <label className="sq-note-toggle">
               <input type="checkbox" checked={note} onChange={(e) => setNote(e.target.checked)} />

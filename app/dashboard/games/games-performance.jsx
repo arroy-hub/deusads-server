@@ -13,6 +13,7 @@ import { Info } from "../metrics-deck";
 import ReportFrame, { StatToggle } from "../advertising/c/[campaignId]/report-frame";
 import { credits, earnedOf, moneyTop, tickText } from "../../../lib/wallet";
 import { EarnedBlock, EarnedTipRow, MetricSwitch, earnedText } from "../earnings-parts";
+import { useWaitMark } from "../wait";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const BREAK = [["game", "Game"], ["placement", "Placement"], ["type", "Place type"], ["format", "Format"]];
@@ -38,6 +39,7 @@ export default function GamesPerformance({ model, deckLayout = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
+  useWaitMark(pending);
   const [state, setState] = useState(model.state);
   const [open, setOpen] = useState(() => new Set());
   const [query, setQuery] = useState("");

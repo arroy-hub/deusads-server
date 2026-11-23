@@ -6,6 +6,7 @@ import { CloseIcon, SendIcon } from "../../support/support-ui";
 import { DEFAULT_SETTINGS } from "../../../../lib/support-bot-rules";
 import AssistantOverview, { when } from "./assistant-overview";
 import { deleteGuideArticle, loadAssistantPanel, saveBotSettings, saveGuideArticle, switchBot, switchGuideArticle, tryAssistant } from "./assistant-actions";
+import { useWaitMark } from "../../wait";
 
 const SUBTABS = [["overview", "Overview"], ["answers", "Answers"], ["behaviour", "Behaviour"], ["knowledge", "Knowledge"]];
 
@@ -48,6 +49,7 @@ export default function AssistantAdmin() {
   const [failed, setFailed] = useState("");
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
+  useWaitMark(Boolean(saving));
   const [note, setNote] = useState("");
   const [editing, setEditing] = useState(null); // null, or the article being written
   const [open, setOpen] = useState(() => new Set());
@@ -257,6 +259,7 @@ function Preview({ settings }) {
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState([]);
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
 
   async function ask() {
     const question = q.trim();

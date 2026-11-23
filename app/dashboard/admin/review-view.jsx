@@ -7,6 +7,7 @@ import { reviewAsset, reviewCreative } from "./actions";
 import { DeckShell, DeckToggle } from "./admin-deck";
 import { Band, CatPill, Dropdown, IconBtn, Lnk, Pill, Tab, Th, toast } from "./ui";
 import { useCards } from "./cards";
+import { refreshPage, useWaitMark } from "../wait";
 
 const COLS = "60px minmax(0,1.6fr) minmax(0,1.1fr) 92px 84px";
 const INFO = "Only approved creatives reach the SDK. Rejecting one that is already showing takes it off its placements at once. Hover an icon to see what it does: the tick approves, the crossed circle rejects and asks for a reason.";
@@ -19,6 +20,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(null);
+  useWaitMark(Boolean(busy));
 
   const waiting = rows.filter((r) => r.out === "waiting" && r.kind === "creative");
   const reviewed = rows.filter((r) => r.out !== "waiting").sort((a, b) => String(b.reviewedAt).localeCompare(String(a.reviewedAt)));
@@ -35,7 +37,7 @@ export default function ReviewView({ rows, widgets, groups, defaults, layout, ca
     setRejecting(null);
     setReason("");
     toast(decision === "approved" ? "Approved: now reaches the SDK" : "Rejected: the owner will see the reason");
-    router.refresh();
+    refreshPage(router);
   }
 
   const body = list.length ? (

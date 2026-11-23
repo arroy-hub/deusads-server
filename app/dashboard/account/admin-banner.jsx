@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Modal from "../modal";
 import { deleteAccount } from "./actions";
 import { setAccountRole, setSuspended } from "../admin/actions";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 const ROLES = [["developer", "Developer"], ["advertiser", "Advertiser"], ["admin", "Admin"]];
 
@@ -15,6 +16,7 @@ export default function AdminBanner({ view, say }) {
   const [role, setRole] = useState(view.role);
   const [modal, setModal] = useState(null); // "suspend" | "delete"
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
   const isAdmin = view.role === "admin";
   const name = view.company || view.email;
@@ -28,7 +30,7 @@ export default function AdminBanner({ view, say }) {
       return say(result.error);
     }
     say(`Role changed to ${next}`);
-    router.refresh();
+    refreshPage(router);
   }
 
   async function run(action, done) {
@@ -83,7 +85,7 @@ export default function AdminBanner({ view, say }) {
               onClick={() =>
                 run(() => setSuspended({ accountId: view.id, suspended: !view.suspended }), () => {
                   say(view.suspended ? "Account switched on" : "Account switched off");
-                  router.refresh();
+                  refreshPage(router);
                 })
               }
             >
@@ -117,11 +119,11 @@ export default function AdminBanner({ view, say }) {
               onClick={() =>
                 run(() => deleteAccount({ accountId: view.id }), () => {
                   router.push("/dashboard/admin/users");
-                  router.refresh();
+                  refreshPage(router);
                 })
               }
             >
-              {busy ? "Deleting…" : "Delete account"}
+              {busy ? <Busy>Deleting…</Busy> : "Delete account"}
             </button>
           </>
         }

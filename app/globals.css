@@ -10280,3 +10280,19 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .pm-legrow .gp-legend{flex-wrap:wrap;justify-content:flex-end;row-gap:4px}
 .pm-legrow .gp-legend>span{white-space:nowrap}
 @media (max-width:640px){.pm-legrow,.pm-legrow .gp-legend{justify-content:flex-start}}
+
+/* ---- waiting (app/dashboard/wait.jsx): a wheel in the pressed button, a chip while the page fetches its figures again,
+   and a wheel over a figure that is about to change ---- */
+.wait-wheel{display:inline-block;flex:none;width:.9em;height:.9em;margin-right:.5em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-.12em;animation:spin .7s linear infinite}
+.wait-wheel.is-alone{margin-right:0}
+.wait-chip{position:fixed;top:14px;left:calc(50% + 130px);z-index:2600;display:inline-flex;align-items:center;gap:0;padding:7px 14px 7px 12px;border-radius:999px;background:#241d19;color:#fff;font-size:13px;font-weight:600;line-height:1;box-shadow:0 6px 18px rgba(36,29,25,.22);opacity:0;transform:translate(-50%,-8px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}
+.wait-chip.is-on{opacity:1;transform:translate(-50%,0)}
+.wait-chip .wait-wheel{border-color:#f0b293;border-right-color:transparent}
+.wait-fig{position:relative;display:inline-block}
+.wait-fig-in{transition:opacity .12s ease}
+.wait-fig.is-on .wait-fig-in{opacity:.28}
+.wait-fig-wheel{position:absolute;left:50%;top:50%;width:clamp(14px,.5em,40px);height:clamp(14px,.5em,40px);margin:calc(clamp(14px,.5em,40px) / -2) 0 0 calc(clamp(14px,.5em,40px) / -2);border:clamp(2px,.06em,4px) solid var(--signal,#c94a24);border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+@media (max-width:800px){.wait-chip{left:50%}}
+@media (prefers-reduced-motion:reduce){.wait-wheel,.wait-fig-wheel{animation-duration:1.6s}.wait-chip,.wait-fig-in{transition:none}}
+.wl-boxwheel{margin:0 0 0 10px;width:14px;height:14px;color:var(--signal,#c94a24);vertical-align:-1px}
+.wl-box.is-waiting tbody,.wl-ops.is-waiting ul{opacity:.45;transition:opacity .12s ease}

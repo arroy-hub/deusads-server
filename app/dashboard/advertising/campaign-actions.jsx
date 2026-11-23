@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { duplicateCampaign, pauseCampaign } from "./actions";
 import { navigating } from "../_cabinet/nav";
+import { Busy, refreshPage, useWaitMark } from "../wait";
 
 /** Pause or resume a whole campaign: its ads stop (or start again) in every game at the next manifest. */
 export function PauseButton({ id, paused, small = false, full = false, onDone }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   async function toggle() {
@@ -18,13 +20,13 @@ export function PauseButton({ id, paused, small = false, full = false, onDone })
     setBusy(false);
     if (result?.error) return setError(result.error);
     onDone?.();
-    router.refresh();
+    refreshPage(router);
   }
 
   return (
     <>
       <button type="button" className={`button button-quiet${small ? " button-small" : ""}`} disabled={busy} onClick={toggle}>
-        {busy ? "…" : `${paused ? "Resume" : "Pause"}${full ? " campaign" : ""}`}
+        {busy ? <Busy /> : `${paused ? "Resume" : "Pause"}${full ? " campaign" : ""}`}
       </button>
       {error && <span className="error" role="alert">{error}</span>}
     </>
@@ -35,6 +37,7 @@ export function PauseButton({ id, paused, small = false, full = false, onDone })
 export function DuplicateButton({ id, small = false, as = "button", onDone }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  useWaitMark(Boolean(busy));
   const [error, setError] = useState("");
 
   async function copy() {
@@ -51,7 +54,7 @@ export function DuplicateButton({ id, small = false, as = "button", onDone }) {
   return (
     <>
       <button type="button" role={as === "menuitem" ? "menuitem" : undefined} className={as === "menuitem" ? "cl-menu-action" : `button button-quiet${small ? " button-small" : ""}`} disabled={busy} onClick={copy}>
-        {busy ? "Copying…" : "Duplicate"}
+        {busy ? <Busy>Copying…</Busy> : "Duplicate"}
       </button>
       {error && <span className="error" role="alert">{error}</span>}
     </>
