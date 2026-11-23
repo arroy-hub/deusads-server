@@ -6,10 +6,12 @@ import { getMember } from "../../../../lib/admin";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { categoryLabel, isCategory } from "../../../../lib/categories";
 import { ACTIONS, SCOPES, WINDOW_MS, blockedCategories, bulkKeyOf, changeMessage, nextControl, planChange } from "../../../../lib/game-controls";
+import { parsePictureId, pictureId, shapeKey, shapeLabel } from "../../../../lib/game-pictures";
 import { notify, notifyMany } from "../../../../lib/notify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MISSING = "Run migration 0023 in the Supabase SQL editor first.";
+const MISSING_PICTURES = "Run migration 0062 in the Supabase SQL editor first.";
 const SIGNED_OUT = "Your session expired. Sign in again.";
 const MAX_TARGETS = 200;
 
@@ -32,8 +34,10 @@ const refresh = (gameId) => {
 
 /**
  * Pause, resume, block or unblock campaigns, creatives or advertisers in one game.
- *   scope  "campaign" | "creative" | "advertiser" (only campaigns can be paused)
+ *   scope  "campaign" | "creative" | "advertiser" | "picture" (only campaigns can be paused)
  *   ids    what to change; more than one is a bulk change, saved as one record
+ * A "picture" is a creative in one shape (migration 0062): its id is pictureId(creativeId, shape) and blocking it
+ * leaves the other shapes of the creative running.
  * Nothing is cancelled: the manifest simply stops serving what is paused or blocked, and the change
  * can be taken back. An item changes at most twice an hour (see lib/game-controls.js).
  */
@@ -44,33 +48,56 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
 
   if (!SCOPES.includes(scope) || !ACTIONS.includes(action)) return { error: "Unknown change." };
   if ((action === "pause" || action === "resume") && scope !== "campaign") return { error: "Only campaigns can be paused." };
-  const wanted = [...new Set((Array.isArray(ids) ? ids : []).map(String))].filter((id) => UUID.test(id)).slice(0, MAX_TARGETS);
+  const isPicture = scope === "picture";
+  // A picture's id is a creative's id and a shape; everything else is a plain id.
+  const pictureOf = new Map();
+  const wanted = [...new Set((Array.isArray(ids) ? ids : []).map(String))]
+    .filter((id) => {
+      if (!isPicture) return UUID.test(id);
+      const picture = parsePictureId(id);
+      if (!picture || !UUID.test(picture.creativeId)) return false;
+      pictureOf.set(id, picture);
+      return true;
+    })
+    .slice(0, MAX_TARGETS);
   if (!wanted.length) return { error: "Nothing selected." };
 
   // What in this game the ids really are, with the advertiser each belongs to and a name for the message.
-  const { data: placements } = await me.service.from("placements").select("id").eq("game_id", game.id);
+  const { data: placements } = await me.service.from("placements").select("id, aspect_ratio").eq("game_id", game.id);
   const placementIds = (placements ?? []).map((row) => row.id);
-  const column = { campaign: "campaign_id", creative: "creative_id", advertiser: "advertiser_id" }[scope];
+  const column = { campaign: "campaign_id", creative: "creative_id", advertiser: "advertiser_id", picture: "creative_id" }[scope];
+  const lookFor = isPicture ? [...new Set(wanted.map((id) => pictureOf.get(id).creativeId))] : wanted;
   const { data: bookings, error: bookingsError } = placementIds.length
-    ? await me.service.from("bookings").select("campaign_id, creative_id, advertiser_id").in("placement_id", placementIds).in(column, wanted)
+    ? await me.service.from("bookings").select("campaign_id, creative_id, advertiser_id").in("placement_id", placementIds).in(column, lookFor)
     : { data: [], error: null };
   if (bookingsError) return { error: "Could not read the campaigns." };
-  const advertiserOf = new Map((bookings ?? []).map((row) => [row[column], row.advertiser_id]));
+  const ownerOf = new Map((bookings ?? []).map((row) => [row[column], row.advertiser_id]));
+  // A picture is real when its creative is booked here and the game has a placement of that shape.
+  const shapes = new Set((placements ?? []).map((row) => shapeKey(row.aspect_ratio)));
+  const advertiserOf = isPicture ? new Map(wanted.filter((id) => ownerOf.has(pictureOf.get(id).creativeId) && shapes.has(pictureOf.get(id).shape)).map((id) => [id, ownerOf.get(pictureOf.get(id).creativeId)])) : ownerOf;
   const targetIds = wanted.filter((id) => advertiserOf.has(id));
   if (!targetIds.length) return { error: "Nothing to change here." };
 
-  const nameTable = { campaign: ["campaigns", "name"], creative: ["creatives", "name"], advertiser: ["accounts", "company"] }[scope];
-  const { data: named } = await me.service.from(nameTable[0]).select(`id, ${nameTable[1]}${scope === "advertiser" ? ", email" : ""}`).in("id", targetIds);
-  const nameOf = new Map((named ?? []).map((row) => [row.id, row[nameTable[1]] || row.email || "Unknown"]));
+  const nameTable = { campaign: ["campaigns", "name"], creative: ["creatives", "name"], advertiser: ["accounts", "company"], picture: ["creatives", "name"] }[scope];
+  const { data: named } = await me.service.from(nameTable[0]).select(`id, ${nameTable[1]}${scope === "advertiser" ? ", email" : ""}`).in("id", isPicture ? lookFor : targetIds);
+  const plainName = new Map((named ?? []).map((row) => [row.id, row[nameTable[1]] || row.email || "Unknown"]));
+  const nameOf = isPicture ? new Map(targetIds.map((id) => [id, `${plainName.get(pictureOf.get(id).creativeId) ?? "Creative"} · ${shapeLabel(pictureOf.get(id).shape)}`])) : plainName;
 
-  const { data: current, error: controlsError } = await me.service
-    .from("game_ad_controls")
-    .select("target_id, state")
-    .eq("game_id", game.id)
-    .eq("scope", scope)
-    .in("target_id", targetIds);
-  if (controlsError) return { error: isSchemaOutdated(controlsError) || controlsError.code === "42P01" ? MISSING : "Could not read the current state." };
-  const stateOf = new Map((current ?? []).map((row) => [row.target_id, row.state]));
+  let stateOf;
+  if (isPicture) {
+    const { data: blocks, error: blocksError } = await me.service.from("game_picture_blocks").select("creative_id, shape").eq("game_id", game.id).in("creative_id", lookFor);
+    if (blocksError) return { error: isSchemaOutdated(blocksError) ? MISSING_PICTURES : "Could not read the current state." };
+    stateOf = new Map((blocks ?? []).map((row) => [pictureId(row.creative_id, row.shape), "blocked"]));
+  } else {
+    const { data: current, error: controlsError } = await me.service
+      .from("game_ad_controls")
+      .select("target_id, state")
+      .eq("game_id", game.id)
+      .eq("scope", scope)
+      .in("target_id", targetIds);
+    if (controlsError) return { error: isSchemaOutdated(controlsError) || controlsError.code === "42P01" ? MISSING : "Could not read the current state." };
+    stateOf = new Map((current ?? []).map((row) => [row.target_id, row.state]));
+  }
   const targets = targetIds.map((id) => ({ id, state: stateOf.get(id) === "paused" ? "paused" : stateOf.get(id) === "blocked" ? "blocked" : "free" }));
 
   const since = new Date(Date.now() - WINDOW_MS).toISOString();
@@ -94,7 +121,29 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
   const cleanReason = action === "block" ? clip(reason, 300) : "";
   const cleanComment = action === "block" ? clip(comment, 500) : "";
   const control = nextControl(action);
-  if (control) {
+  if (isPicture) {
+    // Its own table: one row per creative and shape that is blocked; unblocking removes the row.
+    if (control) {
+      const { error } = await me.service.from("game_picture_blocks").upsert(
+        plan.apply.map((id) => ({
+          game_id: game.id,
+          developer_id: me.user.id,
+          creative_id: pictureOf.get(id).creativeId,
+          shape: pictureOf.get(id).shape,
+          reason: cleanReason || null,
+          comment: cleanComment || null,
+          changed_at: new Date().toISOString(),
+        })),
+        { onConflict: "game_id,creative_id,shape" }
+      );
+      if (error) return { error: isSchemaOutdated(error) ? MISSING_PICTURES : "Could not save the change." };
+    } else {
+      for (const id of plan.apply) {
+        const { error } = await me.service.from("game_picture_blocks").delete().eq("game_id", game.id).eq("creative_id", pictureOf.get(id).creativeId).eq("shape", pictureOf.get(id).shape);
+        if (error) return { error: "Could not save the change." };
+      }
+    }
+  } else if (control) {
     const { error } = await me.service.from("game_ad_controls").upsert(
       plan.apply.map((id) => ({
         game_id: game.id,
@@ -139,7 +188,7 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
     perAdvertiser.get(advertiser).push(nameOf.get(id));
   }
   const verb = { pause: "paused", resume: "resumed", block: "blocked", unblock: "unblocked" }[action];
-  const noun = scope === "advertiser" ? "Your account" : scope === "creative" ? "creative" : "campaign";
+  const noun = scope === "advertiser" ? "Your account" : scope === "creative" || isPicture ? "creative" : "campaign";
   for (const [advertiserId, list] of perAdvertiser) {
     const what =
       scope === "advertiser"
@@ -149,7 +198,7 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
           : `${list.length} of your ${noun === "creative" ? "creatives" : "campaigns"}`;
     await notify(me.service, {
       accountId: advertiserId,
-      text: `${what} ${list.length > 1 && scope !== "advertiser" ? "were" : "was"} ${verb} in ${game.name}${cleanReason ? `. Reason: ${cleanReason}` : "."}`,
+      text: `${what} ${list.length > 1 && scope !== "advertiser" ? "were" : "was"} ${verb} in ${game.name}${isPicture && action === "block" ? " in this shape only" : ""}${cleanReason ? `. Reason: ${cleanReason}` : "."}`,
       link: "/dashboard/advertising",
       type: "adv_blocked",
     });
@@ -227,9 +276,10 @@ const REPORT_REASONS = ["Misleading or deceptive", "Inappropriate content", "Wro
 
 /**
  * The developer reports a creative that runs in their game. DeusADS reviews it (Disputes in the admin area).
- * With `alsoBlock` the creative is blocked in this game at once, the same way as the Block button.
+ * With `alsoBlock` the creative is blocked in this game at once, the same way as the Block button: in the one shape the
+ * report was sent from (`shape`, migration 0062), or as a whole when no shape is given.
  */
-export async function reportCreative({ gameId, creativeId, reason, comment, alsoBlock }) {
+export async function reportCreative({ gameId, creativeId, reason, comment, alsoBlock, shape = null }) {
   const found = await ownGame(gameId);
   if (found.error) return { error: found.error };
   const { me, game } = found;
@@ -262,7 +312,11 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
   await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report about a creative in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes", "admin_reports");
 
   let block = null;
-  if (alsoBlock) block = await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Blocked pending a DeusADS review", comment: "" });
+  if (alsoBlock) {
+    block = shape
+      ? await changeAds({ gameId, scope: "picture", action: "block", ids: [pictureId(creativeId, shape)], reason: "Blocked pending a DeusADS review", comment: "" })
+      : await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Blocked pending a DeusADS review", comment: "" });
+  }
   revalidatePath("/dashboard/admin/disputes");
   return {
     ok: true,

@@ -16,7 +16,8 @@ import { choosePictures } from "../../../lib/manifest-pick";
 import { variantsBySource } from "../../../lib/astc-variants";
 import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
-import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
+import { blockedCategories, controlMap, mayServe, pictureControls } from "../../../lib/game-controls";
+import { shapeKey } from "../../../lib/game-pictures";
 import { campaignMayServe, effectivePause } from "../../../lib/campaign-rules";
 import { hasBudget } from "../../../lib/wallet";
 import { slotStates } from "../../../lib/fill-rate";
@@ -114,6 +115,8 @@ export const GET = guarded(async function GET(request) {
         advertiserId: item.advertiserId,
         creativeId: item.creativeId,
         category: item.category,
+        // a creative can be blocked in one shape only (migration 0062): the shape of this placement
+        shape: shapeKey(item.row.placements?.aspect_ratio),
       },
       controls
     );
@@ -218,9 +221,11 @@ async function recordFill(db, game, { levels, chosen, disabled }) {
 async function loadControlTables(db, game, rows) {
   if (!rows.some(isBooked)) return null;
 
-  const [controls, categories] = await Promise.all([
+  const [controls, categories, pictures] = await Promise.all([
     db.from("game_ad_controls").select("scope, target_id, state, reason, comment").eq("game_id", game.id),
     db.from("game_category_blocks").select("category, blocked").eq("game_id", game.id),
+    // creatives blocked in one shape (migration 0062); before it there are none
+    db.from("game_picture_blocks").select("creative_id, shape, reason, comment").eq("game_id", game.id),
   ]);
   if (controls.error) {
     if (isSchemaOutdated(controls.error)) warnSchemaOutdated("GET /v1/manifest", "0023_game_ad_controls.sql");
@@ -231,7 +236,8 @@ async function loadControlTables(db, game, rows) {
     logDbError("manifest category blocks", categories.error);
     return null;
   }
-  return { controlRows: controls.data, categoryRows: categories.data };
+  if (pictures.error && !isSchemaOutdated(pictures.error)) logDbError("manifest picture blocks", pictures.error);
+  return { controlRows: [...(controls.data ?? []), ...pictureControls(pictures.error ? [] : pictures.data)], categoryRows: categories.data };
 }
 
 /** The pauses and blocks ready for mayServe(): { controls, blocked, campaignOf }. Null when any part could not be read. */

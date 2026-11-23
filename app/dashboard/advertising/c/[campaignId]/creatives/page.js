@@ -48,7 +48,7 @@ export default async function CampaignCreativesPage({ params }) {
         formatIds: item.formats.map((format) => format.id),
         impressions: figure?.impressions ?? 0,
         avg: figure && figure.weight > 0 ? figure.weighted / figure.weight : null,
-        blocked: [...new Set(report.bookings.filter((booking) => booking.creativeId === id && booking.controlNote).map((booking) => booking.game))],
+        blocked: [...new Set(report.bookings.filter((booking) => booking.creativeId === id && booking.controlNote && !booking.noPicture).map((booking) => booking.game))],
         longer: Boolean(report.creativeRows.find((row) => row.id === id)?.longer),
         removable: openOf(id) > 0 || planned.includes(id),
       };

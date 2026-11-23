@@ -17,6 +17,7 @@ import {
   totalsFor,
 } from "../../../../lib/campaigns-view";
 import { DEV_SHARE, earnedOf } from "../../../../lib/wallet";
+import { listWords } from "../../../../lib/game-pictures";
 import { TestMark } from "../../wallet/parts";
 import { changeAds, markSeen, reportCreative, setCategoryBlocked } from "./campaign-actions";
 import { audienceWords } from "../../../../lib/audience-fit";
@@ -96,10 +97,32 @@ const csvCell = (value) => {
 
 const colorOfName = (name) => AVATARS[name.split("").reduce((n, ch) => n + ch.charCodeAt(0), 0) % AVATARS.length];
 
+// With rows per picture (migration 0062) an item under a campaign is a creative in one shape: `creativeId` is the
+// creative, `id` the picture. Without it the item is the creative itself.
+const creativeIdOf = (item) => item.creativeId ?? item.id;
+const labelOf = (item) => (item.shape ? `${item.name} · ${item.format}` : item.name);
+
+/** The picture of a row in a box of the given size: the picture made for the shape, or the main picture cut to it. */
+function Picture({ item, box, alt, lazy = false }) {
+  if (!item.url) return <span className="cp-th" style={box} />;
+  if (item.frame) {
+    return (
+      <span className="cp-th cp-frame" style={box}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={item.url} alt={alt} loading={lazy ? "lazy" : undefined} style={{ width: `${item.frame.width}%`, height: `${item.frame.height}%`, left: `${item.frame.left}%`, top: `${item.frame.top}%` }} />
+      </span>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="cp-th" src={item.url} alt={alt} width={box.width} height={box.height} loading={lazy ? "lazy" : undefined} />;
+}
+
 export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const { days } = model;
   // With the wallet (migration 0061) the tab also says what each campaign, creative and advertiser earned.
   const wallet = Boolean(model.wallet);
+  // With migration 0062 a row under a campaign is one picture: a creative in one shape, blocked on its own.
+  const pictures = Boolean(model.pictures);
   const earnedCell = (paid) => (wallet ? <div className="cp-num pmc-earn">{earnedText(paid)}</div> : null);
   const [controls, setControls] = useState(model.controls);
   const [categoryRows, setCategoryRows] = useState(model.categoryRows);
@@ -139,8 +162,11 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
     return model.campaigns.map((campaign) => {
       const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused, outOfBudget: campaign.outOfBudget, fit: campaign.audience }, ctx);
       const creatives = campaign.creatives.map((creative) => {
-        const own = ctx.controls.get(`creative:${creative.id}`);
-        return { ...creative, isNew: creative.isNew && !cleared[creative.id], blocked: own?.state === "blocked", reason: own?.reason ?? "", totals: totalsFor(creative.figures, period) };
+        // A whole creative blocked (the only kind before rows per picture) stops every shape of it; a picture's own block only that shape.
+        const whole = ctx.controls.get(`creative:${creativeIdOf(creative)}`);
+        const own = creative.shape ? ctx.controls.get(`picture:${creative.id}`) : null;
+        const block = whole?.state === "blocked" ? whole : own?.state === "blocked" ? own : null;
+        return { ...creative, isNew: creative.isNew && !cleared[creativeIdOf(creative)], blocked: Boolean(block), blockedWhole: whole?.state === "blocked", reason: block?.reason ?? "", totals: totalsFor(creative.figures, period) };
       });
       return {
         ...campaign,
@@ -237,7 +263,8 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const anchorsFor = (scope, ids) => {
     if (scope === "campaign") return { campaigns: ids, advertisers: [] };
     if (scope === "advertiser") return { campaigns: [], advertisers: ids };
-    return { campaigns: campaigns.filter((campaign) => campaign.creatives.some((creative) => ids.includes(creative.id))).map((campaign) => campaign.id), advertisers: [] };
+    const idOf = scope === "picture" ? (creative) => creative.id : creativeIdOf;
+    return { campaigns: campaigns.filter((campaign) => campaign.creatives.some((creative) => ids.includes(idOf(creative)))).map((campaign) => campaign.id), advertisers: [] };
   };
 
   // Would this single change be refused for changing too often? Asked before a dialog opens.
@@ -324,7 +351,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await reportCreative({ gameId, creativeId: r.id, reason: r.reason, comment: r.comment, alsoBlock: r.alsoBlock });
+      const result = await reportCreative({ gameId, creativeId: r.id, reason: r.reason, comment: r.comment, alsoBlock: r.alsoBlock, shape: r.shape ?? null });
       if (result.error) {
         setToast(result.error);
         return;
@@ -332,7 +359,8 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
       setReport(null);
       if (result.block?.applied?.length) {
         const gone = new Set(result.block.applied);
-        setControls((previous) => [...previous.filter((row) => !(row.scope === "creative" && gone.has(row.target_id))), ...result.block.applied.map((id) => ({ scope: "creative", target_id: id, state: "blocked", reason: result.block.reason, comment: "" }))]);
+        const scope = result.block.scope ?? "creative";
+        setControls((previous) => [...previous.filter((row) => !(row.scope === scope && gone.has(row.target_id))), ...result.block.applied.map((id) => ({ scope, target_id: id, state: "blocked", reason: result.block.reason, comment: "" }))]);
         setRecent((previous) => [...previous, ...result.block.logged]);
       }
       setToast(result.message);
@@ -366,9 +394,9 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
     const opening = !open[campaign.id];
     setOpen({ ...open, [campaign.id]: opening });
     if (anyNew(campaign)) {
-      const ids = campaign.creatives.filter((creative) => creative.isNew).map((creative) => creative.id);
+      const ids = campaign.creatives.filter((creative) => creative.isNew).map(creativeIdOf);
       setCleared((previous) => ({ ...previous, [campaign.id]: true, ...Object.fromEntries(ids.map((id) => [id, true])) }));
-      markSeen({ gameId, campaignId: campaign.id, creativeIds: campaign.creatives.map((creative) => creative.id) }).catch(() => {});
+      markSeen({ gameId, campaignId: campaign.id, creativeIds: [...new Set(campaign.creatives.map(creativeIdOf))] }).catch(() => {});
     }
   }
 
@@ -383,7 +411,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   }
 
   function exportCsv() {
-    const rows = [["Campaign", "Advertiser", "Category", "Status", "Creative", "Creative status", "Impressions", ...(wallet ? ["Earned (credits)"] : []), "Avg. visible (s)"]];
+    const rows = [["Campaign", "Advertiser", "Category", "Status", "Creative", ...(pictures ? ["Shape", "Placements"] : []), "Creative status", "Impressions", ...(wallet ? ["Earned (credits)"] : []), "Avg. visible (s)"]];
     for (const campaign of campaigns) {
       for (const creative of campaign.creatives) {
         rows.push([
@@ -392,6 +420,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
           categoryLabel(campaign.category),
           PILL[campaign.state.key][1],
           creative.name,
+          ...(pictures ? [creative.format ?? "", (creative.placements ?? []).join("; ")] : []),
           creative.blocked ? "Blocked" : "",
           creative.totals.views,
           ...(wallet ? [earnedOf(creative.totals.paid).toFixed(2)] : []),
@@ -423,9 +452,11 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   if (!model.campaigns.length) {
     return (
       <div className="empty">
-        <p style={{ margin: "0 auto 0.5rem" }}>No advertiser has booked this game yet.</p>
+        <p style={{ margin: "0 auto 0.5rem" }}>{pictures ? "No campaign shows in this game yet." : "No advertiser has booked this game yet."}</p>
         <p style={{ margin: "0 auto", fontSize: "0.875rem" }}>
-          When an advertiser books one of your open placements, the campaign appears here and you can pause or block it.
+          {pictures
+            ? "When a campaign fits your game and has a picture for one of your open placements, it appears here and you can pause or block it."
+            : "When an advertiser books one of your open placements, the campaign appears here and you can pause or block it."}
         </p>
       </div>
     );
@@ -437,6 +468,17 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
     // What stopping it costs: what it earned in this game in the period on screen.
     const earnLine = (lead, paid) => (wallet ? <>{lead} earned you <b>{earnedText(paid)}</b> in this game in the last {period} days.</> : null);
     const paidOf = (list) => addTotals(list.filter(Boolean).map((campaign) => campaign.totals)).paid;
+    if (dialog.scope === "picture") {
+      const picture = first?.creatives.find((item) => item.id === dialog.ids[0]);
+      const rest = (first?.creatives ?? []).filter((item) => item.id !== dialog.ids[0] && !item.blocked && item.base !== "ended");
+      const tail = !rest.length
+        ? "Nothing else of this campaign shows in your game, so the campaign stops showing here."
+        : rest.some((item) => item.creativeId === picture?.creativeId)
+          ? `The other shapes of ${picture?.name ?? "this creative"} and the other creatives of the campaign keep running.`
+          : "The other creatives of the campaign keep running.";
+      const where = picture?.placements?.length ? `, on ${listWords(picture.placements)}` : "";
+      return { title: "Block this creative?", subject: `${dialog.name} · ${first?.name ?? ""} · ${first?.advertiser ?? ""}`, body: `Only this picture stops showing in your game: ${picture?.name ?? "the creative"} in ${picture?.format ?? "this shape"}${where}. ${tail}`, button: "Block creative", earn: earnLine("This creative", picture?.totals.paid ?? 0) };
+    }
     if (dialog.scope === "creative") {
       const creative = first?.creatives.find((item) => item.id === dialog.ids[0]);
       return { title: "Block this creative?", subject: `${dialog.name} · ${first?.name ?? ""} · ${first?.advertiser ?? ""}`, body: "Only this creative stops showing in your game. The other creatives of the campaign keep running.", button: "Block creative", earn: earnLine("This creative", creative?.totals.paid ?? 0) };
@@ -589,7 +631,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                 const tag = tagOf(campaign);
                 const [pillClass, pillText] = PILL[key];
                 const stopped = key === "paused" || key === "advpaused" || isBlocked(key);
-                const chart = isOpen && campaign.totals.views > 0 ? buildChart(campaign.creatives, days, { period, mode: chartMode, pick, earn: wallet }) : null;
+                const chart = isOpen && campaign.totals.views > 0 ? buildChart(pictures ? campaign.creatives.map((item) => ({ ...item, name: labelOf(item) })) : campaign.creatives, days, { period, mode: chartMode, pick, earn: wallet }) : null;
                 const here = noteFor(campaign.id);
                 return (
                   <div key={campaign.id} id={`cp-${campaign.id}`}>
@@ -629,7 +671,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                               <div>
                                 <div className="cp-chart-title">Impressions per day</div>
                                 <div className="cp-sub">
-                                  {periodLabel} · UTC{chartMode === "creative" ? " · one bar per creative, same scale · click colours to compare" : ""}{stopped ? ` · ${key === "advpaused" ? "Paused by the advertiser" : key === "paused" ? "Paused" : "Blocked"} in this game now` : ""}
+                                  {periodLabel} · UTC{chartMode === "creative" ? ` · one bar per ${pictures ? "row below" : "creative"}, same scale · click colours to compare` : ""}{stopped ? ` · ${key === "advpaused" ? "Paused by the advertiser" : key === "paused" ? "Paused" : "Blocked"} in this game now` : ""}
                                 </div>
                               </div>
                               <span className="cp-spacer" />
@@ -669,14 +711,14 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                         )}
                         {campaign.totals.views > 0 && (
                           <>
-                            <div className="cp-clh"><strong>Creatives</strong><span className="cp-sub">{periodLabel}{chartMode === "creative" && chart ? " · colours match the chart" : ""}</span></div>
+                            <div className="cp-clh"><strong>{pictures ? "Creatives in this game" : "Creatives"}</strong><span className="cp-sub">{periodLabel}{pictures ? " · one row per picture that shows on your placements" : ""}{chartMode === "creative" && chart ? " · colours match the chart" : ""}</span></div>
                             <div className="cp-sub" style={{ margin: "2px 0", fontSize: "12.5px" }}>
                               <strong style={{ color: "var(--ink)" }}>Impressions</strong> is how many times players saw the creative in the period. {wallet && <><strong style={{ color: "var(--ink)" }}>Earned</strong> is your {Math.round(DEV_SHARE * 100)}% of what the advertiser paid for those impressions. </>}<strong style={{ color: "var(--ink)" }}>Avg. visible</strong> is how long, on average, it stayed in view each time.
                             </div>
                             {chart?.many && chartMode === "creative" && <div className="cp-sub" style={{ margin: "2px 0 4px" }}>{campaign.creatives.length} creatives: the 5 with the most impressions get their own colour, the rest are grouped as Other.</div>}
                           </>
                         )}
-                        <div className="cp-srow shead" aria-hidden="true"><span /><span /><span>Creative</span><span>Status</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span className="cp-num">Avg. visible</span><span /></div>
+                        <div className="cp-srow shead" aria-hidden="true"><span /><span /><span>{pictures ? "Creative · shape · placements" : "Creative"}</span><span>Status</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span className="cp-num">Avg. visible</span><span /></div>
                         {campaign.creatives.map((creative) => {
                           const campaignOff = key !== "active" && key !== "ended" && key !== "waiting";
                           const label = creative.blocked ? "Blocked" : creative.audience && creative.base !== "ended" && key !== "ended" ? "Not shown" : creative.base === "ended" || key === "ended" ? "Ended" : campaignOff || key === "waiting" ? (key === "waiting" ? "Waiting" : "Not shown") : creative.base === "waiting" ? "Waiting" : "Showing";
@@ -684,20 +726,22 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                           const zooming = zoomId === creative.id;
                           const small = fit(creative.aspect, 72, 50);
                           const big = fit(creative.aspect, 520, 356);
-                          const canBlock = !creative.blocked && key !== "ended" && key !== "blockedcat" && key !== "blockedadv";
+                          // A picture can be blocked while it has a placement to show on; one that is only history cannot.
+                          const canBlock = !creative.blocked && key !== "ended" && key !== "blockedcat" && key !== "blockedadv" && (!creative.shape || creative.placements.length > 0);
+                          const rowName = labelOf(creative);
                           return (
                             <div className="cp-srw" key={creative.id}>
                               <div className="cp-srow">
                                 <span />
                                 <span>
-                                  <button type="button" className={`cp-thb${zooming ? " on" : ""}`} title="Click to enlarge" aria-label={`Enlarge ${creative.name}`} onClick={() => setZoomId(zooming ? null : creative.id)}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    {creative.url ? <img className="cp-th" src={creative.url} alt={`Preview of ${creative.name}`} width={small.width} height={small.height} loading="lazy" /> : <span className="cp-th" style={small} />}
+                                  <button type="button" className={`cp-thb${zooming ? " on" : ""}`} title="Click to enlarge" aria-label={`Enlarge ${rowName}`} onClick={() => setZoomId(zooming ? null : creative.id)}>
+                                    <Picture item={creative} box={small} alt={`Preview of ${rowName}`} lazy />
                                   </button>
                                 </span>
                                 <div>
                                   {chartMode === "creative" && chart && <i className="cp-dot" style={{ background: chart.colorOf.get(creative.id) }} />}
-                                  <strong>{creative.name}</strong>{creative.format && <span className="cp-fmt">{creative.format}</span>} {creative.isNew && <span className="cp-tag">New</span>}
+                                  <strong>{creative.name}</strong>{creative.format && <span className="cp-fmt">{creative.format}</span>}{creative.cropped && <span className="cp-crop" title={`This creative has no picture made for ${creative.format}, so its main picture is cropped to fit.`}>main picture, cropped</span>} {creative.isNew && <span className="cp-tag">New</span>}
+                                  {creative.shape && creative.placements.length > 0 && <div className="cp-meta cp-sub cp-where">{creative.placements.length === 1 ? "Placement" : "Placements"}: {creative.placements.join(", ")}</div>}
                                   {creative.blocked && creative.reason && <div className="cp-meta cp-sub">Your reason: {creative.reason}</div>}
                                   {creative.audience && !creative.blocked && <div className="cp-meta cp-sub">Not shown: {audienceWords(creative.audience)}.</div>}
                                 </div>
@@ -706,15 +750,16 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                 {earnedCell(creative.totals.paid)}
                                 <div className="cp-num">{averageText(creative.totals)}</div>
                                 <div className="cp-acts">
-                                  <button type="button" className="cp-ib" title="Report to DeusADS…" aria-label={`Report ${creative.name} to DeusADS`} disabled={busy} onClick={() => setReport({ id: creative.id, name: creative.name, campaign: campaign.name, reason: REPORT_REASONS[0], comment: "", alsoBlock: !creative.blocked })}><FlagIcon /></button>
-                                  {canBlock && <button type="button" className="cp-ib danger" title="Block this creative…" aria-label={`Block ${creative.name}`} disabled={busy} onClick={() => askBlock("creative", creative.id, `creative "${creative.name}"`, { campaignId: campaign.id, name: creative.name })}><BlockIcon /></button>}
-                                  {creative.blocked && <button type="button" className="cp-ib on-block" title="Blocked. Click to unblock" aria-pressed="true" aria-label={`Unblock ${creative.name}`} disabled={busy} onClick={() => run({ scope: "creative", action: "unblock", ids: [creative.id] })}><BlockIcon /></button>}
+                                  <button type="button" className="cp-ib" title="Report to DeusADS…" aria-label={`Report ${rowName} to DeusADS`} disabled={busy} onClick={() => setReport({ id: creativeIdOf(creative), shape: canBlock ? creative.shape ?? null : null, name: rowName, campaign: campaign.name, reason: REPORT_REASONS[0], comment: "", alsoBlock: canBlock, canBlock })}><FlagIcon /></button>
+                                  {canBlock && <button type="button" className="cp-ib danger" title="Block this creative…" aria-label={`Block ${rowName}`} disabled={busy} onClick={() => askBlock(creative.shape ? "picture" : "creative", creative.id, `creative "${rowName}"`, { campaignId: campaign.id, name: rowName })}><BlockIcon /></button>}
+                                  {creative.blocked && (
+                                    <button type="button" className="cp-ib on-block" title={creative.shape && creative.blockedWhole ? "The whole creative is blocked. Click to unblock all its shapes" : "Blocked. Click to unblock"} aria-pressed="true" aria-label={`Unblock ${rowName}`} disabled={busy} onClick={() => run(creative.shape && !creative.blockedWhole ? { scope: "picture", action: "unblock", ids: [creative.id] } : { scope: "creative", action: "unblock", ids: [creativeIdOf(creative)] })}><BlockIcon /></button>
+                                  )}
                                 </div>
                               </div>
                               {zooming && creative.url && (
                                 <div className="cp-bubble" role="img" aria-label="Enlarged creative" onClick={() => setZoomId(null)}>
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={creative.url} alt={creative.name} width={big.width} height={big.height} />
+                                  <Picture item={creative} box={big} alt={rowName} />
                                 </div>
                               )}
                             </div>
@@ -890,7 +935,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
             </select>
             <label className="fl" htmlFor="cp-rep-comment">Comment <span className="cp-sub" style={{ fontWeight: 400 }}>(optional)</span></label>
             <textarea id="cp-rep-comment" className="cp-ta" maxLength={1000} value={report.comment} onChange={(event) => setReport({ ...report, comment: event.target.value })} />
-            {!controls.some((row) => row.scope === "creative" && row.target_id === report.id && row.state === "blocked") && (
+            {report.canBlock && (
               <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0" }}>
                 <input type="checkbox" checked={report.alsoBlock} onChange={(event) => setReport({ ...report, alsoBlock: event.target.checked })} /> Also block this creative in my game
               </label>

@@ -16,6 +16,7 @@ import SurfaceCard from "./surface-card";
 import OpenToggle from "./open-toggle";
 import PerformanceTab from "./performance-tab";
 import CampaignsTab from "./campaigns-tab";
+import { loadLanding } from "../../../../lib/picture-landing";
 import PlacementsOrganizer from "./placements-organizer";
 import Link from "next/link";
 
@@ -429,10 +430,13 @@ async function loadCard(db, gameId) {
     db.from("games").select("cover").eq("id", gameId).maybeSingle(),
     db.from("games").select("id").order("created_at", { ascending: true }),
     db.from("placements").select("id").eq("game_id", gameId).is("removed_at", null),
-    db.from("bookings").select("campaign_id, placement_id").eq("status", "approved"),
+    db.from("bookings").select("campaign_id, creative_id, placement_id").eq("status", "approved"),
   ]);
   const placementIds = new Set((placements.error ? [] : placements.data ?? []).map((row) => row.id));
-  const campaigns = new Set((bookings.error ? [] : bookings.data ?? []).filter((row) => placementIds.has(row.placement_id)).map((row) => row.campaign_id));
+  const booked = (bookings.error ? [] : bookings.data ?? []).filter((row) => placementIds.has(row.placement_id));
+  // A campaign counts when one of its creatives has a picture for a placement here (as in the Campaigns tab).
+  const lands = await loadLanding(serviceClient(), booked).catch(() => () => true);
+  const campaigns = new Set(booked.filter((row) => lands(row.creative_id, row.placement_id)).map((row) => row.campaign_id));
   const index = Math.max(0, (games.error ? [] : games.data ?? []).findIndex((row) => row.id === gameId));
   const value = coverRow.error ? null : coverRow.data?.cover ?? null;
   const url = (path) => db.storage.from("creatives").getPublicUrl(path).data.publicUrl;

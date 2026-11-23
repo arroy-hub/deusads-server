@@ -13,6 +13,7 @@ import GamesPerformance from "./games-performance";
 import { loadGamesPerformance } from "../../../lib/games-performance";
 import { windowOf } from "../../../lib/performance-view";
 import { loadDeckLayout } from "../../../lib/deck-layout-data";
+import { loadLanding } from "../../../lib/picture-landing";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My games" };
@@ -73,11 +74,14 @@ export default async function GamesPage({ searchParams }) {
   const bookingRows = await db.from("bookings").select("campaign_id, creative_id, placement_id").eq("status", "approved");
   const bookingList = bookingRows.error ? [] : (bookingRows.data ?? []);
   const fitInputs = await loadFitInputs(service, { campaignIds: bookingList.map((row) => row.campaign_id), creativeIds: bookingList.map((row) => row.creative_id), gameIds: withConnection.map((game) => game.id) }).catch(() => null);
+  // ...and that has a picture for the placement: a campaign with nothing to show in a game is not in that game.
+  const lands = await loadLanding(service, bookingList.filter((row) => gameOfPlacement.has(row.placement_id))).catch(() => () => true);
   const campaignsOf = new Map();
   for (const row of bookingList) {
     const gameId = gameOfPlacement.get(row.placement_id);
     if (!gameId) continue;
     if (fitOf(fitInputs, { campaignId: row.campaign_id, creativeId: row.creative_id, gameId })) continue;
+    if (!lands(row.creative_id, row.placement_id)) continue;
     if (!campaignsOf.has(gameId)) campaignsOf.set(gameId, new Set());
     campaignsOf.get(gameId).add(row.campaign_id);
   }
