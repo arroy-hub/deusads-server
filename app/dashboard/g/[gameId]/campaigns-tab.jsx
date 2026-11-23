@@ -11,10 +11,13 @@ import {
   averageText,
   buildChart,
   dayLabel,
+  earnedText,
   fit,
   number,
   totalsFor,
 } from "../../../../lib/campaigns-view";
+import { DEV_SHARE, earnedOf } from "../../../../lib/wallet";
+import { TestMark } from "../../wallet/parts";
 import { changeAds, markSeen, reportCreative, setCategoryBlocked } from "./campaign-actions";
 import { audienceWords } from "../../../../lib/audience-fit";
 
@@ -31,9 +34,10 @@ const PILL = {
   blockedadv: ["p-blocked", "Blocked · advertiser"],
   mixed: ["p-paused", "Partly active"],
   waiting: ["p-off", "Waiting"],
+  nobudget: ["p-off", "Out of budget"],
   ended: ["p-ended", "Ended"],
 };
-const ROW_CLASS = { nofit: "s-inactive", paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
+const ROW_CLASS = { nofit: "s-inactive", nobudget: "s-inactive", paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
 const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === "blockedadv";
 
 // What a developer may give as the reason for pausing or blocking an ad; the advertiser reads it next to the status.
@@ -93,6 +97,9 @@ const colorOfName = (name) => AVATARS[name.split("").reduce((n, ch) => n + ch.ch
 
 export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const { days } = model;
+  // With the wallet (migration 0061) the tab also says what each campaign, creative and advertiser earned.
+  const wallet = Boolean(model.wallet);
+  const earnedCell = (paid) => (wallet ? <div className="cp-num pmc-earn">{earnedText(paid)}</div> : null);
   const [controls, setControls] = useState(model.controls);
   const [categoryRows, setCategoryRows] = useState(model.categoryRows);
   const [recent, setRecent] = useState(model.recent);
@@ -128,7 +135,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   // Every campaign with its state and figures for the chosen period.
   const campaigns = useMemo(() => {
     return model.campaigns.map((campaign) => {
-      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused, fit: campaign.audience }, ctx);
+      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused, outOfBudget: campaign.outOfBudget, fit: campaign.audience }, ctx);
       const creatives = campaign.creatives.map((creative) => {
         const own = ctx.controls.get(`creative:${creative.id}`);
         return { ...creative, isNew: creative.isNew && !cleared[creative.id], blocked: own?.state === "blocked", reason: own?.reason ?? "", totals: totalsFor(creative.figures, period) };
@@ -186,6 +193,8 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
     list.sort((a, b) => {
       if (sort === "imp") return b.totals.views - a.totals.views;
       if (sort === "impasc") return a.totals.views - b.totals.views;
+      if (sort === "earn") return b.totals.paid - a.totals.paid;
+      if (sort === "earnasc") return a.totals.paid - b.totals.paid;
       if (sort === "cat") return categoryLabel(a.category).localeCompare(categoryLabel(b.category));
       if (sort === "catdesc") return categoryLabel(b.category).localeCompare(categoryLabel(a.category));
       if (sort === "adv") return a.advertiser.localeCompare(b.advertiser);
@@ -281,7 +290,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   function bulk(action) {
     const eligible = selectedIds.filter((id) => {
       const key = byId.get(id).state.key;
-      if (action === "pause") return key === "active" || key === "waiting" || key === "nofit";
+      if (action === "pause") return key === "active" || key === "waiting" || key === "nofit" || key === "nobudget";
       if (action === "resume") return key === "paused";
       if (action === "unblock") return key === "blocked";
       return key !== "ended" && key !== "blocked";
@@ -372,7 +381,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   }
 
   function exportCsv() {
-    const rows = [["Campaign", "Advertiser", "Category", "Status", "Creative", "Creative status", "Impressions", "Avg. visible (s)"]];
+    const rows = [["Campaign", "Advertiser", "Category", "Status", "Creative", "Creative status", "Impressions", ...(wallet ? ["Earned (credits)"] : []), "Avg. visible (s)"]];
     for (const campaign of campaigns) {
       for (const creative of campaign.creatives) {
         rows.push([
@@ -383,6 +392,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
           creative.name,
           creative.blocked ? "Blocked" : "",
           creative.totals.views,
+          ...(wallet ? [earnedOf(creative.totals.paid).toFixed(2)] : []),
           creative.totals.n ? (creative.totals.sum / creative.totals.n).toFixed(1) : "",
         ]);
       }
@@ -422,22 +432,34 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const dialogCopy = (() => {
     if (!dialog) return null;
     const first = byId.get(dialog.campaignId ?? dialog.ids[0]);
+    // What stopping it costs: what it earned in this game in the period on screen.
+    const earnLine = (lead, paid) => (wallet ? <>{lead} earned you <b>{earnedText(paid)}</b> in this game in the last {period} days.</> : null);
+    const paidOf = (list) => addTotals(list.filter(Boolean).map((campaign) => campaign.totals)).paid;
     if (dialog.scope === "creative") {
-      return { title: "Block this creative?", subject: `${dialog.name} · ${first?.name ?? ""} · ${first?.advertiser ?? ""}`, body: "Only this creative stops showing in your game. The other creatives of the campaign keep running.", button: "Block creative" };
+      const creative = first?.creatives.find((item) => item.id === dialog.ids[0]);
+      return { title: "Block this creative?", subject: `${dialog.name} · ${first?.name ?? ""} · ${first?.advertiser ?? ""}`, body: "Only this creative stops showing in your game. The other creatives of the campaign keep running.", button: "Block creative", earn: earnLine("This creative", creative?.totals.paid ?? 0) };
     }
     if (dialog.scope === "campaign") {
-      return { title: "Block this campaign?", subject: `${first.name} · ${first.advertiser}`, body: `All ${first.creatives.length} creatives of this campaign stop showing in your game. Other campaigns of ${first.advertiser} are not affected.`, button: "Block campaign" };
+      return { title: "Block this campaign?", subject: `${first.name} · ${first.advertiser}`, body: `All ${first.creatives.length} creatives of this campaign stop showing in your game. Other campaigns of ${first.advertiser} are not affected.`, button: "Block campaign", earn: earnLine("This campaign", first.totals.paid) };
     }
     if (dialog.scope === "advertiser") {
       const group = advertisers.find((item) => item.id === dialog.ids[0]);
-      return { title: "Block this advertiser?", subject: group?.name ?? "", body: `All ${group?.campaigns.length ?? 0} campaigns of this advertiser stop showing in your game, including the ones it launches later, until you unblock it.`, button: "Block advertiser" };
+      return { title: "Block this advertiser?", subject: group?.name ?? "", body: `All ${group?.campaigns.length ?? 0} campaigns of this advertiser stop showing in your game, including the ones it launches later, until you unblock it.`, button: "Block advertiser", earn: earnLine(`Campaigns of ${group?.name ?? "this advertiser"}`, paidOf(group?.campaigns ?? [])) };
     }
-    return { title: `Block ${dialog.ids.length} selected campaigns?`, subject: "Selected in the Campaigns list", body: "All creatives of these campaigns stop showing in your game. Campaigns you changed too often in the last hour are skipped.", button: "Block campaigns" };
+    return { title: `Block ${dialog.ids.length} selected campaigns?`, subject: "Selected in the Campaigns list", body: "All creatives of these campaigns stop showing in your game. Campaigns you changed too often in the last hour are skipped.", button: "Block campaigns", earn: earnLine("These campaigns", paidOf(dialog.ids.map((id) => byId.get(id)))) };
   })();
+
+  // A category tile says what the campaigns of that category earned here, so blocking it is a choice made with the figure in view.
+  const tileEarned = (categoryId) => {
+    if (!wallet) return null;
+    const mine = campaigns.filter((campaign) => campaign.category === categoryId);
+    if (!mine.length) return null;
+    return <span className="pmc-te">{mine.length} {mine.length === 1 ? "campaign" : "campaigns"} · <b>{earnedText(addTotals(mine.map((campaign) => campaign.totals)).paid)}</b> earned in the last {period} days</span>;
+  };
 
   const actionButtons = (campaign, key) => (
     <>
-      {key === "active" || key === "waiting" || key === "nofit" ? (
+      {key === "active" || key === "waiting" || key === "nofit" || key === "nobudget" ? (
         <button type="button" className="cp-ib" title="Pause in this game" aria-label={`Pause ${campaign.name}`} disabled={busy} onClick={() => campaignAction(campaign, "pause")}><PauseIcon /></button>
       ) : null}
       {key === "paused" ? (
@@ -452,8 +474,14 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
     </>
   );
 
+  const periodPick = (
+    <div className="cp-seg" role="group" aria-label="Period">
+      {PERIODS.map((value) => <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value)}>{value} days</button>)}
+    </div>
+  );
+  // With the wallet the tab sits in a wrapper that gives its grids one more column (Earned); without it the wrapper is not a box at all.
   return (
-    <>
+    <div className={wallet ? "pmc" : undefined} style={wallet ? undefined : { display: "contents" }}>
       {toast && (
         <div className="cp-toast" role="status">
           <span>{toast}</span>
@@ -461,13 +489,24 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
         </div>
       )}
 
-      <div className="cp-top" aria-label="Period and summary">
-        <span>
-          {periodLabel} · UTC · <strong>{number(totals.views)}</strong> impressions · {live.length} live {live.length === 1 ? "campaign" : "campaigns"} · {new Set(live.map((campaign) => campaign.advertiserId)).size} advertisers · {averageText(totals)} avg. visible
-        </span>
-        <span className="cp-spacer" />
-        <button type="button" className="cp-btn" onClick={exportCsv}>Export CSV</button>
-      </div>
+      {wallet ? (
+        <div className="cp-top" aria-label="Period and summary">
+          {periodPick}
+          <span>
+            UTC · <strong>{number(totals.views)}</strong> impressions · <strong>{earnedText(totals.paid)}</strong> earned <TestMark /> · {live.length} live {live.length === 1 ? "campaign" : "campaigns"} · {new Set(live.map((campaign) => campaign.advertiserId)).size} advertisers · {averageText(totals)} avg. visible
+          </span>
+          <span className="cp-spacer" />
+          <button type="button" className="cp-btn" onClick={exportCsv}>Export CSV</button>
+        </div>
+      ) : (
+        <div className="cp-top" aria-label="Period and summary">
+          <span>
+            {periodLabel} · UTC · <strong>{number(totals.views)}</strong> impressions · {live.length} live {live.length === 1 ? "campaign" : "campaigns"} · {new Set(live.map((campaign) => campaign.advertiserId)).size} advertisers · {averageText(totals)} avg. visible
+          </span>
+          <span className="cp-spacer" />
+          <button type="button" className="cp-btn" onClick={exportCsv}>Export CSV</button>
+        </div>
+      )}
 
       <section className="cp-panel" aria-label="Campaigns">
         <div className="cp-ptabs" role="tablist" aria-label="Campaigns and advertisers">
@@ -499,6 +538,8 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                 <option value="old">Old first</option>
                 <option value="imp">Impressions: high to low</option>
                 <option value="impasc">Impressions: low to high</option>
+                {wallet && <option value="earn">Earned: high to low</option>}
+                {wallet && <option value="earnasc">Earned: low to high</option>}
                 <option value="cat">Category A–Z</option>
                 <option value="catdesc">Category Z–A</option>
                 <option value="adv">Advertiser A–Z</option>
@@ -538,7 +579,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                   shown.forEach((campaign) => { next[campaign.id] = !all; });
                   setSelected(next);
                 }} />
-                <span>Campaign · advertiser · category</span><span>Status</span><span className="cp-num">Creatives</span><span className="cp-num">Impressions</span><span className="cp-num">Avg. visible</span><span style={{ textAlign: "right" }}>Actions</span>
+                <span>Campaign · advertiser · category</span><span>Status</span><span className="cp-num">Creatives</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span className="cp-num">Avg. visible</span><span style={{ textAlign: "right" }}>Actions</span>
               </div>
               {shown.map((campaign) => {
                 const key = campaign.state.key;
@@ -546,7 +587,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                 const tag = tagOf(campaign);
                 const [pillClass, pillText] = PILL[key];
                 const stopped = key === "paused" || key === "advpaused" || isBlocked(key);
-                const chart = isOpen && campaign.totals.views > 0 ? buildChart(campaign.creatives, days, { period, mode: chartMode, pick }) : null;
+                const chart = isOpen && campaign.totals.views > 0 ? buildChart(campaign.creatives, days, { period, mode: chartMode, pick, earn: wallet }) : null;
                 const here = noteFor(campaign.id);
                 return (
                   <div key={campaign.id} id={`cp-${campaign.id}`}>
@@ -561,6 +602,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                           <Note value={here} />
                           {key === "blocked" && campaign.state.reason && <div className="cp-meta">Your reason: {campaign.state.reason}</div>}
                           {key === "advpaused" && <div className="cp-meta">The advertiser paused this campaign. It shows again when they resume it.</div>}
+                          {key === "nobudget" && <div className="cp-meta">The budget of this campaign is used up. It shows again when the advertiser adds budget.</div>}
                           {key === "nofit" && campaign.audience && <div className="cp-meta">Not shown: {audienceWords(campaign.audience)}. It shows again if your game fits again.</div>}
                           {key === "blockedadv" && <div className="cp-meta">Blocked together with {campaign.advertiser}. Unblock the advertiser to change it.</div>}
                         </div>
@@ -568,6 +610,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                       <div><span className={`cp-pill ${pillClass}`}>{pillText}</span></div>
                       <div className="cp-num">{campaign.creatives.length}</div>
                       <div className="cp-num">{number(campaign.totals.views)}</div>
+                      {earnedCell(campaign.totals.paid)}
                       <div className="cp-num">{averageText(campaign.totals)}</div>
                       <div className="cp-acts">
                         {actionButtons(campaign, key)}
@@ -592,9 +635,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                 <button type="button" aria-pressed={chartMode === "all"} onClick={() => { setChartMode("all"); setPick({}); }}>Total</button>
                                 <button type="button" aria-pressed={chartMode === "creative"} onClick={() => setChartMode("creative")}>By creative</button>
                               </div>
-                              <div className="cp-seg" role="group" aria-label="Period">
-                                {PERIODS.map((value) => <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value)}>{value} days</button>)}
-                              </div>
+                              {!wallet && periodPick}
                             </div>
                             {chartMode === "creative" && (
                               <div className="cp-legend">
@@ -612,7 +653,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                 <div className="cp-gl" style={{ top: 0 }} /><div className="cp-gl" style={{ top: "50%" }} />
                                 <div className="cp-bars">
                                   {chart.cols.map((col, index) => (
-                                    <div key={index} className="cp-col" title={col.tip}>
+                                    <div key={index} className={`cp-col${col.today ? " pm-today" : ""}`} title={col.tip}>
                                       <div className={`cp-stack ${col.cls}`} style={{ height: `${col.h}%` }}>
                                         {col.segs.map((seg, i) => <span key={i} title={seg.tip} style={{ height: `${seg.h}%`, background: seg.c }} />)}
                                       </div>
@@ -628,12 +669,12 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                           <>
                             <div className="cp-clh"><strong>Creatives</strong><span className="cp-sub">{periodLabel}{chartMode === "creative" && chart ? " · colours match the chart" : ""}</span></div>
                             <div className="cp-sub" style={{ margin: "2px 0", fontSize: "12.5px" }}>
-                              <strong style={{ color: "var(--ink)" }}>Impressions</strong> is how many times players saw the creative in the period. <strong style={{ color: "var(--ink)" }}>Avg. visible</strong> is how long, on average, it stayed in view each time.
+                              <strong style={{ color: "var(--ink)" }}>Impressions</strong> is how many times players saw the creative in the period. {wallet && <><strong style={{ color: "var(--ink)" }}>Earned</strong> is your {Math.round(DEV_SHARE * 100)}% of what the advertiser paid for those impressions. </>}<strong style={{ color: "var(--ink)" }}>Avg. visible</strong> is how long, on average, it stayed in view each time.
                             </div>
                             {chart?.many && chartMode === "creative" && <div className="cp-sub" style={{ margin: "2px 0 4px" }}>{campaign.creatives.length} creatives: the 5 with the most impressions get their own colour, the rest are grouped as Other.</div>}
                           </>
                         )}
-                        <div className="cp-srow shead" aria-hidden="true"><span /><span /><span>Creative</span><span>Status</span><span className="cp-num">Impressions</span><span className="cp-num">Avg. visible</span><span /></div>
+                        <div className="cp-srow shead" aria-hidden="true"><span /><span /><span>Creative</span><span>Status</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span className="cp-num">Avg. visible</span><span /></div>
                         {campaign.creatives.map((creative) => {
                           const campaignOff = key !== "active" && key !== "ended" && key !== "waiting";
                           const label = creative.blocked ? "Blocked" : creative.audience && creative.base !== "ended" && key !== "ended" ? "Not shown" : creative.base === "ended" || key === "ended" ? "Ended" : campaignOff || key === "waiting" ? (key === "waiting" ? "Waiting" : "Not shown") : creative.base === "waiting" ? "Waiting" : "Showing";
@@ -660,6 +701,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                 </div>
                                 <div><span className={`cp-pill ${pill}`}>{label}</span></div>
                                 <div className="cp-num">{number(creative.totals.views)}</div>
+                                {earnedCell(creative.totals.paid)}
                                 <div className="cp-num">{averageText(creative.totals)}</div>
                                 <div className="cp-acts">
                                   <button type="button" className="cp-ib" title="Report to DeusADS…" aria-label={`Report ${creative.name} to DeusADS`} disabled={busy} onClick={() => setReport({ id: creative.id, name: creative.name, campaign: campaign.name, reason: REPORT_REASONS[0], comment: "", alsoBlock: !creative.blocked })}><FlagIcon /></button>
@@ -692,7 +734,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
               </div>
               <div className="cp-grid">
                 <div className="cp-chead">
-                  <span /><span>Advertiser · categories</span><span>Status</span><span className="cp-num">Campaigns</span><span className="cp-num">Impressions</span><span className="cp-num">Avg. visible</span><span style={{ textAlign: "right" }}>Actions</span>
+                  <span /><span>Advertiser · categories</span><span>Status</span><span className="cp-num">Campaigns</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span className="cp-num">Avg. visible</span><span style={{ textAlign: "right" }}>Actions</span>
                 </div>
                 {advertisers.filter((group) => !advQuery.trim() || group.name.toLowerCase().includes(advQuery.trim().toLowerCase())).map((group) => {
                   const advBlocked = ctx.controls.get(`advertiser:${group.id}`);
@@ -707,6 +749,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                   else if (states.every(isBlocked)) key = "blocked";
                   else if (states.every((state) => state === "waiting")) key = "waiting";
                   else if (states.includes("nofit")) key = "nofit";
+                  else if (states.includes("nobudget")) key = "nobudget";
                   else key = "ended";
                   const total = addTotals(group.campaigns.map((campaign) => campaign.totals));
                   const isOpen = Boolean(openAdv[group.id]);
@@ -719,10 +762,12 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                     if (paused) parts.push(`${paused} paused`);
                     const unfitN = states.filter((state) => state === "nofit").length;
                     if (unfitN) parts.push(`${unfitN} not shown (audience)`);
+                    const outN = states.filter((state) => state === "nobudget").length;
+                    if (outN) parts.push(`${outN} out of budget`);
                     if (blockedN) parts.push(`${blockedN} blocked`);
                   }
                   const [pillClass, pillText] = PILL[key];
-                  const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused" && state !== "advpaused" && state !== "nofit");
+                  const allStopped = states.every((state) => state !== "active" && state !== "waiting" && state !== "paused" && state !== "advpaused" && state !== "nofit" && state !== "nobudget");
                   const here = noteForAdv(group.id);
                   const freshCampaigns = group.campaigns.filter((campaign) => campaign.isNew).length;
                   const freshCreatives = group.campaigns.filter((campaign) => !campaign.isNew && campaign.creatives.some((creative) => creative.isNew)).length;
@@ -743,6 +788,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                         <div><span className={`cp-pill ${pillClass}`}>{pillText}</span></div>
                         <div className="cp-num">{group.campaigns.length}</div>
                         <div className="cp-num">{number(total.views)}</div>
+                        {earnedCell(total.paid)}
                         <div className="cp-num">{averageText(total)}</div>
                         <div className="cp-acts">
                           {!advBlocked && !allStopped && <button type="button" className="cp-ib danger" title="Block advertiser…" aria-label={`Block ${group.name}`} disabled={busy} onClick={() => askBlock("advertiser", group.id, group.name, {})}><BlockIcon /></button>}
@@ -752,7 +798,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                       {isOpen && (
                         <div className="cp-crea">
                           {advBlocked && <div className="cp-meta cp-sub" style={{ marginBottom: 6 }}>Blocked in this game{advBlocked.reason ? ` · your reason: ${advBlocked.reason}` : ""}. All campaigns below are stopped, and so will be any new ones.</div>}
-                          <div className="cp-nhead"><span>Campaign</span><span>Status</span><span className="cp-num">Creatives</span><span className="cp-num">Impressions</span><span style={{ textAlign: "right" }}>Actions</span></div>
+                          <div className="cp-nhead"><span>Campaign</span><span>Status</span><span className="cp-num">Creatives</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span style={{ textAlign: "right" }}>Actions</span></div>
                           {group.campaigns.map((campaign) => {
                             const [campPill, campText] = PILL[campaign.state.key];
                             return (
@@ -765,6 +811,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                 <div><span className={`cp-pill ${campPill}`}>{campText}</span></div>
                                 <div className="cp-num">{campaign.creatives.length}</div>
                                 <div className="cp-num">{number(campaign.totals.views)}</div>
+                                {earnedCell(campaign.totals.paid)}
                                 <div className="cp-acts">{actionButtons(campaign, campaign.state.key)}</div>
                               </div>
                             );
@@ -785,12 +832,12 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
               <h2 style={{ fontSize: 16, color: "var(--ink)" }}>Blocked categories</h2>
               <span>{ctx.blocked.size} of {AD_CATEGORIES.length} blocked in this game · applies to this game only</span>
             </div>
-            <p className="cp-hint">Advertisers in a blocked category do not show in this game. Alcohol and tobacco, gambling, and dating and adult are blocked by default. Click a category to block it. A dark tile means it is blocked; click again to allow it. Hover a category for a short description.</p>
+            <p className="cp-hint">Advertisers in a blocked category do not show in this game. Alcohol and tobacco, gambling, and dating and adult are blocked by default. Click a category to block it. A dark tile means it is blocked; click again to allow it. Hover a category for a short description.{wallet ? " A category with campaigns in this game shows what they earned you." : ""}</p>
             <div className="cp-cgh" style={{ marginTop: 14 }}>Everyday categories</div>
             <div className="cp-tiles">
               {AD_CATEGORIES.filter((item) => !SENSITIVE.includes(item.id)).map((item) => (
                 <button key={item.id} type="button" className="cp-tile" title={DESCRIPTION[item.id]} aria-pressed={ctx.blocked.has(item.id)} disabled={busy} onClick={() => toggleCategory(item.id)}>
-                  <i className="cp-cti" style={iconStyle(item.id)} /><span className="nm">{item.label}</span><span className="st">{ctx.blocked.has(item.id) ? "Blocked" : "Allowed"}</span>
+                  <i className="cp-cti" style={iconStyle(item.id)} /><span className="nm">{item.label}</span><span className="st">{ctx.blocked.has(item.id) ? "Blocked" : "Allowed"}</span>{tileEarned(item.id)}
                 </button>
               ))}
             </div>
@@ -798,7 +845,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
             <div className="cp-tiles">
               {AD_CATEGORIES.filter((item) => SENSITIVE.includes(item.id)).map((item) => (
                 <button key={item.id} type="button" className="cp-tile sens" title={DESCRIPTION[item.id]} aria-pressed={ctx.blocked.has(item.id)} disabled={busy} onClick={() => toggleCategory(item.id)}>
-                  <i className="cp-cti" style={iconStyle(item.id)} /><span className="nm">{item.label}</span><span className="st">{ctx.blocked.has(item.id) ? "Blocked" : "Allowed"}</span>
+                  <i className="cp-cti" style={iconStyle(item.id)} /><span className="nm">{item.label}</span><span className="st">{ctx.blocked.has(item.id) ? "Blocked" : "Allowed"}</span>{tileEarned(item.id)}
                 </button>
               ))}
             </div>
@@ -814,6 +861,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
             <h2 id="cp-dlg-title">{dialogCopy.title}</h2>
             <p style={{ fontWeight: 600, margin: "0 0 4px" }}>{dialogCopy.subject}</p>
             <p className="cp-sub" style={{ margin: "0 0 6px" }}>{dialogCopy.body}</p>
+            {dialogCopy.earn && <p className="pmc-earnline">{dialogCopy.earn}</p>}
             <label className="fl" htmlFor="cp-reason">Reason <span className="cp-sub" style={{ fontWeight: 400 }}>(optional)</span></label>
             <select id="cp-reason" className="cp-sel" value={dialog.reason} onChange={(event) => setDialog({ ...dialog, reason: event.target.value })}>
               {REASONS.map((reason) => <option key={reason}>{reason}</option>)}
@@ -853,6 +901,6 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
