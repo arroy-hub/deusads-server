@@ -11,7 +11,7 @@
 --                             this migration, so nothing that runs today stops)
 --   campaigns.budget_spent    what its counted impressions have cost so far (also kept for campaigns with no limit)
 --   campaigns.budget_closed_at / budget_returned   the campaign is over and what was left went back to the wallet
---   campaigns.budget_out_at / budget_low_at        when it ran out, and when 90% was used (for the notices)
+--   campaigns.budget_out_at / budget_low_at        when it ran out, and when 85% was used (for the notices)
 --   wallet_ops                an advertiser's wallet: credits added, reserved for a campaign, returned from one
 --   wallet_earnings           what was paid, per day, placement, place, creative and campaign
 --
@@ -147,7 +147,7 @@ begin
             set budget_spent  = v_spent,
                 budget_out_at = case when budget is not null and budget_closed_at is null and budget - v_spent < v_price
                                      then coalesce(budget_out_at, now()) else budget_out_at end,
-                budget_low_at = case when budget is not null and budget_closed_at is null and v_spent >= budget * 0.9
+                budget_low_at = case when budget is not null and budget_closed_at is null and v_spent >= budget * 0.85
                                      then coalesce(budget_low_at, now()) else budget_low_at end
             where id = r.campaign_id;
         end if;
@@ -296,7 +296,7 @@ begin
     -- still nearly used up after a small top-up: say so again later
     update public.campaigns
     set budget_low_at = now(), budget_low_told = true
-    where id = c.id and budget_spent >= budget * 0.9;
+    where id = c.id and budget_spent >= budget * 0.85;
 
     return jsonb_build_object('ok', true, 'available', v_available - v_amount, 'budget', v_budget, 'resumed', v_resumed);
 end;

@@ -28,6 +28,7 @@ const PATHS = {
   pulse: <path d="M3 12h4l3-8 4 16 3-8h4" />,
   alert: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5M12 16h.01" /></>,
   bell: <path d="M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 004 0" />,
+  wallet: <path d="M4 6.5h13a2 2 0 0 1 2 2V10M4 6.5v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2V12a2 2 0 0 0-2-2H6a2 2 0 0 1-2-2v-1.5zM4 6.5A2 2 0 0 1 6 4.5h9M16.5 14.8h.01" />,
 };
 
 export default function Ic({ name, size = 20, width = 2 }) {

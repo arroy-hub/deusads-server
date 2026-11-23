@@ -8,9 +8,12 @@ import { usePathname } from "next/navigation";
 import { ART, GUIDE_CARDS, GUIDE_LIST, LATEST, NEWS, NTYPE, TIPS, groupChanges, guideBySlug, slugOf } from "../../../lib/home-content";
 import Ic from "./icons";
 import { GD0, GSPEC, PLATES, applyGlow, glowStyle } from "./glow";
+import { credits, dayText } from "../../../lib/wallet";
+import { TestMark, TopUpDialog } from "../wallet/parts";
 
 // The blocks a person can switch on and off, in the order they appear in the menu.
 const BLOCKS = [
+  ["wallet", "Wallet", "ra", "wallet"],
   ["attention", "Needs attention", "na", "alert"],
   ["activity", "Recent activity", "ra", "pulse"],
   ["setup", "Get started checklist", "df", "flag"],
@@ -150,6 +153,47 @@ function Activity({ items, hide }) {
           })}
         </div>
       )}
+    </Block>
+  );
+}
+
+/**
+ * The Wallet block: what an advertiser can spend (with the one budget to act on), or what a developer's games have
+ * earned. `wallet` comes from lib/home-rules.js advertiserWallet() / developerWallet().
+ */
+function Wallet({ wallet, hide }) {
+  const [adding, setAdding] = useState(false);
+  const adv = wallet.kind === "adv";
+  const peak = adv ? 0 : Math.max(...wallet.spark.map((day) => day.value), 0.01);
+  return (
+    <Block title="Wallet" icon="wallet" cls="hw-blk" left={<TestMark />} hide={hide}>
+      <div className="hw">
+        <div className="hw-top">
+          <div className="hw-main">
+            <span className="hw-k">{adv ? "Available" : "Balance"}</span>
+            <b className="hw-v">{credits(adv ? wallet.available : wallet.balance)}</b>
+            <span className="hw-u">C.</span>
+          </div>
+          {adv ? (
+            <button type="button" className="btn sm pri with-ic" onClick={() => setAdding(true)}><Ic name="plus" size={15} width={2.4} />Add credits</button>
+          ) : (
+            <span className="hw-spark" role="img" aria-label="Last 7 days">
+              {wallet.spark.map((day) => <i key={day.day} style={{ height: `${Math.max(8, (day.value / peak) * 100)}%` }} data-tip={`${dayText(day.day)} · ${credits(day.value)} C.`} />)}
+            </span>
+          )}
+        </div>
+        {!adv && <p className="hw-delta"><Ic name="trend" size={15} width={2.4} /><b>+{credits(wallet.today)}</b> today</p>}
+        <dl className="hw-rows">
+          {wallet.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+        </dl>
+        {wallet.flag && (
+          <Link href={wallet.flag.href} className={`hw-flag${wallet.flag.tone === "stop" ? " is-stop" : ""}`}>
+            <Ic name="warn" size={15} width={2.2} /><span>{wallet.flag.text}</span><Ic name="chevr" size={14} width={2.2} />
+          </Link>
+        )}
+        <Link href={wallet.href} className="link hw-open">Open wallet →</Link>
+      </div>
+      {adv && <TopUpDialog open={adding} onClose={() => setAdding(false)} available={wallet.available} />}
     </Block>
   );
 }
@@ -351,13 +395,16 @@ function HomeView({ role, data, blocks, setBlocks, nav, hello, isNew, custOpen, 
     if (blocks.attention) main.push(<Attention key="attention" strips={data.strips} hide={hideOf("attention")} />);
   }
   if (blocks.guides) main.push(<Guides key="guides" role={role} nav={nav} hide={hideOf("guides")} />);
-  // The right column: What's new and Tip always sit above Recent activity.
+  // The wallet is first in the right column; it closes like any other block and comes back from Customize.
+  if (data.wallet && blocks.wallet) side.push(<Wallet key="wallet" wallet={data.wallet} hide={hideOf("wallet")} />);
+  // What's new and Tip always sit above Recent activity.
   if (blocks.news) side.push(<News key="news" role={role} nav={nav} hide={hideOf("news")} />);
   if (blocks.tips) side.push(<Tip key="tips" role={role} active hide={hideOf("tips")} />);
   if (allDone && blocks.activity) side.push(<Activity key="activity" items={data.activity} hide={hideOf("activity")} />);
   const empty = !main.length && !side.length;
   // until Get started is done, Needs attention and Recent activity are not offered in Customize either
-  const skip = allDone ? [] : ["attention", "activity"];
+  // ... and the Wallet block only where there is a wallet (migration 0061)
+  const skip = [...(allDone ? [] : ["attention", "activity"]), ...(data.wallet ? [] : ["wallet"])];
   return (
     <>
       {hello}
