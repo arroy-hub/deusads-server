@@ -18,6 +18,7 @@ import { eligibleRows } from "../../../lib/targeting";
 import { switchedOff } from "../../../lib/placement-organization";
 import { blockedCategories, controlMap, mayServe } from "../../../lib/game-controls";
 import { campaignMayServe, effectivePause } from "../../../lib/campaign-rules";
+import { hasBudget } from "../../../lib/wallet";
 import { slotStates } from "../../../lib/fill-rate";
 import { sdkServerUrl } from "../../../lib/server-address";
 
@@ -270,7 +271,9 @@ async function loadSuspended(db, rows) {
 
 /** A pause may end by itself on a day (resume_on, migration 0028); before that migration it lasts until it is lifted. */
 async function loadCampaigns(db, campaignIds) {
-  const result = await db.from("campaigns").select("id, targeting, paused_at, resume_on").in("id", campaignIds);
+  // The budget comes with migration 0061: before it no campaign has one, so none is held back.
+  let result = await db.from("campaigns").select("id, targeting, paused_at, resume_on, budget, budget_spent, budget_closed_at").in("id", campaignIds);
+  if (result.error && isSchemaOutdated(result.error)) result = await db.from("campaigns").select("id, targeting, paused_at, resume_on").in("id", campaignIds);
   if (result.error && isSchemaOutdated(result.error)) {
     return db.from("campaigns").select("id, targeting, paused_at").in("id", campaignIds);
   }
@@ -306,7 +309,7 @@ async function loadCampaignRules(db, game, bookings, profileOf) {
   const ruleOfCampaign = new Map(
     (campaigns ?? []).map((campaign) => [
       campaign.id,
-      { pausedAt: effectivePause(campaign.paused_at, campaign.resume_on), targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set() },
+      { pausedAt: effectivePause(campaign.paused_at, campaign.resume_on), targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set(), outOfBudget: !hasBudget(campaign) },
     ])
   );
   const ruleOf = new Map(bookings.map((booking) => [booking.assignment_id, ruleOfCampaign.get(booking.campaign_id)]));

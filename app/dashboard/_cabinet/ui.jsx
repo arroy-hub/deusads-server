@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { pauseCampaign, stopCampaign } from "../advertising/actions";
+import { credits } from "../../../lib/wallet";
 import { addD, diff, fmtDay, todayISO, TONE } from "./dates";
 import { IcCheck, IcChevron, IcPause, IcPlay, IcStop } from "./icons";
 
@@ -195,7 +196,7 @@ export function PauseDialog({ name, campaignId, initial = "pause", status = "liv
       if (choice === "stop") {
         result = await stopCampaign({ campaignId });
         title = "Campaign stopped";
-        text = `“${name}” ends today in every game. You can duplicate it to run again.`;
+        text = `“${name}” ends today in every game.${result?.returned > 0 ? ` ${credits(result.returned)} C. went back to your wallet.` : ""} You can duplicate it to run again.`;
       } else if (choice === "resume") {
         result = await pauseCampaign({ campaignId, paused: false });
         title = "Campaign resumed";

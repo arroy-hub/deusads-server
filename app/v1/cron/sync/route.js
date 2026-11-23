@@ -1,6 +1,7 @@
 import { serviceClient } from "../../../../lib/api";
 import { syncAllCampaigns } from "../../../../lib/campaign-sync";
 import { reconcileFit } from "../../../../lib/audience-watch";
+import { sendBudgetNotices, sendEarningNotices } from "../../../../lib/wallet-notices";
 
 export const dynamic = "force-dynamic";
 
@@ -12,5 +13,8 @@ export async function GET(request) {
   const result = await syncAllCampaigns(service);
   // Then what every game fits against what was remembered, for changes nobody triggered (an advertiser's creative audience, say).
   const fit = await reconcileFit(service).catch(() => ({ skipped: "error" }));
-  return Response.json({ ...result, fit });
+  // The wallet (migration 0061): budget notices nobody was told yet, and what each developer's games earned yesterday.
+  const budgets = await sendBudgetNotices(service);
+  const earnings = await sendEarningNotices(service);
+  return Response.json({ ...result, fit, wallet: { budgets, earnings } });
 }

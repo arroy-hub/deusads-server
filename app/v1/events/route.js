@@ -9,6 +9,8 @@ import {
   warnSchemaOutdated,
 } from "../../../lib/api";
 import { performanceFrom } from "../../../lib/sdk-performance";
+import { afterResponse } from "../../../lib/after-response";
+import { sendBudgetNotices } from "../../../lib/wallet-notices";
 
 export const dynamic = "force-dynamic";
 
@@ -238,6 +240,9 @@ export const POST = guarded(async function POST(request) {
 
   const accepted = data?.length ?? 0;
   await recordPerformance(db, game, sessionId, performance);
+  // The views were charged as they were stored (migration 0061). A campaign that just ran low or out of budget is told
+  // to its advertiser once the game has its answer.
+  if (accepted > 0) await afterResponse(() => sendBudgetNotices(db));
   return json({
     accepted,
     duplicates: rows.length - accepted,

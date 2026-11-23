@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { ALL_TYPES, channelsOf, deliveryFor, hasChannel, isKnownType, prefProblem, resolvePrefs, sectionsFor } from "../lib/notification-prefs.js";
 
 const titles = (role) => sectionsFor(role).map((s) => s.title);
-assert.deepEqual(titles("developer"), ["Campaigns in your games", "Your reports", "Your games", "Help & feedback", "Account"]);
-assert.deepEqual(titles("advertiser"), ["Your creatives", "Your campaigns", "Help & feedback", "Account"]);
+assert.deepEqual(titles("developer"), ["Campaigns in your games", "Your reports", "Your games", "Wallet", "Help & feedback", "Account"]);
+assert.deepEqual(titles("advertiser"), ["Your creatives", "Your campaigns", "Wallet", "Help & feedback", "Account"]);
 assert.deepEqual(titles("admin"), ["To review", "Account"]);
 assert.deepEqual(titles("nobody"), titles("developer"), "an unknown role is treated as a developer");
 
 const rows = (role) => sectionsFor(role).flatMap((s) => s.rows.map((r) => r.type));
-assert.deepEqual(rows("developer"), ["dev_campaign", "dev_withdrew", "dev_audience_fit", "dev_report_decided", "dev_booking_paused", "dev_new_placements", "dev_game_silent", "support_reply", "account_security", "product_news"]);
+assert.deepEqual(rows("developer"), ["dev_campaign", "dev_withdrew", "dev_audience_fit", "dev_report_decided", "dev_booking_paused", "dev_new_placements", "dev_game_silent", "dev_earned", "dev_budget", "support_reply", "account_security", "product_news"]);
 assert.deepEqual(rows("admin"), ["admin_review", "admin_reports", "admin_support", "account_security", "product_news"]);
 assert.equal(new Set(ALL_TYPES).size, ALL_TYPES.length, "types are unique");
 for (const role of ["developer", "advertiser", "admin"]) for (const type of rows(role)) assert.ok(isKnownType(type), type);

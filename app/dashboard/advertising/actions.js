@@ -19,6 +19,7 @@ import { parseTargeting } from "../../../lib/targeting";
 import { isCategory } from "../../../lib/categories";
 import { syncCampaign } from "../../../lib/campaign-sync";
 import { addToPlan, planCreativeIds, removeFromPlan } from "../../../lib/campaign-plan";
+import { credits, parseAmount, walletError, walletMissing } from "../../../lib/wallet";
 
 const MISSING = "Run migration 0009 in the Supabase SQL editor first.";
 const ACTIVATE_MISSING = "Run migration 0015 in the Supabase SQL editor first.";
@@ -166,8 +167,12 @@ export async function createBooking({ campaignId, campaignName, creativeId, plac
  * Start a campaign by audience. The campaign remembers who it is for, which creative runs and when, and books every
  * open placement in a game that fits, now and whenever such a placement appears. With no matching game yet it simply
  * waits (status Waiting). Advertisers only; the creative must be theirs and not rejected.
+ *
+ * `budget` (migration 0061) is the most the campaign may spend in total: it is moved from the wallet into the campaign
+ * before anything is booked, so a campaign never starts on credits that are not there. Without the migration there are
+ * no budgets and the campaign starts as it did before.
  */
-export async function launchCampaign({ campaignId, campaignName, creativeId, creativeIds, category, targeting, startsOn, endsOn }) {
+export async function launchCampaign({ campaignId, campaignName, creativeId, creativeIds, category, targeting, startsOn, endsOn, budget }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
   if (!canAdvertise(me.role)) return { error: "Not allowed." };
@@ -186,11 +191,24 @@ export async function launchCampaign({ campaignId, campaignName, creativeId, cre
   if ((found ?? []).some((creative) => creative.status === "rejected")) return { error: "A rejected creative cannot run. Upload another one." };
   if (category && !isCategory(category)) return { error: "Choose one of the categories." };
 
+  // The wallet: null when migration 0061 is not applied (then nothing is reserved).
+  const wallet = await service.rpc("wallet_available", { p_account: user.id });
+  const hasWallet = !wallet.error;
+  if (wallet.error && !walletMissing(wallet.error)) return { error: "Could not read your wallet. Try again." };
+  const amount = hasWallet ? parseAmount(budget) : 0;
+  if (hasWallet) {
+    if (!(amount > 0)) return { error: "Set a budget for the campaign." };
+    if (Number(wallet.data) < amount) return { error: walletError({ error: "funds", available: Number(wallet.data) }) };
+  }
+
   const plan = addToPlan({ mode: "audience", placementIds: [], startsOn: range.startsOn ?? "", endsOn: range.endsOn ?? "", launched: true }, wanted);
   let id = "";
+  let created = false;
+  let planBefore = null;
   if (campaignId) {
     const campaign = await ownCampaign(me, campaignId);
     if (!campaign) return { error: "Unknown campaign." };
+    planBefore = (await service.from("campaigns").select("plan").eq("id", campaign.id).maybeSingle()).data?.plan ?? null;
     const fields = { targeting: audience.value, plan };
     const name = cleanCampaignName(campaignName);
     if (name) fields.name = name;
@@ -210,11 +228,23 @@ export async function launchCampaign({ campaignId, campaignName, creativeId, cre
     if (bookingsMissing(error)) return { error: MISSING };
     if (error || !data) return { error: "Could not create the campaign." };
     id = data.id;
+    created = true;
+  }
+
+  // The budget is reserved before the first booking. If the wallet cannot cover it after all (two tabs at once), the
+  // campaign is left as it was: a new one is removed, a draft stays a draft.
+  if (hasWallet) {
+    const reserved = await service.rpc("wallet_reserve", { p_account: user.id, p_campaign: id, p_amount: amount });
+    if (reserved.error || !reserved.data?.ok) {
+      if (created) await service.from("campaigns").delete().eq("id", id).eq("advertiser_id", user.id);
+      else await service.from("campaigns").update({ plan: planBefore }).eq("id", id).eq("advertiser_id", user.id);
+      return { error: walletError(reserved.data) || "Could not reserve the budget. Try again." };
+    }
   }
 
   const result = await syncCampaign(service, id).catch(() => ({ skipped: "error" }));
   revalidatePath("/dashboard", "layout");
-  return { ok: true, id, booked: result.booked ?? 0, waiting: result.waiting ?? 0 };
+  return { ok: true, id, booked: result.booked ?? 0, waiting: result.waiting ?? 0, reserved: hasWallet ? amount : 0 };
 }
 
 /** Withdraw a booking; a live one stops showing at once. Only its advertiser can. */
@@ -336,11 +366,15 @@ export async function deleteCampaign({ campaignId }) {
   if (openError) return { error: "Could not check the campaign. Try again." };
   if ((count ?? 0) > 0) return { error: "This campaign is still running. Stop it first, then delete it." };
 
+  // What is left of its budget goes back to the wallet first (migration 0061; nothing happens without it).
+  const closed = await me.service.rpc("wallet_close", { p_account: me.user.id, p_campaign: id });
+  if (closed.error && !walletMissing(closed.error)) return { error: "Could not return the campaign's budget. Try again." };
+
   const { error } = await me.service.from("campaigns").delete().eq("id", id).eq("advertiser_id", me.user.id);
   if (error) return { error: "Could not delete the campaign." };
 
-  revalidatePath("/dashboard/advertising");
-  return { ok: true };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, returned: Number(closed.data?.returned) || 0 };
 }
 
 /**
@@ -545,10 +579,15 @@ export async function stopCampaign({ campaignId }) {
   await service.from("campaigns").update({ paused_at: null }).eq("id", campaign.id);
   if (failed > 0) return { error: `${failed} of ${(open ?? []).length} placements could not be stopped. Try again.` };
 
+  // It is over: what is left of its budget goes back to the wallet (migration 0061; nothing happens without it).
+  const closed = await service.rpc("wallet_close", { p_account: user.id, p_campaign: campaign.id });
+  if (closed.error && !walletMissing(closed.error)) console.error("[DeusADS] wallet close:", closed.error.code, closed.error.message);
+  const returned = Number(closed.data?.returned) || 0;
+
   await notifyMany(service, wasLive, "An advertiser stopped a campaign that was showing in your game.", "/dashboard/games", "dev_withdrew");
   revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard/admin/bookings");
-  return { ok: true, stopped: (open ?? []).length };
+  return { ok: true, stopped: (open ?? []).length, returned, message: returned > 0 ? `Campaign stopped · ${credits(returned)} C. returned to your wallet` : "Campaign stopped" };
 }
 
 /** Set the audience of a campaign: genres, platforms, languages and genres to skip. Nothing picked means every game. */
