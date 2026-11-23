@@ -22,7 +22,8 @@ export default async function CampaignSettingsPage({ params }) {
   let catalog = null;
   if (head.rules) {
     let openQuery = me.service.from("placements").select("game_id, games(id, name, icon_path, genres, platforms, languages, countries)").eq("open_to_advertisers", true).is("removed_at", null);
-    openQuery = openQuery.neq("owner_id", me.user.id); // the server never books an advertiser on their own games, admin or not
+    // the server never books an advertiser on their own games; an admin's campaign is the exception (lib/campaign-sync.js)
+    if (me.role !== "admin") openQuery = openQuery.neq("owner_id", me.user.id);
     const { data: open, error } = await openQuery;
     if (!error) {
       const byGame = new Map();

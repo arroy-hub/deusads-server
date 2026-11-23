@@ -18,6 +18,8 @@ export default async function NewBookingPage({ searchParams }) {
   const { service, user } = me;
 
   let catalog = null;
+  // An admin's campaign is also booked on the admin's own games (lib/campaign-sync.js), so the wizard counts them too.
+  const ownToo = me.role === "admin";
   const [{ data: creatives }, campaignResult, firstCatalog] = await Promise.all([
     service
       .from("creatives")
@@ -26,9 +28,9 @@ export default async function NewBookingPage({ searchParams }) {
       .neq("kind", "own")
       .order("created_at", { ascending: false }),
     service.from("campaigns").select("id, name, targeting, plan, category, cover").eq("advertiser_id", user.id).order("created_at", { ascending: false }),
-    // The catalog: live placements in other people's games. Advertisers see the
+    // The catalog: live placements in other people's games (an admin's own too). Advertisers see the
     // game and placement names and the shape of the slot, nothing about its owner.
-    catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo: false }),
+    catalogQuery(service, user.id, { onlyOpen: true, withProfile: true, ownToo }),
   ]);
 
   // Campaign audience and draft plan come with migration 0026; without it the plain list still loads.
@@ -80,9 +82,9 @@ export default async function NewBookingPage({ searchParams }) {
   let profiled = true;
   if (isSchemaOutdated(catalog.error)) {
     profiled = false;
-    catalog = await catalogQuery(service, user.id, { onlyOpen: true, withProfile: false, ownToo: false });
+    catalog = await catalogQuery(service, user.id, { onlyOpen: true, withProfile: false, ownToo });
   }
-  if (isSchemaOutdated(catalog.error)) catalog = await catalogQuery(service, user.id, { onlyOpen: false, withProfile: false, ownToo: false });
+  if (isSchemaOutdated(catalog.error)) catalog = await catalogQuery(service, user.id, { onlyOpen: false, withProfile: false, ownToo });
   const placements = catalog.data;
 
   // The audience of each creative (migration 0018); without it nothing is aimed.

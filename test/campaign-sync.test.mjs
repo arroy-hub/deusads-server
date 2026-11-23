@@ -10,6 +10,10 @@ const ids = (list) => list.map((p) => p.id);
 assert.deepEqual(ids(placementsToBook({ open, targeting: { genres: ["racing"], platforms: ["quest"] }, advertiserId: "me" })), ["p1", "p2"]);
 // no audience: every game except the advertiser's own
 assert.deepEqual(ids(placementsToBook({ open, targeting: null, advertiserId: "me" })), ["p1", "p2", "p3", "p4"]);
+// an admin's campaign also takes the admin's own games (the one account that has both)
+assert.deepEqual(ids(placementsToBook({ open, targeting: null, advertiserId: "me", ownToo: true })), ["p1", "p2", "p3", "p4", "p5"]);
+assert.deepEqual(ids(placementsToBook({ open, targeting: { genres: ["horror"] }, advertiserId: "me", ownToo: true })), ["p3"], "the audience still decides");
+assert.deepEqual(ids(placementsToBook({ open, targeting: null, excludedGames: new Set(["g4"]), advertiserId: "me", ownToo: true })), ["p1", "p2", "p3", "p4"], "and a game taken out of the campaign stays out");
 // excluded games and bookings that exist are left alone
 assert.deepEqual(ids(placementsToBook({ open, targeting: null, excludedGames: new Set(["g2"]), alreadyBooked: new Set(["p1"]), advertiserId: "me" })), ["p2", "p4"]);
 // the creative's own audience applies too
