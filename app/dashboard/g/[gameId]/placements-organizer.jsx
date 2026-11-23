@@ -29,6 +29,7 @@ import {
   setSceneEnabled,
 } from "../../placement-actions";
 import { CardPopups, OrgContext } from "./placement-card";
+import { SayBubble, pressOf } from "./say-bubble";
 
 const FILTER_KEYS = ["format", "status", "type", "folder", "tag", "scene", "sharing"];
 const CUSTOM = "__custom";
@@ -187,8 +188,42 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     });
   }, [itemById]);
 
+  // ---- short messages: a small bubble next to what was pressed, gone by itself after three seconds (SayBubble)
+  const lastPress = useRef(null);
+  const popRef = useRef(null);
+  popRef.current = pop;
+  const sayCount = useRef(0);
+  useEffect(() => {
+    const note = (target) => {
+      const press = pressOf(target, popRef.current?.id ?? null);
+      if (press) lastPress.current = press;
+    };
+    const click = (event) => {
+      if (!event.target.closest?.(".org-say")) note(event.target);
+    };
+    const key = (event) => {
+      if (event.key === "Enter") note(document.activeElement);
+    };
+    document.addEventListener("click", click, true);
+    document.addEventListener("keydown", key, true);
+    return () => {
+      document.removeEventListener("click", click, true);
+      document.removeEventListener("keydown", key, true);
+    };
+  }, []);
+  /** Where a message would appear now: by the last thing pressed. Take it before waiting for an answer. */
+  function anchorNow() {
+    return lastPress.current ? { ...lastPress.current } : null;
+  }
+  function say(next, at) {
+    if (!next) return setNotice(null);
+    sayCount.current += 1;
+    setNotice({ ...next, at: at ?? anchorNow(), n: sayCount.current });
+  }
+  const sayDone = useRef(() => setNotice(null)).current;
+
   // The action revalidates the page on the server, so the fresh data comes back with its answer.
-  function run(promise, after, undo, keys = []) {
+  function run(promise, after, undo, keys = [], at = anchorNow()) {
     setNotice(null);
     if (keys.length) setBusy((current) => new Set([...current, ...keys]));
     startTransition(async () => {
@@ -196,9 +231,9 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       if (keys.length) setBusy((current) => new Set([...current].filter((key) => !keys.includes(key))));
       if (result?.error) {
         undo?.();
-        return setNotice({ kind: "error", text: result.error });
+        return say({ kind: "error", text: result.error }, at);
       }
-      if (result?.warning) setNotice({ kind: "note", text: result.warning });
+      if (result?.warning) say({ kind: "note", text: result.warning }, at);
       after?.(result);
     });
   }
@@ -216,7 +251,6 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     if (!cell) return;
     setPop({ id, kind, anchor: rectOf(button), cell: rectOf(cell) });
   }
-  const say = (next) => setNotice(next);
 
   // ---- moving placements between folders (the menu's "Move to folder" and dragging a card)
   function moveItems(ids, folderId) {
@@ -227,7 +261,8 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     const what = moving.length === 1 ? `“${moving[0].label}”` : `${moving.length} placements`;
     const text = place ? `${what} moved to “${place.name}”${place.enabled === false ? " (that folder is switched off)" : ""}` : `${what} taken out of the folder`;
     setShownNow((current) => ({ ...current, folderOf: new Map([...current.folderOf, ...moving.map((item) => [item.id, folderId])]) }));
-    run(movePlacements({ gameId, ids: moving.map((item) => item.id), folderId }), () => setNotice({ kind: "note", text, undo: () => undoMove(before) }), forget);
+    const at = { ...anchorNow(), cardId: moving[0].id };
+    run(movePlacements({ gameId, ids: moving.map((item) => item.id), folderId }), () => say({ kind: "note", text, undo: () => undoMove(before) }, at), forget, [], at);
   }
   function undoMove(before) {
     const byFolder = new Map();
@@ -246,10 +281,10 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
       setTimeout(() => {
         if (serverLabels.current.get(id) !== label) {
           drop();
-          setNotice({ kind: "error", text: "The new name was not applied. Try again." });
+          say({ kind: "error", text: "The new name was not applied. Try again." }, { cardId: id });
         }
       }, 4000);
-    }, drop);
+    }, drop, [], { cardId: id });
   }
 
   // Dropping on a card puts the dragged ones before or after it; the whole list of that folder is saved in that order.
@@ -273,7 +308,8 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     const place = folderId ? folders.find((folder) => folder.id === folderId) : null;
     const what = changedFolder.length === 1 ? `“${changedFolder[0].label}”` : `${changedFolder.length} placements`;
     const text = place ? `${what} moved to “${place.name}”` : `${what} taken out of the folder`;
-    run(reorderPlacements({ gameId, folderId, ids: list }), (result) => changedFolder.length > 0 && !result?.warning && setNotice({ kind: "note", text, undo: () => undoMove(before) }), forget);
+    const where = { cardId: ids[0] };
+    run(reorderPlacements({ gameId, folderId, ids: list }), (result) => changedFolder.length > 0 && !result?.warning && say({ kind: "note", text, undo: () => undoMove(before) }, where), forget, [], where);
   }
 
   // ---- dragging a card by its top row, the way Explorer drags files: onto a folder, or out of all folders
@@ -445,7 +481,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
-      setNotice({ kind: "note", text: "This browser would not keep the saved view, so it lasts until you leave the page." });
+      say({ kind: "note", text: "This browser would not keep the saved view, so it lasts until you leave the page." });
     }
   }
   function saveView(event) {
@@ -522,16 +558,18 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
         setTimeout(() => {
           if (serverFolderNames.current.get(id) !== name) {
             drop();
-            setNotice({ kind: "error", text: "The new folder name was not applied. Try again." });
+            say({ kind: "error", text: "The new folder name was not applied. Try again." }, { groupId: id });
           }
         }, 4000);
       },
-      drop
+      drop,
+      [],
+      { groupId: id }
     );
   }
 
   const orgValue = useMemo(
-    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy, pop, setPop, togglePop, say, moveItems, renameItem, dragIds }),
+    () => ({ gameId, items: itemById, ctx, editing, selected, onSelect: toggleSelected, stateOf: (item) => stateOf(item, ctx), switchPlacements, busy, pop, setPop, togglePop, say, anchorNow, moveItems, renameItem, dragIds }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [gameId, itemById, ctx, editing, selected, busy, pop, dragIds]
   );
@@ -749,17 +787,6 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
           </div>
         )}
 
-        {notice && (
-          <div className={notice.kind === "error" ? "error" : "notice"} role={notice.kind === "error" ? "alert" : "status"}>
-            {notice.text}
-            {notice.undo && (
-              <button type="button" className="link-button org-undo" onClick={notice.undo}>
-                Undo
-              </button>
-            )}
-          </div>
-        )}
-
         {groups.length === 0 && (
           <div className="empty">
             <p style={{ margin: "0 auto 0.5rem" }}>No placements match.</p>
@@ -944,6 +971,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
         </div>
       )}
       <CardPopups />
+      <SayBubble notice={notice} onDone={sayDone} />
     </OrgContext.Provider>
   );
 }

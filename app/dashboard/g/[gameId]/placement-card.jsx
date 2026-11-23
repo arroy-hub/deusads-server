@@ -471,9 +471,10 @@ function CardMenu({ org }) {
   async function showInUnity() {
     if (item.places.length > 1) return setPop({ id: item.id, kind: "unity", cell: org.pop.cell });
     setPop(null);
-    if (item.places.length === 0) return org.say({ kind: "note", text: "Unity has not reported where this one stands yet. Press Send placements in Unity." });
-    org.say({ kind: "note", text: "Asking Unity…" });
-    org.say(await askUnity(item, item.places[0]));
+    const at = org.anchorNow();
+    if (item.places.length === 0) return org.say({ kind: "note", text: "Unity has not reported where this one stands yet. Press Send placements in Unity." }, at);
+    org.say({ kind: "note", text: "Asking Unity…" }, at);
+    org.say(await askUnity(item, item.places[0]), at);
   }
 
   return (
@@ -622,7 +623,7 @@ function TagAdder({ org, edit: given, current = false }) {
 
 function Details({ org }) {
   const { item, gameId } = org;
-  const { message, setMessage, run } = useAction();
+  const { message, run } = useAction();
   const known = (id) => PLACE_TYPES.some((entry) => entry.id === id);
   const [customOpen, setCustomOpen] = useState(false);
   const [customType, setCustomType] = useState(item.placeType && !known(item.placeType) ? item.placeType : "");
@@ -636,11 +637,12 @@ function Details({ org }) {
   }
 
   async function copyId() {
+    const at = org.anchorNow();
     try {
       await navigator.clipboard.writeText(item.externalId);
-      setMessage({ kind: "ok", text: "ID copied." });
+      org.say({ kind: "ok", text: "ID copied." }, at);
     } catch {
-      setMessage({ kind: "error", text: "Could not copy. Select the ID and copy it by hand." });
+      org.say({ kind: "error", text: "Could not copy. Select the ID and copy it by hand." }, at);
     }
   }
 
@@ -690,19 +692,20 @@ function Details({ org }) {
 
 function Places({ org }) {
   const { item } = org;
-  const [link, setLink] = useState(null);
-
+  // the answers appear as a bubble by the button that was pressed (the organizer draws it)
   async function showInUnity(place) {
-    setLink({ kind: "note", text: "Asking Unity…" });
-    setLink(await askUnity(item, place));
+    const at = org.anchorNow();
+    org.say({ kind: "note", text: "Asking Unity…" }, at);
+    org.say(await askUnity(item, place), at);
   }
 
   async function copyAddress(place) {
+    const at = org.anchorNow();
     try {
       await navigator.clipboard.writeText(addressOf(place));
-      setLink({ kind: "ok", text: "Address copied." });
+      org.say({ kind: "ok", text: "Address copied." }, at);
     } catch {
-      setLink({ kind: "error", text: "Could not copy. Select the text and copy it by hand." });
+      org.say({ kind: "error", text: "Could not copy. Select the text and copy it by hand." }, at);
     }
   }
 
@@ -727,7 +730,6 @@ function Places({ org }) {
           </li>
         ))}
       </ul>
-      <Message message={link} />
     </>
   );
 }
