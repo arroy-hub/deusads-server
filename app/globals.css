@@ -9897,20 +9897,9 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
    Credits, budgets and earnings: the Wallet windows, the Budget panel of a campaign, the budget step of the
    new-campaign wizard, earnings on the Performance and Campaigns tabs of a game. */
 /* ---- wallet (new interface elements, in the dashboard's own palette) ---- */
-.wl-demo{display:flex;align-items:center;gap:8px;max-width:none;margin:0 0 14px;padding:8px 12px;border-radius:9px;background:#fdf0d5;color:#6f4a00;font-size:12.5px;line-height:1.4}
-.wl-demo svg{flex:none}
-.wl-demo b{font-weight:700}
-.wl-sum.wl-c3{grid-template-columns:minmax(260px,1.35fr) repeat(3,minmax(0,1fr));grid-template-rows:auto}
-.wl-sum.wl-c3 .cr-sum-hero{grid-row:auto}
-.wl-sum .cr-sum-cell{justify-content:center}
-.wl-sum .cr-card-value{font-variant-numeric:tabular-nums}
-.wl-sum .muted,.muted{color:var(--ink-2,#6b5f56)}
-.wl-withdraw{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
-.wl-withdraw .button:disabled{background:#efe8e0;border-color:#e3d8cc;color:#a3968a;cursor:not-allowed}
-.wl-withdraw small{font-size:12px;color:var(--ink-3,#8c7f73)}
-.wl-rate{display:flex;align-items:center;gap:6px;max-width:none;margin:12px 2px 16px;font-size:13px;color:var(--ink-2,#6b5f56)}
-.wl-rate b{color:var(--ink,#241d19)}
-.wl-hide{display:none}
+
+.muted{color:var(--ink-2,#6b5f56)}
+
 .wl-box{margin-top:16px}
 .wl-box .gp-table-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 12px}
 .wl-box .gp-tools{display:flex;align-items:center;gap:10px}
@@ -9946,11 +9935,7 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .wl-amt{font-weight:700}
 .wl-amt.is-plus{color:#22663f}
 .wl-amt.is-budget{color:var(--ink-2,#6b5f56);font-weight:600}
-.wl-chart{display:block;width:100%;height:170px;margin-top:10px}
-.wl-chart rect{fill:#d9744f}
-.wl-chart rect:hover{fill:#a2432a}
-.wl-chart line{stroke:#e6ddd3;stroke-width:1}
-.wl-chart text{font:500 11px "Instrument Sans",system-ui,sans-serif;fill:#8c7f73}
+
 .wl-bhead{display:flex;align-items:center;gap:8px}
 .wl-bhead h2{margin:0}
 .wl-spacer{flex:1}
@@ -9967,11 +9952,7 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .wl-alert>span{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#f6e2ad}
 .wl-alert div{flex:1;display:flex;flex-direction:column;font-size:13px;line-height:1.4}
 .wl-alert.is-inline{margin:14px 0 0}
-.wl-crumb{margin:0 0 12px}
-.wl-menuwrap{position:relative}
-.wl-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:180px;padding:6px;border:1px solid var(--line,#e6ddd3);border-radius:10px;background:#fff;box-shadow:0 10px 28px rgba(36,29,25,.16)}
-.wl-menu button{display:block;width:100%;padding:8px 10px;border:0;border-radius:7px;background:none;font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
-.wl-menu button:hover{background:#f6f2ed}
+
 .wl-flow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:16px 0 0;padding:14px 20px;border:1px solid var(--line,#e6ddd3);border-radius:12px;background:#fff}
 .wl-flow div{display:flex;flex-direction:column;gap:2px}
 .wl-flow span{font-size:12px;font-weight:600;color:var(--ink-2,#6b5f56)}
@@ -9997,21 +9978,12 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .wl-wfacts b{color:var(--ink,#241d19)}
 .wl-facts4{grid-template-columns:repeat(4,1fr)!important}
 .wl-factb{background:linear-gradient(180deg,#fbf6f1,#fff)}
-.wl-wcard{display:flex;flex-direction:column;gap:2px;padding:0 0 12px;border:1px solid var(--line,#e6ddd3);border-radius:12px;background:#fff;overflow:hidden}
-.wl-wcard b,.wl-wcard small{padding:0 14px}
-.wl-wcard b{margin-top:10px}
-.wl-wcard small{color:var(--ink-3,#8c7f73);font-size:12.5px}
-.wl-wcover{height:64px}
+
 .wl-quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .wl-after{max-width:none;margin:12px 0 0;font-size:13px;color:var(--ink-2,#6b5f56)}
 .wl-err{max-width:none;margin:10px 0 0;padding:8px 10px;border-radius:8px;background:#fbe6e1;color:#8f2413;font-size:13px}
 @media (max-width:1100px){.wl-two{grid-template-columns:1fr}.wl-facts4{grid-template-columns:repeat(2,1fr)!important}}
-@media (max-width:900px){.wl-sum.wl-c3{grid-template-columns:repeat(2,minmax(0,1fr))}.wl-budget .wl-bgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-
-
-.wl-herorow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.wl-unit{margin-left:.3em;font-size:.5em;font-weight:600;letter-spacing:0;color:var(--ink-2,#6b5f56)}
+@media (max-width:900px){.wl-budget .wl-bgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* ---- wallet top: the main amount is the page's anchor ---- */
 .wl-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,320px);margin:0 0 16px;border:1px solid var(--line,#e6ddd3);border-radius:16px;background:#fff;overflow:hidden}
@@ -10031,7 +10003,7 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .wl-hero-side dt{font-size:12px;font-weight:600;color:var(--ink-2,#6b5f56)}
 .wl-hero-side dd{margin:0;font-size:1.3rem;font-weight:700;line-height:1.25;font-variant-numeric:tabular-nums}
 .wl-hero-side small{font-size:12px;color:var(--ink-3,#8c7f73)}
-.wl-hero .wl-withdraw{margin-top:14px}
+
 /* ---- charts: additions to the dashboard's own chart ---- */
 .wl-chartbox{margin-top:16px;padding:0}
 .wl-chartbox .ovx-chart-head{align-items:center}
@@ -10059,8 +10031,6 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .wl-hero-u{font-size:clamp(1.4rem,2vw,1.9rem)}
 .wl-hero-row{gap:12px}
 .wl-plus{align-self:auto;width:32px;height:32px;border-radius:9px;transform:translateY(4px)}
-.wl-hero-row .wl-withdraw{margin:0 0 0 12px;flex-wrap:nowrap}
-.wl-hero .wl-hero-row .wl-withdraw{margin-top:0}
 
 /* wallet top, third pass: the title sits at the top like a block title, no idle space, actions on the amount's baseline */
 .wl-hero{grid-template-columns:minmax(0,1fr) minmax(280px,360px)}
@@ -10169,20 +10139,7 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 }
 
 /* ---- Performance with earnings (new elements only; the rest is the dashboard's own) ---- */
-.pm-heads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.pm-heads>div{min-width:0}
-.pm-earn{padding-left:18px;border-left:1px solid #f0d9cc}
-.pm-earn .cr-hero-label{display:inline-flex;align-items:center;gap:6px}
-.pm-earn .cr-hero-value{color:#a2432a}
-.pm-earn .cr-hero-value small{margin-left:.25em;font-size:.45em;font-weight:700;letter-spacing:0;color:#b8876f}
-.pm-earn.is-off .cr-hero-value{color:#b9aca0}
-.pm-num .cr-hero-value{font-size:clamp(30px,2.6vw,42px)}
-.pm-foot{flex-wrap:wrap;gap:10px 24px}
-.pm-foot>div{min-width:0}
-.pm-foot .pm-foot-e b{color:#a2432a}
-.pm-coin .cr-kpi-ic{background:#fbe9df;color:#a2432a}
-.pm-coin .cr-kpi-ic svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.pm-chright{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+
 .pm-phead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .pm-phead>div:first-child{display:flex;flex-direction:column;gap:2px}
 .pm-metric button{white-space:nowrap}
@@ -10198,39 +10155,29 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .pm-tip.is-left{transform:translateX(calc(-100% - 12px))}
 .pm-key-coin{background:#a2432a;border-radius:50%}
 .pm-tip-earn .pf-tip-val{color:#a2432a}
-.pm-astable{margin-top:10px}
+
 .pm-table th.pm-money,.pm-table td.pm-money,.pf-row .pm-money{background:#fdf6f1}
 .pm-table td.pm-money.strong,.pf-row .pm-strong{font-weight:700;color:#8f3413}
 .pm-table .pm-money,.pf-row .pm-money{white-space:nowrap}
-.pm-gic{width:28px!important;height:28px!important;border-radius:8px!important;font-size:12px}
-.pm-bigic{width:56px!important;height:56px!important;border-radius:14px!important;display:inline-grid;place-items:center;font-size:24px;font-weight:800}
+
 .pm-wmoney{box-shadow:inset 0 2px 0 #e6a78f}
 .pm .ig-foot{margin:8px 0 0;font-size:11.5px;color:var(--ink-2,#6b5f56)}
 .pm .rf-side .wm-pop{right:0;left:auto}
-@media (max-width:640px){.pm-heads{grid-template-columns:1fr}.pm-earn{padding-left:0;border-left:0;padding-top:10px;border-top:1px solid #f0d9cc}.pm-phead,.gp-chart-head{flex-wrap:wrap}.pm-chright{align-items:flex-start}}
+@media (max-width:640px){.pm-phead,.gp-chart-head{flex-wrap:wrap}}
 
 /* key numbers with two headlines: the headline block takes a full row, the tiles sit under it four across */
-.pm-num{display:block}
-.pm-num .cr-num-hero{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-.pm-num .cr-kpis{grid-template-columns:repeat(4,minmax(0,1fr));border-left:0;border-top:1px solid #efe7de}
-.pm-num .cr-hero-value{font-size:clamp(32px,3vw,44px)}
-.pm-foot{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 18px}
-.pm-foot b{white-space:nowrap}
+
 .pm .gp-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.pm-chright{margin-left:auto}
+
 .pm-table th:first-child,.pm-table td:first-child{min-width:220px}
 .pm-table .gp-name-main{white-space:nowrap}
 .pm-wmoney .ig-bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center}
 .pm-wmoney .ig-bars-label{grid-column:1/-1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:none;width:auto}
 .pm-wmoney .ig-bars-label small{display:inline;margin-left:6px}
 .pm-wmoney .ig-bars-text{white-space:nowrap;font-weight:700}
-@media (max-width:1280px){.pm-num .cr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-foot{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .pm-legrow{display:flex;justify-content:flex-end;margin:2px 0 8px}
 .pm .gp-chart-head{flex-wrap:nowrap}
-.pm-num .cr-kpi-sub{white-space:normal}
-
-.rail-game-icon.pm-bigic{font-size:24px!important}
 
 /* ---- Performance: Earned as its own block, above the unchanged Impressions block ---- */
 .pm-earnbox{display:flex;flex-wrap:wrap;background:#fff;border:1px solid var(--line,#e6ddd3);border-radius:14px;overflow:hidden}
@@ -10245,12 +10192,9 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .pm-eb-stats dt{font-size:12px;font-weight:600;color:var(--ink-2,#6b5f56);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-eb-stats dd{margin:0;font-size:18px;font-weight:700;line-height:1.25;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pm-eb-stats small{font-size:11.5px;color:var(--ink-3,#8c7f73);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pm-eb-paid{display:flex;align-items:center;gap:10px;max-width:none;margin:0;padding:9px 14px;border-top:1px solid #efe7de;background:#fdfaf6;font-size:12.5px;color:var(--ink-2,#6b5f56)}
-.pm-eb-paid b{color:var(--ink,#241d19)}
-.pm-eb-bar{flex:none;width:72px;height:6px;border-radius:99px;background:#c9d6ee;overflow:hidden}
-.pm-eb-bar i{display:block;height:100%;background:#c94a24}
+
 @media (max-width:1280px){.pm-eb-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-eb-stats div:nth-child(3){border-left:0}.pm-eb-stats div:nth-child(n+3){border-top:1px solid #efe7de}}
-@media (max-width:640px){.pm-eb-side{border-left:0;border-top:1px solid #efe7de}.pm-eb-paid{flex-wrap:wrap}}
+@media (max-width:640px){.pm-eb-side{border-left:0;border-top:1px solid #efe7de}}
 
 .pm-eb-stats dt,.pm-eb-stats small{white-space:normal;overflow:visible}
 .pm-eb-stats div{justify-content:flex-start}
@@ -10259,12 +10203,7 @@ html:has(.wt-top), html:has(.sp-top) { scrollbar-gutter: auto; }
 .wl-chdots{position:absolute;inset:0 0 auto 0;height:170px;pointer-events:none}
 .wl-chdots .wl-chdot{position:absolute}
 .wl-glegend{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:0 18px 8px}
-.wl-gchip{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid #e3d8cc;border-radius:99px;background:#fff;font:inherit;font-size:12.5px;color:var(--ink-2,#6b5f56);cursor:pointer}
-.wl-gchip i{width:10px;height:10px;border-radius:50%;border:2px solid}
-.wl-gchip b{font-variant-numeric:tabular-nums;color:var(--ink-3,#8c7f73);font-weight:600}
-.wl-gchip.is-on{border-color:#cdbba9;color:var(--ink,#241d19)}
-.wl-gchip.is-on b{color:var(--ink,#241d19);font-weight:700}
-.wl-gchip:hover{border-color:var(--ink,#241d19)}
+
 .wl-chtools{flex-wrap:wrap;justify-content:flex-end}
 
 /* ---- developer wallet: ticks in By game choose the chart's lines ---- */
@@ -10323,8 +10262,7 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .pmc .cp-top .wl-mark{vertical-align:middle}
 
 .wl-hero-sub{display:inline-flex;align-items:center;gap:6px}
-.wl-hero-note{flex:none;align-self:flex-start;max-width:62ch;margin:10px 0 0!important;padding-top:10px;border-top:1px solid #efe7de;font-size:12.5px;line-height:1.5;color:var(--ink-2,#6b5f56)}
-.wl-hero-note b{color:var(--ink,#241d19);font-weight:600}
+
 .wl-hero-side dt{display:inline-flex;align-items:center;gap:6px}
 /* the wallet's pop-ups are narrow: one amount and two buttons */
 .modal.wl-dialog{width:min(27rem,calc(100vw - 2rem))}

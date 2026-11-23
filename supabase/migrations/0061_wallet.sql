@@ -336,7 +336,7 @@ begin
 end;
 $$;
 
--- The notices that are due: campaigns that ran out of budget or used 90% of it and whose advertiser has not been told.
+-- The notices that are due: campaigns that ran out of budget or used 85% of it and whose advertiser has not been told.
 -- Each is handed out once.
 create or replace function public.wallet_take_notices()
 returns table (campaign_id uuid, advertiser_id uuid, name text, kind text, budget numeric, spent numeric)
