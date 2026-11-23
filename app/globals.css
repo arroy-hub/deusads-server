@@ -10333,3 +10333,12 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-plain:hover{text-decoration:underline}
 .wl-none{padding:22px 20px!important;text-align:center!important;color:var(--ink-2,#6b5f56)}
 .wl-empty{max-width:none;margin:0;padding:14px 20px 12px;border-top:1px solid #efe7de;font-size:13px;color:var(--ink-2,#6b5f56)}
+
+/* wallet: additions made while building the real pages */
+.pm-pot .is-other{background:#e0a458}
+.pm-pot-list.is-four{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.pf-mini.pm-mini{max-width:42rem}
+.pm-mini .pf-mini-row{grid-template-columns:1.2fr 1fr 1fr 1fr 1fr}
+.pm-legrow .gp-legend{flex-wrap:wrap;justify-content:flex-end;row-gap:4px}
+.pm-legrow .gp-legend>span{white-space:nowrap}
+@media (max-width:640px){.pm-legrow,.pm-legrow .gp-legend{justify-content:flex-start}}

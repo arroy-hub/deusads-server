@@ -10,6 +10,7 @@ import DeckBoard from "../../deck-board";
 import KeyNumbers from "../../key-numbers";
 import { Info } from "../../metrics-deck";
 import ReportFrame, { StatToggle } from "../../advertising/c/[campaignId]/report-frame";
+import { EarnedBlock, earnedText } from "../../earnings-parts";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const SW_LABEL = { all: "All", adv: "Advertisers", own: "My creatives" };
@@ -20,6 +21,8 @@ const FILTER_KEYS = ["folder", "scene", "tag", "type", "format"];
 // Columns of the table after the name. Their order and widths are the viewer's to change and are remembered in this browser.
 const COLUMNS = {
   views: { label: "Impressions", numeric: true, width: 96, min: 64 },
+  // what the row earned (the wallet): shown only when the game has a wallet and advertisers' views are counted
+  earned: { label: "Earned", numeric: true, width: 96, min: 72 },
   adv: { label: "Advertisers", numeric: true, width: 96, min: 64 },
   own: { label: "My creatives", numeric: true, width: 96, min: 64 },
   share: { label: "Advertiser share", numeric: false, width: 124, min: 90 },
@@ -53,7 +56,10 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
   const [sort, setSort] = useState({ key: "views", dir: "desc" });
   const [folded, setFolded] = useState(() => new Set());
   const [menu, setMenu] = useState(null);
+  const [metric, setMetric] = useState("imps");
   const timer = useRef(null);
+  // With the wallet (migration 0061) the tab also says what the impressions earned.
+  const earnOn = Boolean(model.earn?.on);
 
   // A new answer from the server: take its state, keep the source (it is chosen here, without asking the server).
   useEffect(() => {
@@ -136,7 +142,7 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
   ];
 
   return (
-    <div className={`pf ${pending ? "is-pending" : ""}`} aria-busy={pending}>
+    <div className={`pf ${earnOn ? "pm " : ""}${pending ? "is-pending" : ""}`} aria-busy={pending}>
       <ReportFrame
         initial={deckLayout}
         board={<DeckBoard kind="developer" model={model} source={source} days={model.chart.days} initial={deckLayout} panel />}
@@ -150,11 +156,18 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
         )}
         {focus && <FocusHead gameId={gameId} placement={model.placement} />}
 
-        <Controls model={model} state={state} source={source} focus={focus} menu={menu} setMenu={setMenu} go={go} />
+        <Controls model={model} state={state} source={source} focus={focus} menu={menu} setMenu={setMenu} go={go} earnOn={earnOn} />
+
+        {earnOn && <EarnedBlock cell={kpi} days={dayRows} missed={model.earn.missed} tail={`last ${model.win.days} days · ${scopeText}`} dayLabel={formatDay} />}
 
         <KeyNumbers hero={hero} items={items} />
 
-        <PerformanceChart days={model.chart.days} source={source} subtitle={`Last ${model.win.days} days · ${scopeText}`} />
+        <PerformanceChart
+          days={model.chart.days}
+          source={source}
+          subtitle={`Last ${model.win.days} days · ${scopeText}`}
+          earnings={earnOn ? { metric, onMetric: setMetric, today: model.win.to } : null}
+        />
 
         {focus ? (
           <FocusPanels model={model} source={source} />
@@ -168,7 +181,7 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
 
 // ---------------------------------------------------------------- period, search, filters
 
-function Controls({ model, state, source, focus, menu, setMenu, go }) {
+function Controls({ model, state, source, focus, menu, setMenu, go, earnOn = false }) {
   const facets = focus ? [] : model.facets.filter((facet) => facet.options.length > 1 || state.filters[facet.key].length > 0);
   const filtered = isFiltered(state);
   const valueOf = (option) => (source === "adv" ? option.adv : source === "own" ? option.own : option.adv + option.own);
@@ -195,7 +208,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
             </button>
           ))}
         </div>
-        <Info title="Period" text={`Everything below covers the last ${state.days} days.`} />
+        <Info title="Period" text={earnOn ? `Everything below covers the last ${state.days} days: impressions and what they earned.` : `Everything below covers the last ${state.days} days.`} />
         {!focus && facets.length > 0 && <span className="pf-bar-label">Show only</span>}
           {menu && <button type="button" className="pf-scrim" aria-label="Close menu" onClick={() => setMenu(null)} />}
           {facets.map((facet) => {
@@ -276,6 +289,8 @@ function Controls({ model, state, source, focus, menu, setMenu, go }) {
 
 function TableSection({ model, state, source, sort, setSort, folded, setFolded, go }) {
   const single = source !== "all";
+  // Only advertisers' impressions are paid: no Earned column without a wallet, nor while only My creatives are counted.
+  const showEarned = Boolean(model.earn?.on) && source !== "own";
   const { table } = model;
   const grouped = table.by !== "placement";
   const totalViews = figures(table.total.cell, source).views;
@@ -283,6 +298,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   const valueFor = (row, key) => {
     const f = figures(row.cell, source);
     if (key === "views") return f.views;
+    if (key === "earned") return row.cell.paid ?? 0;
     if (key === "adv") return row.cell.adv;
     if (key === "own") return row.cell.own;
     if (key === "share") return single ? f.views : advShare(row.cell);
@@ -320,7 +336,13 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
     try {
       const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? "null");
       if (saved && Array.isArray(saved.order)) {
-        const order = [...saved.order.filter((key) => DEFAULT_ORDER.includes(key)), ...DEFAULT_ORDER.filter((key) => !saved.order.includes(key))];
+        // A column that did not exist when the layout was saved takes its usual place: right after the column it follows by default.
+        const order = saved.order.filter((key) => DEFAULT_ORDER.includes(key));
+        for (const key of DEFAULT_ORDER) {
+          if (order.includes(key)) continue;
+          const before = DEFAULT_ORDER[DEFAULT_ORDER.indexOf(key) - 1];
+          order.splice(before && order.includes(before) ? order.indexOf(before) + 1 : 0, 0, key);
+        }
         setLayout({ order, widths: saved.widths && typeof saved.widths === "object" ? saved.widths : {} });
       }
     } catch {
@@ -344,7 +366,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
   // Until the viewer sets a width, a column is a little wider than its title needs, so there is room to move borders either way.
   const widthOf = (key) => Math.max(layout.widths[key] ?? Math.max(COLUMNS[key].width, (fit[key] ?? 0) + 12), fit[key] ?? 0);
   const labelOf = (key) => (key === "name" ? nameHead : key === "share" && single ? "Share of total" : COLUMNS[key].label);
-  const shown = layout.order.filter((key) => !single || ["views", "share", "sessions", "avg"].includes(key));
+  const shown = layout.order.filter((key) => (key === "earned" ? showEarned : !single || ["views", "share", "sessions", "avg"].includes(key)));
   // The name takes what is left, so the table keeps the width of its panel and the figure columns sit together on the right.
   const cols = `34px minmax(${NAME_MIN}px, 1fr) ${shown.map((key) => `${widthOf(key)}px`).join(" ")}`;
   const gridWidth = 34 + NAME_MIN + shown.reduce((sum, key) => sum + widthOf(key), 0) + 8 * (shown.length + 1) + 12;
@@ -461,6 +483,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
     const advPct = Math.round(percent(cell.adv, sum));
     const parts = {
       views: <div className="pf-cell pf-num" role="cell">{count(f.views)}</div>,
+      earned: <div className="pf-cell pf-num pm-money pm-strong" role="cell">{earnedText(cell.paid ?? 0)}</div>,
       adv: <div className="pf-cell pf-num" role="cell">{count(cell.adv)}</div>,
       own: <div className="pf-cell pf-num" role="cell">{count(cell.own)}</div>,
       share: single ? (
@@ -575,7 +598,7 @@ function TableSection({ model, state, source, sort, setSort, folded, setFolded, 
                 <div
                   key={key}
                   data-col={key}
-                  className={`pf-cell pf-hcell ${movable ? "pf-hc-center" : ""} ${side}`}
+                  className={`pf-cell pf-hcell ${movable ? "pf-hc-center" : ""} ${key === "earned" ? "pm-money" : ""} ${side}`}
                   role="columnheader"
                   aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                   onDragOver={(event) => { if (dragging) { event.preventDefault(); setDropOn(key); } }}

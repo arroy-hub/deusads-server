@@ -6,7 +6,9 @@ import { createPortal } from "react-dom";
 import { formatCount } from "../../lib/analytics.js";
 import { attentionFigures, pickAttention } from "../../lib/attention.js";
 import { formatDay } from "../../lib/analytics.js";
-import { audienceTable } from "../../lib/audience.js";
+import { audienceTable, valueLabel } from "../../lib/audience.js";
+import { TIERS, tierOf } from "../../lib/country-tiers.js";
+import { credits, earnedOf, potentialOf } from "../../lib/wallet.js";
 import { packSpans } from "../../lib/deck-pack";
 
 const ADV = "#c94a24", OWN = "#3d6fd1", GREEN = "#2f7d5b", AMBER = "#c28a1a", PLUM = "#8a5a9e", GREY = "#9b9086", TRACK = "#ece4da", INK = "#241d19";
@@ -61,6 +63,10 @@ export function Info({ text, title }) {
 }
 
 const INFO = {
+  ec: "What each campaign earned you in this selection and period: your part of what the advertiser paid.",
+  ep: "How the impressions split into paid ones (advertisers’ creatives) and ones that are not paid (your own creatives).",
+  eg: "The earnings split by the country of the players, in proportion to the advertisers’ impressions each country saw.",
+  et: "The earnings split by the place type of the placements that showed the paid impressions.",
   ring: "How many of the ad slots were filled when the game started: by advertisers, by your own creatives, or left empty.",
   rep: "The share of players who saw an ad more than once, and how many ads one player saw on average.",
   freq: "How many players saw one, two, three or more ads. It shows whether the same players keep seeing them.",
@@ -90,9 +96,9 @@ const INFO = {
   table: "The impression numbers behind the chart, day by day, newest first.",
 };
 
-function Card({ title, sub, span = 4, o, children, aside, info }) {
+function Card({ title, sub, span = 4, o, children, aside, info, tone }) {
   return (
-    <section className={`ig-card ig-s${span}`} style={o ? { order: o } : undefined}>
+    <section className={`ig-card ig-s${span}${tone ? ` ${tone}` : ""}`} style={o ? { order: o } : undefined}>
       <header className="ig-card-head">
         <div>
           <div className="ig-titlerow"><h3>{title}</h3>{info && <Info text={info} title={title} />}</div>
@@ -114,13 +120,13 @@ function Note({ title, span = 12, o, aside, children }) {
   );
 }
 
-function Ring({ parts, size = 80, stroke = 11, big, small, dashed = false }) {
+function Ring({ parts, size = 80, stroke = 11, big, small, dashed = false, fit = false }) {
   const r = (size - stroke) / 2;
   const C = 2 * Math.PI * r;
   const total = parts.reduce((s, p) => s + p.v, 0) || 1;
   let acc = 0;
   return (
-    <div className="ig-ring" style={{ width: size, aspectRatio: "1 / 1" }}>
+    <div className="ig-ring" style={{ width: size, aspectRatio: "1 / 1", ...(fit ? { containerType: "inline-size" } : null) }}>
       <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${big} ${small ?? ""}`}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={TRACK} strokeWidth={stroke} strokeDasharray={dashed ? "3 5" : undefined} />
         {!dashed &&
@@ -132,7 +138,8 @@ function Ring({ parts, size = 80, stroke = 11, big, small, dashed = false }) {
           })}
       </svg>
       <div className="ig-ring-mid">
-        <b style={{ fontSize: `${Math.max(0.75, (size / 80) * 0.875)}rem` }}>{big}</b>
+        {/* `fit`: the figure follows the drawn size of the ring, so "100%" is never cut when the card is narrow */}
+        <b style={{ fontSize: fit ? `min(${Math.max(0.75, (size / 80) * 0.875)}rem, 21cqw)` : `${Math.max(0.75, (size / 80) * 0.875)}rem` }}>{big}</b>
         {small && <span style={{ fontSize: `${Math.min(0.78, (size / 80) * 0.5625)}rem` }}>{small}</span>}
       </div>
     </div>
@@ -295,6 +302,64 @@ const DeltaBadge = ({ change, text }) => (change == null ? null : <p className={
 
 // ---------------------------------------------------------------- groups
 const ok = (x) => x && !x.missing;
+
+/** What the impressions earned (the wallet): only a developer sees it, and only once the game has a wallet. */
+function Earnings({ m, dev }) {
+  const earn = m.earn;
+  const cell = m.kpi?.cell;
+  if (!dev || !earn?.on || !cell) return [];
+  const out = [];
+  const money = (paid) => `${credits(earnedOf(paid))} C.`;
+  const campaigns = earn.campaigns ?? [];
+  out.push(
+    <Card key="ec" span={6} o={1} tone="pm-wmoney" title="Earned by campaign" sub={campaigns.length === 0 ? "No campaign has paid in this selection yet" : `${campaigns.length} ${campaigns.length === 1 ? "campaign" : "campaigns"} paid in this selection`}>
+      {campaigns.length > 0 ? (
+        <Bars rows={campaigns.slice(0, 6).map((row) => ({ label: row.name, chip: row.advertiser, v: row.impressions, text: money(row.impressions) }))} />
+      ) : (
+        <p className="ig-foot">Campaigns appear here as soon as players see advertisers’ creatives.</p>
+      )}
+    </Card>,
+  );
+  const pot = potentialOf({ paid: cell.paid, adv: cell.adv, own: cell.own, missed: earn.missed });
+  const all = cell.adv + cell.own;
+  if (all > 0) {
+    out.push(
+      <Card key="ep" span={6} o={2} tone="pm-wmoney" title="Paid and unpaid impressions" sub="Impressions of advertisers’ creatives are paid, your own creatives are not">
+        <div className="ig-ringrow">
+          <Ring fit size={128} stroke={16} parts={[{ v: cell.paid, color: ADV }, { v: cell.own, color: OWN }, { v: pot.otherImpressions, color: AMBER }]} big={pct(cell.paid / all)} small="paid" />
+          <Legend variant="stack" items={[
+            { label: "Paid · advertisers", color: ADV, value: num(cell.paid) },
+            { label: "Not paid · your creatives", color: OWN, value: num(cell.own) },
+            ...(pot.otherImpressions > 0 ? [{ label: "Not paid · no campaign", color: AMBER, value: num(pot.otherImpressions) }] : []),
+          ]} />
+        </div>
+        <p className="ig-foot">With every slot filled by advertisers, the period would have earned {credits(pot.full)} C. See Potential in the Earned block.</p>
+      </Card>,
+    );
+  }
+  // Earnings by country follow the advertisers' impressions each country saw (the books do not keep the country).
+  const countries = ok(m.audience) ? (m.audience.dimensions?.country ?? []).map((row) => ({ value: row.value ?? null, views: Number(row.views) || 0 })).filter((row) => row.views > 0).sort((a, b) => b.views - a.views) : [];
+  const seen = countries.reduce((sum, row) => sum + row.views, 0);
+  if (cell.paid > 0 && seen > 0) {
+    const head = countries.slice(0, 6).map((row) => ({ label: valueLabel("country", row.value), chip: row.value ? TIERS.find((tier) => tier.id === tierOf(row.value))?.label : null, share: row.views / seen }));
+    const rest = countries.slice(6).reduce((sum, row) => sum + row.views, 0);
+    if (rest > 0) head.push({ label: "Other", chip: null, share: rest / seen });
+    out.push(
+      <Card key="eg" span={6} o={3} tone="pm-wmoney" title="Earned by country" sub="Where the paying players were">
+        <Bars rows={head.map((row) => ({ label: row.label, chip: row.chip, v: row.share, text: `${credits(pot.earned * row.share)} C. · ${pct(row.share)}` }))} />
+      </Card>,
+    );
+  }
+  const types = earn.types ?? [];
+  if (types.length > 0) {
+    out.push(
+      <Card key="et" span={6} o={4} tone="pm-wmoney" title="Earned by place type" sub="Which kind of place earns">
+        <Bars rows={types.map((row) => ({ label: row.label, v: row.impressions, text: money(row.impressions) }))} />
+      </Card>,
+    );
+  }
+  return out;
+}
 
 function Reach({ m, dev }) {
   const out = [];
@@ -587,6 +652,7 @@ function Performance({ m }) {
 }
 
 const GROUPS = [
+  { id: "earn", label: "Earnings", line: "What the impressions earned. Only you see this.", render: Earnings, devOnly: true },
   { id: "reach", label: "Reach", line: "Whether the ads were shown, and how often one player saw them.", render: Reach, devOnly: false },
   { id: "attention", label: "Attention", line: "Whether the ads were seen, touched and remembered.", render: Attention, devOnly: false },
   { id: "players", label: "Players", line: (dev) => (dev ? "Who plays, and whether they come back." : "Who saw the ad."), render: Players, devOnly: false },
@@ -596,7 +662,7 @@ const GROUPS = [
 
 // what the board still shows when the switch says My creatives: the table and the Attention cards, which follow the switch
 const OWN_KEYS = new Set(["table", "fun", "len", "geo", "iab"]);
-const DEFAULTS = { developer: ["ring", "rep", "freq", "why", "pl"], advertiser: ["rep", "freq", "fun", "len", "geo"] };
+const DEFAULTS = { developer: ["ec", "ep", "ring", "rep", "freq", "why", "pl"], advertiser: ["rep", "freq", "fun", "len", "geo"] };
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 function DailyTable({ days, dev, source, o, aside, info }) {

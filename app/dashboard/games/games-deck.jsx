@@ -5,8 +5,11 @@ import { PanelCtx } from "../panel-context";
 import DeckBoard from "../deck-board";
 import { loadGamesDeck } from "./games-deck-actions";
 
-/** The Statistics panel of My games: the widgets of a game, added up over the chosen games, fetched once the page is on screen. */
-export default function GamesDeck({ days, games, source, series, initial = null }) {
+/**
+ * The Statistics panel of My games: the widgets of a game, added up over the chosen games, fetched once the page is on screen.
+ * `earnings` ({ earn, kpi }) is what the page already counted for its Earned block: the Earnings widgets read it.
+ */
+export default function GamesDeck({ days, games, source, series, initial = null, earnings = null }) {
   const [model, setModel] = useState(null);
   const [failed, setFailed] = useState(false);
   const frameOpen = useContext(PanelCtx);
@@ -45,7 +48,7 @@ export default function GamesDeck({ days, games, source, series, initial = null 
   return (
     <DeckBoard
       kind="developer"
-      model={model}
+      model={earnings ? { ...model, ...earnings } : model}
       source={source}
       days={series}
       initial={initial}

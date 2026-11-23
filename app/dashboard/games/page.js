@@ -96,6 +96,7 @@ export default async function GamesPage({ searchParams }) {
     tab === "performance" && withConnection.length > 0
       ? await loadGamesPerformance({
           db,
+          service,
           games: withConnection.map((game) => ({ id: game.id, name: game.name, iconUrl: iconOf(game) })),
           searchParams: query,
         })

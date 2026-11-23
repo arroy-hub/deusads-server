@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import {
   DEV_SHARE, PRICE, RATE, budgetOf, budgetTone, costOf, count, credits, daySeries, dayText, developerPart, earnedOf, hasBudget, impressionsFor,
-  lastDays, lastsAbout, moneyTop, paidByDay, paidIndex, paidOf, parseAmount, platformPart, potentialOf, tickText, walletError, walletMissing, weekdayText,
+  lastDays, lastsAbout, mergePaid, missedImpressions, moneyTop, paidByDay, paidCampaigns, paidIndex, paidOf, parseAmount, platformPart, potentialOf, tickText, walletError, walletMissing, weekdayText,
 } from "../lib/wallet.js";
 import { budgetNoticeText, earnedText } from "../lib/wallet-notices.js";
 import { campaignStatus } from "../lib/advertiser-overview.js";
@@ -111,6 +111,22 @@ const withOther = potentialOf({ paid: 900, adv: 1000, own: 0, filled: 0, empty: 
 assert.equal(withOther.otherImpressions, 100);
 near(withOther.full, earnedOf(1000));
 assert.equal(potentialOf({}).share, 0);
+assert.equal(missedImpressions({ adv: 62160, own: 18300, filled: 89, empty: 11 }), 9944);
+assert.equal(potentialOf({ paid: 10, adv: 10, own: 0, missed: 250.4 }).emptyImpressions, 250, "a count worked out elsewhere (several games) is taken as it is");
+
+// paid impressions per campaign, cut like the views
+const campaignRows = [
+  { id: "c1", name: "Alpha", advertiser: "A", placement_id: "p1", place_id: null, impressions: 10 },
+  { id: "c1", name: "Alpha", advertiser: "A", placement_id: "p1", place_id: "s1", impressions: 4 },
+  { id: "c2", name: "Beta", advertiser: "B", placement_id: "p2", place_id: null, impressions: 30 },
+  { id: "c3", name: "Gamma", advertiser: "B", placement_id: "p3", place_id: null, impressions: 0 },
+];
+assert.deepEqual(paidCampaigns({ all: true }, campaignRows).map((row) => [row.id, row.impressions]), [["c2", 30], ["c1", 14]]);
+assert.deepEqual(paidCampaigns({ members: [{ placement: "p1" }] }, campaignRows).map((row) => [row.id, row.impressions]), [["c1", 14]]);
+assert.deepEqual(paidCampaigns({ members: [{ placement: "p1", place: "s1" }] }, campaignRows).map((row) => row.impressions), [4]);
+assert.deepEqual(paidCampaigns({ members: [{ placement: "p1", unplaced: true }] }, campaignRows).map((row) => row.impressions), [10]);
+assert.deepEqual(paidCampaigns(null, campaignRows), []);
+assert.deepEqual(mergePaid([[{ label: "Menu", impressions: 5 }], [{ label: "Menu", impressions: 7 }, { label: "Shop", impressions: 0 }]]), [{ label: "Menu", impressions: 12 }]);
 
 // messages
 assert.equal(walletError({ error: "funds", available: 12 }), "Your wallet has 12.00 C. Add credits first or type a smaller amount.");

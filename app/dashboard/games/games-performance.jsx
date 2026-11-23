@@ -11,6 +11,8 @@ import GamesDeck from "./games-deck";
 import KeyNumbers from "../key-numbers";
 import { Info } from "../metrics-deck";
 import ReportFrame, { StatToggle } from "../advertising/c/[campaignId]/report-frame";
+import { credits, earnedOf, moneyTop, tickText } from "../../../lib/wallet";
+import { EarnedBlock, EarnedTipRow, MetricSwitch, earnedText } from "../earnings-parts";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
 const BREAK = [["game", "Game"], ["placement", "Placement"], ["type", "Place type"], ["format", "Format"]];
@@ -43,6 +45,11 @@ export default function GamesPerformance({ model, deckLayout = null }) {
   const [menu, setMenu] = useState(null);
   const [asTable, setAsTable] = useState(false);
   const [sort, setSort] = useState({ key: "views", dir: "desc" });
+  const [metric, setMetric] = useState("imps");
+  const [hover, setHover] = useState(null);
+  // With the wallet (migration 0061) the tab also says what the impressions earned.
+  const earnOn = Boolean(model.earn?.on);
+  const earn = earnOn && metric === "earn";
 
   useEffect(() => {
     setState((current) => ({ ...model.state, source: current.source }));
@@ -121,6 +128,7 @@ export default function GamesPerformance({ model, deckLayout = null }) {
     const value = {
       name: (item) => String(item.name),
       views: (item) => total(item.cell),
+      earned: (item) => item.cell.paid ?? 0,
       adv: (item) => item.cell.adv,
       own: (item) => item.cell.own,
       share: (item) => advShare(item.cell),
@@ -143,10 +151,10 @@ export default function GamesPerformance({ model, deckLayout = null }) {
   }
 
   function exportCsv() {
-    const lines = [["Name", "Under", "Impressions", "Advertisers", "My creatives", "Sessions", "Avg. visible (s)"]];
+    const lines = [["Name", "Under", "Impressions", ...(earnOn ? ["Earned (credits)"] : []), "Advertisers", "My creatives", "Sessions", "Avg. visible (s)"]];
     const line = (name, under, cell) => {
       const f = figures(cell, source);
-      lines.push([name, under, f.views, cell.adv, cell.own, f.sessions, f.avgVisible == null ? "" : f.avgVisible.toFixed(1)]);
+      lines.push([name, under, f.views, ...(earnOn ? [earnedOf(cell.paid ?? 0).toFixed(2)] : []), cell.adv, cell.own, f.sessions, f.avgVisible == null ? "" : f.avgVisible.toFixed(1)]);
     };
     for (const row of table.rows) {
       line(row.name, "", row.cell);
@@ -163,13 +171,18 @@ export default function GamesPerformance({ model, deckLayout = null }) {
 
   // ------------------------------------------------------------ the chart
   const days = model.days;
+  // Only advertisers' impressions are paid, so the earnings view has one series.
   const showAdv = source !== "own";
-  const showOwn = source !== "adv";
-  const adv = (day) => (showAdv ? day.adv : 0);
+  const showOwn = source !== "adv" && !earn;
+  const adv = (day) => (showAdv ? (earn ? earnedOf(day.paid) : day.adv) : 0);
   const own = (day) => (showOwn ? day.own : 0);
   const peak = days.reduce((best, day) => (adv(day) + own(day) > best.v ? { v: adv(day) + own(day), date: day.date } : best), { v: 0, date: null });
-  const top = niceTop(peak.v);
-  const ticks = [top, (top * 2) / 3, top / 3, 0];
+  const top = earn ? moneyTop(peak.v) : niceTop(peak.v);
+  const ticks = earn ? [top, top / 2, 0] : [top, (top * 2) / 3, top / 3, 0];
+  const chartTitle = earn ? "Earnings per day" : "Impressions per day";
+  const amount = (value) => (earn ? `${credits(value)} C.` : formatCount(value));
+  const isToday = (day) => earnOn && day.date === model.win.to;
+  const hovered = hover !== null && hover < days.length ? days[hover] : null;
   const pct = (value) => `${(Math.min(value / top, 1) * 100).toFixed(2)}%`;
   const labelAt = [0, 0.25, 0.5, 0.75, 1].map((f) => days[Math.round((days.length - 1) * f)]?.date).filter(Boolean);
 
@@ -212,8 +225,8 @@ export default function GamesPerformance({ model, deckLayout = null }) {
   ];
 
   return (
-    <div aria-busy={pending} className={`gp gp-perf ${pending ? "is-pending" : ""}`}>
-      <ReportFrame initial={deckLayout} board={<GamesDeck days={state.days} games={state.games} source={source} series={model.days} initial={deckLayout} />}>
+    <div aria-busy={pending} className={`gp gp-perf ${earnOn ? "pm " : ""}${pending ? "is-pending" : ""}`}>
+      <ReportFrame initial={deckLayout} board={<GamesDeck days={state.days} games={state.games} source={source} series={model.days} initial={deckLayout} earnings={earnOn ? { earn: model.earn, kpi: model.kpi } : null} />}>
       <div className="cr-bar is-wrap">
         <div role="group" aria-label="Period" className="gp-seg">
           {PERIODS.map((n) => (
@@ -222,7 +235,7 @@ export default function GamesPerformance({ model, deckLayout = null }) {
             </button>
           ))}
         </div>
-        <Info title="Period" text={`Everything below covers the last ${state.days} days.`} />
+        <Info title="Period" text={earnOn ? `Everything below covers the last ${state.days} days: impressions and what they earned.` : `Everything below covers the last ${state.days} days.`} />
         {filters.map((filter) => {
           const chosen = state[filter.key];
           return (
@@ -261,38 +274,85 @@ export default function GamesPerformance({ model, deckLayout = null }) {
         <StatToggle />
       </div>
 
+      {earnOn && <EarnedBlock cell={kpi} days={model.days} missed={model.earn.missed} tail={hero.tail} dayLabel={dayText} />}
+
       <KeyNumbers hero={hero} items={items} />
 
-      <section className="gp-panel" data-fw="1" aria-label="Impressions per day">
+      <section className="gp-panel" data-fw="1" aria-label={chartTitle}>
         <div className="gp-chart-head">
           <div>
-            <h2>Impressions per day</h2>
+            <h2>{chartTitle}</h2>
             <div className="gp-small">
-              Last {model.win.days} days · {state.games.length > 0 && state.games.length <= 2 ? model.rows.map((row) => row.name).join(", ") : `${model.kpi.games} of ${model.kpi.totalGames} games`}{peak.v > 0 ? ` · peak ${formatCount(peak.v)} on ${dayText(peak.date)}` : ""}
+              Last {model.win.days} days · {state.games.length > 0 && state.games.length <= 2 ? model.rows.map((row) => row.name).join(", ") : `${model.kpi.games} of ${model.kpi.totalGames} games`}{peak.v > 0 ? ` · peak ${amount(peak.v)} on ${dayText(peak.date)}` : ""}
             </div>
           </div>
-          <div className="gp-legend">
-            {showAdv && (
-              <span><i data-kind="adv" />Advertisers <b>{formatCount(kpi.adv)}</b></span>
-            )}
-            {showOwn && (
-              <span><i data-kind="own" />My creatives <b>{formatCount(kpi.own)}</b></span>
-            )}
-          </div>
+          {earnOn ? (
+            <MetricSwitch value={metric} onChange={setMetric} />
+          ) : (
+            <div className="gp-legend">
+              {showAdv && (
+                <span><i data-kind="adv" />Advertisers <b>{formatCount(kpi.adv)}</b></span>
+              )}
+              {showOwn && (
+                <span><i data-kind="own" />My creatives <b>{formatCount(kpi.own)}</b></span>
+              )}
+            </div>
+          )}
         </div>
+        {earnOn && (
+          <div className="pm-legrow">
+            <div className="gp-legend">
+              {showAdv && (
+                <span><i data-kind="adv" />Advertisers <b>{earn ? `${credits(earnedOf(kpi.paid))} C.` : formatCount(kpi.adv)}</b></span>
+              )}
+              {showOwn && (
+                <span><i data-kind="own" />My creatives <b>{formatCount(kpi.own)}</b></span>
+              )}
+              {earn && source !== "own" && <span className="pm-unpaid"><i />My creatives are not paid</span>}
+              <span className="pm-todaykey"><i />Today so far</span>
+            </div>
+          </div>
+        )}
+        {earn && source === "own" && <p className="gp-small pm-note" role="status">My creatives are not paid, so there are no earnings to show for them. Choose All or Advertisers above.</p>}
         <div className="gp-plot-row">
           <div className="gp-yaxis" aria-hidden="true">
             {ticks.map((tick) => (
-              <span key={tick}>{compactCount(Math.round(tick))}</span>
+              <span key={tick}>{earn ? tickText(tick) : compactCount(Math.round(tick))}</span>
             ))}
           </div>
-          <div className="gp-plot" role="img" aria-label={`Impressions per day, ${formatCount(days.reduce((n, d) => n + adv(d) + own(d), 0))} in total`}>
-            {days.map((day) => (
-              <div key={day.date} className="gp-bar" title={`${dayText(day.date)}: ${formatCount(adv(day) + own(day))}`}>
+          <div className={`gp-plot${earnOn ? " pm-plot" : ""}`} role="img" aria-label={`${chartTitle}, ${amount(days.reduce((n, d) => n + adv(d) + own(d), 0))} in total`} onPointerLeave={() => setHover(null)}>
+            {days.map((day, index) => (
+              <div
+                key={day.date}
+                className={`gp-bar${isToday(day) ? " pm-today" : ""}${earnOn && hover === index ? " is-active" : ""}`}
+                title={earnOn ? undefined : `${dayText(day.date)}: ${formatCount(adv(day) + own(day))}`}
+                onPointerEnter={earnOn ? () => setHover(index) : undefined}
+              >
                 <div style={{ height: pct(own(day)), background: "#3d6fd1", borderRadius: "3px 3px 0 0" }} />
                 <div style={{ height: pct(adv(day)), background: "#c94a24", borderRadius: own(day) ? 0 : "3px 3px 0 0" }} />
               </div>
             ))}
+            {earnOn && hovered && (
+              <div className={`pf-tip pm-tip ${(hover + 0.5) / days.length > 0.6 ? "is-left" : "is-right"}`} style={{ left: `${(((hover + 0.5) / days.length) * 100).toFixed(2)}%` }} role="status">
+                <div className="pf-tip-date">{dayText(hovered.date)}{isToday(hovered) ? " · today so far" : ""}</div>
+                {showAdv && (
+                  <div className="pf-tip-row">
+                    <span className="pf-tip-key pf-key-adv" aria-hidden="true" />
+                    <span className="pf-tip-val">{formatCount(hovered.adv)}</span>
+                    <span className="pf-tip-label">Advertisers</span>
+                  </div>
+                )}
+                {showOwn && (
+                  <div className="pf-tip-row">
+                    <span className="pf-tip-key pf-key-own" aria-hidden="true" />
+                    <span className="pf-tip-val">{formatCount(hovered.own)}</span>
+                    <span className="pf-tip-label">My creatives</span>
+                  </div>
+                )}
+                {showAdv && <EarnedTipRow paid={hovered.paid} />}
+                <div className="pf-tip-meta">{formatCount(figures(hovered, source).sessions)} sessions in these games</div>
+              </div>
+            )}
           </div>
         </div>
         <div className="gp-xaxis">
@@ -310,11 +370,11 @@ export default function GamesPerformance({ model, deckLayout = null }) {
           <div className="gp-scroll">
             <table className="gp-table gp-mini">
               <thead>
-                <tr><th scope="col">Day</th><th scope="col" className="num">Advertisers</th><th scope="col" className="num">My creatives</th></tr>
+                <tr><th scope="col">Day</th><th scope="col" className="num">Advertisers</th><th scope="col" className="num">My creatives</th>{earnOn && <th scope="col" className="num">Earned</th>}</tr>
               </thead>
               <tbody>
                 {days.map((day) => (
-                  <tr key={day.date}><td>{dayText(day.date)}</td><td className="num">{formatCount(day.adv)}</td><td className="num">{formatCount(day.own)}</td></tr>
+                  <tr key={day.date}><td>{dayText(day.date)}</td><td className="num">{formatCount(day.adv)}</td><td className="num">{formatCount(day.own)}</td>{earnOn && <td className="num">{earnedText(day.paid)}</td>}</tr>
                 ))}
               </tbody>
             </table>
@@ -344,11 +404,12 @@ export default function GamesPerformance({ model, deckLayout = null }) {
           </div>
         </div>
         <div className="gp-scroll">
-          <table className="gp-table">
+          <table className={`gp-table${earnOn ? " pm-table" : ""}`}>
             <thead>
               <tr>
                 <Th id="name" sort={sort} onSort={sortBy}>{BREAK.find(([key]) => key === by)[1]}</Th>
                 <Th id="views" num sort={sort} onSort={sortBy}>Impressions</Th>
+                {earnOn && <Th id="earned" num money sort={sort} onSort={sortBy}>Earned</Th>}
                 <Th id="adv" num sort={sort} onSort={sortBy}>Advertisers</Th>
                 <Th id="own" num sort={sort} onSort={sortBy}>My creatives</Th>
                 <Th id="share" sort={sort} onSort={sortBy}>Advertiser share</Th>
@@ -357,13 +418,14 @@ export default function GamesPerformance({ model, deckLayout = null }) {
               </tr>
             </thead>
             <tbody>
-              <Line total name="All shown" sub={`${table.rows.length} ${by === "game" ? (table.rows.length === 1 ? "game" : "games") : "rows"} · ${table.shownPlacements} ${table.shownPlacements === 1 ? "placement" : "placements"}`} cell={table.shownCell} source={source} />
+              <Line total earned={earnOn} name="All shown" sub={`${table.rows.length} ${by === "game" ? (table.rows.length === 1 ? "game" : "games") : "rows"} · ${table.shownPlacements} ${table.shownPlacements === 1 ? "placement" : "placements"}`} cell={table.shownCell} source={source} />
               {table.rows.map((row) => {
                 const expanded = open.has(row.id);
                 const empty = row.kids.length === 0;
                 return (
                   <Fragment key={row.id}>
                     <Line
+                      earned={earnOn}
                       name={row.name}
                       sub={row.sub}
                       cell={row.cell}
@@ -384,7 +446,7 @@ export default function GamesPerformance({ model, deckLayout = null }) {
                       href={by === "game" ? `/dashboard/g/${row.id}?tab=performance` : null}
                     />
                     {expanded &&
-                      row.kids.map((kid) => <Line key={kid.id} kid name={kid.name} sub={kid.sub} cell={kid.cell} source={source} />)}
+                      row.kids.map((kid) => <Line key={kid.id} kid earned={earnOn} name={kid.name} sub={kid.sub} cell={kid.cell} source={source} />)}
                   </Fragment>
                 );
               })}
@@ -398,10 +460,10 @@ export default function GamesPerformance({ model, deckLayout = null }) {
   );
 }
 
-function Th({ id, sort, onSort, num = false, last = false, children }) {
+function Th({ id, sort, onSort, num = false, last = false, money = false, children }) {
   const on = sort.key === id;
   return (
-    <th scope="col" className={`${num ? "num" : ""}${last ? " last" : ""}${on ? " is-sorted" : ""}`} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+    <th scope="col" className={`${num ? "num" : ""}${last ? " last" : ""}${on ? " is-sorted" : ""}${money ? " pm-money" : ""}`} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
       <button type="button" className="gp-th" onClick={() => onSort(id)}>
         {children}
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="gp-arrow" style={{ transform: on && sort.dir === "asc" ? "rotate(180deg)" : "none" }}>
@@ -412,7 +474,7 @@ function Th({ id, sort, onSort, num = false, last = false, children }) {
   );
 }
 
-function Line({ name, sub, cell, source, total = false, kid = false, chevron = false, expanded = false, disabled = false, muted = false, empty = false, onToggle, tile = null, href = null }) {
+function Line({ name, sub, cell, source, earned = false, total = false, kid = false, chevron = false, expanded = false, disabled = false, muted = false, empty = false, onToggle, tile = null, href = null }) {
   const f = figures(cell, source);
   const share = advShare(cell);
   const dash = (value) => (empty ? "—" : value);
@@ -435,6 +497,7 @@ function Line({ name, sub, cell, source, total = false, kid = false, chevron = f
         </div>
       </td>
       <td className="num strong">{dash(formatCount(f.views))}</td>
+      {earned && <td className="num strong pm-money">{dash(earnedText(cell.paid ?? 0))}</td>}
       <td className="num">{dash(formatCount(cell.adv))}</td>
       <td className="num">{dash(formatCount(cell.own))}</td>
       <td>
