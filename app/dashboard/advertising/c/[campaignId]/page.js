@@ -9,6 +9,8 @@ import { compareFigures } from "../../../../../lib/campaign-compare";
 import { loadGameCards } from "../../../../../lib/game-cards";
 import { loadDeckLayout } from "../../../../../lib/deck-layout-data";
 import { userClient } from "../../../../../lib/supabase-server";
+import { budgetOf } from "../../../../../lib/wallet";
+import { loadAvailable, loadCampaignSpend } from "../../../../../lib/wallet-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaign report" };
@@ -25,6 +27,12 @@ export default async function CampaignReportPage({ params, searchParams }) {
   if (!report) notFound();
 
   const { campaign, status, bookings, totals, previous } = report;
+  // The budget of the campaign (migration 0061). Without the migration, and for a draft that has none yet, nothing is shown.
+  const [available, spend] = await Promise.all([loadAvailable(me.service, me.user.id), loadCampaignSpend(me.service, me.user.id, campaign.id)]);
+  const budgetState = budgetOf(campaign);
+  const budget = available == null || !spend || (status.key === "draft" && budgetState.unlimited && budgetState.spent === 0)
+    ? null
+    : { state: budgetState, ended: status.key === "ended", statusLabel: status.label, available, spend };
   const rows = reportRows(bookings, report.placementStats);
   const games = gameRows(bookings, rows);
   const showing = games.filter((game) => game.state === "showing").length;
@@ -44,6 +52,7 @@ export default async function CampaignReportPage({ params, searchParams }) {
 
   return (
     <ReportView
+      budget={budget}
       report={report}
       days={days}
       deckLayout={deckLayout}

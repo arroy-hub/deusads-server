@@ -8,7 +8,7 @@ import { useId, useLayoutEffect, useRef } from "react";
  * content is only built while it is open, so a closed pop-up costs nothing and forgets what was
  * typed in it.
  */
-export default function Modal({ open, onClose, title, children, footer, busy = false, wide = false }) {
+export default function Modal({ open, onClose, title, children, footer, busy = false, wide = false, className = "" }) {
   const ref = useRef(null);
   const titleId = useId();
 
@@ -22,7 +22,7 @@ export default function Modal({ open, onClose, title, children, footer, busy = f
   return (
     <dialog
       ref={ref}
-      className={`modal${wide ? " modal-wide" : ""}`}
+      className={`modal${wide ? " modal-wide" : ""}${className ? ` ${className}` : ""}`}
       aria-labelledby={titleId}
       onClose={(event) => {
         // A pop-up can sit inside another one (the countries inside Add game). React passes `close` up the tree of

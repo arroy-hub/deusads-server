@@ -6,10 +6,17 @@ import { developerSteps, advertiserPipeline } from "../lib/home-rules.js";
 
 const labels = (role) => menuFor(role).filter((group) => !group.foot).flatMap((group) => group.items.map((item) => item.label));
 
-assert.deepEqual(labels("developer"), ["Home", "My games"]);
-assert.deepEqual(labels("advertiser"), ["Home", "Overview", "Campaigns"]);
+assert.deepEqual(labels("developer"), ["Home", "My games", "Wallet"]);
+assert.deepEqual(labels("advertiser"), ["Home", "Overview", "Campaigns", "Wallet"]);
 assert.ok(!labels("advertiser").includes("Creatives"), "Creatives is a tab of the Campaigns window, not a menu entry");
-assert.equal(labels("admin").slice(0, 7).join(), "Review creatives,Disputes,Support,All bookings,Users,Traffic,System");
+assert.equal(labels("admin").slice(0, 8).join(), "Review creatives,Disputes,Support,All bookings,Users,Traffic,Wallet,System");
+// the wallet: one entry for a developer and an advertiser, three for an admin (the platform's, an advertiser's, a developer's), each its own page
+const walletLinks = (role) => menuFor(role).flatMap((group) => group.items).filter((item) => item.key === "wallet").map((item) => item.href);
+assert.deepEqual(walletLinks("developer"), ["/dashboard/wallet/earnings"]);
+assert.deepEqual(walletLinks("advertiser"), ["/dashboard/wallet"]);
+assert.deepEqual(walletLinks("admin"), ["/dashboard/admin/wallet", "/dashboard/wallet", "/dashboard/wallet/earnings"]);
+const advertiserWallet = menuFor("advertiser").flatMap((group) => group.items).find((item) => item.key === "wallet");
+assert.ok(isActive(advertiserWallet, "/dashboard/wallet") && !isActive(advertiserWallet, "/dashboard/wallet/earnings"), "the two wallets never light up together");
 assert.ok(!labels("admin").includes("Inbox") && !labels("admin").includes("People"), "Inbox is merged into the review page; People is called Users");
 assert.ok(!["developer", "advertiser", "admin"].some((role) => labels(role).includes("Notifications")), "notifications live behind the bell, not in the menu");
 // the only creatives entry of an admin is the review page

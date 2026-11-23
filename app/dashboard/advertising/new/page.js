@@ -6,6 +6,7 @@ import Wizard from "./wizard";
 import { orderCreatives } from "../../../../lib/creative-library";
 import { canAdvertise } from "../../../../lib/admin-rules";
 import { parseCover } from "../../../../lib/game-cover";
+import { loadAvailable } from "../../../../lib/wallet-data";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "New campaign" };
@@ -150,6 +151,7 @@ export default async function NewBookingPage({ searchParams }) {
         })}
         games={[...games.values()]}
         aimable={profiled}
+        wallet={await loadAvailable(service, user.id)}
         initialCampaignId={(campaignRows ?? []).some((item) => item.id === query?.campaign) ? query.campaign : ""}
       />
     </>

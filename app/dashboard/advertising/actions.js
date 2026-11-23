@@ -640,7 +640,9 @@ function cleanPlan(plan, ownCreativeIds) {
   const own = planCreativeIds(plan).filter((id) => ownCreativeIds.has(id)).slice(0, 20);
   const [creativeId = null, ...moreCreativeIds] = own;
   const mode = plan?.mode === "manual" ? "manual" : "audience";
-  return { creativeId, ...(moreCreativeIds.length ? { moreCreativeIds } : {}), mode, placementIds: cleanPlacementIds(plan?.placementIds ?? []), startsOn: "", endsOn: "" };
+  // The budget typed in the wizard (migration 0061) is kept with the draft; it is reserved only when the campaign starts.
+  const budget = parseAmount(plan?.budget);
+  return { creativeId, ...(moreCreativeIds.length ? { moreCreativeIds } : {}), mode, placementIds: cleanPlacementIds(plan?.placementIds ?? []), startsOn: "", endsOn: "", ...(budget > 0 && budget <= 1_000_000 ? { budget } : {}) };
 }
 
 /**

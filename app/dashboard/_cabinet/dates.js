@@ -13,5 +13,5 @@ export function fmtDay(isoDate, weekday = false) {
   return `${weekday ? w + " " : ""}${d} ${MONTHS[m - 1]}`;
 }
 export const TONE = {
-  live: "#1b8a50", limited: "#c98a14", paused: "#c98a14", stopped: "#b3361b", scheduled: "#3b6fb5", waiting: "#3b6fb5", draft: "#8c7f73", ended: "#8c7f73",
+  live: "#1b8a50", limited: "#c98a14", paused: "#c98a14", budget: "#c98a14", stopped: "#b3361b", scheduled: "#3b6fb5", waiting: "#3b6fb5", draft: "#8c7f73", ended: "#8c7f73",
 };

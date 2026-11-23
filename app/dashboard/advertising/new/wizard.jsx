@@ -24,6 +24,8 @@ import { addD, diff, fmtDay, todayISO } from "../../_cabinet/dates";
 import { Tip } from "../../_cabinet/ui";
 import { IcCheck, IcPlus, IcWarn } from "../../_cabinet/icons";
 import { navigating } from "../../_cabinet/nav";
+import { RATE, count, credits, impressionsFor, parseAmount, round2 } from "../../../../lib/wallet";
+import { TopUpDialog } from "../../wallet/parts";
 
 const POPULAR_LANGUAGES = ["en", "es", "de", "fr", "ru", "pt", "zh", "ja", "ko", "it", "tr", "pl"];
 const ALL_KEYS = [...PROFILE_KEYS, "exclude_genres", "exclude_countries"];
@@ -37,6 +39,9 @@ const SUBS = [
   "Here is what you are about to start.",
 ];
 const STEP_NAMES = ["Create", "Where", "Schedule", "Review"];
+// With the wallet (migration 0061) the third step also sets the campaign's budget.
+const BUDGET_STEP = { name: "Schedule & budget", title: "Choose when it runs and its budget", sub: "Dates and the most this campaign may spend." };
+const BUDGET_CHIPS = [100, 300, 500, 1000];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** Calls `close` when a press lands outside `ref` while `open`. */
@@ -85,7 +90,7 @@ function shapesReady(item) {
  * `aimable`: the database knows what each game is (migration 0018). The creative editor and the upload pop-up open
  * over the wizard, so nothing typed here is lost.
  */
-export default function Wizard({ creatives: initial, campaigns, games, aimable = false, initialCampaignId = "" }) {
+export default function Wizard({ creatives: initial, campaigns, games, aimable = false, initialCampaignId = "", wallet = null }) {
   const router = useRouter();
   const [library, setLibrary] = useState(initial);
   useEffect(() => setLibrary(initial), [initial]); // the server list after an upload or an editor save
@@ -118,6 +123,12 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const [langQ, setLangQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The wallet (migration 0061): `wallet` is what is in it, or null when there is no wallet yet (then no budget is asked).
+  const hasWallet = wallet != null;
+  const [available, setAvailable] = useState(wallet ?? 0);
+  useEffect(() => { if (wallet != null) setAvailable(wallet); }, [wallet]);
+  const [budgetText, setBudgetText] = useState(plan?.budget ? String(plan.budget) : "300");
+  const [topUp, setTopUp] = useState(false);
   const [editor, setEditor] = useState(null); // { data, tab } while the creative editor is open
   const [adding, setAdding] = useState(false); // the pop-up to add library creatives to the campaign, from the review
   const [paged, setPaged] = useState({}); // shape id -> the creative whose picture the tile was paged to
@@ -194,7 +205,12 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   const audiencePlacements = audienceGames.reduce((s, g) => s + g.placements.length, 0);
   const effectiveName = name.trim() || chosen?.name || "";
   const nameReady = Boolean(effectiveName);
-  const planOf = () => ({ creativeId: creativeIds[0], moreCreativeIds: creativeIds.slice(1), mode: "audience", placementIds: [] });
+  const budget = parseAmount(budgetText);
+  const budgetBad = hasWallet && !(budget > 0);
+  const budgetOver = hasWallet && !budgetBad && budget > available + 1e-9;
+  const budgetShort = budgetOver ? round2(budget - available) : 0;
+  const budgetReach = budgetBad ? 0 : impressionsFor(budget);
+  const planOf = () => ({ creativeId: creativeIds[0], moreCreativeIds: creativeIds.slice(1), mode: "audience", placementIds: [], ...(hasWallet && !budgetBad ? { budget } : {}) });
 
   async function draft() {
     if (busy || !nameReady) return;
@@ -210,7 +226,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
   async function submit() {
     if (busy) return;
     setBusy(true); setError("");
-    const r = await launchCampaign({ campaignId: campaignId || undefined, campaignName: effectiveName, creativeIds, category, targeting: audienceTargeting, startsOn, endsOn }).catch(() => ({ error: "Connection lost. Try again." }));
+    const r = await launchCampaign({ campaignId: campaignId || undefined, campaignName: effectiveName, creativeIds, category, targeting: audienceTargeting, startsOn, endsOn, budget: hasWallet ? budget : undefined }).catch(() => ({ error: "Connection lost. Try again." }));
     if (r?.error) { setBusy(false); return setError(r.error); }
     await storeCover(r.id);
     setBusy(false);
@@ -289,7 +305,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
 
   const lengthDays = endMode === "never" ? null : endMode === "date" ? (endDate ? diff(endDate, startsOn || today) + 1 : null) : Number(endMode);
   const nextLabel = ["Next: Where", "Next: Schedule", "Next: Review"][step - 1];
-  const canNext = step === 1 ? picked.length > 0 && !uploading : step === 3 ? !((startMode === "date" && !startDate) || (endMode === "date" && !endDate)) : true;
+  const canNext = step === 1 ? picked.length > 0 && !uploading : step === 3 ? !((startMode === "date" && !startDate) || (endMode === "date" && !endDate)) && !budgetBad && !budgetOver : true;
 
   const issues = [];
   if (aimable) for (const u of unfilled) issues.push({ kind: "warn", text: `${word(u.count, "game has", "games have")} not set ${u.plural} and ${u.count === 1 ? "is" : "are"} skipped while ${u.plural} ${u.count === 1 ? "is" : "are"} chosen.` });
@@ -319,7 +335,8 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
         </div>
 
         <ol className="nwc-steps" aria-label="Progress">
-          {STEP_NAMES.map((label, i) => {
+          {STEP_NAMES.map((name, i) => {
+            const label = i === 2 && hasWallet ? BUDGET_STEP.name : name;
             const n = i + 1;
             const state = step > n ? "done" : step === n ? "on" : "todo";
             return (
@@ -333,8 +350,8 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
 
         <section className="nwc-card">
           <header className="nwc-ch">
-            <h2>{TITLES[step - 1]}</h2>
-            <p>{SUBS[step - 1]}</p>
+            <h2>{step === 3 && hasWallet ? BUDGET_STEP.title : TITLES[step - 1]}</h2>
+            <p>{step === 3 && hasWallet ? BUDGET_STEP.sub : SUBS[step - 1]}</p>
           </header>
 
           {step === 1 && (
@@ -436,7 +453,9 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
               <dl className="nwc-prev">
                 <div><dt>Starts</dt><dd>{startsOn ? fmtDay(startsOn) : "When approved"}</dd></div>
                 <div><dt>Ends</dt><dd>{endsOn ? fmtDay(endsOn) : endMode === "date" ? "Pick the last day" : "Until you stop it"}</dd></div>
-                <div><dt>Length</dt><dd>{lengthDays != null ? word(lengthDays, "day", "days") : "Open-ended"}</dd></div>
+                {hasWallet
+                  ? <div><dt>Budget</dt><dd>{budgetBad ? "Set a budget" : `${credits(budget)} C.`}</dd></div>
+                  : <div><dt>Length</dt><dd>{lengthDays != null ? word(lengthDays, "day", "days") : "Open-ended"}</dd></div>}
               </dl>
               <div className="nwc-sc">
                 <section>
@@ -472,16 +491,37 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                 </section>
               </div>
               <p className="nwc-sum"><b>{endMode === "never" ? "Runs until you stop it" : endMode === "date" ? (endDate ? `Runs until ${fmtDay(endDate)}` : "Pick the last day") : `Runs about ${endMode} days`}</b>{endsOn && endMode !== "never" ? ` · ends ${fmtDay(endsOn)} at the end of the day (UTC).` : "."} You can extend or stop it at any time.</p>
+              {hasWallet && (
+                <section className="nwc-panel wl-wbudget">
+                  <div className="nwc-bh"><h3>Budget</h3><span>The most this campaign may spend in total. It stops by itself when the budget runs out.</span></div>
+                  <div className="wl-wrow">
+                    <label className="wl-wfield"><input className="nwc-in" inputMode="decimal" value={budgetText} onChange={(e) => setBudgetText(e.target.value)} aria-label="Campaign budget in credits" disabled={busy} /><em>C.</em></label>
+                    <div className="nwc-chips">{BUDGET_CHIPS.map((v) => <button key={v} type="button" className={`nwc-chip${budget === v ? " is-picked" : ""}`} aria-pressed={budget === v} onClick={() => setBudgetText(String(v))}>{count(v)}</button>)}</div>
+                  </div>
+                  <div className="wl-wfacts">
+                    <span>≈ <b>{budgetBad ? "–" : count(budgetReach)}</b> impressions at {credits(RATE)} C. per 1,000</span>
+                    <span>In your wallet: <b>{credits(available)}</b> C. {budgetOver || budgetBad ? "" : <>· after this campaign: <b>{credits(available - budget)}</b></>}</span>
+                  </div>
+                  {budgetOver && (
+                    <div className="wl-alert is-inline">
+                      <span><IcWarn size={18} /></span>
+                      <div><b>Not enough credits in your wallet.</b><span>You need {credits(budgetShort)} more to reserve this budget.</span></div>
+                      <button type="button" className="button" onClick={() => setTopUp(true)}>Add credits</button>
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           )}
 
           {step === 4 && (
             <div className="nwc-body">
               <label className="nwc-f"><span className="nwc-eb">Campaign name</span><input className="nwc-in" value={name} placeholder={chosen?.name} onChange={(e) => setName(e.target.value)} maxLength={120} disabled={busy} /><small>Only you see this name. Left empty, the creative’s name is used.</small></label>
-              <div className="nwc-facts" aria-label="Summary">
+              <div className={`nwc-facts${hasWallet ? " wl-facts4" : ""}`} aria-label="Summary">
                 <div className="nwc-fact"><span className="nwc-eb">Estimated reach</span><div className="nwc-num">≈ {audienceGames.length}<small>{audienceGames.length === 1 ? "game" : "games"}</small></div><p>{audienceTargeting ? targetingSummary(audienceTargeting) : "No filters: any registered game can show it"}</p></div>
                 <div className="nwc-fact"><span className="nwc-eb">Placements</span><div className="nwc-num">{audiencePlacements}<small>today</small></div><p>of {games.length} registered games; grows as games join</p></div>
                 <div className="nwc-fact"><span className="nwc-eb">Schedule</span><div className="nwc-num">{lengthDays != null ? lengthDays : "∞"}<small>{lengthDays != null ? (lengthDays === 1 ? "day" : "days") : "until stopped"}</small></div><p>{startsOn ? `Starts ${fmtDay(startsOn)}` : "Starts when approved"}{endsOn ? ` · ends ${fmtDay(endsOn)}` : ""}</p></div>
+                {hasWallet && <div className="nwc-fact wl-factb"><span className="nwc-eb">Budget</span><div className="nwc-num">{budgetBad ? "–" : credits(budget)}<small>C.</small></div><p>{budgetBad ? "Set a budget on the previous step" : `≈ ${count(budgetReach)} impressions · stops when used up`}</p></div>}
               </div>
               <section className="nwc-panel is-look" ref={lookPanel}>
                 <div className="nwc-bh"><span className="nwc-eb">How it will look</span><span>Your image in each placement shape · {coveredFormats} of {FORMATS.length} covered</span></div>
@@ -553,6 +593,12 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
                   <li><span className={`nwc-tk ${audienceGames.length > 0 ? "" : "is-wait"}`}>{audienceGames.length > 0 ? "✓" : "!"}</span><span>{audienceGames.length > 0 ? <><b>{audienceGames.length} of {games.length} games</b> fit today; new ones are added automatically.</> : "No game fits yet. The campaign waits and starts showing by itself when one does."}</span></li>
                   {missing.length > 0 && <li><span className="nwc-tk is-wait">!</span><span>{missing.length === 1 ? "One shape has" : `${missing.length} shapes have`} no picture ({missing.map((m) => m.label).join(", ")}).{missingPlacements > 0 ? ` The ad will not show in ${missingPlacements} of ${reachPlacements.length} placements today.` : " Placements of those shapes will not show it."}</span></li>}
                   <li><span className="nwc-tk">✓</span><span>{startsOn ? `Starts ${fmtDay(startsOn)}` : "Starts when the creative is approved"}, {endsOn ? `runs until ${fmtDay(endsOn)}.` : "runs until you stop it."}</span></li>
+                  {hasWallet && (
+                    <li>
+                      <span className={`nwc-tk ${budgetOver || budgetBad ? "is-wait" : ""}`}>{budgetOver || budgetBad ? "!" : "✓"}</span>
+                      <span>{budgetBad ? "Set a budget for the campaign on the previous step." : budgetOver ? <>Your wallet has {credits(available)} C.: {credits(budgetShort)} short for this budget. <button type="button" className="link-button" onClick={() => setTopUp(true)}>Add credits</button></> : <><b>{credits(budget)} C.</b> will be reserved from your wallet. {credits(available - budget)} stay available.</>}</span>
+                    </li>
+                  )}
                 </ul>
               </section>
             </div>
@@ -567,7 +613,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
               {step === 4 ? (
                 <>
                   <button type="button" className="nwc-btn is-quiet" onClick={draft} disabled={busy || !nameReady}>Save as draft</button>
-                  <button type="button" className="nwc-btn is-primary" onClick={submit} disabled={busy || picked.length === 0 || !nameReady}>{busy ? "Starting…" : "Start campaign"}</button>
+                  <button type="button" className="nwc-btn is-primary" onClick={submit} disabled={busy || picked.length === 0 || !nameReady || budgetBad || budgetOver}>{busy ? "Starting…" : "Start campaign"}</button>
                 </>
               ) : (
                 <button type="button" className="nwc-btn is-primary" onClick={() => { if (step === 1 && !name.trim() && chosen) setName(chosen.name); setStep(step + 1); }} disabled={!canNext || busy}>{nextLabel} →</button>
@@ -597,6 +643,7 @@ export default function Wizard({ creatives: initial, campaigns, games, aimable =
         </aside>
       </div>
 
+      {hasWallet && <TopUpDialog open={topUp} onClose={() => setTopUp(false)} available={available} need={budgetShort} onDone={(result) => setAvailable(result.available)} />}
       {editor && <CreativeEditor editor={editor.data} initialShape={editor.shape} onClose={() => setEditor(null)} />}
       {adding && <AddCreativesDialog items={addableCreatives(usable, picked.map((c) => c.id))} onClose={() => setAdding(false)} onUpload={() => setUploading(true)} onAdd={(ids) => setCreativeIds((current) => [...current, ...ids.filter((id) => !current.includes(id))])} />}
       {uploading && <UploadDialog title="Upload a creative" lede="A PNG or JPG under 8 MB. It joins your library and is picked here." submit="Upload and pick" onClose={() => setUploading(false)} onUploaded={uploaded} />}

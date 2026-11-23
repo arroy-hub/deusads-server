@@ -9,6 +9,7 @@ import KeyNumbers from '../../../key-numbers';
 import DeckBoard from '../../../deck-board';
 import { Info } from '../../../metrics-deck';
 import { planCreativeIds } from '../../../../../lib/campaign-plan';
+import BudgetPanel from './budget-panel';
 
 /** '+0.4 s' / '−0.2 s' against the period before, or null. */
 export function deltaSeconds(now, before) {
@@ -21,7 +22,7 @@ export function deltaSeconds(now, before) {
 const Delta = ({ d, days }) => (d ? <><b className={`ov-${d.tone}`}>{d.text}</b> vs previous {days} d</> : <>no previous period</>);
 
 /** The campaign's Report tab, drawn from the figures page.js has read. A plain component so the page can be shown without a database. */
-export default function ReportView({ report, days, deckLayout, totals, impressionsDelta, avgNow, avgDelta, hours, games, showing, heldLine, creativeRows, gameCompare, marks }) {
+export default function ReportView({ report, budget = null, days, deckLayout, totals, impressionsDelta, avgNow, avgDelta, hours, games, showing, heldLine, creativeRows, gameCompare, marks }) {
   const campaign = report.campaign;
   const base = `/dashboard/advertising/c/${campaign.id}`;
   const series = report.series;
@@ -35,6 +36,8 @@ export default function ReportView({ report, days, deckLayout, totals, impressio
           Supabase SQL editor to turn the numbers on.
         </p>
       )}
+
+      {budget && <BudgetPanel campaign={{ id: campaign.id, name: campaign.name }} {...budget} />}
 
       <ReportFrame initial={deckLayout} board={<DeckBoard kind='advertiser' model={report} days={series.map((d) => ({ date: d.date, adv: d.impressions }))} initial={deckLayout} scope='Same period as the chart.' panel />}>
         <div className='cr-bar'>
