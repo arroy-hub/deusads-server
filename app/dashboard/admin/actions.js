@@ -292,6 +292,59 @@ export async function resolveDispute({ disputeId, decision, note, rule, advNote,
   return { ok: true, outcome, name, paused };
 }
 
+/**
+ * DeusADS answers the advertiser about a creative it holds after a report (asked to change, or blocked): the advertiser
+ * reads it under the decision, on the creative's page and in the campaign's Creatives tab, and can write back.
+ */
+export async function replyToAdvertiser({ disputeId, text }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+  const clean = String(text ?? "").trim().slice(0, 1000);
+  if (!clean) return { error: "Write the reply first." };
+  const { data: creative, error } = await admin.service.from("creatives").select("id, name, owner_id, hold").eq("hold_dispute", String(disputeId ?? "")).maybeSingle();
+  if (error && ["42703", "PGRST204"].includes(error.code)) return { error: "Run migration 0064 in the Supabase SQL editor first." };
+  if (!creative?.hold) return { error: "The creative is no longer on hold, so there is nothing to answer." };
+  const { error: saveError } = await admin.service.from("dispute_events").insert({ dispute_id: String(disputeId), author_id: admin.user.id, side: "admin", kind: "reply", text: clean });
+  if (saveError) return { error: "Could not send the reply." };
+  await notify(admin.service, { accountId: creative.owner_id, text: `DeusADS replied about your creative "${creative.name}": ${clean}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
+  revalidatePath("/dashboard/admin/disputes");
+  revalidatePath(`/dashboard/creatives/${creative.id}`);
+  revalidatePath("/dashboard/advertising");
+  return { ok: true };
+}
+
+/**
+ * DeusADS takes its decision on a creative back (it asked for a change or blocked it, and that was a mistake): the
+ * creative is approved again and runs where it ran, the report reads "no violation", and both sides are told.
+ */
+export async function withdrawDecision({ disputeId, note }) {
+  const admin = await getAdmin();
+  if (!admin) return { error: "Not allowed." };
+  const { data: dispute } = await admin.service.from("creative_disputes").select("id, developer_id, creative_id, status, outcome, rule").eq("id", String(disputeId ?? "")).maybeSingle();
+  if (!dispute || dispute.status !== "resolved" || !["changes", "removed"].includes(dispute.outcome)) return { error: "There is no decision to take back here." };
+  const { data: creative } = await admin.service.from("creatives").select("id, name, owner_id, hold, hold_dispute").eq("id", dispute.creative_id).maybeSingle();
+  if (!creative?.hold || creative.hold_dispute !== dispute.id) return { error: "The creative is no longer held by this decision." };
+  const now = new Date().toISOString();
+  const said = cleanNote(note) || null;
+  const { error } = await admin.service.from("creatives").update({ status: "approved", review_note: null, reviewed_at: now, hold: null, hold_rule: null, hold_note: null, hold_at: null, hold_dispute: null, hold_sent_at: null }).eq("id", creative.id);
+  if (error) return { error: "Could not put the creative back." };
+  // the trace of what was decided first stays in the history of the dispute
+  await admin.service.from("dispute_events").insert({ dispute_id: dispute.id, author_id: admin.user.id, side: "admin", kind: "decision", text: `withdrawn: ${dispute.outcome === "removed" ? "Blocked" : "Change requested"}${dispute.rule ? ` · ${dispute.rule}` : ""}${said ? ` · ${said}` : ""}`.slice(0, 1000) });
+  await admin.service.from("creative_disputes").update({ outcome: "dismissed", resolved_at: now, resolved_by: admin.user.id }).eq("id", dispute.id);
+  try {
+    await admin.service.rpc("activate_waiting_bookings", { p_creative: creative.id });
+  } catch {
+    // bookings are picked up by the next review or booking
+  }
+  await notify(admin.service, { accountId: creative.owner_id, text: `DeusADS took its decision back: your creative "${creative.name}" is approved and runs again.${said ? ` ${said}` : ""}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
+  if (dispute.developer_id) await notify(admin.service, { accountId: dispute.developer_id, text: `DeusADS looked again at your report on "${creative.name}": no violation was found, and the creative runs again. Whether it shows in your game is up to you.`, link: `/dashboard/support?tab=requests&report=${dispute.id}`, type: "dev_report_decided" });
+  revalidatePath("/dashboard/admin/disputes");
+  revalidatePath("/dashboard/creatives");
+  revalidatePath("/dashboard/advertising");
+  revalidatePath("/dashboard/games");
+  return { ok: true };
+}
+
 /** An internal note on a dispute, visible to admins only (migration 0046). */
 export async function addDisputeNote({ disputeId, text }) {
   const admin = await getAdmin();

@@ -391,7 +391,7 @@ export async function sendNewVersion({ creativeId }) {
   return { ok: true };
 }
 
-/** The advertiser's one answer to DeusADS about a creative on hold. The review team reads it in the dispute. */
+/** The advertiser writes to DeusADS about a creative on hold: a question, or why the decision is wrong. The review team answers in the dispute. */
 export async function replyToDeusADS({ creativeId, text }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
@@ -399,13 +399,14 @@ export async function replyToDeusADS({ creativeId, text }) {
   if (!clean) return { error: "Write your reply first." };
   const creative = await heldCreative(me, creativeId);
   if (!creative?.hold || !creative.hold_dispute) return { error: "There is nothing to reply to." };
-  const { data: earlier } = await me.service.from("dispute_events").select("id").eq("dispute_id", creative.hold_dispute).eq("side", "advertiser").eq("kind", "reply").limit(1);
-  if ((earlier ?? []).length) return { error: "You already replied. DeusADS has your message." };
+  const { count } = await me.service.from("dispute_events").select("id", { count: "exact", head: true }).eq("dispute_id", creative.hold_dispute).eq("side", "advertiser").eq("kind", "reply");
+  if ((count ?? 0) >= 30) return { error: "This conversation is too long. Write to us in Help & feedback." };
   const { error } = await me.service.from("dispute_events").insert({ dispute_id: creative.hold_dispute, author_id: me.user.id, side: "advertiser", kind: "reply", text: clean });
   if (error) return { error: "Could not send the reply. Try again." };
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `The advertiser replied about "${creative.name}".`, `/dashboard/admin/disputes?card=dispute:${creative.hold_dispute}`, "admin_reports");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `The advertiser wrote about "${creative.name}": ${clean}`, `/dashboard/admin/disputes?card=dispute:${creative.hold_dispute}`, "admin_reports");
   revalidatePath("/dashboard/admin/disputes");
   refresh(creative.id);
-  return { ok: true };
+  revalidatePath("/dashboard/advertising");
+  return { ok: true, message: { side: "advertiser", text: clean, at: new Date().toISOString() } };
 }

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { resolveDispute, reviewCreative, reviewAsset, addDisputeNote } from "./actions";
+import { resolveDispute, reviewCreative, reviewAsset, addDisputeNote, replyToAdvertiser, withdrawDecision } from "./actions";
 import { loadCard } from "./card-actions";
 import { History } from "./history";
 import { BigPv, CardPopup, CatPill, Lnk, Pill, toast } from "./ui";
@@ -175,6 +175,33 @@ export function DisputeCard({ d, api, onClose }) {
     setChoice(null);
     api.changed();
   }
+  // While the creative is held by this decision: DeusADS can answer its advertiser, or take the decision back.
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [reply, setReply] = useState("");
+  const [backing, setBacking] = useState(false);
+  const replyRef = useRef(null);
+  useEffect(() => { if (replyOpen) replyRef.current?.focus(); }, [replyOpen]);
+  async function sendReply() {
+    const text = reply.trim();
+    if (!text) return;
+    setBusy(true);
+    const result = await replyToAdvertiser({ disputeId: r.id, text }).catch(() => ({ error: "Connection lost. Try again." }));
+    setBusy(false);
+    if (result?.error) return toast(result.error);
+    setReply("");
+    setReplyOpen(false);
+    toast("Reply sent. Advertiser notified");
+    api.changed();
+  }
+  async function takeBack() {
+    setBusy(true);
+    const result = await withdrawDecision({ disputeId: r.id, note: "" }).catch(() => ({ error: "Connection lost. Try again." }));
+    setBusy(false);
+    setBacking(false);
+    if (result?.error) return toast(result.error);
+    toast("Decision taken back. The creative runs again; both sides notified");
+    api.changed();
+  }
   async function addNote() {
     const text = note.trim();
     setNoteOpen(false);
@@ -244,6 +271,26 @@ export function DisputeCard({ d, api, onClose }) {
           <button type="button" className="cb-btn cb-d" onClick={() => pick("remove")}>Block the creative</button>
           <button type="button" className="cb-btn cb-q" onClick={() => pick("change")}>Ask to change it</button>
           <button type="button" className="cb-btn cb-q" onClick={() => pick("dismiss")}>No violation</button>
+        </>)}
+        {!r.open && !adv && r.heldHere && (backing ? <>
+          <span style={{ fontSize: 13.5 }}>Take the decision back? The creative is approved again and runs where it ran.</span>
+          <button type="button" className="cb-btn cb-s" disabled={busy} onClick={takeBack}>Yes, take it back</button>
+          <button type="button" className="cb-btn cb-q cb-s" disabled={busy} onClick={() => setBacking(false)}>Keep</button>
+        </> : <>
+          <span style={{ position: "relative" }}>
+            <button type="button" className="cb-btn" aria-expanded={replyOpen} onClick={() => setReplyOpen(!replyOpen)}>Reply to the advertiser</button>
+            {replyOpen && (
+              <div className="cb-npop cb-npop-l" role="dialog" aria-label="Reply to the advertiser">
+                <b>Reply to {r.adv}</b><span className="cb-mute">They read it under the decision, on the creative</span>
+                <textarea ref={replyRef} rows={4} className="cb-fld" style={{ width: "100%", height: "auto", padding: "8px 10px" }} aria-label="Reply to the advertiser" value={reply} maxLength={1000} onChange={(e) => setReply(e.target.value)} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button type="button" className="cb-btn cb-q cb-s" onClick={() => setReplyOpen(false)}>Cancel</button>
+                  <button type="button" className="cb-btn cb-s" disabled={busy || !reply.trim()} onClick={sendReply}>Send</button>
+                </div>
+              </div>
+            )}
+          </span>
+          <button type="button" className="cb-btn cb-q" disabled={busy} onClick={() => setBacking(true)}>Take the decision back</button>
         </>)}
         <span style={{ flex: 1 }} />
         <span style={{ position: "relative" }}>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { browserClient } from "../../../lib/supabase-browser";
 import { rulesLink } from "../../../lib/platform-rules";
-import { fdt } from "../../../lib/admin-format";
+import { fdt, fdtTime } from "../../../lib/admin-format";
 import { replaceMainPicture, replyToDeusADS, sendNewVersion } from "./actions";
 import { Busy, refreshPage, useWaitMark } from "../wait";
 
@@ -20,7 +20,7 @@ const measure = (file) => new Promise((resolve, reject) => {
 
 /**
  * What DeusADS decided on a creative after a report, as its advertiser reads it: the rule, the message, what it means,
- * and what can be done. `hold` is lib/report-rules.js holdOf() plus `replied` and (on the creative's own page) `changed`.
+ * and what can be done. `hold` is lib/report-rules.js holdOf() plus `thread` (the conversation with DeusADS) and (on the creative's own page) `changed`.
  * On the creative's page (`onPage`) a creative that waits for a change gets its tools: a new main picture, and sending
  * the new version for review. Elsewhere the button leads to that page.
  */
@@ -33,7 +33,9 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
   const [done, setDone] = useState("");
   const [writing, setWriting] = useState(false);
   const [text, setText] = useState("");
-  const [replied, setReplied] = useState(Boolean(hold.replied));
+  // what was said since the decision; a message just sent shows at once
+  const [thread, setThread] = useState(hold.thread ?? []);
+  const last = thread.at(-1)?.side ?? null;
   const blocked = hold.kind === "blocked";
   const act = async (name, work) => {
     setBusy(name);
@@ -80,9 +82,9 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
   async function reply() {
     const result = await act("reply", () => replyToDeusADS({ creativeId, text }));
     if (result?.ok) {
-      setReplied(true);
+      setThread((list) => [...list, result.message]);
       setWriting(false);
-      setDone("Your reply was sent to DeusADS.");
+      setText("");
     }
   }
 
@@ -92,15 +94,19 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
       <dl>
         {hold.rule && <div><dt>{blocked ? "Rule broken" : "Rule"}</dt><dd>{hold.rule}</dd></div>}
         <div><dt>{blocked ? "What it means" : hold.sent ? "Now" : "Until then"}</dt><dd>{blocked
-          ? "It is not shown anywhere and cannot be put back. Campaigns keep running with their other creatives, and nothing is charged for what is not shown. You can add a different creative."
+          ? "It is not shown anywhere. Campaigns keep running with their other creatives, and nothing is charged for what is not shown. You can add a different creative. If you think the decision is a mistake, write to DeusADS here."
           : hold.sent ? "DeusADS is checking the new version. Once it is approved the creative runs again in the same games."
             : "It is not shown in any game. Campaigns keep running with their other creatives, and nothing is charged for what is not shown."}</dd></div>
         {hold.at && <div><dt>{blocked ? "Decided" : "Why now"}</dt><dd>{blocked ? `${fdt(hold.at)}, after a report from a game where it ran.` : `A game where it runs reported it, and DeusADS checked it. ${fdt(hold.at)}.`}</dd></div>}
       </dl>
       {hold.note && <div className="hold-msg"><span className="hold-msg-h"><b>Message from DeusADS</b>{hold.at && <small>{fdt(hold.at)}</small>}</span><p>{hold.note}</p></div>}
+      {thread.map((message, index) => (
+        <div key={index} className={`hold-msg${message.side === "advertiser" ? " is-mine" : ""}`}><span className="hold-msg-h"><b>{message.side === "advertiser" ? "You" : "DeusADS"}</b><small suppressHydrationWarning>{fdtTime(message.at)} UTC</small></span><p>{message.text}</p></div>
+      ))}
+      {last && <p className={`hold-state${last === "admin" ? " is-new" : ""}`} role="status">{last === "advertiser" ? "Waiting for DeusADS: the review team has your message and will answer here." : "DeusADS replied. You can answer here."}</p>}
       {writing && (
         <div className="hold-reply">
-          <label htmlFor={`hold-reply-${creativeId}`}>Your reply to DeusADS <small>one message; the review team reads it</small></label>
+          <label htmlFor={`hold-reply-${creativeId}`}>Your message to DeusADS <small>a question, or why you think the decision is wrong</small></label>
           <textarea id={`hold-reply-${creativeId}`} className="field" rows={3} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} />
         </div>
       )}
@@ -116,8 +122,7 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
         ) : <Link href={`/dashboard/creatives/${creativeId}`} className="button button-small">Upload a new version</Link>)}
         {writing
           ? <><button type="button" className="button button-small" disabled={Boolean(busy) || !text.trim()} onClick={reply}>{busy === "reply" ? <Busy>Sending…</Busy> : "Send reply"}</button><button type="button" className="button button-quiet button-small" disabled={Boolean(busy)} onClick={() => setWriting(false)}>Cancel</button></>
-          : replied ? <span className="hold-replied">You replied to DeusADS</span>
-            : <button type="button" className="button button-quiet button-small" onClick={() => setWriting(true)}>Reply to DeusADS</button>}
+          : <button type="button" className="button button-quiet button-small" onClick={() => setWriting(true)}>{thread.length ? "Write again" : "Reply to DeusADS"}</button>}
         <Link href={rulesLink("adv")} className="link-button">Platform rules</Link>
       </div>
       {onPage && !blocked && !hold.sent && <p className="hold-hint">Replace the main picture here, or a single shape’s picture below. Then send the new version for review.</p>}

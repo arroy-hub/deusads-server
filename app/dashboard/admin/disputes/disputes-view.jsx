@@ -52,7 +52,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
                 <span className="cb-mute"><span className={`cb-pill cb-${adv ? "info" : "warn"} cb-nodot`} style={{ padding: "0 8px", fontSize: 11.5 }}>{adv ? "Advertiser" : "Developer"}</span> {adv ? r.adv : r.dev}</span>
                 <span className="cb-mute">{adv ? <>{r.bookingId ? <Lnk onClick={() => openCard("booking", r.bookingId)}>booking in {r.game}</Lnk> : `booking in ${r.game}`} · {r.dev}</> : `${r.adv} · in ${r.game}`}</span>
               </div></div>
-              <div className="cb-rcl"><span className="cb-pill cb-bad">{r.reason}</span>{r.comment && <div className="cb-mute cb-clamp" style={{ marginTop: 4 }}>{r.comment}</div>}</div>
+              <div className="cb-rcl"><span className="cb-pill cb-bad">{r.reason}</span>{r.comment && <div className="cb-mute cb-clamp" style={{ marginTop: 4 }}>{r.comment}</div>}{r.waiting && <div><span className="cb-pill cb-info cb-wait">Advertiser waits for a reply</span></div>}</div>
               <div className="cb-mute cb-ctr" title={r.when}>{r.day}</div>
               <div className="cb-acts" style={{ flexWrap: "nowrap" }}>
                 {r.open ? (

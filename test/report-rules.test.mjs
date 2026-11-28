@@ -77,4 +77,16 @@ assert.equal(Object.fromEntries(disputeEvents(blocked, [], {}).find((e) => e.tex
 const open = disputeRows([{ ...base, status: "open", outcome: null, resolved_at: null }])[0];
 assert.ok(disputeEvents(open, [], { others: "Blocked by developers in 5 other games · no other reports" })[0].facts.some(([k]) => k === "Other games"));
 
+// the conversation after a decision, and a decision taken back, in the admin's history
+const talk = disputeEvents({ ...changes, waiting: true }, [
+  { side: "advertiser", kind: "reply", text: "Which word exactly?", created_at: "2026-11-28T12:00:00Z", who: "Northwind" },
+  { side: "admin", kind: "reply", text: "The word ENERGY on the can.", created_at: "2026-11-28T12:30:00Z", who: "DeusADS admin" },
+  { side: "admin", kind: "decision", text: "withdrawn: Change requested · The ad belongs to the category it was booked in", created_at: "2026-11-28T13:00:00Z", who: "DeusADS admin" },
+], { advEmail: "media@northwind.example" });
+assert.ok(talk.some((e) => e.kind === "adv" && e.text === "Replied: Which word exactly?"));
+const answer = talk.find((e) => e.text.startsWith("Replied to the advertiser"));
+assert.equal(Object.fromEntries(answer.facts).To, "Northwind · media@northwind.example");
+assert.match(Object.fromEntries(talk.find((e) => e.text.startsWith("Took the decision back")).facts)["Decision taken back"], /^Change requested/);
+assert.match(disputeNow(disputeRows([{ ...base, outcome: "removed", waiting: true, held: "blocked", heldHere: true }])[0]), /waits for an answer/);
+
 console.log("report rules: ok");
