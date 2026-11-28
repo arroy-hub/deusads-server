@@ -11,7 +11,7 @@ import WindowTop, { PlateIcon } from "../window-top";
 import { RATE, budgetTone, count, credits, creditNote, dayText } from "../../../lib/wallet";
 import { TONE } from "../_cabinet/dates";
 import { Figure, useRefreshing } from "../wait";
-import { Amount, Bar, BudgetDialog, HeroAmount, HistoryPeriod, Hint, TableBox, TestMark, TopUpDialog, historyRange } from "./parts";
+import { Amount, Bar, BudgetDialog, HeroAmount, HistoryPeriod, Hint, TableBox, TestMark, TopUpDialog, historyRange, BlockHead } from "./parts";
 
 const campaignHref = (id) => `/dashboard/advertising/c/${id}`;
 const FILTERS = [["all", "All"], ["topup", "Top-ups"], ["budget", "Budgets"], ["spend", "Spending"]];
@@ -83,8 +83,8 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
           <div className="wl-hero-main">{hero}</div>
           <dl className="wl-hero-strip">{cells.map(([label, value, caption]) => <div key={label}><dt>{label}</dt><dd><Figure>{value}</Figure></dd><small>{caption}</small></div>)}</dl>
         </section>
-        <section className={`gp-panel wl-ops${refreshing ? " is-waiting" : ""}`} aria-busy={refreshing || undefined}>
-          <div className="wl-bhead"><h2>Latest operations{refreshing && <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" />}</h2><span className="wl-spacer" /><button type="button" className="link-button" onClick={() => choose("history")}>See all</button></div>
+        <section className={`gp-panel wl-ops wl-blk${refreshing ? " is-waiting" : ""}`} aria-busy={refreshing || undefined}>
+          <BlockHead icon="ops" title="Latest operations" left={refreshing ? <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" /> : null} right={<button type="button" className="link-button" onClick={() => choose("history")}>See all</button>} />
           {wallet.ops.length ? (
             <ul>
               {wallet.ops.slice(0, 4).map((op) => {

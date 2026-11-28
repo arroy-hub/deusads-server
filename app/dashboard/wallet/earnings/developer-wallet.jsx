@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import WindowTop, { PlateIcon } from "../../window-top";
 import { Figure } from "../../wait";
 import { DEV_SHARE, RATE, count, credits, creditNote, dayText, earnedOf, payoutPlan } from "../../../../lib/wallet";
-import { Amount, Bar, HeroAmount, HistoryPeriod, Hint, MoneyChart, PeriodPick, TableBox, TestMark, historyRange } from "../parts";
+import { Amount, Bar, BlockHead, HeroAmount, HistoryPeriod, Hint, MoneyChart, PeriodPick, TableBox, TestMark, historyRange } from "../parts";
 
 const TOTAL = "total";
 const TOTAL_LINE = { color: "#c94a24", tint: "#f0b293" };
@@ -98,8 +98,8 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
             ].map(([label, value, caption]) => <div key={label}><dt>{label}</dt><dd><Figure>{value}</Figure></dd><small title={caption}>{caption}</small></div>)}
           </dl>
         </section>
-        <section className="gp-panel wl-ops wl-payout" aria-label="Payout">
-          <div className="wl-bhead"><h2>Payout <Hint title="Payout" text={`Once a month, on the 1st, the whole balance is paid out if it has reached ${credits(plan.minimum)} C. A smaller balance stays and counts toward the next month.`} /></h2></div>
+        <section className="gp-panel wl-ops wl-blk wl-payout" aria-label="Payout">
+          <BlockHead icon="payout" title="Payout" left={<Hint title="Payout" text={`Once a month, on the 1st, the whole balance is paid out if it has reached ${credits(plan.minimum)} C. A smaller balance stays and counts toward the next month.`} />} />
           <div className="wl-pay-goal">
             <div className="wl-pay-line"><b>{plan.reached ? "Minimum reached" : `${credits(plan.left)} C. to the minimum`}</b><span><Figure>{credits(Math.min(balance, plan.minimum))}</Figure> of {credits(plan.minimum)} C.</span></div>
             <div className="wl-pay-track" role="img" aria-label={`${plan.pct}% of the payout minimum`}><i style={{ width: `${plan.pct}%` }} /></div>

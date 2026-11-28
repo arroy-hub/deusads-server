@@ -10592,3 +10592,16 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-pay-v.is-none { font-weight: 500; color: var(--ink-3, #8c7f73); }
 .wl-payout li small { white-space: normal; }
 .wl-pay-note { margin: 0; padding: 10px 20px 8px; border-top: 1px solid #efe7de; font-size: 12px; color: var(--ink-3, #8c7f73); max-width: none; }
+
+/* A wallet block with a head like the blocks of Home: a band, and on it a white plate with an icon tile and the title. */
+.wl-ops.wl-blk { position: relative; overflow: hidden; padding: 0 0 6px !important; border-radius: 18px; }
+.wl-bh { position: relative; display: flex; align-items: center; gap: 10px; padding: 18px 16px 0 17px; margin-bottom: 12px; }
+.wl-bh-band { position: absolute; left: 0; right: 0; top: 0; height: 54px; background: #f5f5f5; border-bottom: 1px solid #ece5de; pointer-events: none; }
+.wl-bh > :not(.wl-bh-band) { position: relative; z-index: 1; }
+.wl-bh-plate { display: inline-flex; align-items: center; gap: 12px; min-width: 200px; height: 46px; padding: 0 18px 0 7px; background: #fff; border-radius: 11px; box-shadow: 0 1px 2px rgba(60,35,20,.06), 0 6px 16px rgba(60,35,20,.12); }
+.wl-bh-plate h2 { margin: 0; font-size: 16.5px; font-weight: 800; letter-spacing: -.015em; white-space: nowrap; }
+.wl-bh-ic { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: #f2d2c3; color: #aa3618; }
+.wl-bh-r { position: absolute !important; top: 0; right: 18px; height: 54px; display: flex; align-items: center; font-size: 13px; }
+.wl-bh-plate .wl-boxwheel { margin: 0; }
+.wl-payout .wl-pay-goal { padding-top: 6px; }
+@media (max-width: 520px) { .wl-bh-plate { min-width: 0; } }

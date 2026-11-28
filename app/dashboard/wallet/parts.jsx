@@ -77,6 +77,31 @@ export function walletToast(text) {
   setTimeout(() => element.remove(), 3200);
 }
 
+const HEAD_ICONS = {
+  // a list of operations
+  ops: <path d="M8 6.5h11M8 12h11M8 17.5h11M4.2 6.5h.01M4.2 12h.01M4.2 17.5h.01" />,
+  // money going out to the developer
+  payout: <path d="M4 6.5h13a2 2 0 0 1 2 2V10M4 6.5v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2V12a2 2 0 0 0-2-2H6a2 2 0 0 1-2-2v-1.5zM4 6.5A2 2 0 0 1 6 4.5h9M16.5 14.8h.01" />,
+};
+
+/**
+ * The head of a wallet block, built like the blocks of Home: a band across the top, a white plate on it with an icon
+ * tile and the title (and what sits beside the title), and the right slot on the band.
+ */
+export function BlockHead({ icon, title, left = null, right = null }) {
+  return (
+    <div className="wl-bh">
+      <span className="wl-bh-band" aria-hidden="true" />
+      <div className="wl-bh-plate">
+        <span className="wl-bh-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{HEAD_ICONS[icon]}</svg></span>
+        <h2>{title}</h2>
+        {left}
+      </div>
+      {right && <span className="wl-bh-r">{right}</span>}
+    </div>
+  );
+}
+
 /** The big amount of a wallet: a title, the figure with "C." and what sits on its line, and a caption under it. */
 export function HeroAmount({ label, value, sub, extra = null, after = null }) {
   return (
