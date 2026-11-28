@@ -97,7 +97,7 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
       </div>
       <TableBox
         title="Campaign budgets"
-        tools={<Link href="/dashboard/advertising/new" className="button button-with-icon"><PlusIcon />New campaign</Link>}
+        tools={<Link href="/dashboard/advertising/new" className="sp-sq" title="New campaign" aria-label="New campaign"><PlusIcon /></Link>}
         head={[["Campaign"], ["Budget", true], ["Spent", true], ["Left", true], ["Progress"], [""]]}
         note={<p className="wl-foot">A campaign stops by itself when its budget runs out and starts again as soon as you add budget. Stopping or deleting a campaign returns what is left to your wallet.</p>}
       >
@@ -135,6 +135,7 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
   const historyTab = (
     <TableBox
       title="History"
+      icon="history"
       className="wl-histbox"
       tools={<><HistoryPeriod value={period} onChange={setPeriod} /><div className="cr-tabs" role="tablist" aria-label="Show">{FILTERS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div></>}
       head={[["Date"], ["Operation"], ["Amount", true]]}

@@ -7,7 +7,11 @@ import { useSamePage } from "../../same-page";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import WindowTop, { PlateIcon } from "../../window-top";
-import { Figure } from "../../wait";
+import { Figure, useWaitMark } from "../../wait";
+import Modal from "../../modal";
+import CategoryIcon from "../../advertising/category-icon";
+import { categoryLabel } from "../../../../lib/categories";
+import { campaignDetails } from "../actions";
 import { DEV_SHARE, RATE, count, credits, creditNote, dayText, earnedOf, payoutPlan } from "../../../../lib/wallet";
 import { Amount, Bar, BlockHead, HeroAmount, HistoryPeriod, Hint, MoneyChart, PeriodPick, TableBox, TestMark, historyRange } from "../parts";
 
@@ -30,11 +34,60 @@ function GameBadge({ game }) {
   return <span className="rail-game-icon is-empty wl-gic" style={{ background: game.color, color: "#fff" }} aria-hidden="true">{game.name.trim().charAt(0).toUpperCase() || "?"}</span>;
 }
 
+/** One campaign as the developer sees it: who runs it, and how each creative and picture did in their games. */
+export function CampaignDetails({ d }) {
+  const most = Math.max(1, ...d.creatives.flatMap((creative) => creative.pictures.map((picture) => picture.impressions)));
+  return (
+    <div className="wl-cd">
+      <dl className="wl-cd-facts">
+        <div><dt>Advertiser</dt><dd>{d.advertiser}</dd></div>
+        <div><dt>Category</dt><dd><span className="wl-cd-cat"><span className="rd-tile wl-ctile"><CategoryIcon category={d.category} label="" /></span>{d.category ? categoryLabel(d.category) : "Not set"}</span></dd></div>
+        <div><dt>Now</dt><dd>{d.status.label}</dd></div>
+        <div><dt>In your games since</dt><dd>{dayText(d.since)}</dd></div>
+        {d.audience && <div className="is-wide"><dt>Audience it asked for</dt><dd>{d.audience}</dd></div>}
+      </dl>
+      <div className="wl-cd-sum">
+        <div><b>{count(d.total.impressions)}</b><span>paid impressions · last {d.days} days</span></div>
+        <div><b>{credits(earnedOf(d.total.impressions))} C.</b><span>you earned</span></div>
+        <div><b>{d.total.placements}</b><span>{d.total.placements === 1 ? "placement" : "placements"} in {d.games.length} {d.games.length === 1 ? "game" : "games"}</span></div>
+      </div>
+      {d.best && <p className="wl-cd-best"><b>What players saw most:</b> {d.best.creative} in {d.best.label}, {count(d.best.perPlacement)} paid impressions per placement.</p>}
+      {d.creatives.length === 0 ? <p className="wl-none">Nothing was paid in these {d.days} days.</p> : (
+        <div className="wl-cd-list">
+          {d.creatives.map((creative) => (
+            <section key={creative.id} className="wl-cd-cr">
+              <h3>{creative.name}<span>{count(creative.impressions)} paid impressions · {credits(earnedOf(creative.impressions))} C.</span></h3>
+              {creative.pictures.map((picture) => (
+                <div key={picture.shape} className="wl-cd-pic">
+                  {picture.url ? <a href={picture.url} target="_blank" rel="noreferrer" className="wl-cd-img" style={{ backgroundImage: `url(${picture.url})` }} aria-label={`Open the ${picture.label} picture`} /> : <span className="wl-cd-img" />}
+                  <div className="wl-cd-what"><b>{picture.label}</b><small>{picture.placements} {picture.placements === 1 ? "placement" : "placements"}{picture.cropped ? " · main picture, cropped" : ""}</small></div>
+                  <div className="wl-cd-bar"><Bar pct={(picture.impressions / most) * 100} tone="#c94a24" /></div>
+                  <div className="wl-cd-num"><b>{count(picture.impressions)}</b><small>{count(picture.perPlacement)} per placement</small></div>
+                  <div className="wl-cd-num"><b>{credits(earnedOf(picture.impressions))} C.</b><small>earned</small></div>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
+      {d.games.length > 1 && <p className="wl-cd-games"><b>By game:</b> {d.games.map((game) => `${game.name} ${count(game.impressions)}`).join(" · ")}</p>}
+    </div>
+  );
+}
+
 export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
   const [period, setPeriod] = useState(30);
   const [span, setSpan] = useState({ days: 30 }); // the period of the History list
+  // The window of one campaign (from By campaign): { id, name } while it loads, then with `data` or `error`.
+  const [details, setDetails] = useState(null);
+  useWaitMark(Boolean(details && !details.data && !details.error));
+  async function openCampaign(campaign) {
+    setDetails({ id: campaign.id, name: campaign.name });
+    const result = await campaignDetails({ campaignId: campaign.id, days: period }).catch(() => ({ error: "Connection lost. Try again." }));
+    setDetails((now) => (now?.id === campaign.id ? { ...now, data: result?.details ?? null, error: result?.error ?? "" } : now));
+  }
   const [kind, setKind] = useState("all"); // what History lists: everything, earnings or payouts
   const [ticked, setTicked] = useState([TOTAL]);
   const tabs = useRef({});
@@ -153,7 +206,7 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
         <TableBox title="By campaign" tools={<span className="ovx-hint">Last {period} days</span>} head={[["Campaign"], ["Paid impressions", true], ["Earned", true]]}>
           {campaigns.map((campaign) => (
             <tr key={campaign.id}>
-              <td><span className="wl-cname"><i className="wl-cpic" style={{ background: campaign.coverCss || "#e6ddd3" }} /><span><b>{campaign.name}</b><small>{campaign.advertiser} · <em style={{ color: STATUS_TONE[campaign.status.key] ?? "#8c7f73" }}>{campaign.status.label}</em></small></span></span></td>
+              <td><span className="wl-cname"><span className="rd-tile wl-ctile"><CategoryIcon category={campaign.category} label={campaign.category ? categoryLabel(campaign.category) : "No category"} /></span><span><button type="button" className="wl-clink" title="How this campaign did in your games" onClick={() => openCampaign(campaign)}>{campaign.name}</button><small>{campaign.advertiser} · <em style={{ color: STATUS_TONE[campaign.status.key] ?? "#8c7f73" }}>{campaign.status.label}</em></small></span></span></td>
               <td className="num">{count(campaign.impressions)}</td>
               <td className="num"><b>{credits(earnedOf(campaign.impressions))}</b></td>
             </tr>
@@ -181,7 +234,7 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
     ...(kind === "earnings" ? [] : payouts.filter((row) => row.day >= from && row.day <= to).map((row) => ({ key: `payout:${row.day}`, day: row.day, payout: true, amount: row.amount, demo: row.demo }))),
   ].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : (b.payout ? 1 : 0) - (a.payout ? 1 : 0)));
   const historyTab = (
-    <TableBox title="History" className="wl-histbox" tools={<><div className="cr-tabs" role="tablist" aria-label="Show">{[["all", "All"], ["earnings", "Earnings"], ["payouts", "Payouts"]].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={kind === key} onClick={() => setKind(key)}>{label}</button>)}</div><HistoryPeriod value={span} onChange={setSpan} min={all[0] ?? null} /></>} head={[["Date"], ["Operation"], ["Amount", true]]} note={<p className="wl-foot">Earnings: one line per game per day, kept for the last {all.length} days. Payouts: on the 1st of a month, the whole balance once it has reached {credits(plan.minimum)} C.</p>}>
+    <TableBox title="History" icon="history" className="wl-histbox" tools={<><div className="cr-tabs" role="tablist" aria-label="Show">{[["all", "All"], ["earnings", "Earnings"], ["payouts", "Payouts"]].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={kind === key} onClick={() => setKind(key)}>{label}</button>)}</div><HistoryPeriod value={span} onChange={setSpan} min={all[0] ?? null} /></>} head={[["Date"], ["Operation"], ["Amount", true]]} note={<p className="wl-foot">Earnings: one line per game per day, kept for the last {all.length} days. Payouts: on the 1st of a month, the whole balance once it has reached {credits(plan.minimum)} C.</p>}>
       {historyLines.map((row) => row.payout ? (
         <tr key={row.key}>
           <td className="wl-date">{dayText(row.day)}</td>
@@ -209,6 +262,11 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
         </div>
       </WindowTop>
       <div className="gp-work">{tab === "overview" ? overview : historyTab}</div>
+      <Modal open={Boolean(details)} onClose={() => setDetails(null)} title={details?.name ?? "Campaign"} wide lightClose footer={<button type="button" className="button" onClick={() => setDetails(null)}>Close</button>}>
+        {details && !details.data && !details.error && <p className="wl-cd-wait"><span className="spinner" aria-hidden="true" /> Loading…</p>}
+        {details?.error && <p className="error" role="alert">{details.error}</p>}
+        {details?.data && <CampaignDetails d={details.data} />}
+      </Modal>
     </div>
   );
 }

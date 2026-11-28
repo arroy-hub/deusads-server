@@ -10605,3 +10605,69 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-bh-plate .wl-boxwheel { margin: 0; }
 .wl-payout .wl-pay-goal { padding-top: 6px; }
 @media (max-width: 520px) { .wl-bh-plate { min-width: 0; } }
+
+/* Game Campaigns tab: the pictures of one creative fold under its name. */
+.cp-cgroup { border-top: 1px solid #efe7de; }
+.cp-cgroup:first-of-type { border-top: 0; }
+.cp-ghead { cursor: pointer; border-radius: 8px; }
+.cp-ghead:hover { background: #faf7f3; }
+.cp-ghead:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+.cp-gcaret { display: grid; place-items: center; color: var(--ink-2); transition: transform .12s; }
+.cp-cgroup.is-open .cp-gcaret { transform: rotate(90deg); }
+.cp-gthumb { display: grid; place-items: center; }
+.cp-gmore { font-size: 12.5px; font-weight: 600; color: var(--signal-ink); white-space: nowrap; }
+.cp-gbody { margin: 0 0 6px 18px; padding-left: 14px; border-left: 2px solid #efe7de; }
+
+/* Side menu: the arrow of an entry with a list under it (My games) unfolds the list without opening the entry. */
+.rail-row { display: flex; align-items: center; gap: 2px; }
+.rail-row > .rail-link { flex: 1 1 auto; min-width: 0; }
+.rail-fold { flex: none; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: none; color: #a8a29a; cursor: pointer; transition: transform .12s; }
+.rail-fold:hover { background: #322f2b; color: #fff; }
+.rail-fold[aria-expanded="true"] svg { transform: rotate(180deg); }
+.rail-fold:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+
+/* Wallet blocks with the glow of the blocks of Home; the head of a table block, with its tools on the band. */
+.wl-ops.wl-blk, .wl-box.wl-blk { border: 0; border-radius: 20px; box-shadow: 0 1px 2px rgba(60,35,20,.05), 0 14px 34px -14px rgba(60,35,20,.18); }
+.wl-lay .wl-hero { border-radius: 20px; box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 1px 2px rgba(60,35,20,.05), 0 14px 34px -14px rgba(60,35,20,.3); }
+.wl-box.wl-blk { position: relative; overflow: hidden; padding-top: 0; }
+.wl-box.wl-blk .wl-bh { margin-bottom: 10px; }
+.wl-box.wl-blk .wl-bh-r { gap: 8px; }
+/* the first block of a tab starts where the first block of Overview does */
+.gp-work > .gp-panel:first-child { margin-top: 0; }
+/* quieter switches on the band of a block */
+.wl-bh-r .cr-tabs { padding: 2px; border-radius: 8px; background: #ebe6e0; }
+.wl-bh-r .cr-tabs button { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+.wl-bh-r .wl-period { gap: 6px; }
+.wl-bh-r .wl-range .field { height: 28px; font-size: 12px; padding: 0 6px; }
+@media (max-width: 760px) { .wl-box.wl-blk .wl-bh { flex-wrap: wrap; row-gap: 8px; } .wl-box.wl-blk .wl-bh-r { position: relative !important; height: auto; right: auto; flex-wrap: wrap; } .wl-box.wl-blk .wl-bh-band { height: 100%; } }
+
+/* Developer wallet, By campaign: the campaign's category tile, a name that opens its window, and the window. */
+.wl-ctile { flex: none; width: 34px; height: 34px; border-radius: 9px; }
+.wl-ctile .cp-cti { width: 19px; height: 19px; }
+.wl-clink { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; text-align: left; text-decoration: underline; text-decoration-color: #d8cabd; text-underline-offset: 3px; }
+.wl-clink:hover { color: var(--signal-ink); text-decoration-color: currentColor; }
+.wl-cd { display: grid; gap: 16px; font-size: 14px; }
+.wl-cd-wait { display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
+.wl-cd-facts { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 18px; }
+.wl-cd-facts div.is-wide { grid-column: 1 / -1; }
+.wl-cd-facts dt { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.wl-cd-facts dd { margin: 3px 0 0; font-weight: 600; }
+.wl-cd-cat { display: inline-flex; align-items: center; gap: 8px; }
+.wl-cd-cat .wl-ctile { width: 24px; height: 24px; border-radius: 7px; }
+.wl-cd-cat .wl-ctile .cp-cti { width: 14px; height: 14px; }
+.wl-cd-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid #efe7de; border-radius: 12px; overflow: hidden; }
+.wl-cd-sum div { padding: 12px 16px; display: grid; gap: 2px; border-left: 1px solid #efe7de; }
+.wl-cd-sum div:first-child { border-left: 0; }
+.wl-cd-sum b { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.wl-cd-sum span { font-size: 12px; color: var(--ink-2); }
+.wl-cd-best { margin: 0; max-width: none; padding: 10px 14px; border-radius: 10px; background: #fbeae4; color: #4a271d; }
+.wl-cd-list { display: grid; gap: 14px; }
+.wl-cd-cr h3 { margin: 0 0 6px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 15px; font-weight: 800; }
+.wl-cd-cr h3 span { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.wl-cd-pic { display: grid; grid-template-columns: 96px minmax(110px, 1fr) minmax(80px, 1.4fr) 120px 110px; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid #efe7de; }
+.wl-cd-img { display: block; width: 96px; height: 56px; border-radius: 7px; border: 1px solid #e3e0da; background: #f4f1ec center / contain no-repeat; }
+.wl-cd-what, .wl-cd-num { display: grid; gap: 1px; min-width: 0; }
+.wl-cd-num { text-align: right; font-variant-numeric: tabular-nums; }
+.wl-cd-pic small { font-size: 12px; color: var(--ink-3); }
+.wl-cd-games { margin: 0; max-width: none; font-size: 13px; color: var(--ink-2); }
+@media (max-width: 720px) { .wl-cd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wl-cd-sum { grid-template-columns: 1fr; } .wl-cd-sum div { border-left: 0; border-top: 1px solid #efe7de; } .wl-cd-sum div:first-child { border-top: 0; } .wl-cd-pic { grid-template-columns: 96px 1fr auto; } .wl-cd-bar, .wl-cd-pic .wl-cd-num:last-child { display: none; } }

@@ -81,6 +81,8 @@ const HEAD_ICONS = {
   // a list of operations
   ops: <path d="M8 6.5h11M8 12h11M8 17.5h11M4.2 6.5h.01M4.2 12h.01M4.2 17.5h.01" />,
   // money going out to the developer
+  // what happened, day by day
+  history: <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 5v4h4M12 7.5V12l3 2" />,
   payout: <path d="M4 6.5h13a2 2 0 0 1 2 2V10M4 6.5v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2V12a2 2 0 0 0-2-2H6a2 2 0 0 1-2-2v-1.5zM4 6.5A2 2 0 0 1 6 4.5h9M16.5 14.8h.01" />,
 };
 
@@ -128,12 +130,14 @@ export function SumBlock({ hero, cells }) {
 }
 
 /** A titled table in a white box. `head`: [[label, numeric?]]. */
-export function TableBox({ title, tools = null, head, children, note = null, className = "" }) {
+export function TableBox({ title, tools = null, head, children, note = null, className = "", icon = null }) {
   // while the page fetches its figures again the rows fade and a wheel turns beside the title
   const waiting = useRefreshing();
   return (
-    <section className={`gp-panel gp-tablebox wl-box${waiting ? " is-waiting" : ""}${className ? ` ${className}` : ""}`} aria-busy={waiting || undefined}>
-      <div className="gp-table-head"><h2>{title}{waiting && <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" />}</h2><div className="gp-tools">{tools}</div></div>
+    <section className={`gp-panel gp-tablebox wl-box${icon ? " wl-blk" : ""}${waiting ? " is-waiting" : ""}${className ? ` ${className}` : ""}`} aria-busy={waiting || undefined}>
+      {icon
+        ? <BlockHead icon={icon} title={title} left={waiting ? <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" /> : null} right={tools} />
+        : <div className="gp-table-head"><h2>{title}{waiting && <span className="wait-wheel wl-boxwheel" role="status" aria-label="Updating" />}</h2><div className="gp-tools">{tools}</div></div>}
       <div className="gp-scroll">
         <table className="gp-table wl-table">
           <thead><tr>{head.map(([label, numeric], index) => <th key={index} className={numeric ? "num" : undefined}>{label}</th>)}</tr></thead>

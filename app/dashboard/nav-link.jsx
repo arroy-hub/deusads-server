@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isActive } from "../../lib/nav";
@@ -14,8 +15,12 @@ export default function NavLink({ item }) {
   const active = isActive(item, pathname);
   // On a child's page the child is the current page; its parent only stays open around it.
   const insideChild = item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`));
-  return (
-    <>
+  // An entry with a list under it (My games) can be unfolded by its arrow from any page, without opening the entry.
+  // Until the arrow is used the list follows the page: open on the entry's own pages.
+  const [unfolded, setUnfolded] = useState(null);
+  const hasList = item.children?.length > 0;
+  const listOpen = hasList && (unfolded ?? active);
+  const link = (
       <Link
         href={item.href}
         className="rail-link"
@@ -30,7 +35,18 @@ export default function NavLink({ item }) {
         <span>{item.label}</span>
         {item.badge ? <span className={`rail-badge${item.key === "system" ? " is-warn" : ""}`}>{item.badge}</span> : item.mark ?? null}
       </Link>
-      {active && item.children?.length > 0 && (
+  );
+  return (
+    <>
+      {hasList ? (
+        <div className="rail-row">
+          {link}
+          <button type="button" className="rail-fold" aria-expanded={listOpen} aria-label={listOpen ? `Hide the list under ${item.label}` : `Show the list under ${item.label}`} title={listOpen ? "Hide the list" : "Show the list"} onClick={() => setUnfolded(!listOpen)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+        </div>
+      ) : link}
+      {listOpen && (
         <div className="rail-sub" role="group" aria-label={item.label}>
           {item.children.map((child) => (
             <Link key={child.href} href={child.href} className="rail-link rail-child" aria-current={pathname === child.href || pathname.startsWith(`${child.href}/`) ? "page" : undefined}>

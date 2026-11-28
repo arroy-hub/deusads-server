@@ -149,7 +149,6 @@ export default async function GamesPage({ searchParams }) {
         <nav className="tabs" aria-label="My games sections">
           <Link href="/dashboard/games" className="tab" aria-current={tab === "games" ? "page" : undefined}>
             Games
-            <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{withConnection.length}</span>
           </Link>
           <Link href="/dashboard/games?tab=performance" className="tab" aria-current={tab === "performance" ? "page" : undefined}>
             Performance

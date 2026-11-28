@@ -104,6 +104,16 @@ const colorOfName = (name) => AVATARS[name.split("").reduce((n, ch) => n + ch.ch
 // With rows per picture (migration 0062) an item under a campaign is a creative in one shape: `creativeId` is the
 // creative, `id` the picture. Without it the item is the creative itself.
 const creativeIdOf = (item) => item.creativeId ?? item.id;
+/** Picture rows of a campaign gathered by creative, in the order they come: [{ id, name, rows }]. */
+function creativeGroups(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const id = creativeIdOf(row);
+    if (!groups.has(id)) groups.set(id, { id, name: row.name, rows: [] });
+    groups.get(id).rows.push(row);
+  }
+  return [...groups.values()];
+}
 const labelOf = (item) => (item.shape ? `${item.name} · ${item.format}` : item.name);
 
 /** The picture of a row in a box of the given size: the picture made for the shape, or the main picture cut to it. */
@@ -127,6 +137,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const wallet = Boolean(model.wallet);
   // With migration 0062 a row under a campaign is one picture: a creative in one shape, blocked on its own.
   const pictures = Boolean(model.pictures);
+  const [openGroups, setOpenGroups] = useState({}); // campaign id + creative id -> its pictures are unfolded
   const earnedCell = (paid) => (wallet ? <div className="cp-num pmc-earn">{earnedText(paid)}</div> : null);
   const [controls, setControls] = useState(model.controls);
   const [categoryRows, setCategoryRows] = useState(model.categoryRows);
@@ -727,7 +738,8 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                           </>
                         )}
                         <div className="cp-srow shead" aria-hidden="true"><span /><span /><span>{pictures ? "Creative · shape · placements" : "Creative"}</span><span>Status</span><span className="cp-num">Impressions</span>{wallet && <span className="cp-num">Earned</span>}<span className="cp-num">Avg. visible</span><span /></div>
-                        {campaign.creatives.map((creative) => {
+                        {(() => {
+                          const renderPicture = (creative) => {
                           const campaignOff = key !== "active" && key !== "ended" && key !== "waiting";
                           const label = creative.blocked ? "Blocked" : creative.audience && creative.base !== "ended" && key !== "ended" ? "Not shown" : creative.base === "ended" || key === "ended" ? "Ended" : campaignOff || key === "waiting" ? (key === "waiting" ? "Waiting" : "Not shown") : creative.base === "waiting" ? "Waiting" : "Showing";
                           const pill = creative.blocked ? "p-blocked" : label === "Showing" ? "p-active" : label === "Ended" ? "p-ended" : "p-off";
@@ -777,7 +789,39 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                               )}
                             </div>
                           );
-                        })}
+                          };
+                          // Pictures of one creative stand together under its name, and fold: a campaign with many creatives stays readable.
+                          const groups = pictures ? creativeGroups(campaign.creatives) : null;
+                          if (!groups || groups.length < 2) return campaign.creatives.map(renderPicture);
+                          return groups.map((group) => {
+                            const gkey = `${campaign.id}:${group.id}`;
+                            const open = openGroups[gkey] ?? false;
+                            const total = group.rows.reduce((sum, row) => ({ views: sum.views + row.totals.views, sum: sum.sum + row.totals.sum, n: sum.n + row.totals.n, paid: sum.paid + row.totals.paid }), { views: 0, sum: 0, n: 0, paid: 0 });
+                            const blocked = group.rows.filter((row) => row.blocked).length;
+                            const fresh = group.rows.some((row) => row.isNew);
+                            const first = group.rows[0];
+                            return (
+                              <div className={`cp-cgroup${open ? " is-open" : ""}`} key={gkey}>
+                                <div className="cp-srow cp-ghead" role="button" tabIndex={0} aria-expanded={open} aria-label={`${group.name}: ${group.rows.length} ${group.rows.length === 1 ? "picture" : "pictures"}`}
+                                  onClick={() => setOpenGroups((all) => ({ ...all, [gkey]: !open }))}
+                                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenGroups((all) => ({ ...all, [gkey]: !open })); } }}>
+                                  <span className="cp-gcaret" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                                  <span className="cp-gthumb"><Picture item={first} box={fit(first.aspect, 72, 50)} alt="" lazy /></span>
+                                  <div>
+                                    <strong>{group.name}</strong> {fresh && <span className="cp-tag">New</span>}
+                                    <div className="cp-meta cp-sub">{group.rows.length} {group.rows.length === 1 ? "picture" : "pictures"}: {group.rows.map((row) => row.format).filter(Boolean).join(", ")}</div>
+                                  </div>
+                                  <div>{blocked > 0 && <span className="cp-pill p-blocked">{blocked === group.rows.length ? "Blocked" : `${blocked} blocked`}</span>}</div>
+                                  <div className="cp-num">{number(total.views)}</div>
+                                  {earnedCell(total.paid)}
+                                  <div className="cp-num">{averageText(total)}</div>
+                                  <div className="cp-acts"><span className="cp-gmore">{open ? "Hide" : "Show"}</span></div>
+                                </div>
+                                {open && <div className="cp-gbody">{group.rows.map(renderPicture)}</div>}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>

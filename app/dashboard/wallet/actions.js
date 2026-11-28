@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getMember } from "../../../lib/admin";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { WALLET_MIGRATION, parseAmount, walletError, walletMissing } from "../../../lib/wallet";
+import { loadCampaignForDeveloper } from "../../../lib/wallet-data";
 
 const MISSING = `Run supabase/migrations/${WALLET_MIGRATION} in the Supabase SQL editor first.`;
 
@@ -46,4 +47,17 @@ export async function addBudget({ campaignId, amount }) {
 
   revalidatePath("/dashboard", "layout");
   return { ok: true, available: Number(data.available) || 0, budget: Number(data.budget) || 0, resumed: Boolean(data.resumed), amount: value };
+}
+
+
+/**
+ * A campaign that paid in the caller's games, for the window that opens from "By campaign" in the developer's wallet:
+ * who runs it and how each creative and picture did in their games. Only what happened in the caller's own games.
+ */
+export async function campaignDetails({ campaignId, days }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  const period = [7, 30, 90].includes(Number(days)) ? Number(days) : 30;
+  const details = await loadCampaignForDeveloper(me.service, me.user.id, String(campaignId ?? ""), { days: period }).catch(() => null);
+  return details ? { ok: true, details } : { error: "This campaign has not paid in your games." };
 }

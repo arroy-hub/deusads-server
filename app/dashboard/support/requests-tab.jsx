@@ -22,7 +22,9 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
   const router = useRouter();
   const now = useNow();
   const [items, setItems] = useState(requests);
-  const [folders, setFolders] = useState(initialFolders.map((f) => ({ ...f, open: true })));
+  // Folders are gone from this page: every request is in the one list, in the person's own order (a request that was in
+  // a folder simply shows among the others).
+  const [folders, setFolders] = useState([]);
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
   // What the page lists: everything, only what the person wrote, or only their reports on creatives.
@@ -35,7 +37,6 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
 
   // The server list is the truth: take it again whenever the page is refreshed.
   useEffect(() => setItems(requests), [requests]);
-  useEffect(() => setFolders((current) => initialFolders.map((f) => ({ ...f, open: current.find((c) => c.id === f.id)?.open ?? true }))), [initialFolders]);
 
   useEffect(() => {
     if (!menu) return;
@@ -149,30 +150,6 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
         <StripFace request={r} now={now} />
         <div className="cx-right">
           {r.unread && <span className="sp-pill">New reply</span>}
-          <div className="cx-dots-in sp-menu-zone">
-            <button type="button" className="rd-more" aria-label={`Actions for ${r.title}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setMenu(open ? null : { id: r.id, moving: false })}><IcMore /></button>
-            {open && (
-              <div className="sp-menu" role="menu">
-                <button type="button" role="menuitem" className="fl-opt" onClick={() => { setMenu(null); onOpen(r.id); }}>Open conversation</button>
-                <button type="button" role="menuitem" className={`fl-opt${moving ? " on" : ""}`} aria-haspopup="menu" aria-expanded={moving} onClick={() => setMenu({ id: r.id, moving: !moving })}>Move to<span className="sp-chev" aria-hidden="true">›</span></button>
-              </div>
-            )}
-            {moving && (
-              <div className="sp-menu sp-sub" role="menu" aria-label="Move to">
-                <div className="sp-cap">Move to</div>
-                {folders.map((f) => (
-                  <button key={f.id} type="button" role="menuitemradio" aria-checked={r.folderId === f.id} className="fl-opt" onClick={() => { setMenu(null); place(r.id, { folderId: f.id }); }}>
-                    {f.name}{r.folderId === f.id && <span className="sp-tick">✓</span>}
-                  </button>
-                ))}
-                <button type="button" role="menuitemradio" aria-checked={!r.folderId} className="fl-opt" onClick={() => { setMenu(null); place(r.id, { folderId: null }); }}>
-                  No folder{!r.folderId && <span className="sp-tick">✓</span>}
-                </button>
-                <div className="sp-sep" />
-                <button type="button" role="menuitem" className="fl-opt" onClick={() => { setMenu(null); addFolder((folderId) => place(r.id, { folderId })); }}>+ New folder…</button>
-              </div>
-            )}
-          </div>
         </div>
       </article>
     );
@@ -235,7 +212,6 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
         {(filtering || show !== "all") && <button type="button" className="link-button" onClick={() => { setStatus("all"); setType("all"); setShow("all"); }}>Clear</button>}
         <span className="cx-spacer" />
         <span className="fl-shown" aria-live="polite">{[showRequests ? plural(shown.length) : "", showReports ? `${reports.length} ${reports.length === 1 ? "report" : "reports"}` : ""].filter(Boolean).join(" · ")}</span>
-        {show !== "reports" && <button type="button" className="sp-sq is-quiet" title="New folder" aria-label="New folder" onClick={() => addFolder()}><FolderPlusIcon /></button>}
         <button type="button" className="sp-sq" title="New request" aria-label="New request" onClick={onNew}><IcPlus size={18} /></button>
       </div>
 
