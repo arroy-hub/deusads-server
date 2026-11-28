@@ -115,6 +115,8 @@ export const GET = guarded(async function GET(request) {
         advertiserId: item.advertiserId,
         creativeId: item.creativeId,
         category: item.category,
+        // the category of the campaign itself: a game that blocks it shows none of the campaign's creatives
+        campaignCategory: campaignRules?.ruleOf.get(item.assignmentId)?.category ?? "",
         // a creative can be blocked in one shape only (migration 0062): the shape of this placement
         shape: shapeKey(item.row.placements?.aspect_ratio),
       },
@@ -314,10 +316,13 @@ async function loadCampaignRules(db, game, bookings, profileOf) {
   }
 
   const skippedBy = new Set((skipped ?? []).map((row) => row.campaign_id));
+  // The campaign's own category, read apart: a database without the column simply has none.
+  const own = await db.from("campaigns").select("id, category").in("id", campaignIds);
+  const categoryOf = new Map(own.error ? [] : (own.data ?? []).map((row) => [row.id, row.category || ""]));
   const ruleOfCampaign = new Map(
     (campaigns ?? []).map((campaign) => [
       campaign.id,
-      { pausedAt: effectivePause(campaign.paused_at, campaign.resume_on), targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set(), outOfBudget: !hasBudget(campaign) },
+      { pausedAt: effectivePause(campaign.paused_at, campaign.resume_on), targeting: campaign.targeting ?? null, excluded: skippedBy.has(campaign.id) ? new Set([game.id]) : new Set(), outOfBudget: !hasBudget(campaign), category: categoryOf.get(campaign.id) ?? "" },
     ])
   );
   const ruleOf = new Map(bookings.map((booking) => [booking.assignment_id, ruleOfCampaign.get(booking.campaign_id)]));

@@ -96,3 +96,17 @@ assert.match(controlNote({ ...who, creativeId: "cr9" }, ctx), /blocked this crea
 assert.match(controlNote({ ...who, category: "gambling" }, ctx), /does not show ads of this category/);
 
 console.log("game-controls tests passed");
+
+// A campaign filed under a category is kept out when the game blocks that category, whatever its creatives carry.
+{
+  const game = { controls: controlMap([]), blocked: new Set(["food_drink"]) };
+  const ad = { source: "booking", campaignId: "cx", advertiserId: "ax", creativeId: "kx", category: "games_apps" };
+  assert.equal(mayServe(ad, game), true, "nothing of it is blocked");
+  assert.equal(mayServe({ ...ad, campaignCategory: "food_drink" }, game), false, "the campaign's category is blocked");
+  assert.equal(mayServe({ ...ad, category: "food_drink", campaignCategory: "games_apps" }, game), false, "the creative's own category is blocked");
+  assert.equal(controlNote({ ...ad, campaignCategory: "food_drink" }, game), "This game does not show ads of this category.");
+  const whole = { campaignId: "cx", advertiserId: "ax", base: "active" };
+  assert.equal(campaignState({ ...whole, category: "food_drink", creativeCategories: ["games_apps"] }, game).key, "blockedcat");
+  assert.equal(campaignState({ ...whole, category: "games_apps", creativeCategories: ["food_drink"] }, game).key, "blockedcat", "all its creatives are blocked");
+  assert.equal(campaignState({ ...whole, category: "games_apps", creativeCategories: ["food_drink", "tech"] }, game).key, "active", "one creative still shows");
+}

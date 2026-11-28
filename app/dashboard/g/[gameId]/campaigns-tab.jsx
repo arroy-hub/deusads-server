@@ -46,7 +46,7 @@ const PILL = {
 const ROW_CLASS = { nofit: "s-inactive", nobudget: "s-inactive", paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
 // The colour of a campaign's tile, the same as in the Wallet: green while it shows, amber while paused, grey otherwise.
 const TILE_TONE = { active: "#1b8a50", mixed: "#c98a14", paused: "#c98a14", advpaused: "#c98a14" };
-const shownOf = (campaign) => campaign.shownCategory || campaign.category;
+const shownOf = (campaign) => campaign.category;
 const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === "blockedadv";
 
 // What a developer may give as the reason for pausing or blocking an ad; the advertiser reads it next to the status.
@@ -181,7 +181,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   // Every campaign with its state and figures for the chosen period.
   const campaigns = useMemo(() => {
     return model.campaigns.map((campaign) => {
-      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, base: campaign.base, advertiserPaused: campaign.advertiserPaused, outOfBudget: campaign.outOfBudget, fit: campaign.audience }, ctx);
+      const state = campaignState({ campaignId: campaign.id, advertiserId: campaign.advertiserId, category: campaign.category, creativeCategories: campaign.creativeCategories, base: campaign.base, advertiserPaused: campaign.advertiserPaused, outOfBudget: campaign.outOfBudget, fit: campaign.audience }, ctx);
       const creatives = campaign.creatives.map((creative) => {
         // A whole creative blocked (the only kind before rows per picture) stops every shape of it; a picture's own block only that shape.
         const whole = ctx.controls.get(`creative:${creativeIdOf(creative)}`);
