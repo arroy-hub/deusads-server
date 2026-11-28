@@ -10434,3 +10434,26 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 
 .cc-holds, .rd-ed-hold { display: grid; gap: 10px; }
 .cc-state .ov-pill + .ov-pill { margin-top: -2px; }
+
+/* The creative editor with a decision from DeusADS: two windows side by side, the editor and the conversation */
+.rd-editor.has-side { width: min(92rem, calc(100vw - 2rem)); background: transparent; border: 0; box-shadow: none; overflow: visible; }
+.rd-editor.has-side[open] { flex-direction: row; align-items: stretch; gap: 14px; }
+.rd-editor.has-side > .rd-ed-box, .rd-ed-side { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg, 14px); box-shadow: 0 24px 64px rgba(20, 22, 27, 0.28); overflow: hidden; }
+.rd-editor.has-side > .rd-ed-box { flex: 1 1 0; min-width: 0; }
+.rd-ed-side { flex: 0 0 min(26rem, 34vw); display: flex; flex-direction: column; min-height: 0; }
+.rd-ed-side-h { display: flex; align-items: baseline; gap: 8px; padding: 16px 18px 10px; border-bottom: 1px solid #efece7; }
+.rd-ed-side-h b { font-size: 15px; }
+.rd-ed-side-h span { font-size: 12.5px; color: var(--ink-2); }
+.rd-ed-side-b { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 16px 16px; display: grid; gap: 12px; align-content: start; }
+.rd-ed-side .hold-note dl div { grid-template-columns: 1fr; gap: 0; }
+.rd-ed-side .hold-note dt { font-size: 12px; }
+.rd-ed-side .hold-msg.is-mine { margin-left: 18px; }
+@media (max-width: 1100px) {
+  .rd-editor.has-side[open] { flex-direction: column; }
+  .rd-ed-side { order: -1; flex: 0 0 auto; max-height: 34dvh; }
+  .rd-editor.has-side > .rd-ed-box { flex: 1 1 auto; min-height: 0; }
+}
+.rd-ed-side .hold-acts { position: sticky; bottom: -16px; margin: 12px -14px -12px; padding: 10px 14px 12px; background: inherit; border-top: 1px solid rgba(60, 35, 20, .12); border-radius: 0 0 8px 8px; z-index: 1; }
+.rd-ed-side .hold-note.is-change .hold-acts { background: #fbf0d9; }
+.rd-ed-side .hold-note.is-blocked .hold-acts { background: var(--signal-soft); }
+.rd-ed-side .hold-hint { display: none; }

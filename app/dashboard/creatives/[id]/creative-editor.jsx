@@ -223,7 +223,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
   const stageStyle = { "--aspect": current.aspect };
 
   return (
-    <dialog ref={dialog} className="modal rd-dialog rd-editor" aria-labelledby="rd-ed-title" onClose={close} onCancel={(e) => busy && e.preventDefault()}>
+    <dialog ref={dialog} className={`modal rd-dialog rd-editor${holds.length > 0 ? " has-side" : ""}`} aria-labelledby="rd-ed-title" onClose={close} onCancel={(e) => busy && e.preventDefault()}>
       <div className="modal-box rd-ed-box" tabIndex={-1} autoFocus>
         <div className="rd-ed-head">
           <input id="rd-ed-title" className="rd-dname" aria-label="Creative name" value={name} maxLength={120} disabled={busy} onChange={(e) => { setName(e.target.value); setDirty(true); }} />
@@ -231,9 +231,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           <span className="rd-ed-use">{campaigns === 0 ? "Not in use" : `In ${campaigns} ${campaigns === 1 ? "campaign" : "campaigns"}`}</span>
           <button type="button" className="modal-close" aria-label="Close" disabled={busy} onClick={() => dialog.current?.close()}>×</button>
         </div>
-        {holds.length > 0
-          ? <div className="rd-ed-hold">{holds.map((hold) => <HoldNotice key={hold.shape ?? "whole"} creativeId={creative.id} hold={hold} onPage />)}</div>
-          : status === "rejected" && note && <p className="notice rd-ed-note">Reason: {note}. Upload a corrected creative to book it.</p>}
+        {holds.length === 0 && status === "rejected" && note && <p className="notice rd-ed-note">Reason: {note}. Upload a corrected creative to book it.</p>}
         <div className="rd-ed-scroll">
           {missing.length > 0 ? (
             <div className="rd-need" role="status">
@@ -328,6 +326,14 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           </span>
         </div>
       </div>
+      {/* What DeusADS decided after a report, with the conversation: a window of its own beside the editor, so that
+          a long conversation never squeezes the pictures. */}
+      {holds.length > 0 && (
+        <aside className="rd-ed-side" aria-label="From DeusADS">
+          <div className="rd-ed-side-h"><b>From DeusADS</b><span>{holds.length === 1 ? "about this creative" : `${holds.length} decisions about this creative`}</span></div>
+          <div className="rd-ed-side-b">{holds.map((hold) => <HoldNotice key={hold.shape ?? "whole"} creativeId={creative.id} hold={hold} onPage />)}</div>
+        </aside>
+      )}
     </dialog>
   );
 }
