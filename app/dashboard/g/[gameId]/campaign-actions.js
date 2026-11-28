@@ -6,7 +6,7 @@ import { getMember } from "../../../../lib/admin";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { categoryLabel, isCategory } from "../../../../lib/categories";
 import { ACTIONS, SCOPES, WINDOW_MS, blockedCategories, bulkKeyOf, changeMessage, nextControl, planChange } from "../../../../lib/game-controls";
-import { parsePictureId, pictureId, shapeKey, shapeLabel } from "../../../../lib/game-pictures";
+import { isShapeKey, parsePictureId, pictureId, shapeKey, shapeLabel } from "../../../../lib/game-pictures";
 import { notify, notifyMany } from "../../../../lib/notify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -276,8 +276,10 @@ const REPORT_REASONS = ["Misleading or deceptive", "Inappropriate content", "Wro
 
 /**
  * The developer reports a creative that runs in their game. DeusADS reviews it (Disputes in the admin area).
- * With `alsoBlock` the creative is blocked in this game at once, the same way as the Block button: in the one shape the
- * report was sent from (`shape`, migration 0062), or as a whole when no shape is given.
+ * `shape` is the picture the report was sent from (a creative in one shape, migration 0062): the report keeps it
+ * (migration 0063), so DeusADS sees the picture that was reported and where it stands.
+ * With `alsoBlock` the creative is blocked in this game at once, the same way as the Block button: in that one shape,
+ * or as a whole when no shape is given.
  */
 export async function reportCreative({ gameId, creativeId, reason, comment, alsoBlock, shape = null }) {
   const found = await ownGame(gameId);
@@ -294,14 +296,18 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
     : { data: [] };
   if (!booked?.length) return { error: "This creative is not booked in your game." };
 
-  const { error } = await me.service.from("creative_disputes").insert({
+  const picture = isShapeKey(shape) ? shape : null;
+  const report = {
     game_id: game.id,
     developer_id: me.user.id,
     creative_id: creativeId,
     campaign_id: booked[0].campaign_id,
     reason: cleanReason,
     comment: clip(comment, 1000) || null,
-  });
+  };
+  let { error } = await me.service.from("creative_disputes").insert(picture ? { ...report, shape: picture } : report);
+  // before migration 0063 the report cannot say which picture: it is sent about the creative
+  if (picture && error && ["42703", "PGRST204"].includes(error.code)) ({ error } = await me.service.from("creative_disputes").insert(report));
   if (error) {
     if (error.code === "23505") return { ok: true, duplicate: true, message: "You already reported this creative. DeusADS is reviewing it." };
     if (isSchemaOutdated(error) || error.code === "42P01") return { error: "Run migration 0024 in the Supabase SQL editor first." };
@@ -313,8 +319,8 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
 
   let block = null;
   if (alsoBlock) {
-    block = shape
-      ? await changeAds({ gameId, scope: "picture", action: "block", ids: [pictureId(creativeId, shape)], reason: "Blocked pending a DeusADS review", comment: "" })
+    block = picture
+      ? await changeAds({ gameId, scope: "picture", action: "block", ids: [pictureId(creativeId, picture)], reason: "Blocked pending a DeusADS review", comment: "" })
       : await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Blocked pending a DeusADS review", comment: "" });
   }
   revalidatePath("/dashboard/admin/disputes");

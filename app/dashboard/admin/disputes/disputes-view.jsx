@@ -49,7 +49,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
               onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCard("dispute", r.id); } }}>
               <Th seed={r.creativeId} w={52} h={34} tag={r.creative} url={r.creativeUrl} />
               <div className="cb-who"><div>
-                <strong><Lnk onClick={() => openCard("creative", r.creativeId)}>{r.creative}</Lnk></strong>
+                <strong><Lnk onClick={() => openCard("creative", r.creativeId)}>{r.picture ?? r.creative}</Lnk></strong>
                 <span className="cb-mute"><span className={`cb-pill cb-${adv ? "info" : "warn"} cb-nodot`} style={{ padding: "0 8px", fontSize: 11.5 }}>{adv ? "Advertiser" : "Developer"}</span> {adv ? r.adv : r.dev}</span>
                 <span className="cb-mute">{adv ? <>{r.bookingId ? <Lnk onClick={() => openCard("booking", r.bookingId)}>booking in {r.game}</Lnk> : `booking in ${r.game}`} · {r.dev}</> : `${r.adv} · in ${r.game}`}</span>
               </div></div>

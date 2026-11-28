@@ -74,8 +74,9 @@ export function Th({ seed, w, h, tag, url, onClick, label, zoom, style }) {
 }
 
 /** A big preview tile (dm-pv, pv): the gradient with the name, or the picture. */
-export function BigPv({ seed, tag, url, className = "cb-pv" }) {
-  return <div className={className} style={{ background: url ? `center / cover no-repeat url(${url}), #1d1a18` : gradientFor(seed) }}>{url ? null : <b>{tag}</b>}</div>;
+export function BigPv({ seed, tag, url, className = "cb-pv", whole = false }) {
+  // `whole`: all of the picture is shown (a reported picture is judged by what it shows, edges included)
+  return <div className={className} style={{ background: url ? `center / ${whole ? "contain" : "cover"} no-repeat url(${url}), #1d1a18` : gradientFor(seed) }}>{url ? null : <b>{tag}</b>}</div>;
 }
 
 /** A link-looking button that opens a card (the mockup's lnk()). */

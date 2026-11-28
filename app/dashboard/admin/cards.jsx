@@ -174,12 +174,12 @@ function DisputeCard({ d, api, onClose }) {
     <div className="cb-box cb-dm" role="dialog" aria-label="Dispute">
       <div className="cb-dm-top"><div className="cb-dm-card">
         <div className="cb-dm-main">
-          <BigPv className="cb-dm-pv" seed={r.creativeId} tag={r.creative} url={r.creativeUrl} />
+          <BigPv className="cb-dm-pv" seed={r.creativeId} tag={r.creative} url={r.creativeUrl} whole />
           <div className="cb-dm-info">
             <div style={{ display: "flex", alignItems: "start", gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="cb-mute" style={eyebrow}>Dispute #{String(r.id).slice(0, 6)}</div>
-                <h2><Lnk onClick={() => api.open("creative", r.creativeId)}>{r.creative}</Lnk></h2>
+                <h2><Lnk onClick={() => api.open("creative", r.creativeId)}>{r.picture ?? r.creative}</Lnk></h2>
                 <div className="cb-mute">{r.adv} · {d.campaign || "No campaign"} · {adv ? bookingWord(`booking in ${r.game}`) : <>{r.categoryLabel}{d.creative.size ? ` · ${d.creative.size}` : ""}</>}</div>
               </div>
               <Pill tone={tone}>{r.open ? "Open" : r.status === "removed" ? "Removed" : r.status === "paused" ? "Booking paused" : "Dismissed"}</Pill>

@@ -120,4 +120,20 @@ const past = gameRows([none, other], [{ gameId: "g1", game: "2313", impressions:
 assert.deepEqual(past.map((row) => [row.game, row.label]), [["2313", "No picture fits"], ["Castle", "Showing"]]);
 assert.equal(gameStatus([none, live()]).state, "showing", "something of it still shows in that game");
 
+// ---- a report about one picture: the admin reads which picture, where it stands and what it has shown
+{
+  const { disputeRows, disputeEvents } = await import("../lib/admin-disputes.js");
+  const [row] = disputeRows([{ id: "d1", initiator: "developer", status: "open", created_at: "2026-11-28T10:40:00Z", game_id: "g1", creative_id: "sq", campaign_id: "c1", shape: "r16x9", shapeLabel: "16:9", creativeName: "Square", creativeUrl: "https://files/assets/sq-16x9.png", byName: "Dev", againstName: "Adv", gameName: "2313", reason: "Inappropriate content" }]);
+  assert.deepEqual([row.picture, row.shape, row.campaignId, row.creativeUrl], ["Square · 16:9", "r16x9", "c1", "https://files/assets/sq-16x9.png"]);
+  const facts = Object.fromEntries(disputeEvents(row, [], { booking: { id: "b1", placement: "Corner_1, Corner_2", campaign: "DeusPAY_1", from: "2026-11-23", to: "", impressions: 22, earned: 0.1056 }, creative: { size: "681 × 240" } })[0].facts.map(([label, value]) => [label, value]));
+  assert.equal(facts.Placements, "Corner_1, Corner_2");
+  assert.match(facts.Booking, /^DeusPAY_1 · /);
+  assert.equal(facts["Impressions so far"], "22 impressions · 0.11 C. earned by the developer");
+  assert.match(facts.Creative, /^Square · 16:9 · 681 × 240/);
+  // a report about a whole creative, with nothing found in the game, reads as before
+  const [plain] = disputeRows([{ id: "d2", status: "open", created_at: "2026-11-28T10:40:00Z", creativeName: "Square", reason: "Other" }]);
+  assert.equal(plain.picture, "Square");
+  assert.equal(Object.fromEntries(disputeEvents(plain, [], {})[0].facts.map(([label, value]) => [label, value])).Placement, "—");
+}
+
 console.log("game-pictures tests passed");
