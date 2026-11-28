@@ -67,7 +67,7 @@ const INFO = {
   freq: "How many players saw one, two, three or more ads. It shows whether the same players keep seeing them.",
   why: "For every empty slot, the step where the ad dropped out: nothing booked, audience did not fit, campaign rules and so on.",
   pl: "The share of game starts in which each placement got an ad. The emptiest come first, with the main reason when a placement is weak.",
-  fun: "Every time an ad came into view: how many of those chances lasted long enough to be measured, and how many became an engaged view (3 s or more from within 3 m).",
+  fun: "A chance: the ad came into the player’s view. An impression: it stayed in view for 1 second or more, large enough on screen and at a readable angle. An engaged view: an impression watched for 3 seconds or more from 3 metres or closer. Each share is counted from the line above it. Measured by SDK 0.11 and newer; the IAB in-game standard for a viewable ad is stricter than an impression and is not shown here.",
   len: "How long the measured views lasted, in four groups. The median is the typical view.",
   geo: "Where players were when they looked at the ad: average distance, viewing angle, and how much of the screen it took. Averaged over the measured views.",
   int: "How often players touched objects that carry an ad, and which interactive placements get touched most.",
@@ -418,19 +418,21 @@ function Attention({ m, dev, source }) {
     if (!f.empty) {
       const top = Math.max(f.opportunities, 1);
       out.push(
-        <Card key="fun" span={5} title={dev ? "From a chance to an engaged view" : "From a chance to an engaged view"} sub={`${whose}Every time the ad came into view, and how far it got`}>
+        <Card key="fun" span={5} title={dev ? "From a chance to an engaged view" : "From a chance to an engaged view"} sub={`${whose}Each line is a part of the line above it`}>
           <ul className="ig-funnel">
             {[
-              { label: "Engaged", v: f.engaged, c: ADV, note: f.engagedRate != null ? `${pct(f.engagedRate)} of seen · 3 s+ from 3 m` : "" },
-              { label: "Seen long enough", v: f.measured, c: "#d9744f", note: f.viewability != null ? `${pct(f.viewability)} of chances${f.viewableRate != null ? `, ${pct(f.viewableRate)} viewable by the IAB standard` : ""}` : "" },
-              { label: "Chances to be seen", v: f.opportunities, c: "#e8b5a3", note: "times the ad came into view" },
+              // top to bottom as the title says: every chance, the part of them that counted, the part of those that engaged
+              { label: "Chances to be seen", v: f.opportunities, c: "#e8b5a3", what: "the ad came into the player’s view", share: "" },
+              { label: "Impressions", v: f.measured, c: "#d9744f", what: "it stayed in view for 1 second or more", share: f.viewability != null ? `${pct(f.viewability)} of chances` : "" },
+              { label: "Engaged views", v: f.engaged, c: ADV, what: "watched for 3 seconds or more, from 3 metres or closer", share: f.engagedRate != null ? `${pct(f.engagedRate)} of impressions` : "" },
             ].map((s) => (
               <li key={s.label}>
                 <span className="ig-funnel-bar" style={{ width: `${Math.max((s.v / top) * 100, 3)}%`, background: s.c }}><b>{num(s.v)}</b></span>
-                <span className="ig-funnel-label">{s.label}<em>{s.note}</em></span>
+                <span className="ig-funnel-label"><span className="ig-funnel-name">{s.label}</span><em>{s.what}</em>{s.share && <i className="ig-funnel-share">{s.share}</i>}</span>
               </li>
             ))}
           </ul>
+          {f.opportunities > 0 && <p className="ig-funnel-sum"><b>{num(f.engaged)}</b> of <b>{num(f.opportunities)}</b> chances became engaged views: <b>{pct(f.engaged / f.opportunities, f.engaged / f.opportunities < 0.01 ? 1 : 0)}</b>.</p>}
         </Card>,
         <Card key="len" span={3} title="How long views lasted" sub={`Median ${sec(f.medianSeconds)}`}>
           <Cols items={f.buckets.map((b) => ({ label: b.label, v: b.count }))} valueText={(v) => `${Math.round((v / Math.max(f.measured, 1)) * 100)}%`} />

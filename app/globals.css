@@ -10671,3 +10671,15 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-cd-pic small { font-size: 12px; color: var(--ink-3); }
 .wl-cd-games { margin: 0; max-width: none; font-size: 13px; color: var(--ink-2); }
 @media (max-width: 720px) { .wl-cd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wl-cd-sum { grid-template-columns: 1fr; } .wl-cd-sum div { border-left: 0; border-top: 1px solid #efe7de; } .wl-cd-sum div:first-child { border-top: 0; } .wl-cd-pic { grid-template-columns: 96px 1fr auto; } .wl-cd-bar, .wl-cd-pic .wl-cd-num:last-child { display: none; } }
+
+/* The funnel from a chance to an engaged view: every line says what it is, and its share of the line above. */
+.ig-funnel { gap: 11px; }
+.ig-funnel-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; font-size: .78rem; line-height: 1.35; }
+.ig-funnel-name { font-weight: 700; color: var(--ink, #241d19); }
+.ig-funnel-label em { font-style: normal; font-weight: 400; color: var(--ink-2, #6b5f56); margin: 0; }
+.ig-funnel-share { margin-left: auto; font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink, #241d19); white-space: nowrap; }
+.ig-funnel-sum { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid #efe7de; font-size: .8rem; color: var(--ink-2, #6b5f56); max-width: none; }
+.ig-funnel-sum b { color: var(--ink, #241d19); font-variant-numeric: tabular-nums; }
+.ig-funnel-label { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: baseline; }
+.ig-funnel-label em { grid-column: 1 / -1; grid-row: 2; }
+.ig-funnel-share { grid-column: 2; grid-row: 1; margin-left: 0; }
