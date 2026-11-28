@@ -8,9 +8,10 @@ import { campaignStatus, controlKind, controlLog, gameRows, gameStatus } from ".
 assert.equal(shapeKey(16 / 9), "r16x9");
 assert.equal(shapeKey(1.7), "r16x9", "inside the tolerance of a format: that format");
 assert.equal(shapeKey(1), "r1x1");
-assert.equal(shapeKey(21 / 9), "x2.3", "a custom shape keeps its proportions, to one decimal");
-assert.equal(shapeKey(2.32), shapeKey(2.34), "nearly the same custom shape is one row");
-assert.equal(shapeKey(2.3), "r2x1", "inside the tolerance of 2:1");
+assert.equal(shapeKey(21 / 9), "r21x9", "21:9 is a format of the list");
+assert.equal(shapeKey(2.32), shapeKey(2.6), "a shape of some other proportion is the row of the nearest format");
+assert.equal(shapeKey(2.1), "r2x1", "nearer to 2:1 than to 21:9");
+assert.equal(shapeKey(2.3), "r21x9");
 assert.equal(shapeKey(null), ANY_SHAPE);
 assert.equal(shapeKey("oops"), ANY_SHAPE);
 assert.equal(shapeLabel("r16x9"), "16:9");
@@ -37,7 +38,7 @@ const assets = [
   { id: "a3", formatId: "r4x3", aspect: 4 / 3, status: "pending", storagePath: "p/4x3.png" },
 ];
 assert.equal(pictureFor({ creative: wide, assets, aspect: 1 }).asset.id, "a1");
-assert.equal(pictureFor({ creative: wide, assets, aspect: 21 / 9 }).kind, "crop", "a custom shape takes the main picture, cut");
+assert.equal(pictureFor({ creative: wide, assets, aspect: 21 / 9 }).kind, "crop", "a shape without a picture of its own takes the main picture, cut");
 assert.equal(pictureFor({ creative: wide, assets, aspect: 4 / 3 }).kind, "none", "a picture still in review does not count, and the banner cannot be cut to 4:3");
 assert.ok(!landsOn({ creative: wide, assets, aspect: 4 / 3 }));
 assert.equal(pictureFor({ creative: { aspect: null }, assets: [], aspect: 4 / 3 }).kind, "crop", "a creative never measured shows its main picture as it is");
@@ -59,7 +60,7 @@ const assetsOf = new Map([["sq", assets]]);
 const active = (creativeId) => [...placementOf.keys()].map((placementId) => ({ creativeId, placementId, base: "active" }));
 const rows = landedPictures({ bookings: active("sq"), placementOf, creativeOf, assetsOf });
 assert.deepEqual(rows.map((row) => `${row.shape}:${row.kind}:${row.placements.map((spot) => spot.name).join("+")}`), [
-  "x2.3:crop:DeusAd Placement 21x9+Top_Left",
+  "r21x9:crop:DeusAd Placement 21x9+Top_Left",
   "r16x9:asset:Corner_1+Corner_2",
   "r1x1:asset:Ball_1+Ball_2",
 ], "one row per picture, widest first; the 4:3 placement gets nothing and is not listed");

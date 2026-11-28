@@ -10,7 +10,7 @@ const shipping = { id: "ship", url: "https://x/shipping.png", width: 1920, heigh
 
 const cover = previewCover([night, shipping]);
 const row = (id) => cover.find((r) => r.format.id === id);
-assert.equal(cover.length, 7);
+assert.equal(cover.length, 8);
 assert.equal(row("r3x1").kind, "asset", "the own 3:1 picture covers 3:1");
 assert.equal(row("r3x1").url, "https://x/my-banner.png", "and the tile shows that picture, not the sample of the creative");
 assert.equal(row("r3x1").by, "night");
@@ -39,8 +39,8 @@ assert.equal(previewCover([noUrl]).find((r) => r.format.id === "r3x1").url, nigh
 const bare = { ...night, assets: [] };
 assert.ok(shapesCovered(shipping) > shapesCovered(bare), "the 16:9 picture covers more shapes than the bare tall sample");
 assert.equal(creativeToComplete([bare, shipping]).id, "ship", "so a missing shape is added there, not to the first picked");
-assert.equal(shapesCovered(night), shapesCovered(shipping), "with its own 3:1 picture the tall sample covers as many");
-assert.equal(creativeToComplete([night, shipping]).id, "night", "and on a tie the first picked stays");
+assert.ok(shapesCovered(night) > shapesCovered(bare), "its own 3:1 picture covers one more shape");
+assert.equal(creativeToComplete([night, { ...night, id: "twin" }]).id, "night", "and on a tie the first picked stays");
 assert.equal(creativeToComplete([night]).id, "night");
 assert.equal(creativeToComplete([]), null);
 assert.equal(creativeToComplete([shipping, { ...shipping, id: "other" }]).id, "ship", "equal: the first");
@@ -84,9 +84,9 @@ const bare2 = { ...night, assets: [] };
 const options = completionOptions([bare2, shipping]);
 assert.deepEqual(options.map((o) => o.id), ["ship", "night"], "the creative that covers most shapes comes first");
 assert.deepEqual(options.map((o) => o.number), [2, 1], "and keeps the number it has among the picked");
-assert.equal(options[0].total, 7);
+assert.equal(options[0].total, 8);
 assert.equal(options[0].covered, shapesCovered(shipping));
-assert.deepEqual(completionOptions([night, shipping]).map((o) => o.id), ["night", "ship"], "equal: in the order picked");
+assert.deepEqual(completionOptions([night, { ...night, id: "twin" }]).map((o) => o.id), ["night", "twin"], "equal: in the order picked");
 assert.deepEqual(completionOptions([night]).map((o) => o.id), ["night"], "one creative: one option");
 assert.deepEqual(completionOptions([]), []);
 

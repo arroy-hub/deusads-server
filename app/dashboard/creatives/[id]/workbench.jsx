@@ -239,14 +239,15 @@ export default function Workbench({ creative, assets }) {
           </tbody>
         </table>
 
-        <h3>Custom shapes</h3>
-        <p className="settings-help">
-          For placements that are not a standard shape: an image within 15% of the placement&apos;s proportions is used.
-        </p>
-        {customAssets.map((asset) => (
-          <AssetCell key={asset.id} asset={asset} busy={busy} onRemove={() => remove(asset.id)} showLabel />
-        ))}
-        <CustomUpload busy={busy} onFile={(file) => upload("custom", file)} />
+        {customAssets.length > 0 && (
+          <>
+            <h3>Pictures outside the list</h3>
+            <p className="settings-help">Uploaded before every placement belonged to one of the shapes above. They are not shown anywhere any more.</p>
+            {customAssets.map((asset) => (
+              <AssetCell key={asset.id} asset={asset} busy={busy} onRemove={() => remove(asset.id)} showLabel />
+            ))}
+          </>
+        )}
       </section>
 
       {message.text && (
@@ -289,14 +290,6 @@ function AssetCell({ asset, busy, onFile, onRemove, showLabel }) {
   );
 }
 
-function CustomUpload({ busy, onFile }) {
-  return (
-    <label className="button button-quiet" style={{ width: "fit-content" }}>
-      Add a custom-shape image
-      <input type="file" accept="image/png,image/jpeg" hidden disabled={busy} onChange={(event) => onFile(event.target.files?.[0])} />
-    </label>
-  );
-}
 
 function measure(file) {
   return new Promise((resolve, reject) => {

@@ -13,8 +13,8 @@ import { deleteCreative, renameCreative } from "../actions";
 import { Busy, refreshPage, useWaitMark } from "../wait";
 
 const STATUS = { approved: ["Approved", "ov-live"], pending: ["In review", "ov-scheduled"], rejected: ["Rejected", "ov-bad"] };
-const F = ["r16x9", "r4x3", "r1x1", "r3x4", "r9x16", "r2x1", "r3x1"];
-const SHORT = { r16x9: "16:9", r4x3: "4:3", r1x1: "1:1", r3x4: "3:4", r9x16: "9:16", r2x1: "2:1", r3x1: "3:1" };
+const F = ["r16x9", "r4x3", "r1x1", "r3x4", "r9x16", "r2x1", "r21x9", "r3x1"];
+const SHORT = { r16x9: "16:9", r4x3: "4:3", r1x1: "1:1", r3x4: "3:4", r9x16: "9:16", r2x1: "2:1", r21x9: "21:9", r3x1: "3:1" };
 
 function hint(item) {
   if (item.hold) return item.hold.line;

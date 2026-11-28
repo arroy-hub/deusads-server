@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getMember } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
-import { FORMATS, aspectClose, normalizeSafeZone } from "../../../lib/formats";
+import { FORMATS, aspectClose, formatOf, normalizeSafeZone } from "../../../lib/formats";
 import { canAdvertise } from "../../../lib/admin-rules";
 import { cleanFolderName, cleanFormatCrops, moveInOrder, orderCreatives } from "../../../lib/creative-library";
 import { loadCreativeEditor } from "../../../lib/advertiser-data";
@@ -58,7 +58,7 @@ export async function saveSafeZone({ creativeId, x, y, w, h }) {
 
 /**
  * Records an image the browser already uploaded to Storage as the creative's picture for
- * one standard format (formatId "r1x1" …) or for a custom shape (formatId "custom").
+ * one format of the list (formatId "r1x1" …). There are no pictures outside the list: "custom" means the nearest format.
  * An existing picture for the same standard format is replaced.
  */
 export async function registerAsset({ creativeId, formatId, path, type, size, width, height, forShape = null }) {
@@ -92,8 +92,10 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
   }
   const aspect = w / h;
 
+  // A picture is always made for one of the formats of the list (the shapes the SDK offers): there are no others.
+  if (formatId === "custom") formatId = isShapeKey(forShape) && FORMATS.some((item) => item.id === forShape) ? forShape : formatOf(aspect);
   let format = null;
-  if (formatId !== "custom") {
+  {
     format = FORMATS.find((item) => item.id === formatId);
     if (!format) {
       await cleanup();

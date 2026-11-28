@@ -8,8 +8,11 @@ assert.equal(formatOf(1), "r1x1");
 assert.equal(formatOf(0.56), "r9x16");
 assert.equal(formatOf(3.1), "r3x1");
 assert.equal(formatOf(2.05), "r2x1");
-assert.equal(formatOf(2.4), null, "between 2:1 and 3:1, more than 15% from both: custom");
-assert.equal(formatOf(5), null);
+assert.equal(formatOf(21 / 9), "r21x9", "the ultrawide placement of the SDK");
+assert.equal(formatOf(2.4), "r21x9");
+assert.equal(formatOf(2.6), "r21x9", "a mesh of some other proportion belongs to the nearest format");
+assert.equal(formatOf(5), "r3x1", "however far: the nearest");
+assert.equal(formatOf(0.3), "r9x16");
 assert.equal(formatOf(null), null);
 assert.equal(formatOf(0), null);
 // the nearest wins where two overlap (16:9 and 2:1 are 12.5% apart)
@@ -52,10 +55,10 @@ assert.equal(pickImage({ creative, assets: [asset("sq", "r1x1", 1, "pending")], 
 assert.equal(pickImage({ creative, assets: [], surfaceAspect: 16 / 9 }).kind, "crop");
 assert.equal(pickImage({ creative, assets: [], surfaceAspect: 1.7 }).kind, "crop");
 assert.equal(pickImage({ creative, assets: [], surfaceAspect: 0.56 }).kind, "none");
-// custom placements: a custom image within 15% of the shape
+// there are no custom shapes: every placement belongs to a format of the list
 const custom = asset("c1", null, 2.6);
-assert.equal(pickImage({ creative, assets: [custom], surfaceAspect: 2.5 }).asset.id, "c1");
-assert.notEqual(pickImage({ creative, assets: [custom], surfaceAspect: 4.5 }).kind, "asset");
+assert.notEqual(pickImage({ creative, assets: [custom], surfaceAspect: 2.5 }).kind, "asset", "a picture outside the list is never shown");
+assert.equal(pickImage({ creative, assets: [asset("u1", "r21x9", 2.33)], surfaceAspect: 2.5 }).asset.id, "u1", "a shape near 21:9 shows the 21:9 picture");
 // custom images are not used on standard placements
 assert.notEqual(pickImage({ creative, assets: [asset("c2", null, 1)], surfaceAspect: 1 }).kind, "asset");
 // unknown placement shape: main image, as before

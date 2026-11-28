@@ -125,8 +125,8 @@ const aspects = new Map([["p1", 16 / 9], ["p2", 16 / 9], ["p3", 9 / 16], ["p4", 
 const share = formatShare([{ placement_id: "p1", impressions: "30" }, { placement_id: "p2", impressions: 10 }, { placement_id: "p3", impressions: 50 }, { placement_id: "p4", impressions: 10 }], aspects);
 assert.equal(share.find((row) => row.id === "r16x9").impressions, 40);
 assert.equal(share.find((row) => row.id === "r9x16").share, 0.5);
-assert.equal(share.find((row) => row.id === "r3x1").impressions, 0);
-assert.equal(share.at(-1).id, "other");
+assert.equal(share.find((row) => row.id === "r3x1").impressions, 10, "a placement of some other proportion counts with the nearest format");
+assert.ok(!share.some((row) => row.id === "other" && row.impressions > 0), "nothing is outside the list of formats");
 assert.equal(formatShare([], new Map()).every((row) => row.share === 0), true);
 
 // placements of an unusual shape have no format to add a picture for: reported apart, never counted as missing
@@ -134,13 +134,13 @@ const allFormats = FORMATS.map((format) => ({ formatId: format.id, aspect: forma
 const odd = coverageSummary({ creative: wide, assets: allFormats, placements: [{ aspect: 16 / 9 }, { aspect: 9 / 16 }, { aspect: 4 }, { aspect: 3 }] });
 assert.deepEqual(odd.missingLabels, [], "every standard format is covered");
 assert.equal(odd.missingPlacements, 0, "so nothing the advertiser can fix is left");
-assert.equal(odd.oddPlacements, 1, "the 4:1 placement cannot be covered by any format");
+assert.equal(odd.oddPlacements, 0, "the 4:1 placement belongs to the nearest format, 3:1");
 const oddOnly = attentionItems({ gaps: [{ id: "c9", name: "All formats", missingLabels: odd.missingLabels, missingPlacements: odd.missingPlacements }] });
 assert.equal(oddOnly.length, 0, "no notice when every standard format is added");
 assert.equal(attentionItems({ gaps: [{ id: "c7", name: "Weekend — 1:1", missingLabels: ["3:4", "9:16"], missingPlacements: 40 }] })[0].text, "Still missing a picture for 3:4, 9:16. Once each of them has one, this notice goes away.", "the notice names what is still missing");
 assert.equal(attentionItems({ gaps: [{ id: "c8", name: "No labels", missingLabels: [], missingPlacements: 2 }] }).length, 0, "a notice with nothing to add is not shown");
 const partly = coverageSummary({ creative: wide, assets: [{ formatId: "r1x1", aspect: 1, status: "approved" }], placements: [{ aspect: 16 / 9 }, { aspect: 1 }, { aspect: 9 / 16 }, { aspect: 4 }] });
-assert.deepEqual([partly.missingLabels.join(), partly.missingPlacements, partly.oddPlacements], ["3:4,9:16,3:1", 1, 1], "adding one format lowers the count, the others stay listed");
+assert.deepEqual([partly.missingLabels.join(), partly.missingPlacements, partly.oddPlacements], ["3:4,9:16,3:1", 2, 0], "adding one format lowers the count, the others stay listed; the 4:1 placement waits for the 3:1 picture");
 
 // attention: most urgent first, gaps without missing placements are silent
 const items = attentionItems({
