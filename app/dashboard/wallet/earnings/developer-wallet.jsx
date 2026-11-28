@@ -7,8 +7,9 @@ import { useSamePage } from "../../same-page";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import WindowTop, { PlateIcon } from "../../window-top";
-import { DEV_SHARE, RATE, count, credits, creditNote, dayText, earnedOf } from "../../../../lib/wallet";
-import { Amount, Bar, HeroAmount, HistoryPeriod, Hint, MoneyChart, PeriodPick, SumBlock, TableBox, TestMark, historyRange } from "../parts";
+import { Figure } from "../../wait";
+import { DEV_SHARE, RATE, count, credits, creditNote, dayText, earnedOf, payoutPlan } from "../../../../lib/wallet";
+import { Amount, Bar, HeroAmount, HistoryPeriod, Hint, MoneyChart, PeriodPick, TableBox, TestMark, historyRange } from "../parts";
 
 const TOTAL = "total";
 const TOTAL_LINE = { color: "#c94a24", tint: "#f0b293" };
@@ -76,22 +77,41 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
   const gameRows = games.map((game) => ({ game, paid: sum(seriesOf(game.id)), campaigns: campaigns.filter((campaign) => campaign.games.includes(game.id)).length }));
   const most = Math.max(1, ...gameRows.map((row) => row.paid));
 
+  const balance = wallet.total.amount * DEV_SHARE;
+  const plan = payoutPlan(balance);
   const overview = (
     <>
-      <SumBlock
-        hero={(
-          <HeroAmount
-            label={<>Balance <Hint title="How you get paid" text="Payouts are automatic. Every month, once your balance reaches the minimum amount, it is paid out to you: there is nothing to request. Payouts start at full launch. During the pilot, credits only show what your games would earn." /></>}
-            value={credits(wallet.total.amount * DEV_SHARE)}
-            sub={<>credits earned so far <Hint title="What is a credit?" text={creditNote("see")} /></>}
-          />
-        )}
-        cells={[
-          [`Earned · ${period} days`, credits(earnedOf(paid)), `${count(paid)} paid impressions`],
-          ["Earned today", credits(wallet.today.amount * DEV_SHARE), `${count(wallet.today.impressions)} paid impressions`],
-          ["Your rate", credits(RATE * DEV_SHARE), `per 1,000 paid impressions · the advertiser pays ${credits(RATE)} C., you keep 80%`],
-        ]}
-      />
+      <div className="wl-lay wl-layA">
+        <section className="wl-hero wl-hero-solo">
+          <div className="wl-hero-main">
+            <HeroAmount
+              label={<>Balance <Hint title="How you get paid" text={`Payouts are automatic: on the 1st of each month, once your balance has reached ${credits(plan.minimum)} C., it is paid out to you. There is nothing to request. Payouts start at full launch; during the pilot, credits only show what your games would earn.`} /></>}
+              value={credits(balance)}
+              sub={<>credits earned so far <Hint title="What is a credit?" text={creditNote("see")} /></>}
+            />
+          </div>
+          <dl className="wl-hero-strip">
+            {[
+              [`Earned · ${period} days`, credits(earnedOf(paid)), `${count(paid)} paid impressions`],
+              ["Earned today", credits(wallet.today.amount * DEV_SHARE), `${count(wallet.today.impressions)} paid impressions`],
+              ["Your rate", credits(RATE * DEV_SHARE), `per 1,000 paid impressions · you keep 80% of ${credits(RATE)} C.`],
+            ].map(([label, value, caption]) => <div key={label}><dt>{label}</dt><dd><Figure>{value}</Figure></dd><small title={caption}>{caption}</small></div>)}
+          </dl>
+        </section>
+        <section className="gp-panel wl-ops wl-payout" aria-label="Payout">
+          <div className="wl-bhead"><h2>Payout <Hint title="Payout" text={`Once a month, on the 1st, the whole balance is paid out if it has reached ${credits(plan.minimum)} C. A smaller balance stays and counts toward the next month.`} /></h2></div>
+          <div className="wl-pay-goal">
+            <div className="wl-pay-line"><b>{plan.reached ? "Minimum reached" : `${credits(plan.left)} C. to the minimum`}</b><span><Figure>{credits(Math.min(balance, plan.minimum))}</Figure> of {credits(plan.minimum)} C.</span></div>
+            <div className="wl-pay-track" role="img" aria-label={`${plan.pct}% of the payout minimum`}><i style={{ width: `${plan.pct}%` }} /></div>
+          </div>
+          <ul>
+            <li><div><b>Next payout</b><small>{plan.reached ? "your whole balance" : `if the balance reaches ${credits(plan.minimum)} C. by then`}</small></div><span className="wl-pay-v">{dayText(plan.next)}</span></li>
+            <li><div><b>Paid on that day</b><small>{plan.reached ? "as it stands now; it grows until then" : "the balance stays for the next month"}</small></div><span className="wl-pay-v">{plan.reached ? <><Figure>{credits(balance)}</Figure> C.</> : "—"}</span></li>
+            <li><div><b>Last payout</b><small>payouts start at full launch</small></div><span className="wl-pay-v is-none">None yet</span></li>
+          </ul>
+          <p className="wl-pay-note">Pilot: credits are demo units, so nothing is paid out yet. This shows where you would stand.</p>
+        </section>
+      </div>
       <MoneyChart
         title="Earnings per day"
         hint={<Hint title="Earnings per day" text="Credits your games earned each day. Tick lines in By game below to choose what the chart shows: All games is the total, and every game can be added as a line of its own to compare. Only counted impressions of advertisers’ creatives are paid." />}

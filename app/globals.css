@@ -10577,3 +10577,16 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-hero .button-quiet { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.3); color: #fff; }
 .wl-hero .button-quiet:hover { background: rgba(255,255,255,.22); }
 .wl-hero a:not(.button) { color: #ffd9cb; }
+
+/* The developer's wallet: the payout block beside the balance. */
+.wl-payout .wl-bhead h2 { display: flex; align-items: center; gap: 8px; }
+.wl-pay-goal { padding: 2px 20px 14px; display: grid; gap: 7px; }
+.wl-pay-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.wl-pay-line b { font-size: 14px; }
+.wl-pay-line span { font-size: 12.5px; color: var(--ink-2, #6b5f56); font-variant-numeric: tabular-nums; }
+.wl-pay-track { height: 8px; border-radius: 99px; background: #ece5dd; overflow: hidden; }
+.wl-pay-track i { display: block; height: 100%; border-radius: 99px; background: #1b8a50; }
+.wl-pay-v { flex: none; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wl-pay-v.is-none { font-weight: 500; color: var(--ink-3, #8c7f73); }
+.wl-payout li small { white-space: normal; }
+.wl-pay-note { margin: 0; padding: 10px 20px 8px; border-top: 1px solid #efe7de; font-size: 12px; color: var(--ink-3, #8c7f73); max-width: none; }

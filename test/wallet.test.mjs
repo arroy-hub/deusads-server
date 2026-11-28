@@ -159,3 +159,18 @@ assert.equal(outsideStatus(card({ paused: true }), true).label, "Paused");
 assert.equal(outsideStatus(card({ deleted: true }), true).label, "Deleted");
 
 console.log("wallet: all checks passed");
+
+// payouts: the 1st of the month, from 50 credits
+{
+  const { payoutPlan, PAYOUT_MINIMUM } = await import("../lib/wallet.js");
+  const { default: assert } = await import("node:assert/strict");
+  assert.equal(PAYOUT_MINIMUM, 50);
+  const mid = Date.parse("2026-11-28T16:00:00Z");
+  assert.deepEqual(payoutPlan(12.5, mid), { minimum: 50, reached: false, left: 37.5, pct: 25, next: "2026-12-01" });
+  assert.deepEqual(payoutPlan(822.04, mid), { minimum: 50, reached: true, left: 0, pct: 100, next: "2026-12-01" });
+  assert.equal(payoutPlan(50, mid).reached, true);
+  assert.equal(payoutPlan(60, Date.parse("2026-12-01T09:00:00Z")).next, "2026-12-01", "on the day itself it is today");
+  assert.equal(payoutPlan(60, Date.parse("2026-12-31T23:00:00Z")).next, "2027-01-01");
+  assert.equal(payoutPlan(-3, mid).pct, 0);
+  console.log("payout plan: ok");
+}
