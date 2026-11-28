@@ -239,7 +239,7 @@ export function DisputeCard({ d, api, onClose }) {
             </div>
           </div>
         </div>
-        <div className="cb-dm-now"><b>Now:</b> {d.now}{bk && <> <span className="cb-mute">·</span> <Lnk onClick={() => api.open("booking", bk.id)}>Open the booking</Lnk></>}</div>
+        <div className="cb-dm-now"><b>Now:</b> {d.now}{r.resent && <> <a className="cb-lnk" href="/dashboard/admin">Review it</a></>}{bk && <> <span className="cb-mute">·</span> <Lnk onClick={() => api.open("booking", bk.id)}>Open the booking</Lnk></>}</div>
       </div></div>
       <div className="cb-dm-body">
         <HistoryHead first /><History events={d.events} />

@@ -10457,3 +10457,5 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .rd-ed-side .hold-note.is-change .hold-acts { background: #fbf0d9; }
 .rd-ed-side .hold-note.is-blocked .hold-acts { background: var(--signal-soft); }
 .rd-ed-side .hold-hint { display: none; }
+
+.rd-thumb.is-opening { opacity: .6; cursor: progress; }

@@ -7,7 +7,8 @@ import UploadDialog from "./upload-dialog";
 import LibraryBar from "./library-bar";
 import { MenuItem, MenuSep, Pop } from "../_cabinet/ui";
 import { IcCaret, IcFolder, IcGrip, IcMore, IcPencil, IcTrash, IcUpload } from "../_cabinet/icons";
-import { createFolder, deleteFolder, moveCreative, renameFolder } from "./actions";
+import { createFolder, deleteFolder, moveCreative, openCreativeEditor, renameFolder } from "./actions";
+import CreativeEditor from "./[id]/creative-editor";
 import { deleteCreative, renameCreative } from "../actions";
 import { Busy, refreshPage, useWaitMark } from "../wait";
 
@@ -74,7 +75,7 @@ function DeleteDialog({ item, onClose, onConfirm }) {
   );
 }
 
-function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, patch, remove, move }) {
+function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, patch, remove, move, onOpen, opening = false }) {
   const el = useRef(null);
   const [rename, setRename] = useState(0);
   const [label, tone] = item.hold ? item.hold.pill : STATUS[item.status] ?? STATUS.pending; // a held picture shows as the status too: it needs the advertiser
@@ -89,7 +90,9 @@ function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, p
         <Editable key={rename} value={item.name} autoEdit={rename > 0} className="rd-card-name" label="Creative name" onSave={(name) => patch(item.id, { name })} />
         <CardMenu item={item} folders={folders} onMove={(f) => move(item.id, f, null)} onDelete={() => remove(item.id)} />
       </div>
-      <Link href={`/dashboard/creatives/${item.id}`} className="rd-thumb" aria-label={`Edit ${item.name}`}>
+      {/* A plain click opens the editor over the library, with nothing to load back when it closes; the address is there for a new tab. */}
+      <Link href={`/dashboard/creatives/${item.id}`} className={`rd-thumb${opening ? " is-opening" : ""}`} aria-label={`Edit ${item.name}`} aria-busy={opening || undefined}
+        onClick={(e) => { if (!onOpen || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); e.stopPropagation(); onOpen(item); }}>
         <img src={item.url} alt="" loading="lazy" draggable={false} />
         <span className={`ov-pill ${tone} rd-thumb-pill`}>{label}</span>
       </Link>
@@ -155,6 +158,19 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
 
   // The server is the truth: whenever the page is rendered again the local copy is replaced by it.
   useEffect(() => setItems(list), [list]);
+  // The creative editor, opened over the library: { id } while it loads, { id, data } when it is open.
+  const [editing, setEditing] = useState(null);
+  const [openProblem, setOpenProblem] = useState("");
+  useWaitMark(Boolean(editing && !editing.data));
+  async function openEditor(item) {
+    if (editing) return;
+    setOpenProblem("");
+    setEditing({ id: item.id });
+    const result = await openCreativeEditor({ creativeId: item.id }).catch(() => ({ error: "Connection lost. Try again." }));
+    if (result?.error) { setEditing(null); return setOpenProblem(result.error); }
+    setEditing({ id: item.id, data: result.editor });
+  }
+  const closeEditor = () => { setEditing(null); refreshPage(router); };
   useEffect(() => setFolders(serverFolders), [serverFolders]);
 
   const fail = (result, fallback = "Could not save. Try again.") => { setProblem(result?.error || fallback); refreshPage(router); };
@@ -262,7 +278,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
                   {isOpen && (
                     rows.length ? (
                       <div className="rd-grid-cards">
-                        {rows.map((item) => <Card key={item.id} item={item} folders={folders} drag={drag} setDrag={setDrag} overCard={overCard} setOverCard={setOverCard} onDropOn={dropOn} patch={(id, p) => rename(id, p.name)} remove={() => setDeleting(item)} move={move} />)}
+                        {rows.map((item) => <Card key={item.id} onOpen={openEditor} opening={editing?.id === item.id && !editing.data} item={item} folders={folders} drag={drag} setDrag={setDrag} overCard={overCard} setOverCard={setOverCard} onDropOn={dropOn} patch={(id, p) => rename(id, p.name)} remove={() => setDeleting(item)} move={move} />)}
                       </div>
                     ) : (
                       <div className="rd-sec-empty">{filtering ? "Nothing matches the filters." : drag ? "Drop here" : "Empty. Drag creatives here."}</div>
@@ -275,6 +291,8 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
           {visible.length === 0 && filtering && <div className="empty"><p style={{ margin: "0 auto" }}>No creatives match these filters.</p></div>}
         </>
       )}
+      {openProblem && <p className="error" role="alert">{openProblem}</p>}
+      {editing?.data && <CreativeEditor key={editing.id} editor={editing.data} onClose={closeEditor} />}
       {adding && <UploadDialog folders={folderTools ? folders : null} onClose={() => setAdding(false)} onUploaded={uploaded} />}
       {deleting && <DeleteDialog item={deleting} onClose={() => setDeleting(null)} onConfirm={confirmRemove} />}
     </div>
