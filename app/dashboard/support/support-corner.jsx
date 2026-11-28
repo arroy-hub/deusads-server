@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useRailView } from "../role-view";
 import AssistantChat from "./assistant-chat";
 import { ChatIcon, CloseIcon, PenIcon, RequestForm } from "./support-ui";
 import { navigating } from "../_cabinet/nav";
@@ -13,7 +14,10 @@ const OpenIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
  * menu with two choices: message the developer (a form, straight to the developer) or ask the assistant (a chat). The
  * chat keeps its conversation while the person moves between pages. Not shown on the Help & feedback page itself.
  */
-export default function SupportCorner({ role, unread = 0, assistantOn = false, greeting }) {
+export default function SupportCorner({ role: account, unread = 0, assistantOn = false, greeting }) {
+  // an admin gets the help of the role chosen in the side menu
+  const view = useRailView();
+  const role = account === "admin" ? view : account;
   const pathname = usePathname();
   const router = useRouter();
   const [menu, setMenu] = useState(false);
@@ -83,7 +87,7 @@ export default function SupportCorner({ role, unread = 0, assistantOn = false, g
               </div>
             ))}
             <div className="sp-bot-wrap" hidden={mode !== "bot"}>
-              {botSeen && <AssistantChat role={role} mode="popup" canHandOver assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
+              {botSeen && <AssistantChat key={role} role={role} mode="popup" canHandOver assistantOn={assistantOn} greeting={greeting} onOpenRequest={goRequests} />}
             </div>
           </div>
         </section>

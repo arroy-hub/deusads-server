@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useRailView } from "../role-view";
 import AssistantChat from "./assistant-chat";
 import RequestsTab from "./requests-tab";
 import RequestWindow from "./request-window";
@@ -13,12 +14,16 @@ const HEAD = {
 };
 
 /**
- * Help & feedback, the same for every role (an admin included): the Assistant tab (chat, with a full form to the developer behind the
+ * Help & feedback for every role. An admin sees it as the role chosen in the side menu does (a developer's reports on
+ * creatives only show in the developer view; the assistant's switch only in the admin view): the Assistant tab (chat, with a full form to the developer behind the
  * pen button) and My requests (strips, folders, the conversation as a pop-up). The tab and the open request are kept in
  * the address (?tab=requests&open=<id>) so a link from the bell opens the right conversation.
  */
-export default function SupportPage({ role, requests, folders, outdated, initialTab, initialOpen, assistantOn = false, greeting, reports = [], openReport = null }) {
+export default function SupportPage({ role: account, requests, folders, outdated, initialTab, initialOpen, assistantOn = false, greeting, reports = [], openReport = null }) {
   const router = useRouter();
+  // An admin sees Help & feedback as the role chosen in the side menu sees it (the same switch as for the menu and Home).
+  const view = useRailView();
+  const role = account === "admin" ? view : account;
   const [tab, setTab] = useState(initialTab);
   const [openId, setOpenId] = useState(initialOpen);
   const [seed, setSeed] = useState(null);
@@ -88,12 +93,12 @@ export default function SupportPage({ role, requests, folders, outdated, initial
       <div id="sp-panel-assistant" role="tabpanel" aria-labelledby="sp-tab-assistant" hidden={tab !== "assistant"}>
         <div className="cx-body sp-assistant">
           <div className="sp-chat-card">
-            <AssistantChat role={role} mode="page" canHandOver assistantOn={assistantOn} greeting={greeting} seed={seed} onSeedUsed={() => setSeed(null)} onOpenRequest={openRequest} />
+            <AssistantChat key={role} role={role} mode="page" canHandOver assistantOn={assistantOn} greeting={greeting} seed={seed} onSeedUsed={() => setSeed(null)} onOpenRequest={openRequest} />
           </div>
         </div>
       </div>
       <div id="sp-panel-requests" role="tabpanel" aria-labelledby="sp-tab-requests" hidden={tab !== "requests"}>
-        <RequestsTab requests={requests} folders={folders} outdated={outdated} reports={reports} openReport={openReport} onOpen={openRequest} onNew={() => startForm({ type: "question", title: "", text: "" })} />
+        <RequestsTab requests={requests} folders={folders} outdated={outdated} reports={role === "developer" || openReport ? reports : []} openReport={openReport} onOpen={openRequest} onNew={() => startForm({ type: "question", title: "", text: "" })} />
       </div>
 
       {openId && (
