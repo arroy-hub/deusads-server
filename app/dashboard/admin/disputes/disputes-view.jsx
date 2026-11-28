@@ -9,7 +9,8 @@ import { resolveDispute } from "../actions";
 import { outcomePill, outcomeText } from "../../../../lib/admin-disputes";
 import { refreshPage, useWaitMark } from "../../wait";
 
-const COLS = "56px minmax(0,1.2fr) minmax(250px,1.3fr) 58px 96px";
+// the last column holds two icon buttons or the outcome; the longest outcome is "Change requested"
+const COLS = "56px minmax(0,1.2fr) minmax(230px,1.3fr) 58px 140px";
 const INFO = "Developer reports are about a creative: you can find no violation, ask the advertiser to change it, or block it for a violation. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
 const kindOf = (r) => (r.open ? "open" : r.status === "dismissed" ? "dismissed" : "acted");
 
@@ -37,7 +38,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
 
   const list = shown.length ? (
     <div className="cb-list cb-scroll">
-      <div style={{ minWidth: 700 }}>
+      <div style={{ minWidth: 740 }}>
         <div className="cb-lh" style={{ gridTemplateColumns: COLS }}><span /><span>Creative and source</span><span>Reason</span><span className="cb-ctr">Date</span><span /></div>
         {shown.map((r) => {
           const adv = r.initiator === "advertiser";
