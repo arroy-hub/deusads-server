@@ -10735,3 +10735,7 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-cd-cover { border-radius: 20px 20px 0 0; }
 .wl-cd-in { background: #fff; }
 .wl-cd-modal .modal-foot { background: #fff; border-radius: 0 0 20px 20px; }
+
+/* Game > Campaigns: the campaign tile, as in the Wallet */
+.cp-ctile { margin-right: 6px; }
+.cp-ctile .cp-cti { margin: 0; }

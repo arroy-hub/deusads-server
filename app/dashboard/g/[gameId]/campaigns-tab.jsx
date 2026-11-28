@@ -44,6 +44,9 @@ const PILL = {
   ended: ["p-ended", "Ended"],
 };
 const ROW_CLASS = { nofit: "s-inactive", nobudget: "s-inactive", paused: "s-paused", advpaused: "s-paused", blocked: "s-blocked", ended: "s-ended", blockedcat: "s-inactive", blockedadv: "s-inactive" };
+// The colour of a campaign's tile, the same as in the Wallet: green while it shows, amber while paused, grey otherwise.
+const TILE_TONE = { active: "#1b8a50", mixed: "#c98a14", paused: "#c98a14", advpaused: "#c98a14" };
+const shownOf = (campaign) => campaign.shownCategory || campaign.category;
 const isBlocked = (key) => key === "blocked" || key === "blockedcat" || key === "blockedadv";
 
 // What a developer may give as the reason for pausing or blocking an ad; the advertiser reads it next to the status.
@@ -658,10 +661,10 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                       <input type="checkbox" aria-label={`Select ${campaign.name}`} checked={Boolean(selected[campaign.id])} onChange={() => setSelected({ ...selected, [campaign.id]: !selected[campaign.id] })} />
                       <div className="cp-cname">
                         <button type="button" className={`cp-caret${isOpen ? " open" : ""}`} aria-expanded={isOpen} aria-label={`Show creatives of ${campaign.name}`} onClick={() => toggleOpen(campaign)}><CaretIcon /></button>
-                        <i className="cp-cti" style={iconStyle(campaign.category)} title={categoryLabel(campaign.category)} role="img" aria-label={`Category: ${categoryLabel(campaign.category)}`} />
+                        <span className="rd-tile wl-ctile cp-ctile" style={{ "--tone": TILE_TONE[key] ?? "#8c7f73" }}><i className="cp-cti" style={iconStyle(shownOf(campaign))} title={categoryLabel(shownOf(campaign))} role="img" aria-label={`Category: ${categoryLabel(shownOf(campaign))}`} /></span>
                         <div style={{ minWidth: 0 }}>
                           <div><strong>{campaign.name}</strong> {tag && <span className="cp-tag">{tag}</span>}</div>
-                          <div className="cp-meta">{campaign.advertiser} · {categoryLabel(campaign.category)} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
+                          <div className="cp-meta">{campaign.advertiser} · {categoryLabel(shownOf(campaign))} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
                           <Note value={here} />
                           {key === "blocked" && campaign.state.reason && <div className="cp-meta">Your reason: {campaign.state.reason}</div>}
                           {key === "advpaused" && <div className="cp-meta">The advertiser paused this campaign. It shows again when they resume it.</div>}
@@ -909,7 +912,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                               <div className="cp-nrow" key={campaign.id}>
                                 <div>
                                   <button type="button" className="cp-lnk" title="Open in Campaigns" onClick={() => openInCampaigns(campaign)}>{campaign.name}<i>↗</i></button>{tagOf(campaign) && <> <span className="cp-tag">{tagOf(campaign)}</span></>}
-                                  <div className="cp-meta cp-sub">{categoryLabel(campaign.category)} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
+                                  <div className="cp-meta cp-sub">{categoryLabel(shownOf(campaign))} · {startedWord(campaign.started)} {dayLabel(campaign.started)}</div>
                                   <Note value={noteFor(campaign.id)} />
                                 </div>
                                 <div><span className={`cp-pill ${campPill}`}>{campText}</span></div>
