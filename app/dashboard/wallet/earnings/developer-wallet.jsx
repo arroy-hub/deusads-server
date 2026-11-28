@@ -40,11 +40,8 @@ export function CampaignDetails({ d }) {
   return (
     <div className="wl-cd">
       <dl className="wl-cd-facts">
-        <div><dt>Advertiser</dt><dd>{d.advertiser}</dd></div>
-        <div><dt>Category</dt><dd><span className="wl-cd-cat"><span className="rd-tile wl-ctile"><CategoryIcon category={d.category} label="" /></span>{d.category ? categoryLabel(d.category) : "Not set"}</span></dd></div>
-        <div><dt>Now</dt><dd>{d.status.label}</dd></div>
         <div><dt>In your games since</dt><dd>{dayText(d.since)}</dd></div>
-        {d.audience && <div className="is-wide"><dt>Audience it asked for</dt><dd>{d.audience}</dd></div>}
+        <div className="is-rest"><dt>Audience it asked for</dt><dd>{d.audience || "Every game"}</dd></div>
       </dl>
       <div className="wl-cd-sum">
         <div><b>{count(d.total.impressions)}</b><span>paid impressions · last {d.days} days</span></div>
@@ -84,7 +81,8 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
   const [details, setDetails] = useState(null);
   useWaitMark(Boolean(details && !details.data && !details.error));
   async function openCampaign(campaign) {
-    setDetails({ id: campaign.id, name: campaign.name });
+    // what the row already knows shows at once: the cover, the icon, the name
+    setDetails({ id: campaign.id, name: campaign.name, row: campaign });
     const result = await campaignDetails({ campaignId: campaign.id, days: period }).catch(() => ({ error: "Connection lost. Try again." }));
     setDetails((now) => (now?.id === campaign.id ? { ...now, data: result?.details ?? null, error: result?.error ?? "" } : now));
   }
@@ -262,10 +260,31 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
         </div>
       </WindowTop>
       <div className="gp-work">{tab === "overview" ? overview : historyTab}</div>
-      <Modal open={Boolean(details)} onClose={() => setDetails(null)} title={details?.name ?? "Campaign"} wide lightClose footer={<button type="button" className="button" onClick={() => setDetails(null)}>Close</button>}>
-        {details && !details.data && !details.error && <p className="wl-cd-wait"><span className="spinner" aria-hidden="true" /> Loading…</p>}
-        {details?.error && <p className="error" role="alert">{details.error}</p>}
-        {details?.data && <CampaignDetails d={details.data} />}
+      <Modal open={Boolean(details)} onClose={() => setDetails(null)} title={details?.name ?? "Campaign"} wide lightClose className="wl-cd-modal" footer={<button type="button" className="button" onClick={() => setDetails(null)}>Close</button>}>
+        {details && (() => {
+          // the head of the window is the campaign's own card: its cover, and on it the plate with the icon and the name
+          const d = details.data;
+          const head = { name: d?.name ?? details.name, advertiser: d?.advertiser ?? details.row?.advertiser ?? "", category: d?.category ?? details.row?.category ?? "", coverCss: d?.coverCss || details.row?.coverCss || "", status: d?.status ?? details.row?.status ?? { key: "ended", label: "" } };
+          return (
+            <>
+              <div className="wl-cd-cover" style={{ background: head.coverCss || "linear-gradient(112deg,#231a17,#7d3d2c)" }}>
+                <button type="button" className="wl-cd-x" aria-label="Close" onClick={() => setDetails(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+              </div>
+              <div className="wl-cd-in">
+                <div className="cx-pl wl-cd-plate" style={{ "--tone": STATUS_TONE[head.status.key] ?? "#8c7f73" }}>
+                  <span className="cx-ic">
+                    <span className="rd-tile"><CategoryIcon category={head.category} label={head.category ? categoryLabel(head.category) : "No category"} /></span>
+                    <i className="cx-st" style={{ background: STATUS_TONE[head.status.key] ?? "#9aa0a6" }} role="img" aria-label={head.status.label} />
+                  </span>
+                  <div><h3>{head.name}</h3><div className="cx-sub"><b>{head.status.label}</b>{head.advertiser ? ` · ${head.advertiser}` : ""}{head.category ? ` · ${categoryLabel(head.category)}` : ""}</div></div>
+                </div>
+                {!d && !details.error && <p className="wl-cd-wait"><span className="spinner" aria-hidden="true" /> Loading…</p>}
+                {details.error && <p className="error" role="alert">{details.error}</p>}
+                {d && <CampaignDetails d={d} />}
+              </div>
+            </>
+          );
+        })()}
       </Modal>
     </div>
   );

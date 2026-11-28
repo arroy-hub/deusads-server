@@ -10703,3 +10703,19 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-hero-solo .wl-hero-strip dd { font-size: clamp(1.5rem, 2.2vw, 2rem); line-height: 1.15; letter-spacing: -.01em; }
 .wl-hero-solo .wl-hero-strip small { font-size: 12.5px; }
 @media (max-width: 640px) { .wl-hero-solo .wl-hero-strip div { padding: 10px 16px; } .wl-hero-solo .wl-hero-strip dd { font-size: 1.25rem; } }
+
+/* The campaign's window in the developer's wallet wears the campaign's own card: the cover, and the plate on its edge. */
+.wl-cd-modal .modal-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; border: 0; }
+.wl-cd-modal .modal-box { overflow: hidden; border-radius: 20px; }
+.wl-cd-modal .modal-body { padding: 0; gap: 0; }
+.wl-cd-modal.modal-wide { width: min(58rem, calc(100vw - 2rem)); }
+.wl-cd-cover { position: relative; flex: none; height: 116px; background-size: cover !important; background-position: center !important; }
+.wl-cd-x { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.88); color: var(--ink); cursor: pointer; box-shadow: 0 2px 8px rgba(20,12,8,.25); }
+.wl-cd-x:hover { background: #fff; }
+.wl-cd-in { position: relative; z-index: 1; padding: 0 24px 22px; display: grid; gap: 18px; }
+.wl-cd-plate { margin-top: -26px; justify-self: start; padding: 5px 18px 5px 5px; }
+.wl-cd-plate h3 { font-size: 18px; }
+.wl-cd-plate .cx-ic, .wl-cd-plate .cx-ic .rd-tile { width: 48px; height: 48px; }
+.wl-cd-plate .cx-ic .rd-tile { border-radius: 13px; }
+.wl-cd-plate .cx-ic .rd-tile .cp-cti { width: 25px; height: 25px; }
+.wl-cd-facts { grid-template-columns: auto minmax(0, 1fr); gap: 12px 36px; }
