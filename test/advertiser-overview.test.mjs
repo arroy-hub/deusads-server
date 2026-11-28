@@ -137,7 +137,7 @@ assert.equal(odd.missingPlacements, 0, "so nothing the advertiser can fix is lef
 assert.equal(odd.oddPlacements, 0, "the 4:1 placement belongs to the nearest format, 3:1");
 const oddOnly = attentionItems({ gaps: [{ id: "c9", name: "All formats", missingLabels: odd.missingLabels, missingPlacements: odd.missingPlacements }] });
 assert.equal(oddOnly.length, 0, "no notice when every standard format is added");
-assert.equal(attentionItems({ gaps: [{ id: "c7", name: "Weekend — 1:1", missingLabels: ["3:4", "9:16"], missingPlacements: 40 }] })[0].text, "Still missing a picture for 3:4, 9:16. Once each of them has one, this notice goes away.", "the notice names what is still missing");
+assert.equal(attentionItems({ gaps: [{ id: "c7", name: "Weekend — 1:1", missingLabels: ["3:4", "9:16"], missingPlacements: 40 }] })[0].text, "Add a picture for 3:4, 9:16.", "the notice names what is still missing");
 assert.equal(attentionItems({ gaps: [{ id: "c8", name: "No labels", missingLabels: [], missingPlacements: 2 }] }).length, 0, "a notice with nothing to add is not shown");
 const partly = coverageSummary({ creative: wide, assets: [{ formatId: "r1x1", aspect: 1, status: "approved" }], placements: [{ aspect: 16 / 9 }, { aspect: 1 }, { aspect: 9 / 16 }, { aspect: 4 }] });
 assert.deepEqual([partly.missingLabels.join(), partly.missingPlacements, partly.oddPlacements], ["3:4,9:16,3:1", 2, 0], "adding one format lowers the count, the others stay listed; the 4:1 placement waits for the 3:1 picture");
@@ -153,7 +153,7 @@ const items = attentionItems({
   ],
 });
 assert.deepEqual(items.map((item) => item.key), ["rejected:c1", "limited:k1", "gap:c2", "dispute:c1"]);
-assert.equal(items.find((item) => item.key === "gap:c2").title, "Banner is not shown in 15 placements");
+assert.equal(items.find((item) => item.key === "gap:c2").title, "Banner: no picture for 15 placements");
 assert.equal(attentionItems({}).length, 0);
 
 // a campaign ending within 3 days is reported, later or already ended ones are not

@@ -260,7 +260,7 @@ export async function cancelBooking({ bookingId }) {
   if (info && info.advertiserId === me.user.id) {
     await notify(me.service, {
       accountId: info.developerId,
-      text: `The advertiser withdrew their booking on ${info.where}.`,
+      text: `An advertiser withdrew a booking: ${info.where}.`,
       link: "/dashboard/games",
       type: "dev_withdrew",
     });
@@ -584,7 +584,7 @@ export async function stopCampaign({ campaignId }) {
   if (closed.error && !walletMissing(closed.error)) console.error("[DeusADS] wallet close:", closed.error.code, closed.error.message);
   const returned = Number(closed.data?.returned) || 0;
 
-  await notifyMany(service, wasLive, "An advertiser stopped a campaign that was showing in your game.", "/dashboard/games", "dev_withdrew");
+  await notifyMany(service, wasLive, "An advertiser stopped a campaign in your game.", "/dashboard/games", "dev_withdrew");
   revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard/admin/bookings");
   return { ok: true, stopped: (open ?? []).length, returned, message: returned > 0 ? `Campaign stopped · ${credits(returned)} C. returned to your wallet` : "Campaign stopped" };

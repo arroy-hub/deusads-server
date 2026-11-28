@@ -27,12 +27,12 @@ assert.equal(changes.start[0].gameId, "g2");
 const names = { games: new Map([["g1", { name: "Pocket Harvest", ownerId: "dev1" }]]), campaigns: new Map([["c1", { name: "Spring" }], ["c2", { name: "Winter" }]]) };
 const one = fitNotices({ lost: [cur("g1", "c1", false)] }, names);
 assert.deepEqual(one.map((item) => [item.accountId, item.type, item.link]), [["dev1", "dev_audience_fit", "/dashboard/g/g1?tab=campaigns&campaign=c1"], ["a1", "adv_audience_fit", "/dashboard/advertising/c/c1"]]);
-assert.equal(one[0].text, '"Spring" stopped showing in Pocket Harvest: the game no longer fits its audience (no matching genre).');
-assert.equal(one[1].text, '"Spring" stopped showing in Pocket Harvest: the game no longer fits the audience (no matching genre).');
+assert.equal(one[0].text, '"Spring" stopped in Pocket Harvest: the game no longer fits its audience (no matching genre).');
+assert.equal(one[1].text, '"Spring" stopped in Pocket Harvest: the game no longer fits the audience (no matching genre).');
 const many = fitNotices({ back: [cur("g1", "c1", true), cur("g1", "c2", true)] }, names);
-assert.equal(many[0].text, "2 campaigns are showing again in Pocket Harvest: the game fits their audience again.");
+assert.equal(many[0].text, "2 campaigns are back in Pocket Harvest: the game fits their audience again.");
 assert.equal(many[0].link, "/dashboard/g/g1?tab=campaigns", "several: the tab, not one campaign");
-assert.equal(many[1].text, "2 of your campaigns are showing again in Pocket Harvest: the game fits their audience again.");
+assert.equal(many[1].text, "2 campaigns are back in Pocket Harvest: the game fits their audience again.");
 assert.equal(many[1].link, "/dashboard/advertising");
 assert.deepEqual(fitNotices({}, names), []);
 
@@ -123,7 +123,7 @@ assert.equal(fitRow("c1").since, new Date(min(5)).toISOString());
 assert.equal(fitRow("c1").why, "no matching genre");
 assert.equal(fitRow("c2").fits, true, "a campaign without an audience still fits");
 assert.deepEqual(db.tables.notifications.map((item) => item.account_id), ["dev1", "adv1"]);
-assert.match(db.tables.notifications[0].text, /^"Spring Sale" stopped showing in Pocket Harvest/);
+assert.match(db.tables.notifications[0].text, /^"Spring Sale" stopped in Pocket Harvest/);
 assert.equal(db.tables.notifications[0].link, "/dashboard/g/g1?tab=campaigns&campaign=c1");
 
 // the same state again tells nobody twice, and the clock keeps running from the first moment
@@ -137,7 +137,7 @@ db.tables.games[0].genres = ["racing"];
 assert.deepEqual(await reconcileFit(db, { gameId: "g1", now: min(90) }), { started: 0, lost: 0, back: 1 });
 assert.equal(fitRow("c1").fits, true);
 assert.equal(db.tables.notifications.length, 4);
-assert.match(db.tables.notifications[2].text, /is showing again in Pocket Harvest/);
+assert.match(db.tables.notifications[2].text, /is back in Pocket Harvest/);
 assert.equal(isLapsed(fitRow("c1"), min(500)), false);
 
 // a booking that is gone is forgotten

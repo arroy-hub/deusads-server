@@ -65,8 +65,8 @@ export async function reviewCreative({ creativeId, decision, note }) {
     accountId: data.owner_id,
     text:
       status === "approved"
-        ? wasHeld ? `The new version of your creative "${data.name}" was approved. It runs again.` : `Your creative "${data.name}" was approved.`
-        : wasHeld ? `The new version of your creative "${data.name}" was not approved${reviewNote ? `: ${reviewNote}` : "."}` : `Your creative "${data.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
+        ? wasHeld ? `"${data.name}": new version approved. It runs again.` : `"${data.name}" approved.`
+        : wasHeld ? `"${data.name}": new version not approved${reviewNote ? `: ${reviewNote}` : "."}` : `"${data.name}" rejected${reviewNote ? `: ${reviewNote}` : "."}`,
     link: wasHeld ? `/dashboard/creatives/${data.id}` : "/dashboard/creatives",
     type: "adv_creative_reviewed",
   });
@@ -126,8 +126,8 @@ export async function reviewAsset({ assetId, decision, note }) {
       accountId: creative.owner_id,
       text:
         status === "approved"
-          ? wasHeld ? `The new ${shapeLabel(shape)} picture of "${creative.name}" was approved. It runs again.` : `An image for "${creative.name}" was approved.`
-          : wasHeld ? `The new ${shapeLabel(shape)} picture of "${creative.name}" was not approved${reviewNote ? `: ${reviewNote}` : "."}` : `An image for "${creative.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
+          ? wasHeld ? `"${creative.name}": new ${shapeLabel(shape)} picture approved. It runs again.` : `"${creative.name}": ${shapeLabel(shape)} picture approved.`
+          : wasHeld ? `"${creative.name}": new ${shapeLabel(shape)} picture not approved${reviewNote ? `: ${reviewNote}` : "."} Upload another.` : `"${creative.name}": ${shapeLabel(shape)} picture rejected${reviewNote ? `: ${reviewNote}` : "."}`,
       link: `/dashboard/creatives/${data.creative_id}`,
       type: "adv_creative_reviewed",
     });
@@ -140,8 +140,8 @@ export async function reviewAsset({ assetId, decision, note }) {
       await notify(admin.service, {
         accountId: reporter,
         text: status === "approved"
-          ? `The picture of "${creative.name}" you reported was replaced: DeusADS approved the advertiser's new ${shapeLabel(shape)} picture. Whether it shows in your game is up to you.`
-          : `DeusADS did not approve the advertiser's new picture for "${creative.name}". The advertiser has to send another one.`,
+          ? `Your report on "${creative.name}": the picture was replaced. Showing the new one in your game is up to you.`
+          : `Your report on "${creative.name}": the new picture was not approved. The advertiser must send another.`,
         link: `/dashboard/support?tab=requests&report=${heldDispute}`,
         type: "dev_report_decided",
       });
@@ -172,7 +172,7 @@ export async function setAccountRole({ accountId, role }) {
     .maybeSingle();
   if (error || !data) return { error: "Could not change the role." };
 
-  await notify(admin.service, { accountId: data.id, text: `Your account is now ${role}.`, link: "/dashboard", type: "account_security" });
+  await notify(admin.service, { accountId: data.id, text: `Your role is now ${role}.`, link: "/dashboard", type: "account_security" });
 
   revalidatePath("/dashboard/admin/users");
   return { ok: true, role };
@@ -320,15 +320,15 @@ export async function resolveDispute({ disputeId, decision, note, rule, advNote,
   const name = creative?.name ?? "the creative";
   const reporter = advertiserSide ? dispute.advertiser_id : dispute.developer_id;
   const other = advertiserSide ? dispute.developer_id : creative?.owner_id;
-  const what = decision === "remove" ? `the reported picture of "${name}" was removed` : decision === "change" ? `the advertiser was asked to change the reported picture of "${name}"` : decision === "pause" ? `the booking of "${name}" was paused` : advertiserSide ? `your report on "${name}" was dismissed` : `no violation was found in the creative "${name}"`;
-  if (reporter) await notify(admin.service, { accountId: reporter, text: `DeusADS reviewed your report: ${what}.${toDeveloper ? ` ${toDeveloper}` : ""}`, link: advertiserSide ? "/dashboard/advertising" : `/dashboard/support?tab=requests&report=${dispute.id}`, type: advertiserSide ? "adv_report_decided" : "dev_report_decided" });
+  const what = decision === "remove" ? "picture removed" : decision === "change" ? "the advertiser must change the picture" : decision === "pause" ? "booking paused" : advertiserSide ? "dismissed" : "no violation found";
+  if (reporter) await notify(admin.service, { accountId: reporter, text: `Your report on "${name}": ${what}.${toDeveloper ? ` ${toDeveloper}` : ""}`, link: advertiserSide ? "/dashboard/advertising" : `/dashboard/support?tab=requests&report=${dispute.id}`, type: advertiserSide ? "adv_report_decided" : "dev_report_decided" });
   // No violation: the advertiser is not told, the report only counts on the creative.
   if (decision !== "dismiss" && other) {
     await notify(admin.service, {
       accountId: other,
-      text: decision === "remove" ? `${dispute.shape ? `The ${shapeLabel(dispute.shape)} picture of your creative` : "Your creative"} "${name}" was blocked for a violation: ${cleanRule}. ${toAdvertiser}`
-        : decision === "change" ? `DeusADS asks you to change ${dispute.shape ? `the ${shapeLabel(dispute.shape)} picture of` : "the creative"} "${name}": ${cleanRule}. ${toAdvertiser}`
-        : `The booking of "${name}" was paused after a report: ${dispute.reason}.`,
+      text: decision === "remove" ? `"${name}"${dispute.shape ? `: ${shapeLabel(dispute.shape)} picture` : ""} blocked. Rule: ${cleanRule}. ${toAdvertiser}`
+        : decision === "change" ? `Change ${dispute.shape ? `the ${shapeLabel(dispute.shape)} picture of ` : ""}"${name}". Rule: ${cleanRule}. ${toAdvertiser}`
+        : `"${name}": booking paused after a report (${dispute.reason}).`,
       link: advertiserSide ? "/dashboard/games" : `/dashboard/creatives/${dispute.creative_id}`,
       type: decision === "pause" ? (advertiserSide ? "dev_booking_paused" : "adv_booking_paused") : "adv_creative_removed",
     });
@@ -368,7 +368,7 @@ export async function replyToAdvertiser({ disputeId, text }) {
   const creative = held.creative;
   const { error: saveError } = await admin.service.from("dispute_events").insert({ dispute_id: String(disputeId), author_id: admin.user.id, side: "admin", kind: "reply", text: clean });
   if (saveError) return { error: "Could not send the reply." };
-  await notify(admin.service, { accountId: creative.owner_id, text: `DeusADS replied about your creative "${creative.name}": ${clean}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
+  await notify(admin.service, { accountId: creative.owner_id, text: `DeusADS replied about "${creative.name}": ${clean}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
   revalidatePath("/dashboard/admin/disputes");
   revalidatePath(`/dashboard/creatives/${creative.id}`);
   revalidatePath("/dashboard/advertising");
@@ -401,8 +401,8 @@ export async function withdrawDecision({ disputeId, note }) {
   } catch {
     // bookings are picked up by the next review or booking
   }
-  await notify(admin.service, { accountId: creative.owner_id, text: `DeusADS took its decision back: your creative "${creative.name}" is approved and runs again.${said ? ` ${said}` : ""}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
-  if (dispute.developer_id) await notify(admin.service, { accountId: dispute.developer_id, text: `DeusADS looked again at your report on "${creative.name}": no violation was found, and the creative runs again. Whether it shows in your game is up to you.`, link: `/dashboard/support?tab=requests&report=${dispute.id}`, type: "dev_report_decided" });
+  await notify(admin.service, { accountId: creative.owner_id, text: `"${creative.name}" runs again: DeusADS took its decision back.${said ? ` ${said}` : ""}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
+  if (dispute.developer_id) await notify(admin.service, { accountId: dispute.developer_id, text: `Your report on "${creative.name}": after a second look, no violation found. It runs again.`, link: `/dashboard/support?tab=requests&report=${dispute.id}`, type: "dev_report_decided" });
   revalidatePath("/dashboard/admin/disputes");
   revalidatePath("/dashboard/creatives");
   revalidatePath("/dashboard/advertising");

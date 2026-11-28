@@ -196,17 +196,17 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
     perAdvertiser.get(advertiser).push(nameOf.get(id));
   }
   const verb = { pause: "paused", resume: "resumed", block: "blocked", unblock: "unblocked" }[action];
-  const noun = scope === "advertiser" ? "Your account" : scope === "creative" || isPicture ? "creative" : "campaign";
+  const noun = scope === "advertiser" ? "All your ads" : scope === "creative" || isPicture ? "creative" : "campaign";
   for (const [advertiserId, list] of perAdvertiser) {
     const what =
       scope === "advertiser"
-        ? "Your account"
+        ? "All your ads"
         : list.length === 1
-          ? `Your ${noun} "${list[0]}"`
-          : `${list.length} of your ${noun === "creative" ? "creatives" : "campaigns"}`;
+          ? `${noun === "creative" ? "Creative" : "Campaign"} "${list[0]}"`
+          : `${list.length} ${noun === "creative" ? "creatives" : "campaigns"}`;
     await notify(me.service, {
       accountId: advertiserId,
-      text: `${what} ${list.length > 1 && scope !== "advertiser" ? "were" : "was"} ${verb} in ${game.name}${isPicture && action === "block" ? " in this shape only" : ""}${cleanReason ? `. Reason: ${cleanReason}` : "."}`,
+      text: `${what} ${verb} in ${game.name}${isPicture && action === "block" ? " (this shape only)" : ""}${cleanReason ? `. Reason: ${cleanReason}` : "."}`,
       link: "/dashboard/advertising",
       type: "adv_blocked",
     });
@@ -338,7 +338,7 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
   }
 
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report about a creative in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes", "admin_reports");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `New report in ${game.name}: ${cleanReason}`, "/dashboard/admin/disputes", "admin_reports");
 
   let block = null;
   if (alsoBlock) {

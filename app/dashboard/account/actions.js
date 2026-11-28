@@ -79,7 +79,7 @@ async function applyEmail(me, id, email) {
     return { error: "Could not change the email. Try again." };
   }
   await me.service.from("accounts").update({ email }).eq("id", id);
-  await notify(me.service, { accountId: id, text: `DeusADS changed your sign-in email to ${email}.`, link: "/dashboard/account", type: "account_security" });
+  await notify(me.service, { accountId: id, text: `Your sign-in email is now ${email} (changed by DeusADS).`, link: "/dashboard/account", type: "account_security" });
   return null;
 }
 
@@ -179,7 +179,7 @@ export async function adminSetPassword({ accountId, next, repeat }) {
   if (error) return { error: "Could not set the password. Try again." };
   await me.service.from("accounts").update({ password_changed_at: new Date().toISOString() }).eq("id", id);
   await me.service.rpc("admin_revoke_sessions", { p_user: id });
-  await notify(me.service, { accountId: id, text: "DeusADS set a new password for your account. Sign in again.", link: "/dashboard/account?tab=security", type: "account_security" });
+  await notify(me.service, { accountId: id, text: "DeusADS set a new password for you. Sign in again.", link: "/dashboard/account?tab=security", type: "account_security" });
   refresh(id);
   return { ok: true };
 }

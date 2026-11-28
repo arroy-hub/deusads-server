@@ -59,8 +59,8 @@ assert.equal(strips[1].primary, false);
   });
   assert.deepEqual(items.map((item) => item.key), ["budget-out:c5", "rejected:k1", "budget-low:c2", "limited:c1"]);
   assert.equal(items[0].title, "Winter Mango is out of budget");
-  assert.equal(items[2].title, "Zero Sugar has used 87% of its budget");
-  assert.equal(items[2].text, "18.80 C. left. It stops by itself when they run out.");
+  assert.equal(items[2].title, "Zero Sugar used 87% of its budget");
+  assert.equal(items[2].text, "18.80 C. left. It stops when they run out.");
   assert.equal(attentionItems({ rejected: [{ id: "k1", name: "Mango can" }] }).length, 1, "the bell asks without budgets and gets none");
   const budgetStrips = advertiserStrips(items);
   assert.deepEqual([budgetStrips[0].tone, budgetStrips[0].icon, budgetStrips[0].href], ["stop", "wallet", "/dashboard/advertising/c/c5"]);
@@ -157,8 +157,8 @@ assert.equal(slugOf("Placements, scenes and folders"), "placements-scenes-and-fo
 
 // Recent activity: a burst of the same kind is one row
 {
-  const AD = "A new ad is showing in your game. You can pause or block it in the game's Campaigns tab.";
-  const SEVERAL = "New ads are showing in several of your games. Open a game's Campaigns tab to pause or block one.";
+  const AD = "New ad in your game. Pause or block it in the Campaigns tab.";
+  const SEVERAL = "New ads in several of your games. Pause or block them in each game's Campaigns tab.";
   const when = (minutes) => new Date(Date.parse("2026-10-28T12:00:00Z") - minutes * 60000).toISOString();
   const note = (id, text, link, minutes) => ({ id, text, link, created_at: when(minutes) });
   const ad = (id, game, campaign, minutes) => note(id, AD, `/dashboard/g/${game}?tab=campaigns&campaign=${campaign}`, minutes);
@@ -166,11 +166,11 @@ assert.equal(slugOf("Placements, scenes and folders"), "placements-scenes-and-fo
   const burst = groupActivity([ad("a3", "g1", "c3", 8), ad("a1", "g1", "c1", 1), ad("a2", "g1", "c2", 3)]);
   assert.equal(burst.length, 1);
   assert.deepEqual([burst[0].id, burst[0].count, burst[0].created_at], ["a1", 3, when(1)], "the newest row stands for the group");
-  assert.equal(burst[0].text, "3 new ads are showing in your game");
+  assert.equal(burst[0].text, "3 new ads in your game");
   assert.equal(burst[0].link, "/dashboard/g/g1?tab=campaigns");
 
   const several = groupActivity([ad("a1", "g1", "c1", 1), ad("a2", "g2", "c2", 2), note("a3", SEVERAL, "/dashboard/games", 3)]);
-  assert.equal(several[0].text, "3 new ads are showing in your games");
+  assert.equal(several[0].text, "3 new ads in your games");
   assert.equal(several[0].link, "/dashboard/games", "several games: My games, where each one has its marker");
 
   // more than ten minutes between neighbours starts a new row; a chain of close ones stays together
@@ -186,8 +186,8 @@ assert.equal(slugOf("Placements, scenes and folders"), "placements-scenes-and-fo
   assert.equal(mixed[1].text, "Your password was changed.");
 
   // stopped or withdrawn
-  const stopped = groupActivity([note("s1", "The advertiser withdrew their booking on Pocket Harvest.", "/dashboard/games", 1), note("s2", "An advertiser stopped a campaign that was showing in your game.", "/dashboard/games", 2)]);
-  assert.equal(stopped[0].text, "2 ads were withdrawn or stopped in your games");
+  const stopped = groupActivity([note("s1", "An advertiser withdrew a booking: Pocket Harvest.", "/dashboard/games", 1), note("s2", "An advertiser stopped a campaign in your game.", "/dashboard/games", 2)]);
+  assert.equal(stopped[0].text, "2 ads withdrawn or stopped in your games");
 
   // any other text is merged only when it is exactly the same; different names stay apart
   const same = groupActivity([note("x1", "Your password was changed.", "/dashboard/account", 1), note("x2", "Your password was changed.", "/dashboard/account", 2)]);

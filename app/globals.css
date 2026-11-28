@@ -10544,3 +10544,13 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .rd-ed-side .hold-msg.is-mine { margin-left: 24px; }
 .rd-ed-side .hold-msg:not(.is-mine) { margin-right: 24px; }
 @media (max-width: 1100px) { .rd-ed-side { max-height: 42dvh; } }
+
+/* My requests: New folder and New request are two small squares; their names show as a hint. */
+.sp-sq { flex: none; width: 36px; height: 36px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--signal); border-radius: 10px; background: var(--signal); color: #fff; cursor: pointer; }
+.sp-sq:hover { filter: brightness(.94); }
+.sp-sq.is-quiet { background: #fff; border-color: #d8cabd; color: var(--ink); }
+.sp-sq.is-quiet:hover { background: var(--surface); filter: none; }
+.sp-sq:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.sp-sq svg { width: 18px; height: 18px; }
+.sp-group-h { margin: 18px 0 10px; }
+.sp-body .sp-reports { margin-top: 26px; }

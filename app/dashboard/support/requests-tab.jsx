@@ -10,6 +10,7 @@ import { newFolder, placeInFolder, removeFolder, renameFolder } from "./actions"
 import { refreshPage } from "../wait";
 import ReportStrips from "./report-strips";
 
+const SHOW_LABEL = { all: "Everything", requests: "My requests", reports: "Reports on creatives" };
 const plural = (n) => `${n} ${n === 1 ? "request" : "requests"}`;
 const byPosition = (a, b) => a.position - b.position; // stable: ties keep the server's order
 
@@ -24,6 +25,8 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
   const [folders, setFolders] = useState(initialFolders.map((f) => ({ ...f, open: true })));
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
+  // What the page lists: everything, only what the person wrote, or only their reports on creatives.
+  const [show, setShow] = useState(openReport ? "reports" : "all");
   const [menu, setMenu] = useState(null); // { id, moving }
   const [renaming, setRenaming] = useState(null);
   const [note, setNote] = useState("");
@@ -209,26 +212,37 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
   }
 
   const empty = items.length === 0;
+  // A filter by status or type is about requests: the reports step aside while one is on.
+  const showRequests = show !== "reports";
+  const showReports = reports.length > 0 && (show === "reports" || (show === "all" && !filtering));
   return (
     <div className="cx-body sp-body">
       {outdated && <p className="notice" role="status">The database needs update <code>0052_support.sql</code> before requests can be sent. Ask an admin to run it.</p>}
       <div className="cx-plate">
+        {reports.length > 0 && (
+          <PopBtn label="Show" value={show === "all" ? "" : SHOW_LABEL[show]} width={240}>
+            {(close) => [["all", items.length + reports.length], ["requests", items.length], ["reports", reports.length]].map(([key, n]) => <Opt key={key} on={show === key} count={n} onClick={() => { setShow(key); close(); }}>{SHOW_LABEL[key]}</Opt>)}
+          </PopBtn>
+        )}
+        {show !== "reports" && <>
         <PopBtn label="Status" value={status === "all" ? "" : STATUS_LABEL[status]} width={220}>
           {(close) => [["all", "All"], ...STATUSES.map((s) => [s, STATUS_LABEL[s]])].map(([key, label]) => <Opt key={key} on={status === key} count={count("status", key)} onClick={() => { setStatus(key); close(); }}>{label}</Opt>)}
         </PopBtn>
         <PopBtn label="Type" value={type === "all" ? "" : TYPE_LABEL[type]} width={220}>
           {(close) => [["all", "All"], ...TYPES.map((t) => [t, TYPE_LABEL[t]])].map(([key, label]) => <Opt key={key} on={type === key} count={count("type", key)} onClick={() => { setType(key); close(); }}>{label}</Opt>)}
         </PopBtn>
-        {filtering && <button type="button" className="link-button" onClick={() => { setStatus("all"); setType("all"); }}>Clear</button>}
+        </>}
+        {(filtering || show !== "all") && <button type="button" className="link-button" onClick={() => { setStatus("all"); setType("all"); setShow("all"); }}>Clear</button>}
         <span className="cx-spacer" />
-        <span className="fl-shown" aria-live="polite">{plural(shown.length)}</span>
-        <button type="button" className="button button-quiet button-with-icon" onClick={() => addFolder()}><FolderPlusIcon />New folder</button>
-        <button type="button" className="button button-with-icon" onClick={onNew}><IcPlus size={16} />New request</button>
+        <span className="fl-shown" aria-live="polite">{[showRequests ? plural(shown.length) : "", showReports ? `${reports.length} ${reports.length === 1 ? "report" : "reports"}` : ""].filter(Boolean).join(" · ")}</span>
+        {show !== "reports" && <button type="button" className="sp-sq is-quiet" title="New folder" aria-label="New folder" onClick={() => addFolder()}><FolderPlusIcon /></button>}
+        <button type="button" className="sp-sq" title="New request" aria-label="New request" onClick={onNew}><IcPlus size={18} /></button>
       </div>
 
       {note && <p className="sp-problem" role="alert">{note}</p>}
 
-      {empty ? (
+      {showRequests && showReports && !empty && <h2 className="sp-reports-h sp-group-h">Requests <span>{shown.length}</span></h2>}
+      {!showRequests ? null : empty ? (
         <div className="cx-empty">No requests yet — ask the assistant or write to the developer.</div>
       ) : (
         <div
@@ -244,7 +258,7 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
           {shown.length === 0 && <div className="cx-empty">No requests match the filters.</div>}
         </div>
       )}
-      <ReportStrips reports={reports} initialOpen={openReport} />
+      {showReports && <ReportStrips reports={reports} initialOpen={openReport} />}
     </div>
   );
 }

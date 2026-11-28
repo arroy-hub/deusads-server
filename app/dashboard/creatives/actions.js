@@ -417,7 +417,7 @@ export async function sendNewVersion({ creativeId }) {
   const { error } = await me.service.from("creatives").update({ status: "pending", hold_sent_at: new Date().toISOString() }).eq("id", creative.id).eq("hold", "changes");
   if (error) return { error: "Could not send it. Try again." };
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new version of "${creative.name}" waits for review: it was changed after a report.`, "/dashboard/admin", "admin_reports");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `"${creative.name}": new version to review (changed after a report).`, "/dashboard/admin", "admin_reports");
   refresh(creative.id);
   revalidatePath("/dashboard/advertising");
   return { ok: true };
@@ -441,7 +441,7 @@ export async function replyToDeusADS({ creativeId, disputeId, text }) {
   const { error } = await me.service.from("dispute_events").insert({ dispute_id: target, author_id: me.user.id, side: "advertiser", kind: "reply", text: clean });
   if (error) return { error: "Could not send the reply. Try again." };
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `The advertiser wrote about "${creative.name}": ${clean}`, `/dashboard/admin/disputes?card=dispute:${target}`, "admin_reports");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `Advertiser wrote about "${creative.name}": ${clean}`, `/dashboard/admin/disputes?card=dispute:${target}`, "admin_reports");
   revalidatePath("/dashboard/admin/disputes");
   refresh(creative.id);
   revalidatePath("/dashboard/advertising");
@@ -471,9 +471,9 @@ export async function sendHeldPicture({ creativeId, shape }) {
   if (hold.dispute_id) await me.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: me.user.id, side: "advertiser", kind: "decision", text: `picture: uploaded ${asset.width_px} × ${asset.height_px}` }).then(() => null, () => null);
   // the developer who reported it follows the report too
   const reporter = await reporterOf(me.service, hold.dispute_id).catch(() => null);
-  if (reporter) await notify(me.service, { accountId: reporter, text: `The advertiser uploaded a new picture for "${creative.name}" after your report. DeusADS is reviewing it.`, link: `/dashboard/support?tab=requests&report=${hold.dispute_id}`, type: "dev_report_decided" });
+  if (reporter) await notify(me.service, { accountId: reporter, text: `Your report on "${creative.name}": the advertiser sent a new picture. DeusADS is checking it.`, link: `/dashboard/support?tab=requests&report=${hold.dispute_id}`, type: "dev_report_decided" });
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture for "${creative.name}" waits for review: it replaces one that was reported.`, hold.dispute_id ? `/dashboard/admin/disputes?card=dispute:${hold.dispute_id}` : "/dashboard/admin/disputes", "admin_reports");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `"${creative.name}": new picture to review (replaces a reported one).`, hold.dispute_id ? `/dashboard/admin/disputes?card=dispute:${hold.dispute_id}` : "/dashboard/admin/disputes", "admin_reports");
   revalidatePath("/dashboard/admin/disputes");
   revalidatePath("/dashboard/advertising");
   revalidatePath("/dashboard/support");

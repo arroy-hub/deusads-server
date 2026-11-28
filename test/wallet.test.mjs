@@ -133,8 +133,8 @@ assert.equal(walletError({ error: "funds", available: 12 }), "Your wallet has 12
 assert.equal(walletError({ error: "amount" }), "Type an amount above zero.");
 assert.equal(walletError({ ok: true }), "");
 assert.ok(walletMissing({ code: "PGRST202" }) && walletMissing({ code: "42703" }) && !walletMissing({ code: "23505" }) && !walletMissing(null));
-assert.equal(budgetNoticeText({ kind: "out", name: "Zero Sugar Teaser" }), "Zero Sugar Teaser has stopped: the budget is used up. Add budget to start it again.");
-assert.equal(budgetNoticeText({ kind: "low", name: "Zero Sugar Teaser", budget: "150", spent: "135.6" }), "Zero Sugar Teaser has used 90% of its budget.");
+assert.equal(budgetNoticeText({ kind: "out", name: "Zero Sugar Teaser" }), '"Zero Sugar Teaser" stopped: out of budget. Add budget to restart it.');
+assert.equal(budgetNoticeText({ kind: "low", name: "Zero Sugar Teaser", budget: "150", spent: "135.6" }), '"Zero Sugar Teaser" has used 90% of its budget.');
 assert.equal(earnedText(24.5, "yesterday"), "+24.50 C. earned yesterday");
 
 // the rules that read the budget
