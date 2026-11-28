@@ -10308,7 +10308,8 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 
 /* The "i" of a hint is drawn, not typed: an upright mark in the exact middle of its rounded square, the same in every
    font and at every zoom (the italic serif letter sat off-centre). The square itself sits on the middle of its line. */
-.ig-i:not(.wl-mark),.cb-ig-i{font-size:0;line-height:0;font-style:normal;vertical-align:middle;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+/* !important: the admin area and Home set the font of this mark in their own files, loaded later, and the typed letter came back next to the drawn one. */
+.ig-i:not(.wl-mark),.cb-ig-i{font-size:0 !important;line-height:0 !important;font-style:normal;vertical-align:middle;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
 .ig-i:not(.wl-mark)::before,.cb-ig-i::before{content:"";flex:none;width:9px;height:9px;background:currentColor;
   -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Ccircle cx='4.5' cy='1.95' r='1.05'/%3E%3Crect x='3.6' y='3.75' width='1.8' height='4.1' rx='.5'/%3E%3C/svg%3E") center/contain no-repeat;
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'%3E%3Ccircle cx='4.5' cy='1.95' r='1.05'/%3E%3Crect x='3.6' y='3.75' width='1.8' height='4.1' rx='.5'/%3E%3C/svg%3E") center/contain no-repeat}
