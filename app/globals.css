@@ -10555,20 +10555,25 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .sp-group-h { margin: 18px 0 10px; }
 .sp-body .sp-reports { margin-top: 26px; }
 
-/* Wallet (developer and advertiser): the block with the big amount is a dark stage, the same as the hero of Home. */
-.wl-hero:not(.cb-page .wl-hero) { border-color: transparent; box-shadow: 0 22px 44px -22px rgba(54,26,18,.5), 0 2px 6px rgba(54,26,18,.14); }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main { position: relative; isolation: isolate; color: #fff;
+/* Wallet (every role): the block with the big amount and the figures beside it is one dark stage, the same as the hero of
+   Home. The colour is on the block itself, so nothing white shows at its edge or between its parts. */
+.wl-hero { position: relative; isolation: isolate; border: 0; color: #fff;
   background: radial-gradient(120% 140% at 82% 40%, #a24f37 0%, rgba(162,79,55,0) 58%), linear-gradient(112deg, #171413 0%, #231a17 42%, #4a271d 74%, #7d3d2c 100%);
-  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,.28), rgba(255,255,255,0) 70%); pointer-events: none; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-k { color: #f0b9a4; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-v { color: #fff; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-u { color: rgba(255,255,255,.6); }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-sub, .wl-hero:not(.cb-page .wl-hero) .wl-hero-rate { color: rgba(255,255,255,.72); }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-rate { border-left-color: rgba(255,255,255,.22); }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-rate b { color: #fff; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main .ig-i:not(.wl-mark) { border-color: rgba(255,255,255,.4); color: rgba(255,255,255,.8); background: none; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main .ig-i:not(.wl-mark):hover, .wl-hero:not(.cb-page .wl-hero) .wl-hero-main .ig-i:not(.wl-mark).is-on { border-color: #fff; color: #fff; background: rgba(255,255,255,.12); }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main .button-quiet { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.3); color: #fff; }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main .button-quiet:hover { background: rgba(255,255,255,.22); }
-.wl-hero:not(.cb-page .wl-hero) .wl-hero-main a:not(.button) { color: #ffd9cb; }
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 22px 44px -22px rgba(54,26,18,.5), 0 2px 6px rgba(54,26,18,.14); }
+.wl-hero::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,.28), rgba(255,255,255,0) 70%); pointer-events: none; }
+.wl-hero .wl-hero-main, .wl-hero .wl-hero-strip, .wl-hero .wl-hero-side { background: none; }
+.wl-hero .wl-hero-k { color: #f0b9a4; }
+.wl-hero .wl-hero-v { color: #fff; }
+.wl-hero .wl-hero-u { color: rgba(255,255,255,.6); }
+.wl-hero .wl-hero-sub, .wl-hero .wl-hero-rate { color: rgba(255,255,255,.72); }
+.wl-hero .wl-hero-rate { border-left-color: rgba(255,255,255,.22); }
+.wl-hero .wl-hero-rate b { color: #fff; }
+.wl-hero .wl-hero-side, .wl-hero .wl-hero-side div, .wl-hero .wl-hero-strip, .wl-hero .wl-hero-strip div { border-color: rgba(255,255,255,.14); }
+.wl-hero .wl-hero-side dt, .wl-hero .wl-hero-strip dt { color: #f0b9a4; }
+.wl-hero .wl-hero-side dd, .wl-hero .wl-hero-strip dd { color: #fff; }
+.wl-hero .wl-hero-side small, .wl-hero .wl-hero-strip small { color: rgba(255,255,255,.62); }
+.wl-hero .ig-i:not(.wl-mark) { border-color: rgba(255,255,255,.4); color: rgba(255,255,255,.8); background: none; }
+.wl-hero .ig-i:not(.wl-mark):hover, .wl-hero .ig-i:not(.wl-mark).is-on { border-color: #fff; color: #fff; background: rgba(255,255,255,.12); }
+.wl-hero .button-quiet { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.3); color: #fff; }
+.wl-hero .button-quiet:hover { background: rgba(255,255,255,.22); }
+.wl-hero a:not(.button) { color: #ffd9cb; }
