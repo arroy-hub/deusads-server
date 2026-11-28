@@ -11,7 +11,7 @@ import { after } from "next/server";
 import { fitStoredPicture } from "../../../lib/creative-image";
 import { makeVariants, removeVariants } from "../../../lib/astc-variants";
 import { notifyMany } from "../../../lib/notify";
-import { shapeKey } from "../../../lib/game-pictures";
+import { isShapeKey, shapeAspect, shapeKey, shapeLabel } from "../../../lib/game-pictures";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
@@ -61,7 +61,7 @@ export async function saveSafeZone({ creativeId, x, y, w, h }) {
  * one standard format (formatId "r1x1" …) or for a custom shape (formatId "custom").
  * An existing picture for the same standard format is replaced.
  */
-export async function registerAsset({ creativeId, formatId, path, type, size, width, height }) {
+export async function registerAsset({ creativeId, formatId, path, type, size, width, height, forShape = null }) {
   // `path`, `width` and `height` are reassigned below when the picture is made smaller.
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
@@ -138,7 +138,13 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
   // Pictures made for a format are not moderated: they count from the moment they are uploaded. The exception is a
   // shape DeusADS holds after a report (migration 0065): a blocked shape takes no new picture, and a new picture for
   // a shape it asked to change waits for review, which is what ends the hold.
-  const heldShape = format ? format.id : shapeKey(aspect);
+  // `forShape`: the picture is uploaded for a held shape that is not a standard format (say 21:9); it has to be about that shape.
+  const wanted = !format && isShapeKey(forShape) && shapeAspect(forShape) ? forShape : null;
+  if (wanted && !aspectClose(aspect, shapeAspect(wanted))) {
+    await cleanup();
+    return { error: `This image is ${aspect.toFixed(2)}:1; the ${shapeLabel(wanted)} shape needs about ${shapeAspect(wanted).toFixed(2)}:1 (within 15%).` };
+  }
+  const heldShape = format ? format.id : wanted ?? shapeKey(aspect);
   const { data: hold } = await me.service.from("creative_picture_holds").select("kind").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
   if (hold?.kind === "blocked") {
     await cleanup();

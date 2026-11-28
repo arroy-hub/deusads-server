@@ -1,7 +1,8 @@
 "use server";
 import { DECISIONS, NEUTRAL_BLOCK_REASON, OUTCOME_OF, PENDING_BLOCK_REASON, needsRule } from "../../../lib/report-rules";
 import { isAdvertiserRule } from "../../../lib/platform-rules";
-import { shapeKey, shapeLabel } from "../../../lib/game-pictures";
+import { shapeAspect, shapeKey, shapeLabel } from "../../../lib/game-pictures";
+import { aspectClose } from "../../../lib/formats";
 
 import { revalidatePath } from "next/cache";
 import { getAdmin } from "../../../lib/admin";
@@ -93,11 +94,14 @@ export async function reviewAsset({ assetId, decision, note }) {
   if (error || !data) return { error: "Could not save the decision." };
 
   // A new picture for a shape DeusADS asked to change (migration 0065): approved, the shape runs again; rejected, it keeps waiting.
-  const shape = data.format_id ?? shapeKey(Number(data.aspect));
+  let shape = data.format_id ?? shapeKey(Number(data.aspect));
   let wasHeld = false;
   try {
-    const { data: hold } = await admin.service.from("creative_picture_holds").select("kind").eq("creative_id", data.creative_id).eq("shape", shape).maybeSingle();
-    wasHeld = hold?.kind === "changes";
+    // the held shape this picture was sent for: its own shape, or (a shape that is no standard format) the one it is close to
+    const { data: holds } = await admin.service.from("creative_picture_holds").select("shape, kind, sent_at").eq("creative_id", data.creative_id).eq("kind", "changes");
+    const hold = (holds ?? []).find((row) => row.shape === shape) ?? (data.format_id ? null : (holds ?? []).find((row) => row.sent_at && shapeAspect(row.shape) && aspectClose(Number(data.aspect), shapeAspect(row.shape))));
+    if (hold) shape = hold.shape;
+    wasHeld = Boolean(hold);
     if (wasHeld && status === "approved") await admin.service.from("creative_picture_holds").delete().eq("creative_id", data.creative_id).eq("shape", shape);
     if (wasHeld && status === "rejected") await admin.service.from("creative_picture_holds").update({ sent_at: null, held_at: new Date().toISOString(), ...(reviewNote ? { note: reviewNote } : {}) }).eq("creative_id", data.creative_id).eq("shape", shape);
   } catch {

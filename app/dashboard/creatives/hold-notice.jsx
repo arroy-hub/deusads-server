@@ -72,7 +72,7 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
       if (error) return { error: "Upload failed. Try again." };
       // for a held shape: a picture made for that shape, which goes to review by itself; otherwise a new main picture
       return picture
-        ? registerAsset({ creativeId, formatId: /^r\d+x\d+$/.test(hold.shape) ? hold.shape : "custom", path, type: picked.type, size: picked.size, width: size.width, height: size.height })
+        ? registerAsset({ creativeId, formatId: /^r\d+x\d+$/.test(hold.shape) ? hold.shape : "custom", forShape: hold.shape, path, type: picked.type, size: picked.size, width: size.width, height: size.height })
         : replaceMainPicture({ creativeId, path, type: picked.type, size: picked.size, width: size.width, height: size.height });
     });
     if (result?.ok) {
