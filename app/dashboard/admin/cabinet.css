@@ -442,3 +442,11 @@ dialog.cb-pop:focus{outline:0}
 
 .cb-npop.cb-npop-l{right:auto;left:0;width:380px}
 .cb-lr .cb-wait{display:inline-flex;margin-top:4px}
+
+/* A new picture sent for a held shape, reviewed in its dispute */
+.cb-newpic{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:center;border:1px solid #ecd49a;background:#fffaf0;border-radius:12px;padding:12px;margin-bottom:12px}
+.cb-newpic-img{display:block;aspect-ratio:16/9;border-radius:8px;background:#1d1a18 center/contain no-repeat}
+.cb-newpic-txt{display:grid;gap:6px;min-width:0}
+.cb-newpic-txt b{font:700 14px var(--cb-head)}
+.cb-newpic-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+@media(max-width:700px){.cb-newpic{grid-template-columns:1fr}}

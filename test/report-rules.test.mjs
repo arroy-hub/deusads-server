@@ -108,4 +108,17 @@ const [shaped] = disputeRows([{ ...base, shape: "r16x9", shapeLabel: "16:9", out
 assert.match(disputeNow(shaped), /other shapes keep running/);
 assert.ok(disputeEvents(shaped, [], {}).some((e) => e.text === "Asked the advertiser to change the picture"));
 
+// a new picture sent for a held shape is reviewed in its dispute, which is open work again
+const [again] = disputeRows([{ ...base, shape: "x2.3", shapeLabel: "21:9", outcome: "changes", held: "changes", heldHere: true, resent: true, newPicture: { id: "a1", url: "u", size: "1642 × 707", at: "2026-11-28T13:15:38Z" } }]);
+assert.equal(again.needsAction, true);
+assert.equal(disputeRows([{ ...base, outcome: "changes", held: "changes", heldHere: true }])[0].needsAction, false);
+assert.equal(disputeRows([{ ...base, outcome: "changes", waiting: true }])[0].needsAction, true, "an advertiser waiting for a reply");
+assert.ok(disputeEvents(again, [], {}).some((e) => e.text === "Uploaded a new 21:9 picture for review"), "also for a picture sent before uploads were recorded");
+const reviewed = disputeEvents(again, [
+  { side: "advertiser", kind: "decision", text: "picture: uploaded 1642 × 707", created_at: "2026-11-28T13:15:39Z", who: "Northwind" },
+  { side: "admin", kind: "decision", text: "picture: rejected: still offensive", created_at: "2026-11-28T14:00:00Z", who: "DeusADS admin" },
+], {});
+assert.equal(reviewed.filter((e) => e.text.startsWith("Uploaded a new")).length, 1, "the recorded upload is not shown twice");
+assert.ok(reviewed.some((e) => e.text === "Did not approve the new 21:9 picture: still offensive"));
+
 console.log("report rules: ok");

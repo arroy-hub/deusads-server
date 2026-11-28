@@ -1,4 +1,3 @@
-import { shapeKey, shapeLabel } from "../../../lib/game-pictures";
 import { notFound } from "next/navigation";
 import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
@@ -30,26 +29,9 @@ export default async function ModerationPage() {
   const migrated = !result.error;
   const creatives = result.data ?? [];
 
-  // Extra per-format pictures are not moderated: they go live as soon as the advertiser uploads them. The exception is
-  // a new picture for a shape DeusADS asked to change after a report (migration 0065): it waits here, and approving it
-  // puts that shape back into the games.
-  const waiting = await service.from("creative_assets").select("id, creative_id, format_id, aspect, storage_path, width_px, height_px, created_at, creatives(name, owner_id, ad_category, accounts(email, company))").eq("status", "pending").order("created_at", { ascending: false }).limit(500);
-  const assets = (waiting.data ?? []).map((a) => {
-    const shape = shapeLabel(a.format_id ?? shapeKey(Number(a.aspect)));
-    return {
-      id: a.id,
-      creativeId: a.creative_id,
-      name: `${a.creatives?.name ?? "Creative"}${shape ? ` · ${shape}` : ""} · new picture after a report`,
-      storage_path: a.storage_path,
-      ownerId: a.creatives?.owner_id ?? null,
-      owner: a.creatives?.accounts?.company || a.creatives?.accounts?.email || "Unknown",
-      email: a.creatives?.accounts?.email ?? "",
-      category: a.creatives?.ad_category ?? "other",
-      width_px: a.width_px,
-      height_px: a.height_px,
-      created_at: a.created_at,
-    };
-  });
+  // Extra per-format pictures are not moderated: they go live as soon as the advertiser uploads them. A new picture for
+  // a shape DeusADS asked to change after a report is reviewed in the dispute it belongs to (Disputes), not here.
+  const assets = [];
 
   const shaped = reviewRows({ creatives, assets, urlOf });
   const all = [...shaped.creatives, ...shaped.assets];

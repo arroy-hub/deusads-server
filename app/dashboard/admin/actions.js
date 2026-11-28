@@ -98,12 +98,17 @@ export async function reviewAsset({ assetId, decision, note }) {
   let wasHeld = false;
   try {
     // the held shape this picture was sent for: its own shape, or (a shape that is no standard format) the one it is close to
-    const { data: holds } = await admin.service.from("creative_picture_holds").select("shape, kind, sent_at").eq("creative_id", data.creative_id).eq("kind", "changes");
+    const { data: holds } = await admin.service.from("creative_picture_holds").select("shape, kind, sent_at, dispute_id").eq("creative_id", data.creative_id).eq("kind", "changes");
     const hold = (holds ?? []).find((row) => row.shape === shape) ?? (data.format_id ? null : (holds ?? []).find((row) => row.sent_at && shapeAspect(row.shape) && aspectClose(Number(data.aspect), shapeAspect(row.shape))));
     if (hold) shape = hold.shape;
     wasHeld = Boolean(hold);
     if (wasHeld && status === "approved") await admin.service.from("creative_picture_holds").delete().eq("creative_id", data.creative_id).eq("shape", shape);
-    if (wasHeld && status === "rejected") await admin.service.from("creative_picture_holds").update({ sent_at: null, held_at: new Date().toISOString(), ...(reviewNote ? { note: reviewNote } : {}) }).eq("creative_id", data.creative_id).eq("shape", shape);
+    // not approved: the shape keeps waiting, and the advertiser reads why in the conversation under the decision
+    if (wasHeld && status === "rejected") await admin.service.from("creative_picture_holds").update({ sent_at: null }).eq("creative_id", data.creative_id).eq("shape", shape);
+    if (wasHeld && hold.dispute_id) {
+      await admin.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: admin.user.id, side: "admin", kind: "decision", text: `picture: ${status}${reviewNote ? `: ${reviewNote}` : ""}`.slice(0, 1000) });
+      if (status === "rejected") await admin.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: admin.user.id, side: "admin", kind: "reply", text: `The new picture was not approved${reviewNote ? `: ${reviewNote}` : "."}`.slice(0, 1000) });
+    }
   } catch {
     // the review itself is saved
   }
@@ -126,6 +131,8 @@ export async function reviewAsset({ assetId, decision, note }) {
   }
 
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/disputes");
+  revalidatePath("/dashboard/advertising");
   revalidatePath(`/dashboard/creatives/${data.creative_id}`);
   return { ok: true, status };
 }

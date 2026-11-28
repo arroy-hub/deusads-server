@@ -202,6 +202,19 @@ export function DisputeCard({ d, api, onClose }) {
     toast(`Decision taken back. The ${r.shape ? "picture" : "creative"} runs again; both sides notified`);
     api.changed();
   }
+  // The new picture the advertiser sent for the held shape is reviewed here, in its dispute.
+  const [rejecting, setRejecting] = useState(false);
+  const [why, setWhy] = useState("");
+  async function reviewPicture(decision) {
+    setBusy(true);
+    const result = await reviewAsset({ assetId: r.newPicture.id, decision, note: decision === "rejected" ? why : "" }).catch(() => ({ error: "Connection lost. Try again." }));
+    setBusy(false);
+    if (result?.error) return toast(result.error);
+    setRejecting(false);
+    setWhy("");
+    toast(decision === "approved" ? "New picture approved. It runs again; advertiser notified" : "New picture not approved. Advertiser notified");
+    api.changed();
+  }
   async function addNote() {
     const text = note.trim();
     setNoteOpen(false);
@@ -239,9 +252,30 @@ export function DisputeCard({ d, api, onClose }) {
             </div>
           </div>
         </div>
-        <div className="cb-dm-now"><b>Now:</b> {d.now}{r.resent && <> <a className="cb-lnk" href="/dashboard/admin">Review it</a></>}{bk && <> <span className="cb-mute">·</span> <Lnk onClick={() => api.open("booking", bk.id)}>Open the booking</Lnk></>}</div>
+        <div className="cb-dm-now"><b>Now:</b> {d.now}{bk && <> <span className="cb-mute">·</span> <Lnk onClick={() => api.open("booking", bk.id)}>Open the booking</Lnk></>}</div>
       </div></div>
       <div className="cb-dm-body">
+        {r.newPicture && (
+          <div className="cb-newpic">
+            <a href={r.newPicture.url} target="_blank" rel="noreferrer" className="cb-newpic-img" style={{ backgroundImage: `url(${r.newPicture.url})` }} aria-label="Open the new picture in full size" />
+            <div className="cb-newpic-txt">
+              <b>New {r.shapeLabel} picture from {r.adv}</b>
+              <span className="cb-mute">{r.newPicture.size} · it replaces the reported picture once you approve it. Until then this shape is shown nowhere.</span>
+              {rejecting ? (
+                <div className="cb-newpic-acts">
+                  <input className="cb-fld" style={{ flex: 1, minWidth: 200 }} placeholder={`Reason shown to ${r.adv}`} aria-label="Reason" value={why} maxLength={500} autoFocus onChange={(e) => setWhy(e.target.value)} />
+                  <button type="button" className="cb-btn cb-d cb-s" disabled={busy} onClick={() => reviewPicture("rejected")}>Do not approve</button>
+                  <button type="button" className="cb-btn cb-q cb-s" disabled={busy} onClick={() => setRejecting(false)}>Back</button>
+                </div>
+              ) : (
+                <div className="cb-newpic-acts">
+                  <button type="button" className="cb-btn cb-s" disabled={busy} onClick={() => reviewPicture("approved")}>Approve the new picture</button>
+                  <button type="button" className="cb-btn cb-q cb-s" disabled={busy} onClick={() => setRejecting(true)}>Do not approve…</button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <HistoryHead first /><History events={d.events} />
         {r.open && !adv && choice && (
           <div className="cb-dform" ref={formRef}>

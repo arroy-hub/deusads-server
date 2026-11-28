@@ -145,7 +145,7 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     return { error: `This image is ${aspect.toFixed(2)}:1; the ${shapeLabel(wanted)} shape needs about ${shapeAspect(wanted).toFixed(2)}:1 (within 15%).` };
   }
   const heldShape = format ? format.id : wanted ?? shapeKey(aspect);
-  const { data: hold } = await me.service.from("creative_picture_holds").select("kind").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
+  const { data: hold } = await me.service.from("creative_picture_holds").select("kind, dispute_id").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
   if (hold?.kind === "blocked") {
     await cleanup();
     return { error: "DeusADS blocked this creative in this shape. Write to DeusADS under the decision if you think it is a mistake." };
@@ -173,7 +173,10 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
   if (status === "pending") {
     await me.service.from("creative_picture_holds").update({ sent_at: new Date().toISOString() }).eq("creative_id", creative.id).eq("shape", heldShape);
     const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-    await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture waits for review: it replaces one that was reported.`, "/dashboard/admin", "admin_reports");
+    // the dispute keeps what happened, and is where the picture is reviewed
+    if (hold.dispute_id) await me.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: me.user.id, side: "advertiser", kind: "decision", text: `picture: uploaded ${w} × ${h}` }).then(() => null, () => null);
+    await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture for "${creative.name}" waits for review: it replaces one that was reported.`, hold.dispute_id ? `/dashboard/admin/disputes?card=dispute:${hold.dispute_id}` : "/dashboard/admin/disputes", "admin_reports");
+    revalidatePath("/dashboard/admin/disputes");
     revalidatePath("/dashboard/advertising");
   }
   after(async () => {

@@ -11,8 +11,9 @@ import { refreshPage, useWaitMark } from "../../wait";
 
 // the last column holds two icon buttons or the outcome; the longest outcome is "Change requested"
 const COLS = "56px minmax(0,1.2fr) minmax(230px,1.3fr) 58px 140px";
-const INFO = "Developer reports are about a creative: you can find no violation, ask the advertiser to change it, or block it for a violation. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
-const kindOf = (r) => (r.open ? "open" : r.status === "dismissed" ? "dismissed" : "acted");
+const INFO = "Open also lists decided reports that need you again: a new picture to review, or an advertiser waiting for a reply. Developer reports are about a creative: you can find no violation, ask the advertiser to change it, or block it for a violation. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
+// a decided report that needs the admin again (a new picture to review, an advertiser waiting for a reply) is open work
+const kindOf = (r) => (r.open || r.needsAction ? "open" : r.status === "dismissed" ? "dismissed" : "acted");
 
 export default function DisputesView({ rows, widgets, groups, defaults, layout }) {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
                 <span className="cb-mute"><span className={`cb-pill cb-${adv ? "info" : "warn"} cb-nodot`} style={{ padding: "0 8px", fontSize: 11.5 }}>{adv ? "Advertiser" : "Developer"}</span> {adv ? r.adv : r.dev}</span>
                 <span className="cb-mute">{adv ? <>{r.bookingId ? <Lnk onClick={() => openCard("booking", r.bookingId)}>booking in {r.game}</Lnk> : `booking in ${r.game}`} · {r.dev}</> : `${r.adv} · in ${r.game}`}</span>
               </div></div>
-              <div className="cb-rcl"><span className="cb-pill cb-bad">{r.reason}</span>{r.comment && <div className="cb-mute cb-clamp" style={{ marginTop: 4 }}>{r.comment}</div>}{r.waiting && <div><span className="cb-pill cb-info cb-wait">Advertiser waits for a reply</span></div>}{r.resent && <div><span className="cb-pill cb-warn cb-wait">New picture waits for review</span></div>}</div>
+              <div className="cb-rcl"><span className="cb-pill cb-bad">{r.reason}</span>{r.comment && <div className="cb-mute cb-clamp" style={{ marginTop: 4 }}>{r.comment}</div>}{r.waiting && <div><span className="cb-pill cb-info cb-wait">Advertiser waits for a reply</span></div>}{r.newPicture && <div><span className="cb-pill cb-warn cb-wait">New picture to review</span></div>}</div>
               <div className="cb-mute cb-ctr" title={r.when}>{r.day}</div>
               <div className="cb-acts" style={{ flexWrap: "nowrap" }}>
                 {r.open ? (
