@@ -32,6 +32,7 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
   useWaitMark(Boolean(busy));
   const [note, setNote] = useState({ tone: "", text: "" });
   const fileRef2 = useRef(null);
+  const [coverProblem, setCoverProblem] = useState(""); // why the chosen header picture was not taken
   // The picture behind the page and the card: a change waits for Save, like the name and the dates.
   const [header, setHeader] = useState({ pick: null, blob: null, preview: "", removed: false });
   useEffect(() => () => header.preview && URL.revokeObjectURL(header.preview), [header.preview]);
@@ -48,14 +49,17 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!["image/png", "image/jpeg"].includes(file.type)) return setNote({ tone: "error", text: "Use a PNG or a JPG picture for the header." });
-    if (file.size > COVER_MAX_BYTES) return setNote({ tone: "error", text: "That picture is over 8 MB." });
+    // A picture that cannot be used is said right under the card it was chosen for, with the reason and the limit.
+    const kind = (file.name.split(".").pop() || file.type || "this type").toUpperCase();
+    if (!["image/png", "image/jpeg"].includes(file.type)) return setCoverProblem(`“${file.name}” was not added: the header takes PNG or JPG pictures, and this is ${kind}.`);
+    if (file.size > COVER_MAX_BYTES) return setCoverProblem(`“${file.name}” was not added: it is ${(file.size / 1024 / 1024).toFixed(1)} MB, and the limit is ${COVER_MAX_BYTES / 1024 / 1024} MB.`);
     try {
       const blob = await cropToStrip(file);
       setHeader({ pick: null, blob, preview: URL.createObjectURL(blob), removed: false });
+      setCoverProblem("");
       setNote({ tone: "", text: "" });
     } catch {
-      setNote({ tone: "error", text: "Could not read that picture." });
+      setCoverProblem(`“${file.name}” was not added: the file does not open as a picture. Save it again as PNG or JPG and try once more.`);
     }
   }
   async function storeCover() {
@@ -137,6 +141,8 @@ export default function SettingsForm({ id, name, starts, ends, status, hasOpen, 
             <CampaignCard name={title} from={from} until={until} status={status} coverCss={coverCss} chips={card.chips} category={card.category} creatives={card.creatives} games={card.games} placements={card.placements}
               header={cover.ready ? { hasPicture, colourId, onColour: (pick) => setHeader({ pick, blob: null, preview: "", removed: false }), onCover: () => fileRef2.current?.click(), onRemoveCover: () => setHeader({ pick: null, blob: null, preview: "", removed: true }) } : null} />
             {cover.ready && <input ref={fileRef2} type="file" accept="image/png,image/jpeg" hidden onChange={chooseCover} />}
+            {cover.ready && <p className="settings-help cs-cover-help">Header picture: PNG or JPG, up to {COVER_MAX_BYTES / 1024 / 1024} MB. It is cut to a wide strip (4:1), so a wide picture fits best.</p>}
+            {coverProblem && <p className="error cs-cover-problem" role="alert">{coverProblem}</p>}
           </div>
           <div className="ag-right">
             <section className="ag-sec">
