@@ -191,7 +191,7 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
     });
   }, [itemById]);
 
-  // ---- short messages: a small bubble next to what was pressed, gone by itself after three seconds (SayBubble)
+  // ---- short messages: a small bubble next to what was pressed, gone by itself after two seconds (SayBubble)
   const lastPress = useRef(null);
   const popRef = useRef(null);
   popRef.current = pop;
@@ -221,8 +221,15 @@ export default function PlacementsOrganizer({ gameId, items: serverItems, folder
   function say(next, at) {
     if (!next) return setNotice(null);
     sayCount.current += 1;
-    setNotice({ ...next, at: at ?? anchorNow(), n: sayCount.current });
+    setNotice({ ...next, at: at ?? anchorNow(), n: sayCount.current, inPop: Boolean(popOpen.current) });
   }
+  // A message that appeared inside an open menu or panel goes when that menu is closed.
+  const popOpen = useRef(false);
+  useEffect(() => {
+    const was = popOpen.current;
+    popOpen.current = Boolean(pop);
+    if (was && !pop) setNotice((current) => (current?.inPop ? null : current));
+  }, [pop]);
   const sayDone = useRef(() => setNotice(null)).current;
 
   // The action revalidates the page on the server, so the fresh data comes back with its answer.

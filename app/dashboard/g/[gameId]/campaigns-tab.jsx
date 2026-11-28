@@ -936,8 +936,9 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
             <label className="fl" htmlFor="cp-rep-comment">Comment <span className="cp-sub" style={{ fontWeight: 400 }}>(optional)</span></label>
             <textarea id="cp-rep-comment" className="cp-ta" maxLength={1000} value={report.comment} onChange={(event) => setReport({ ...report, comment: event.target.value })} />
             {report.canBlock && (
-              <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0" }}>
-                <input type="checkbox" checked={report.alsoBlock} onChange={(event) => setReport({ ...report, alsoBlock: event.target.checked })} /> Also block this creative in my game
+              <label className="cp-check">
+                <input type="checkbox" checked={report.alsoBlock} onChange={(event) => setReport({ ...report, alsoBlock: event.target.checked })} />
+                <span>Also block this creative in my game</span>
               </label>
             )}
             <p className="cp-hint">DeusADS reviews reports. It can remove a creative that breaks platform rules; bookings are not changed. You get a notification with the outcome.</p>

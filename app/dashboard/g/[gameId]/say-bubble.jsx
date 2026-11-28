@@ -8,7 +8,7 @@ import { placeByAnchor } from "../../bubble";
 // small dark bubble next to the button that was pressed, and it leaves by itself. Nothing is drawn over the list.
 
 /** How long a bubble stays, the same for good news and for errors. */
-export const SAY_MS = 3000;
+export const SAY_MS = 2000;
 
 const WIDTH = 270;
 const GAP = 8;
@@ -51,7 +51,7 @@ export function pressOf(target, popId) {
   return { el, alt, rect };
 }
 
-/** The bubble itself. `notice` is { kind, text, undo?, at, n }; a new `n` restarts the three seconds. */
+/** The bubble itself. `notice` is { kind, text, undo?, at, n }; a new `n` restarts the two seconds. */
 export function SayBubble({ notice, onDone }) {
   const [pos, setPos] = useState(null);
   const [held, setHeld] = useState(false);
@@ -81,9 +81,11 @@ export function SayBubble({ notice, onDone }) {
     };
   }, [notice]);
 
-  // Three seconds for everything. The count waits while the pointer rests on the bubble, so Undo can be reached.
+  // Two seconds for everything. The count waits while the pointer rests on a bubble with Undo, so Undo can be reached.
   useEffect(() => {
-    if (!notice || held) return undefined;
+    // Only a message with Undo waits under the pointer; any other goes after its two seconds wherever the pointer is
+    // (a message often appears right under it, by the button that was pressed, and used to hang there).
+    if (!notice || (held && notice.undo)) return undefined;
     const timer = setTimeout(onDone, SAY_MS);
     return () => clearTimeout(timer);
   }, [notice, held, onDone]);

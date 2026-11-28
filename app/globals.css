@@ -8437,7 +8437,7 @@ body.ig-dragging *{cursor:grabbing!important}
 .ig-bubble b{display:block;margin-bottom:3px;font-size:.75rem;color:#fff}
 .ig-bubble-arrow{position:absolute;top:-5px;width:10px;height:10px;background:#241d19;transform:translateX(-50%) rotate(45deg)}
 .ig-bubble.is-above .ig-bubble-arrow{top:auto;bottom:-5px}
-/* the Placements tab's short messages: the same bubble, by the button that was pressed, gone after three seconds */
+/* the Placements tab's short messages: the same bubble, by the button that was pressed, gone after two seconds */
 .org-say{z-index:130;overflow-wrap:anywhere}
 .org-say-undo{margin-left:10px;padding:0;border:0;background:none;color:#f0a58c;font:600 .75rem/1.45 "Instrument Sans",system-ui,sans-serif;text-decoration:underline;cursor:pointer}
 .org-say-undo:hover{color:#fff}
@@ -10336,3 +10336,8 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 /* beside a title that takes two lines the "i" stays on the first line, not between the lines */
 .ig-titlerow{align-items:flex-start}
 .ig-titlerow>.ig-i{margin-top:2px}
+
+/* a tick box with its words on one line (the report pop-up of the Campaigns tab) */
+.cp-check{display:flex;flex-direction:row;align-items:center;gap:8px;margin:10px 0;font-size:14px;font-weight:400;cursor:pointer}
+.cp-check input[type="checkbox"]{flex:none;width:16px;height:16px;min-height:0;margin:0;padding:0;display:inline-block}
+.cp-check span{flex:1 1 auto;min-width:0}

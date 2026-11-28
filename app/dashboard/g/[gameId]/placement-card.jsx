@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, useTransition }
 import { createPortal } from "react-dom";
 import { PLACE_TYPES } from "../../../../lib/placement-organization";
 import { STATUS_LABELS, effectiveType, offReason, typeIsSuggested, typeLabel } from "../../../../lib/placement-view";
-import { addressOf, locateUrl } from "../../../../lib/unity-link";
+import { addressOf, locateUrl, unityAnswers } from "../../../../lib/unity-link";
 import { changeTags, setPlaceType } from "../../placement-actions";
 import { Info } from "../../metrics-deck";
 import { useWaitMark } from "../../wait";
@@ -542,6 +542,8 @@ async function askUnity(item, place) {
     const body = await response.json().catch(() => ({}));
     return response.ok ? { kind: "ok", text: "Shown in Unity." } : { kind: "error", text: body.error || "Unity could not find it. Open the right scene and try again." };
   } catch {
+    // On a preview address the editor refuses the page, which the browser reports exactly like "nothing is there".
+    if (!unityAnswers(window.location.hostname)) return { kind: "error", text: "Unity answers only the live dashboard (app.deusads.com), not this preview address." };
     return {
       kind: "error",
       text: "Could not reach Unity. Open this project in the Unity editor (DeusADS SDK 0.8 or newer), or copy the address and find it by hand.",
