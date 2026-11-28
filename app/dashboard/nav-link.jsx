@@ -28,7 +28,7 @@ export default function NavLink({ item }) {
           </svg>
         )}
         <span>{item.label}</span>
-        {item.badge ? <span className={`rail-badge${item.key === "system" ? " is-warn" : ""}`}>{item.badge}</span> : null}
+        {item.badge ? <span className={`rail-badge${item.key === "system" ? " is-warn" : ""}`}>{item.badge}</span> : item.mark ?? null}
       </Link>
       {active && item.children?.length > 0 && (
         <div className="rail-sub" role="group" aria-label={item.label}>

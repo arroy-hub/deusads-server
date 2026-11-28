@@ -13,7 +13,10 @@ export async function GET(request) {
   // ?me=1: the person's own card, for their face in the assistant chat.
   if (params.get("me")) return NextResponse.json({ card: (await loadPeople(me.service, [me.user.id]))[me.user.id] ?? null }, { headers: { "Cache-Control": "no-store" } });
   const id = params.get("id");
-  const conversation = me.role === "admin" ? await loadAdminConversation(me.service, id) : await loadConversation(me.service, me.user.id, id);
+  // ?own=1: the request as its owner reads it (Help & feedback). An admin has requests of their own too, and there they
+  // are the person who asked: the owner's unread mark, no internal notes.
+  const asAdmin = me.role === "admin" && !params.get("own");
+  const conversation = asAdmin ? await loadAdminConversation(me.service, id) : await loadConversation(me.service, me.user.id, id);
   if (!conversation) return NextResponse.json({ error: "Request not found." }, { status: 404 });
   return NextResponse.json(conversation, { headers: { "Cache-Control": "no-store" } });
 }

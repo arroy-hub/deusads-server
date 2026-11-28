@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { userClient, currentUser } from "../../lib/supabase-server";
 import { currentRole, getMember } from "../../lib/admin";
-import { loadAttention } from "../../lib/advertiser-data";
+import { countAdvertiserNeeds, loadAttention } from "../../lib/advertiser-data";
 import { loadSeen, unseen } from "../../lib/attention-seen";
 import { isSchemaOutdated, serviceClient } from "../../lib/api";
-import { registerVisit } from "../../lib/overview-data";
+import { newByGame, registerVisit } from "../../lib/overview-data";
 import { loadAppliedVersions } from "../../lib/schema-versions";
 import { schemaVerdict } from "../../lib/migrations";
 import { adminCounts, openDisputes, unreadCount } from "../../lib/counts";
@@ -51,6 +51,15 @@ async function Bell({ db, user, role }) {
       : [],
   ]);
   return <NotificationsBell items={latest?.data ?? []} unread={unread} attention={attention} byView={role === "admin"} />;
+}
+
+/**
+ * A mark next to a menu entry: how many things inside that window wait for the person. The same number the window
+ * itself shows on its tabs. It fills in after the page has started to show; nothing is drawn for zero.
+ */
+async function MenuMark({ count, title }) {
+  const n = await count().catch(() => 0);
+  return n > 0 ? <span className="rail-badge" title={title}>{n > 99 ? "99+" : n}</span> : null;
 }
 
 /** The signed-in person's row for the frame; the picture column (0030) is left out when the database lacks it. */
@@ -99,6 +108,14 @@ export default async function DashboardLayout({ children }) {
   const schemaBehind = admin && !schemaVerdict(applied).ok;
   const games = gamesResult.data;
 
+  // Campaigns: campaigns and creatives that need the advertiser's action. My games: campaigns with something new.
+  const advertises = role === "advertiser" || admin;
+  const develops = role === "developer" || admin;
+  const marks = {
+    ...(advertises ? { campaigns: <Suspense fallback={null}><MenuMark title="Campaigns and creatives that need your action" count={async () => { const me = await getMember(); return me ? countAdvertiserNeeds(me.service, me) : 0; }} /></Suspense> } : {}),
+    ...(develops && games?.length ? { games: <Suspense fallback={null}><MenuMark title="Campaigns with something new in your games" count={async () => { const news = await newByGame(serviceClient(), games.map((game) => game.id)); return [...news.values()].reduce((sum, entry) => sum + (entry.news ?? 0), 0); }} /></Suspense> } : {}),
+  };
+
   const groups = menuFor(
     role,
     { requests, disputes, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0, support: supportUnread, help: ownUnread },
@@ -106,7 +123,8 @@ export default async function DashboardLayout({ children }) {
       href: `/dashboard/g/${game.id}`,
       label: game.name,
       icon: game.icon_path ? db.storage.from("creatives").getPublicUrl(game.icon_path).data.publicUrl : null,
-    }))
+    })),
+    marks
   );
 
   return (

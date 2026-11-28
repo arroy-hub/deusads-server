@@ -33,7 +33,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
 
   const load = useCallback(async (quiet) => {
     try {
-      const response = await fetch(`/dashboard/support/conversation?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const response = await fetch(`/dashboard/support/conversation?own=1&id=${encodeURIComponent(id)}`, { cache: "no-store" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) return quiet ? null : setFailed(body.error || "Could not open this request.");
       if (signature(body) !== last.current) {
@@ -67,7 +67,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
     if (busy || (!text.trim() && !picker.files.length)) return;
     setBusy(true);
     setError("");
-    const result = await submitSupport({ action: "reply", requestId: id, text: text.trim() }, picker.files);
+    const result = await submitSupport({ action: "reply", requestId: id, text: text.trim(), own: "1" }, picker.files);
     setBusy(false);
     if (result.error) {
       if (result.followUp) await load(false);

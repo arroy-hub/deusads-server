@@ -58,6 +58,7 @@ export async function POST(request) {
       requestId: String(form.get("requestId") ?? ""),
       body: String(form.get("text") ?? ""),
       note: Boolean(form.get("note")),
+      asOwner: Boolean(form.get("own")),
       files,
     });
   } else {
