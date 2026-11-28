@@ -10534,3 +10534,13 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 
 /* The reply box keeps clear of the buttons that stay at the bottom of the side window. */
 .hold-reply textarea { min-height: 84px; scroll-margin-bottom: 72px; }
+/* The side window of the creative editor is the card itself: the note fills it edge to edge and the window scrolls.
+   (As a grid with a clipped note inside, the note was squeezed to the window's height and nothing scrolled.) */
+.rd-ed-side-b { display: block; padding: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.rd-ed-side .hold-note { border: 0; border-radius: 0; overflow: visible; }
+.rd-ed-side .hold-note + .hold-note { border-top: 8px solid #efe7de; }
+.rd-ed-side .hold-talk { padding-bottom: 0; }
+.rd-ed-side .hold-talk .hold-acts { position: sticky; bottom: 0; margin: 12px -16px 0; padding: 10px 16px 12px; background: #fcfaf7 !important; border-top: 1px solid #efe7de; z-index: 1; }
+.rd-ed-side .hold-msg.is-mine { margin-left: 24px; }
+.rd-ed-side .hold-msg:not(.is-mine) { margin-right: 24px; }
+@media (max-width: 1100px) { .rd-ed-side { max-height: 42dvh; } }
