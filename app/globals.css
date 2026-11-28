@@ -10728,3 +10728,10 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 /* Campaign settings: what the header picture has to be, and why a chosen one was not taken, under the card. */
 .cs-cover-help { margin: 10px 0 0; max-width: none; }
 .cs-cover-problem { margin: 8px 0 0; padding: 9px 12px; border-radius: 9px; background: #fbeae4; max-width: none; }
+
+/* The campaign's window: nothing white behind the cover, so no hairline shows on its rounded corners. */
+.modal.wl-cd-modal { background: transparent; }
+.wl-cd-modal .modal-box, .wl-cd-modal .modal-body { background: transparent; }
+.wl-cd-cover { border-radius: 20px 20px 0 0; }
+.wl-cd-in { background: #fff; }
+.wl-cd-modal .modal-foot { background: #fff; border-radius: 0 0 20px 20px; }

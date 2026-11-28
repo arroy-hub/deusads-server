@@ -48,7 +48,6 @@ export function CampaignDetails({ d }) {
         <div><b>{credits(earnedOf(d.total.impressions))} C.</b><span>you earned</span></div>
         <div><b>{d.total.placements}</b><span>{d.total.placements === 1 ? "placement" : "placements"} in {d.games.length} {d.games.length === 1 ? "game" : "games"}</span></div>
       </div>
-      {d.best && <p className="wl-cd-best"><b>What players saw most:</b> {d.best.creative} in {d.best.label}, {count(d.best.perPlacement)} paid impressions per placement.</p>}
       {d.creatives.length === 0 ? <p className="wl-none">Nothing was paid in these {d.days} days.</p> : (
         <div className="wl-cd-list">
           {d.creatives.map((creative) => (
