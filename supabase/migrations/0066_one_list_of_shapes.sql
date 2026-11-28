@@ -9,12 +9,18 @@
 -- (16:9, 4:3, 1:1, 3:4, 9:16, 2:1, 21:9, 3:1), a placement of any other proportion belongs to the nearest of them,
 -- and there are no custom pictures.
 --
+--   ad_formats                 gets the 21:9 row.
 --   creative_assets            a custom picture (no format) that is within 15% of a format the creative has no
 --                              picture for becomes that format's picture; the rest stay unused.
 --   shapes kept as "x2.3"      in reports, picture blocks, picture holds and the log of blocks become the format
 --                              they are nearest to ("r21x9").
 --
 -- The code that ran before this file keeps working with it applied.
+
+-- 21:9 joins the list of formats a picture can be made for
+insert into public.ad_formats (id, label, aspect, sort)
+values ('r21x9', '21:9 ultrawide', 2.333, 65)
+on conflict (id) do nothing;
 
 create or replace function pg_temp.deus_format(p_aspect numeric) returns text language sql immutable as $$
     select f.id
