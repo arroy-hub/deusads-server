@@ -1,6 +1,6 @@
 "use client";
 
-import { Chip, Group, Opt, PopBtn } from "../_cabinet/filters";
+import { Chip, Group, NeedsToggle, Opt, PopBtn } from "../_cabinet/filters";
 import { IcFolderPlus, IcGear, IcPlus } from "../_cabinet/icons";
 import { plural } from "../../../lib/campaign-cards";
 
@@ -17,7 +17,7 @@ const CollapseIcon = () => <svg width="15" height="15" viewBox="0 0 24 24" fill=
  * how many creatives and folders there are, Collapse all, New folder and Add creative. Chosen filters show as chips under
  * the row, only while any is on.
  */
-export default function LibraryBar({ query, setQuery, status, setStatus, shapes, setShapes, folderFilter, setFolderFilter, group, setGroup, sort, setSort, folders, total, filtering, clear, shown, folderTools, addFolder, addCreative, anyOpen, toggleAll }) {
+export default function LibraryBar({ query, setQuery, status, setStatus, shapes, setShapes, folderFilter, setFolderFilter, group, setGroup, sort, setSort, folders, total, filtering, clear, shown, folderTools, addFolder, addCreative, anyOpen, toggleAll, needing = 0, needsOnly = false, setNeedsOnly }) {
   const folderOptions = [["all", "All folders"], ["none", "Not in a folder"], ...folders.map((f) => [f.id, f.name])];
   const active = [status !== "all", shapes !== "all", folderFilter !== "all"].filter(Boolean).length;
   return (
@@ -33,6 +33,7 @@ export default function LibraryBar({ query, setQuery, status, setStatus, shapes,
             </>
           )}
         </PopBtn>
+        <NeedsToggle count={needing} on={needsOnly} onChange={setNeedsOnly} />
         <PopBtn label="View" icon={<IcGear size={14} />} width={230}>
           {(close) => (
             <>
@@ -51,6 +52,7 @@ export default function LibraryBar({ query, setQuery, status, setStatus, shapes,
       </div>
       {filtering && (
         <div className="fl-chips">
+          {needsOnly && <Chip onRemove={() => setNeedsOnly(false)}>Needs action</Chip>}
           {status !== "all" && <Chip onRemove={() => setStatus("all")}>Status: {nameOf(STATUSES, status)}</Chip>}
           {shapes !== "all" && <Chip onRemove={() => setShapes("all")}>Shapes: {nameOf(SHAPES, shapes)}</Chip>}
           {folderFilter !== "all" && <Chip onRemove={() => setFolderFilter("all")}>Folder: {nameOf(folderOptions, folderFilter)}</Chip>}

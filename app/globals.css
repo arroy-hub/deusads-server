@@ -10459,3 +10459,27 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .rd-ed-side .hold-hint { display: none; }
 
 .rd-thumb.is-opening { opacity: .6; cursor: progress; }
+
+/* The bell's list lies on top of everything in every window: it is drawn on the page itself, not inside the side menu. */
+.bell-panel.bell-top { position: fixed; right: auto; z-index: 4000; color: var(--ink); font-size: 14px; text-align: left; }
+
+/* What needs the person's action: one terracotta language for the mark on a tab, the filter and the rows it counts. */
+.tab .tab-total { margin-left: .45rem; font-size: 12px; font-weight: 600; opacity: .62; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.tab .tab-needs { margin-left: .4rem; }
+.na-toggle { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px 0 13px; border: 1px solid #e3b9ab; border-radius: 9px; background: #fff; color: #8a2c17; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.na-toggle:hover { background: #fbf0ec; }
+.na-toggle[aria-pressed="true"] { background: #b4472e; border-color: #b4472e; color: #fff; }
+.na-n { min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: #b4472e; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.na-toggle[aria-pressed="true"] .na-n { background: #fff; color: #8a2c17; }
+.ov-pill.ov-act, .rd-thumb-pill.ov-act, .cc-pill.ov-act, .rd-hdr-pill.ov-act { background: #b4472e; color: #fff; border-color: #b4472e; font-weight: 700; box-shadow: 0 2px 8px rgba(180, 71, 46, .35); }
+.rd-card.needs-action, .cx-card.needs-action { border-color: #b4472e; box-shadow: 0 0 0 1px #b4472e; }
+.cx-strip.needs-action { box-shadow: inset 3px 0 0 #b4472e; }
+.cx-need { display: flex; align-items: baseline; gap: 7px; font-size: 12.5px; color: #6f2413; background: #fbeae4; border-radius: 8px; padding: 5px 9px; }
+.cx-need b { flex: none; padding: 1px 7px; border-radius: 999px; background: #b4472e; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.cx-need.is-inline { display: inline-flex; padding: 0; margin-right: 7px; background: none; vertical-align: 1px; }
+
+/* A report whose picture was replaced: the reported picture and the new one, side by side. */
+.sp-report-pics { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.sp-report-pics figure { margin: 0; display: grid; gap: 4px; }
+.sp-report-pics span { display: block; width: 168px; height: 96px; border-radius: 8px; border: 1px solid #e3e0da; background: #f4f1ec center / contain no-repeat; }
+.sp-report-pics figcaption { font-size: 12px; color: var(--ink-2); }

@@ -17,6 +17,7 @@ const F = ["r16x9", "r4x3", "r1x1", "r3x4", "r9x16", "r2x1", "r21x9", "r3x1"];
 const SHORT = { r16x9: "16:9", r4x3: "4:3", r1x1: "1:1", r3x4: "3:4", r9x16: "9:16", r2x1: "2:1", r21x9: "21:9", r3x1: "3:1" };
 
 function hint(item) {
+  if (item.needs && item.needs.key !== "rejected") return item.needs.text;
   if (item.hold) return item.hold.line;
   if (item.status === "rejected") return item.note ? `Reason: ${item.note}` : "Upload a corrected one.";
   if (item.status === "pending") return "Ads start once it is approved";
@@ -81,7 +82,7 @@ function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, p
   const [label, tone] = item.hold ? item.hold.pill : STATUS[item.status] ?? STATUS.pending; // a held picture shows as the status too: it needs the advertiser
   const ready = item.formats.filter((f) => f.ready).length;
   return (
-    <article ref={el} className={`rd-card${item.status === "rejected" ? " is-rejected" : ""}${drag === item.id ? " is-dragging" : ""}${overCard === item.id && drag && drag !== item.id ? " is-over" : ""}`}
+    <article ref={el} data-needs={item.needs ? item.needs.key : undefined} className={`rd-card${item.needs ? " needs-action" : ""}${item.status === "rejected" ? " is-rejected" : ""}${drag === item.id ? " is-dragging" : ""}${overCard === item.id && drag && drag !== item.id ? " is-over" : ""}`}
       onDragOver={(e) => { if (drag && drag !== item.id) { e.preventDefault(); e.stopPropagation(); setOverCard(item.id); } }}
       onDragLeave={() => overCard === item.id && setOverCard(null)}
       onDrop={(e) => { if (drag) { e.preventDefault(); e.stopPropagation(); onDropOn(item.folderId ?? null, item.id); } }}>
@@ -126,7 +127,7 @@ function FolderMenu({ folder, onRename, onDelete }) {
  * tools and "Add creative" sit in one sticky block; below it the folders with their creatives. `onCount` tells the window's
  * tab how many creatives there are.
  */
-export default function LibraryV2({ list, folders: serverFolders = [], folderTools = true, onCount }) {
+export default function LibraryV2({ list, folders: serverFolders = [], folderTools = true, onCount, onNeeds }) {
   const router = useRouter();
   const [items, setItems] = useState(list);
   const [folders, setFolders] = useState(serverFolders);
@@ -135,6 +136,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   const [status, setStatus] = useState("all");
   const [shapes, setShapes] = useState("all");
   const [folderFilter, setFolderFilter] = useState("all");
+  const [needsOnly, setNeedsOnly] = useState(false); // "Needs action": the rows the mark on the tab counts
   const [group, setGroup] = useState("folder");
   const [sort, setSort] = useState("mine");
   const [drag, setDrag] = useState(null);
@@ -148,6 +150,9 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
 
   const block = useRef(null);
   useEffect(() => onCount?.(items.length), [items.length, onCount]);
+  const needing = items.filter((i) => i.needs).length;
+  useEffect(() => onNeeds?.(needing), [needing, onNeeds]);
+  useEffect(() => { if (needing === 0) setNeedsOnly(false); }, [needing]);
   // The control block gets a shadow while it is pinned to the top and content scrolls under it.
   useEffect(() => {
     const sync = () => { const el = block.current; if (el && el.offsetParent) el.classList.toggle("stuck", window.scrollY > 4 && el.getBoundingClientRect().top <= 1); };
@@ -177,13 +182,13 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
   const fail = (result, fallback = "Could not save. Try again.") => { setProblem(result?.error || fallback); refreshPage(router); };
   const run = async (promise) => { const result = await promise.catch(() => ({ error: "Connection lost. Try again." })); if (result?.error) fail(result); else setProblem(""); return result; };
 
-  const filtering = q || status !== "all" || shapes !== "all" || folderFilter !== "all";
+  const filtering = q || needsOnly || status !== "all" || shapes !== "all" || folderFilter !== "all";
   const visible = useMemo(() => {
-    let v = items.filter((i) => (!q || i.name.toLowerCase().includes(q.toLowerCase())) && (status === "all" || i.status === status) && (shapes === "all" || (shapes === "missing" ? i.formats.some((f) => !f.ready) : i.formats.every((f) => f.ready))) && (folderFilter === "all" || (folderFilter === "none" ? !i.folderId : i.folderId === folderFilter)));
+    let v = items.filter((i) => (!needsOnly || i.needs) && (!q || i.name.toLowerCase().includes(q.toLowerCase())) && (status === "all" || i.status === status) && (shapes === "all" || (shapes === "missing" ? i.formats.some((f) => !f.ready) : i.formats.every((f) => f.ready))) && (folderFilter === "all" || (folderFilter === "none" ? !i.folderId : i.folderId === folderFilter)));
     if (sort === "name") v = [...v].sort((a, b) => a.name.localeCompare(b.name));
     if (sort === "status") v = [...v].sort((a, b) => a.status.localeCompare(b.status));
     return v;
-  }, [items, q, status, shapes, folderFilter, sort]);
+  }, [items, q, needsOnly, status, shapes, folderFilter, sort]);
 
   const patch = (id, p) => setItems((l) => l.map((i) => (i.id === id ? { ...i, ...p } : i)));
   const rename = (id, name) => { patch(id, { name }); run(renameCreative({ creativeId: id, name })); };
@@ -240,7 +245,7 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
     <div className="cx-cr">
       {problem && <p className="error cx-cr-problem" role="alert">{problem}</p>}
       <div className="cx-blockw" ref={block}>
-        <LibraryBar query={q} setQuery={setQ} status={status} setStatus={setStatus} shapes={shapes} setShapes={setShapes} folderFilter={folderFilter} setFolderFilter={setFolderFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort} folders={folders} total={items.length} filtering={filtering} clear={() => { setQ(""); setStatus("all"); setShapes("all"); setFolderFilter("all"); }} shown={visible.length} folderTools={folderTools} addFolder={addFolder} addCreative={() => setAdding(true)} anyOpen={anyOpen} toggleAll={toggleAll} />
+        <LibraryBar query={q} setQuery={setQ} status={status} setStatus={setStatus} shapes={shapes} setShapes={setShapes} folderFilter={folderFilter} setFolderFilter={setFolderFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort} folders={folders} total={items.length} filtering={filtering} clear={() => { setQ(""); setNeedsOnly(false); setStatus("all"); setShapes("all"); setFolderFilter("all"); }} needing={needing} needsOnly={needsOnly} setNeedsOnly={setNeedsOnly} shown={visible.length} folderTools={folderTools} addFolder={addFolder} addCreative={() => setAdding(true)} anyOpen={anyOpen} toggleAll={toggleAll} />
       </div>
 
       {items.length === 0 ? (

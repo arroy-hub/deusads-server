@@ -965,7 +965,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
       {mine && (() => {
         const row = campaigns.flatMap((campaign) => campaign.creatives).find((creative) => creative.id === mine.key);
         const blocked = Boolean(row?.blocked);
-        const gone = mine.status === "removed" || mine.status === "changes";
+        const gone = mine.status === "removed" || (mine.status === "changes" && mine.stage !== "replaced");
         return (
           <div className="cp-veil" onClick={(event) => { if (event.target === event.currentTarget) setMine(null); }}>
             <div className="cp-dlg" role="dialog" aria-modal="true" aria-labelledby="cp-mine-title">
@@ -977,12 +977,13 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                 {mine.comment && <div><dt>Your comment</dt><dd>{mine.comment}</dd></div>}
                 <div><dt>Sent</dt><dd>{fdtTime(mine.sentAt)} UTC</dd></div>
                 {mine.decidedAt && <div><dt>Decided</dt><dd>{fdtTime(mine.decidedAt)} UTC</dd></div>}
+                {(mine.steps ?? []).slice(1).map((step, index) => <div key={index}><dt>{{ uploaded: "New picture sent", declined: "New picture declined", replaced: "Picture replaced", withdrawn: "Decision taken back", asked: "Change requested", removed: "Removed" }[step.key]}</dt><dd>{step.at ? `${fdtTime(step.at)} UTC` : ""}</dd></div>)}
               </dl>
               <p className="cp-repout">{mine.text}</p>
               {mine.note && <div className="cp-repmsg"><b>Message from DeusADS</b><p>{mine.note}</p></div>}
               {!gone && row && (
                 <div className="cp-repblock">
-                  <span>{blocked ? "It is blocked in your game." : mine.status === "open" ? "It keeps showing in your game while DeusADS reviews it." : "It shows in your game."}</span>
+                  <span>{blocked ? (mine.stage === "replaced" ? "It is still blocked in your game: the block you set stays until you lift it." : "It is blocked in your game.") : mine.status === "open" ? "It keeps showing in your game while DeusADS reviews it." : "It shows in your game."}</span>
                   {blocked
                     ? <button type="button" className="cp-btn" disabled={busy} onClick={() => run(row.shape && !row.blockedWhole ? { scope: "picture", action: "unblock", ids: [row.id] } : { scope: "creative", action: "unblock", ids: [creativeIdOf(row)] })}>Unblock</button>
                     : <button type="button" className="cp-btn" disabled={busy} onClick={() => run({ scope: row.shape ? "picture" : "creative", action: "block", ids: [row.shape ? row.id : creativeIdOf(row)], reason: mine.status === "open" ? "Blocked pending a DeusADS review" : "Blocked by the developer" })}>Block in my game</button>}

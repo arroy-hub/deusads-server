@@ -5,6 +5,15 @@ import { useRef, useState } from "react";
 import CampaignsPanel from "./campaigns-panel";
 import Library from "../creatives/library";
 import WindowTop, { PlateIcon } from "../window-top";
+import { needsCount } from "../../../lib/needs-action";
+
+/** A tab's numbers: how many there are (quiet), and in terracotta how many of them need the person's action, when any does. */
+const TabCount = ({ total, needs }) => (
+  <>
+    <span className="tab-total">{total}</span>
+    {needs > 0 && <span className="cp-count tab-needs" title={`${needs} ${needs === 1 ? "needs" : "need"} your action`} aria-label={`${needs} ${needs === 1 ? "needs" : "need"} your action`}>{needs}</span>}
+  </>
+);
 
 const HEAD = {
   camp: ["Campaigns", "Your campaigns and where each one stands."],
@@ -18,6 +27,8 @@ const HEAD = {
 export default function CampaignsWindow({ campaigns, error, rules, today, library, initialTab = "camp" }) {
   const [tab, setTab] = useState(initialTab);
   const [creativeCount, setCreativeCount] = useState(library.creatives.length);
+  const [creativeNeeds, setCreativeNeeds] = useState(needsCount(library.creatives));
+  const campaignNeeds = needsCount(campaigns);
   const tabs = useRef({});
   const [title, lede] = HEAD[tab];
 
@@ -39,15 +50,15 @@ export default function CampaignsWindow({ campaigns, error, rules, today, librar
     <div className="wt-win pg-campaigns cx-win" data-tab={tab}>
       <WindowTop title={title} sub={lede} icon={<PlateIcon name="campaigns" />}>
         <div className="tabs" role="tablist" aria-label="Campaigns sections" onKeyDown={onKeyDown}>
-          <button type="button" ref={(el) => { tabs.current.camp = el; }} className="tab" role="tab" id="cx-tab-camp" aria-selected={tab === "camp"} aria-current={tab === "camp" ? "page" : undefined} aria-controls="cx-panel-camp" tabIndex={tab === "camp" ? 0 : -1} onClick={() => choose("camp")}>Campaigns <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{campaigns.length}</span></button>
-          <button type="button" ref={(el) => { tabs.current.cr = el; }} className="tab" role="tab" id="cx-tab-cr" aria-selected={tab === "cr"} aria-current={tab === "cr" ? "page" : undefined} aria-controls="cx-panel-cr" tabIndex={tab === "cr" ? 0 : -1} onClick={() => choose("cr")}>Creatives <span className="cp-count" style={{ marginLeft: "0.5rem" }}>{creativeCount}</span></button>
+          <button type="button" ref={(el) => { tabs.current.camp = el; }} className="tab" role="tab" id="cx-tab-camp" aria-selected={tab === "camp"} aria-current={tab === "camp" ? "page" : undefined} aria-controls="cx-panel-camp" tabIndex={tab === "camp" ? 0 : -1} onClick={() => choose("camp")}>Campaigns <TabCount total={campaigns.length} needs={campaignNeeds} /></button>
+          <button type="button" ref={(el) => { tabs.current.cr = el; }} className="tab" role="tab" id="cx-tab-cr" aria-selected={tab === "cr"} aria-current={tab === "cr" ? "page" : undefined} aria-controls="cx-panel-cr" tabIndex={tab === "cr" ? 0 : -1} onClick={() => choose("cr")}>Creatives <TabCount total={creativeCount} needs={creativeNeeds} /></button>
         </div>
       </WindowTop>
       <div id="cx-panel-camp" role="tabpanel" aria-labelledby="cx-tab-camp" hidden={tab !== "camp"}>
         <CampaignsPanel campaigns={campaigns} error={error} rules={rules} today={today} />
       </div>
       <div id="cx-panel-cr" role="tabpanel" aria-labelledby="cx-tab-cr" hidden={tab !== "cr"}>
-        <Library list={library.creatives} folders={library.folders} folderTools={library.folderTools} onCount={setCreativeCount} />
+        <Library list={library.creatives} folders={library.folders} folderTools={library.folderTools} onCount={setCreativeCount} onNeeds={setCreativeNeeds} />
       </div>
     </div>
   );

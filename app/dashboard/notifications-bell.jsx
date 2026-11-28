@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markAllRead, markAttentionSeen, markRead } from "./notifications/actions";
@@ -44,6 +45,28 @@ export default function NotificationsBell({ items, unread, attention: attentionA
   const [gone, setGone] = useState(() => new Set()); // read in this session, hidden at once, before the server catches up
   const [goneAction, setGoneAction] = useState(() => new Set()); // 'Needs action' items opened in this session, hidden at once
   const box = useRef(null);
+  const panel = useRef(null);
+  const [spot, setSpot] = useState(null); // where the list sits on the screen, under the bell
+
+  // The list is drawn on the page itself, over everything, not inside the side menu: nothing of a window can lie on it.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const rect = box.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(440, window.innerWidth - 32);
+      const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
+      const top = Math.min(rect.bottom + 8, Math.max(16, window.innerHeight - 200));
+      setSpot({ left, top, width, maxHeight: Math.max(160, Math.min(576, window.innerHeight - top - 16)) });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   // A fresh list from the server replaces what was hidden by hand.
   useEffect(() => {
@@ -53,7 +76,8 @@ export default function NotificationsBell({ items, unread, attention: attentionA
   useEffect(() => {
     if (!open) return;
     const away = (event) => {
-      if (box.current && !box.current.contains(event.target)) setOpen(false);
+      if (box.current?.contains(event.target) || panel.current?.contains(event.target)) return;
+      setOpen(false);
     };
     const escape = (event) => {
       if (event.key === "Escape") setOpen(false);
@@ -117,8 +141,8 @@ export default function NotificationsBell({ items, unread, attention: attentionA
         {count > 0 && <span className="bell-badge">{shown}</span>}
       </button>
 
-      {open && (
-        <div className="bell-panel" role="dialog" aria-label="Notifications">
+      {open && spot && createPortal(
+        <div className="bell-panel bell-top" role="dialog" aria-label="Notifications" ref={panel} style={{ left: spot.left, top: spot.top, width: spot.width, maxHeight: spot.maxHeight }}>
           <div className="bell-head">
             <strong>Notifications</strong>
             {unreadNow > 0 && (
@@ -212,7 +236,8 @@ export default function NotificationsBell({ items, unread, attention: attentionA
             </>
           )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

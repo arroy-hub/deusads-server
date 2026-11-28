@@ -69,3 +69,16 @@ export const Seg = ({ value, options, onChange, label, full = false, compact = f
 export const Chip = ({ children, onRemove }) => (
   <span className="fl-chip">{children}<button type="button" aria-label="Remove filter" onClick={onRemove}>×</button></span>
 );
+
+/**
+ * "Needs action · N": shows only the rows that wait for the person. The number is the same one the mark on the tab
+ * shows (lib/needs-action.js). Not drawn when nothing needs action.
+ */
+export function NeedsToggle({ count, on, onChange }) {
+  if (!count && !on) return null;
+  return (
+    <button type="button" className="na-toggle" aria-pressed={on} title={on ? "Show everything" : "Show only what needs your action"} onClick={() => onChange(!on)}>
+      Needs action <span className="na-n">{count}</span>
+    </button>
+  );
+}

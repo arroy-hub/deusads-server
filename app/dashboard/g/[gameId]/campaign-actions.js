@@ -1,6 +1,7 @@
 "use server";
 
-import { adviseOnSignal, loadGameReports } from "../../../../lib/creative-reports";
+import { adviseOnSignal, keepReportedPicture, loadGameReports } from "../../../../lib/creative-reports";
+import { loadPictureInputs } from "../../../../lib/picture-landing";
 import { PENDING_BLOCK_REASON } from "../../../../lib/report-rules";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -8,7 +9,7 @@ import { getMember } from "../../../../lib/admin";
 import { isSchemaOutdated } from "../../../../lib/api";
 import { categoryLabel, isCategory } from "../../../../lib/categories";
 import { ACTIONS, SCOPES, WINDOW_MS, blockedCategories, bulkKeyOf, changeMessage, nextControl, planChange } from "../../../../lib/game-controls";
-import { isShapeKey, parsePictureId, pictureId, shapeKey, shapeLabel } from "../../../../lib/game-pictures";
+import { isShapeKey, parsePictureId, pictureFor, pictureId, shapeAspect, shapeKey, shapeLabel } from "../../../../lib/game-pictures";
 import { notify, notifyMany } from "../../../../lib/notify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -315,13 +316,25 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
     reason: cleanReason,
     comment: clip(comment, 1000) || null,
   };
-  let { error } = await me.service.from("creative_disputes").insert(picture ? { ...report, shape: picture } : report);
+  let { data: sent, error } = await me.service.from("creative_disputes").insert(picture ? { ...report, shape: picture } : report).select("id").maybeSingle();
   // before migration 0063 the report cannot say which picture: it is sent about the creative
-  if (picture && error && ["42703", "PGRST204"].includes(error.code)) ({ error } = await me.service.from("creative_disputes").insert(report));
+  if (picture && error && ["42703", "PGRST204"].includes(error.code)) ({ data: sent, error } = await me.service.from("creative_disputes").insert(report).select("id").maybeSingle());
   if (error) {
     if (error.code === "23505") return { ok: true, duplicate: true, message: "You already reported this creative. DeusADS is reviewing it." };
     if (isSchemaOutdated(error) || error.code === "42P01") return { error: "Run migration 0024 in the Supabase SQL editor first." };
     return { error: "Could not send the report." };
+  }
+
+  // The report keeps the picture as it is now (migration 0067): the advertiser may replace it later.
+  if (sent?.id) {
+    try {
+      const inputs = await loadPictureInputs(me.service, { creativeIds: [creativeId] });
+      const shown = inputs?.creativeOf.get(creativeId);
+      const pick = picture && shown ? pictureFor({ creative: shown, assets: inputs.assetsOf.get(creativeId) ?? [], aspect: shapeAspect(picture) }) : null;
+      await keepReportedPicture(me.service, sent.id, pick?.kind === "asset" ? pick.asset?.storagePath : shown?.storagePath);
+    } catch {
+      // the report itself is sent
+    }
   }
 
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");

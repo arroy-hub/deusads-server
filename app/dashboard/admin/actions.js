@@ -9,6 +9,7 @@ import { getAdmin } from "../../../lib/admin";
 import { isSchemaOutdated } from "../../../lib/api";
 import { cleanCompany, cleanNote, newUserProblem, parseDecision, roleChangeProblem } from "../../../lib/admin-rules";
 import { notify } from "../../../lib/notify";
+import { reporterOf } from "../../../lib/creative-reports";
 
 // Every action here re-checks that the caller is an admin: a server action is a
 // public endpoint, so hiding the page is not protection.
@@ -96,12 +97,14 @@ export async function reviewAsset({ assetId, decision, note }) {
   // A new picture for a shape DeusADS asked to change (migration 0065): approved, the shape runs again; rejected, it keeps waiting.
   let shape = data.format_id ?? shapeKey(Number(data.aspect));
   let wasHeld = false;
+  let heldDispute = null;
   try {
     // the held shape this picture was sent for: its own shape, or (a shape that is no standard format) the one it is close to
     const { data: holds } = await admin.service.from("creative_picture_holds").select("shape, kind, sent_at, dispute_id").eq("creative_id", data.creative_id).eq("kind", "changes");
     const hold = (holds ?? []).find((row) => row.shape === shape) ?? (data.format_id ? null : (holds ?? []).find((row) => row.sent_at && shapeAspect(row.shape) && aspectClose(Number(data.aspect), shapeAspect(row.shape))));
     if (hold) shape = hold.shape;
     wasHeld = Boolean(hold);
+    heldDispute = hold?.dispute_id ?? null;
     if (wasHeld && status === "approved") await admin.service.from("creative_picture_holds").delete().eq("creative_id", data.creative_id).eq("shape", shape);
     // not approved: the shape keeps waiting, and the advertiser reads why in the conversation under the decision
     if (wasHeld && status === "rejected") await admin.service.from("creative_picture_holds").update({ sent_at: null }).eq("creative_id", data.creative_id).eq("shape", shape);
@@ -130,9 +133,26 @@ export async function reviewAsset({ assetId, decision, note }) {
     });
   }
 
+  // The developer whose report started it follows every step: the new picture is in, or the advertiser has to try again.
+  if (heldDispute && creative) {
+    const reporter = await reporterOf(admin.service, heldDispute).catch(() => null);
+    if (reporter) {
+      await notify(admin.service, {
+        accountId: reporter,
+        text: status === "approved"
+          ? `The picture of "${creative.name}" you reported was replaced: DeusADS approved the advertiser's new ${shapeLabel(shape)} picture. Whether it shows in your game is up to you.`
+          : `DeusADS did not approve the advertiser's new picture for "${creative.name}". The advertiser has to send another one.`,
+        link: `/dashboard/support?tab=requests&report=${heldDispute}`,
+        type: "dev_report_decided",
+      });
+    }
+  }
+
   revalidatePath("/dashboard/admin");
   revalidatePath("/dashboard/admin/disputes");
   revalidatePath("/dashboard/advertising");
+  revalidatePath("/dashboard/support");
+  revalidatePath("/dashboard/games");
   revalidatePath(`/dashboard/creatives/${data.creative_id}`);
   return { ok: true, status };
 }

@@ -72,7 +72,7 @@ export function CampaignCard({ campaign, rules, today, onPause }) {
   const open = useOpen(campaign);
   const sub = subLine(campaign, today);
   return (
-    <article className={`cx-card s-${campaign.status.key}`} style={toneOf(campaign)} tabIndex={0} aria-label={campaign.name} {...open}>
+    <article data-needs={campaign.needs ? campaign.needs.key : undefined} className={`cx-card s-${campaign.status.key}${campaign.needs ? " needs-action" : ""}`} style={toneOf(campaign)} tabIndex={0} aria-label={campaign.name} {...open}>
       <div className="cx-cover" style={{ background: campaign.coverCss }}>
         <div className="cx-dots"><RowMenu campaign={campaign} rules={rules} onPause={(mode) => onPause(campaign, mode)} /></div>
       </div>
@@ -82,6 +82,7 @@ export function CampaignCard({ campaign, rules, today, onPause }) {
           <div><h3><Link href={hrefOf(campaign)}>{campaign.name}</Link></h3><div className="cx-sub"><b>{sub.label}</b>{sub.text}</div></div>
         </div>
         <DateBar campaign={campaign} today={today} />
+        {campaign.needs && <div className="cx-need"><b>Needs action</b>{campaign.needs.text}</div>}
         {hasNote(campaign) && <div className="cx-note"><IcWarn size={16} /> {campaign.status.note}</div>}
         <div className="cx-stat"><Impressions campaign={campaign} /><Spark series={campaign.daily} /></div>
         <div className="cx-chips"><span>{plural(campaign.games, "game", "games")}</span><span>{plural(campaign.placements, "placement", "placements")}</span></div>
@@ -99,13 +100,13 @@ export function CampaignStrip({ campaign, rules, today, onPause }) {
   const bar = stripBar(campaign, today);
   const sub = subLine(campaign, today);
   return (
-    <article className={`cx-strip s-${campaign.status.key}`} style={toneOf(campaign)} tabIndex={0} aria-label={campaign.name} {...open}>
+    <article data-needs={campaign.needs ? campaign.needs.key : undefined} className={`cx-strip s-${campaign.status.key}${campaign.needs ? " needs-action" : ""}`} style={toneOf(campaign)} tabIndex={0} aria-label={campaign.name} {...open}>
       <div className="cx-scover"><div className="cx-pic" style={{ background: campaign.coverCss }} /></div>
       <div className="cx-splate">
         <Icon campaign={campaign} />
         <div className="cx-txt">
           <h3><Link href={hrefOf(campaign)}>{campaign.name}</Link></h3>
-          <div className="cx-sub"><b>{sub.label}</b>{hasNote(campaign) && <span className="cx-flag" title={campaign.status.note} role="img" aria-label={campaign.status.note}><IcWarn size={14} /></span>} &middot; {audienceOf(campaign)}</div>
+          <div className="cx-sub">{campaign.needs && <span className="cx-need is-inline" title={campaign.needs.text}><b>Needs action</b></span>}<b>{sub.label}</b>{hasNote(campaign) && <span className="cx-flag" title={campaign.status.note} role="img" aria-label={campaign.status.note}><IcWarn size={14} /></span>} &middot; {audienceOf(campaign)}</div>
         </div>
         <div className="cx-dates">
           <div className={`cx-dr ${bar.cls}`}>

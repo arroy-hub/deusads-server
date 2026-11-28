@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CampaignCard, CampaignStrip } from "./campaign-cards";
-import { Opt, PopBtn } from "../_cabinet/filters";
+import { NeedsToggle, Opt, PopBtn } from "../_cabinet/filters";
 import { PauseDialog } from "../_cabinet/ui";
 import { IcGrid, IcPlus } from "../_cabinet/icons";
 import { STATUS_GROUPS, campaignGroup, filterCampaigns } from "../../../lib/campaign-list";
@@ -27,19 +27,21 @@ export default function CampaignsPanel({ campaigns: raw, error = false, rules = 
   const [dlg, setDlg] = useState(null);
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("all");
+  const [needsOnly, setNeedsOnly] = useState(false); // "Needs action": the campaigns the mark on the tab counts
+  const needing = raw.filter((c) => c.needs).length;
   const [sort, setSort] = useState({ key: "status", dir: "asc" });
   const [view, setView] = useState("c"); // "c": sections by status, "b": long strips
   const [folded, setFolded] = useState({});
 
   const shown = useMemo(() => {
-    const filtered = filterCampaigns(raw, { query, group });
+    const filtered = filterCampaigns(needsOnly && needing ? raw.filter((c) => c.needs) : raw, { query, group });
     return sortCampaigns(filtered, sort.key, sort.dir);
-  }, [raw, query, group, sort]);
+  }, [raw, query, group, sort, needsOnly, needing]);
   const empty = raw.length === 0; // no campaigns at all (a filter that hides every one is not this)
   const count = (key) => (key === "all" ? raw.length : raw.filter((c) => campaignGroup(c) === key).length);
   const pause = (campaign, mode) => setDlg({ camp: campaign, mode });
   const pickSort = (key) => setSort({ key, dir: key === "impressions" ? "desc" : "asc" });
-  const clear = () => { setQuery(""); setGroup("all"); };
+  const clear = () => { setQuery(""); setGroup("all"); setNeedsOnly(false); };
   const chosenGroup = group === "all" ? "" : STATUS_GROUPS.find(([key]) => key === group)?.[1];
   const chosenSort = sort.key === "status" ? "" : SORT_NAME[sort.key];
   const props = (campaign) => ({ campaign, rules, today, onPause: pause });
@@ -55,12 +57,13 @@ export default function CampaignsPanel({ campaigns: raw, error = false, rules = 
               <Opt key={key} on={group === key} count={count(key)} onClick={() => { setGroup(key); close(); }}>{text}</Opt>
             ))}
           </PopBtn>
+          <NeedsToggle count={needing} on={needsOnly && needing > 0} onChange={setNeedsOnly} />
           {view === "b" && (
             <PopBtn label="Sort" value={chosenSort} width={200}>
               {(close) => SORTS.map(([key, text]) => <Opt key={key} on={sort.key === key} onClick={() => { pickSort(key); close(); }}>{text}</Opt>)}
             </PopBtn>
           )}
-          {(query || group !== "all") && <button type="button" className="link-button" onClick={clear}>Clear</button>}
+          {(query || group !== "all" || (needsOnly && needing > 0)) && <button type="button" className="link-button" onClick={clear}>Clear</button>}
           <div className="cx-seg" role="group" aria-label="View">
             <button type="button" aria-pressed={view === "b"} title="List" aria-label="List view" onClick={() => setView("b")}><ListIcon /></button>
             <button type="button" aria-pressed={view === "c"} title="Grouped by status" aria-label="Grouped by status" onClick={() => setView("c")}><IcGrid size={16} /></button>

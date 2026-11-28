@@ -91,7 +91,7 @@ assert.match(disputeNow(disputeRows([{ ...base, outcome: "removed", waiting: tru
 
 // a report stops the reported picture, not the creative (migration 0065)
 const pictureHold = pictureHoldOf({ creative_id: "c", shape: "r16x9", kind: "changes", rule: ADVERTISER_RULES[1], note: "Fix it", dispute_id: "d1", held_at: "2026-11-28T11:40:00Z", sent_at: null }, "16:9");
-assert.deepEqual(pictureHold.pill, ["16:9 needs changes", "ov-warn"]);
+assert.deepEqual(pictureHold.pill, ["16:9 needs changes", "ov-act"]);
 assert.match(pictureHold.line, /Other shapes keep running/);
 assert.equal(pictureHold.disputeId, "d1");
 assert.equal(pictureHoldOf({ shape: "r16x9", kind: "changes", sent_at: "2026-11-29T00:00:00Z" }, "16:9").pill[0], "16:9 in review");
@@ -122,3 +122,27 @@ assert.equal(reviewed.filter((e) => e.text.startsWith("Uploaded a new")).length,
 assert.ok(reviewed.some((e) => e.text === "Did not approve the new 21:9 picture: still offensive"));
 
 console.log("report rules: ok");
+
+// what a developer follows after the decision
+{
+  const { reportSteps, developerStage, STEP_TEXT } = await import("../lib/report-rules.js");
+  const { default: assert } = await import("node:assert/strict");
+  const events = [
+    { text: "changes: Readable in a game", at: "2026-11-28T15:02:22Z" },
+    { text: "picture: uploaded 2549 × 1428", at: "2026-11-28T15:14:42Z" },
+  ];
+  assert.deepEqual(reportSteps(events).map((s) => s.key), ["asked", "uploaded"]);
+  assert.equal(developerStage("changes", reportSteps(events)).key, "uploaded");
+  assert.equal(developerStage("changes", reportSteps([...events, { text: "picture: rejected: too small" }])).key, "declined");
+  const done = reportSteps([...events, { text: "picture: rejected: too small" }, { text: "picture: uploaded 10 × 10" }, { text: "picture: approved" }]);
+  assert.deepEqual(done.map((s) => s.key), ["asked", "uploaded", "declined", "uploaded", "replaced"]);
+  assert.equal(developerStage("changes", done).label, "Picture replaced");
+  assert.equal(developerStage("changes", reportSteps(events.slice(0, 1))).key, "changes");
+  assert.equal(developerStage("open", []).key, "open");
+  // a dismissal has no later steps, a decision taken back does
+  assert.deepEqual(reportSteps([{ text: "dismissed" }]), []);
+  assert.deepEqual(reportSteps([{ text: "changes: X" }, { text: "withdrawn: Change requested" }]).map((s) => s.key), ["asked", "withdrawn"]);
+  assert.equal(developerStage("dismissed", reportSteps([{ text: "changes: X" }, { text: "withdrawn: Change requested" }])).key, "dismissed");
+  for (const step of done) assert.ok(STEP_TEXT[step.key]);
+  console.log("report steps: ok");
+}

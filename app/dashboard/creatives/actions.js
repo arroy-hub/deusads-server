@@ -10,7 +10,8 @@ import { loadCreativeEditor } from "../../../lib/advertiser-data";
 import { after } from "next/server";
 import { fitStoredPicture } from "../../../lib/creative-image";
 import { makeVariants, removeVariants } from "../../../lib/astc-variants";
-import { notifyMany } from "../../../lib/notify";
+import { notify, notifyMany } from "../../../lib/notify";
+import { keepReportedPicture, reporterOf } from "../../../lib/creative-reports";
 import { isShapeKey, shapeAspect, shapeKey, shapeLabel } from "../../../lib/game-pictures";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -71,7 +72,7 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
   }
   const cleanup = () => me.service.storage.from("creatives").remove([path]);
 
-  const creative = await ownCreative(me, creativeId);
+  const creative = await ownCreative(me, creativeId, "id, name, storage_path");
   if (!creative) {
     await cleanup();
     return { error: "That creative no longer exists." };
@@ -119,6 +120,27 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     h = fitted.height;
   }
 
+  // Pictures made for a format are not moderated: they count from the moment they are uploaded. The exception is a
+  // shape DeusADS holds after a report (migration 0065): a blocked shape takes no new picture, and a new picture for
+  // a shape it asked to change waits for review, which is what ends the hold.
+  // `forShape`: the picture is uploaded for a held shape that is not a standard format (say 21:9); it has to be about that shape.
+  const wanted = !format && isShapeKey(forShape) && shapeAspect(forShape) ? forShape : null;
+  if (wanted && !aspectClose(aspect, shapeAspect(wanted))) {
+    await cleanup();
+    return { error: `This image is ${aspect.toFixed(2)}:1; the ${shapeLabel(wanted)} shape needs about ${shapeAspect(wanted).toFixed(2)}:1 (within 15%).` };
+  }
+  const heldShape = format ? format.id : wanted ?? shapeKey(aspect);
+  const { data: hold } = await me.service.from("creative_picture_holds").select("kind, dispute_id").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
+  if (hold?.kind === "blocked") {
+    await cleanup();
+    return { error: "DeusADS blocked this creative in this shape. Write to DeusADS under the decision if you think it is a mistake." };
+  }
+  // The dispute keeps the picture that was reported (migration 0067): it is copied before the new one takes its place.
+  if (hold?.kind === "changes" && hold.dispute_id) {
+    const { data: was } = await me.service.from("creative_assets").select("storage_path").eq("creative_id", creative.id).eq("format_id", heldShape).eq("status", "approved").maybeSingle();
+    await keepReportedPicture(me.service, hold.dispute_id, was?.storage_path ?? creative.storage_path).catch(() => null);
+  }
+
   // Replacing: the old picture for this format goes first (one per standard format).
   if (format) {
     const { data: old, error: oldError } = await me.service
@@ -137,21 +159,6 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     }
   }
 
-  // Pictures made for a format are not moderated: they count from the moment they are uploaded. The exception is a
-  // shape DeusADS holds after a report (migration 0065): a blocked shape takes no new picture, and a new picture for
-  // a shape it asked to change waits for review, which is what ends the hold.
-  // `forShape`: the picture is uploaded for a held shape that is not a standard format (say 21:9); it has to be about that shape.
-  const wanted = !format && isShapeKey(forShape) && shapeAspect(forShape) ? forShape : null;
-  if (wanted && !aspectClose(aspect, shapeAspect(wanted))) {
-    await cleanup();
-    return { error: `This image is ${aspect.toFixed(2)}:1; the ${shapeLabel(wanted)} shape needs about ${shapeAspect(wanted).toFixed(2)}:1 (within 15%).` };
-  }
-  const heldShape = format ? format.id : wanted ?? shapeKey(aspect);
-  const { data: hold } = await me.service.from("creative_picture_holds").select("kind, dispute_id").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
-  if (hold?.kind === "blocked") {
-    await cleanup();
-    return { error: "DeusADS blocked this creative in this shape. Write to DeusADS under the decision if you think it is a mistake." };
-  }
   const status = hold?.kind === "changes" ? "pending" : "approved";
   const { data, error } = await me.service
     .from("creative_assets")
@@ -177,6 +184,9 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
     // the dispute keeps what happened, and is where the picture is reviewed
     if (hold.dispute_id) await me.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: me.user.id, side: "advertiser", kind: "decision", text: `picture: uploaded ${w} × ${h}` }).then(() => null, () => null);
+    // the developer who reported it follows the report too
+    const reporter = await reporterOf(me.service, hold.dispute_id).catch(() => null);
+    if (reporter) await notify(me.service, { accountId: reporter, text: `The advertiser uploaded a new picture for "${creative.name}" after your report. DeusADS is reviewing it.`, link: `/dashboard/support?tab=requests&report=${hold.dispute_id}`, type: "dev_report_decided" });
     await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture for "${creative.name}" waits for review: it replaces one that was reported.`, hold.dispute_id ? `/dashboard/admin/disputes?card=dispute:${hold.dispute_id}` : "/dashboard/admin/disputes", "admin_reports");
     revalidatePath("/dashboard/admin/disputes");
     revalidatePath("/dashboard/advertising");
