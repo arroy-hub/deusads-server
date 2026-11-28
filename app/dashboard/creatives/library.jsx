@@ -16,6 +16,7 @@ const F = ["r16x9", "r4x3", "r1x1", "r3x4", "r9x16", "r2x1", "r3x1"];
 const SHORT = { r16x9: "16:9", r4x3: "4:3", r1x1: "1:1", r3x4: "3:4", r9x16: "9:16", r2x1: "2:1", r3x1: "3:1" };
 
 function hint(item) {
+  if (item.hold) return item.hold.line;
   if (item.status === "rejected") return item.note ? `Reason: ${item.note}` : "Upload a corrected one.";
   if (item.status === "pending") return "Ads start once it is approved";
   const missing = item.formats.filter((f) => !f.ready);
@@ -76,7 +77,7 @@ function DeleteDialog({ item, onClose, onConfirm }) {
 function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, patch, remove, move }) {
   const el = useRef(null);
   const [rename, setRename] = useState(0);
-  const [label, tone] = STATUS[item.status] ?? STATUS.pending;
+  const [label, tone] = item.hold ? item.hold.pill : STATUS[item.status] ?? STATUS.pending;
   const ready = item.formats.filter((f) => f.ready).length;
   return (
     <article ref={el} className={`rd-card${item.status === "rejected" ? " is-rejected" : ""}${drag === item.id ? " is-dragging" : ""}${overCard === item.id && drag && drag !== item.id ? " is-over" : ""}`}

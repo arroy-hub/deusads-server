@@ -3,6 +3,8 @@ import { getMember } from "../../../../../../lib/admin";
 import { canAdvertise } from "../../../../../../lib/admin-rules";
 import { loadCampaignReport, loadCreativeLibrary } from "../../../../../../lib/advertiser-data";
 import { planCreativeIds } from "../../../../../../lib/campaign-plan";
+import { loadCreativeSignals } from "../../../../../../lib/creative-reports";
+import { signalLine } from "../../../../../../lib/report-rules";
 import CampaignCreatives from "./campaign-creatives";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,15 @@ export default async function CampaignCreativesPage({ params }) {
     }
     figures.set(item.creative_id, entry);
   }
+  // How developers react to each creative, across every game it runs in (not only this campaign), and whether the
+  // advertiser already answered DeusADS about a creative on hold.
+  const mine = library.creatives.filter((item) => item.status !== "pending" || item.hold);
+  const signals = await loadCreativeSignals(me.service, mine.map((item) => item.id), new Map(mine.map((item) => [item.id, item.gameIds ?? []]))).catch(() => new Map());
+  const replied = await repliedOn(me.service, ids).catch(() => new Set());
+  const otherAverage = (id) => {
+    const others = mine.filter((item) => item.id !== id && (signals.get(item.id)?.games ?? 0) > 0).map((item) => signals.get(item.id));
+    return others.length ? { blocked: Math.round((others.reduce((sum, x) => sum + x.blocked, 0) / others.length) * 10) / 10, games: Math.round(others.reduce((sum, x) => sum + x.games, 0) / others.length) } : null;
+  };
   const openOf = (id) => report.bookings.filter((booking) => booking.creativeId === id && (booking.status === "approved" || booking.status === "pending")).length;
 
   const list = ids
@@ -48,7 +59,8 @@ export default async function CampaignCreativesPage({ params }) {
         formatIds: item.formats.map((format) => format.id),
         impressions: figure?.impressions ?? 0,
         avg: figure && figure.weight > 0 ? figure.weighted / figure.weight : null,
-        blocked: [...new Set(report.bookings.filter((booking) => booking.creativeId === id && booking.controlNote && !booking.noPicture).map((booking) => booking.game))],
+        hold: item.hold ? { ...item.hold, replied: replied.has(id) } : null,
+        signal: signals.get(id) ? { ...signals.get(id), line: signalLine(signals.get(id)), other: otherAverage(id) } : null,
         longer: Boolean(report.creativeRows.find((row) => row.id === id)?.longer),
         removable: openOf(id) > 0 || planned.includes(id),
       };
@@ -57,4 +69,16 @@ export default async function CampaignCreativesPage({ params }) {
   const draft = report.status.key === "draft";
 
   return <CampaignCreatives id={campaignId} list={list} library={library.creatives} draft={draft} />;
+}
+
+/** The creatives on hold whose advertiser already wrote back to DeusADS (one reply per decision). */
+async function repliedOn(service, creativeIds) {
+  const out = new Set();
+  if (!creativeIds.length) return out;
+  const { data: held, error } = await service.from("creatives").select("id, hold_dispute").in("id", creativeIds).not("hold_dispute", "is", null);
+  if (error || !held?.length) return out;
+  const { data: events } = await service.from("dispute_events").select("dispute_id").in("dispute_id", held.map((row) => row.hold_dispute)).eq("side", "advertiser").eq("kind", "reply");
+  const answered = new Set((events ?? []).map((row) => row.dispute_id));
+  for (const row of held) if (answered.has(row.hold_dispute)) out.add(row.id);
+  return out;
 }

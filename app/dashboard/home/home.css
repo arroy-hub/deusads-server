@@ -569,3 +569,14 @@ body.hero-light .hm .hero-next.hn-link:hover .hn-chev{color:var(--signal-ink)}
 .hm .hw-test{padding:2px 8px;border-radius:99px;background:#fdf0d5;color:#8a5a00;font-size:11.5px;font-weight:700;white-space:nowrap}
 .hm .hw-spark i{cursor:default}
 .hm .hw-spark i:hover{background:#a2432a}
+
+/* Guides: square cards at every width; a card that does not fit the row goes to the next row */
+.hm .ga{grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:16px}
+.hm.lb .sheet,.hm .sheet{aspect-ratio:1/1;min-height:0;padding:13px 15px 10px;overflow:hidden;container-type:inline-size}
+.hm.lb .sheet h3,.hm .sheet h3{flex:none;font-size:14.5px;line-height:1.26;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.hm .sheet p{flex:none;font-size:12.5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hm.lb .sheet .sh-foot,.hm .sheet .sh-foot{margin-top:auto;padding-top:2px}
+@container (min-width:148px){.hm .sheet p{-webkit-line-clamp:3}}
+@container (min-width:173px){.hm.lb .sheet h3,.hm .sheet h3{font-size:15.5px;line-height:1.28}.hm .sheet p{font-size:13px;line-height:1.45}}
+@container (min-width:192px){.hm .sheet p{-webkit-line-clamp:4}}
+@media (max-width:460px){.hm .ga{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hm .sheet p{display:none}}

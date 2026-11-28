@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { developerOutcome } from "../../../../lib/report-rules";
+import { rulesLink } from "../../../../lib/platform-rules";
+import { fdtTime } from "../../../../lib/admin-format";
 import { AD_CATEGORIES, categoryLabel } from "../../../../lib/categories";
 import { iconStyle } from "../../../../lib/category-icons";
 import { blockedCategories, campaignState, controlMap, planChange } from "../../../../lib/game-controls";
@@ -149,6 +153,9 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
   const [toast, setToast] = useState("");
   const [dialog, setDialog] = useState(null);
   const [report, setReport] = useState(null);
+  // The developer's own reports: what the page loaded, and the ones sent since. `mine` is the report whose window is open.
+  const [sent, setSent] = useState({});
+  const [mine, setMine] = useState(null);
 
   const ctx = useMemo(() => ({ controls: controlMap(controls), blocked: blockedCategories(categoryRows) }), [controls, categoryRows]);
 
@@ -357,6 +364,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
         return;
       }
       setReport(null);
+      if (!result.duplicate) setSent((previous) => ({ ...previous, [r.key]: { id: null, status: "open", ...developerOutcome("open"), reason: r.reason, comment: r.comment, sentAt: new Date().toISOString(), decidedAt: null, note: "", again: false } }));
       if (result.block?.applied?.length) {
         const gone = new Set(result.block.applied);
         const scope = result.block.scope ?? "creative";
@@ -727,6 +735,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                           const small = fit(creative.aspect, 72, 50);
                           const big = fit(creative.aspect, 520, 356);
                           // A picture can be blocked while it has a placement to show on; one that is only history cannot.
+                          const mineOf = sent[creative.id] ?? creative.report ?? null;
                           const canBlock = !creative.blocked && key !== "ended" && key !== "blockedcat" && key !== "blockedadv" && (!creative.shape || creative.placements.length > 0);
                           const rowName = labelOf(creative);
                           return (
@@ -743,6 +752,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                   <strong>{creative.name}</strong>{creative.format && <span className="cp-fmt">{creative.format}</span>}{creative.cropped && <span className="cp-crop" title={`This creative has no picture made for ${creative.format}, so its main picture is cropped to fit.`}>main picture, cropped</span>} {creative.isNew && <span className="cp-tag">New</span>}
                                   {creative.shape && creative.placements.length > 0 && <div className="cp-meta cp-sub cp-where">{creative.placements.length === 1 ? "Placement" : "Placements"}: {creative.placements.join(", ")}</div>}
                                   {creative.blocked && creative.reason && <div className="cp-meta cp-sub">Your reason: {creative.reason}</div>}
+                                  {mineOf && <div className="cp-meta cp-sub cp-rep"><span className={`cp-pill p-${mineOf.tone}`}>Your report · {mineOf.label}</span></div>}
                                   {creative.audience && !creative.blocked && <div className="cp-meta cp-sub">Not shown: {audienceWords(creative.audience)}.</div>}
                                 </div>
                                 <div><span className={`cp-pill ${pill}`}>{label}</span></div>
@@ -750,7 +760,9 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                 {earnedCell(creative.totals.paid)}
                                 <div className="cp-num">{averageText(creative.totals)}</div>
                                 <div className="cp-acts">
-                                  <button type="button" className="cp-ib" title="Report to DeusADS…" aria-label={`Report ${rowName} to DeusADS`} disabled={busy} onClick={() => setReport({ id: creativeIdOf(creative), shape: creative.shape ?? null, name: rowName, campaign: campaign.name, reason: REPORT_REASONS[0], comment: "", alsoBlock: canBlock, canBlock })}><FlagIcon /></button>
+                                  {mineOf && !mineOf.again
+                                    ? <button type="button" className="cp-ib on-rep" title={`Your report: ${mineOf.label}. Click to open`} aria-pressed="true" aria-label={`Your report on ${rowName}: ${mineOf.label}`} onClick={() => setMine({ ...mineOf, key: creative.id, name: rowName, campaign: campaign.name, campaignId: campaign.id, creativeId: creativeIdOf(creative), shape: creative.shape ?? null })}><FlagIcon /></button>
+                                    : <button type="button" className="cp-ib" title={mineOf ? "The picture changed since your report. Report it again…" : "Report to DeusADS…"} aria-label={`Report ${rowName} to DeusADS`} disabled={busy} onClick={() => setReport({ key: creative.id, id: creativeIdOf(creative), shape: creative.shape ?? null, name: rowName, campaign: campaign.name, reason: REPORT_REASONS[0], comment: "", alsoBlock: canBlock, canBlock })}><FlagIcon /></button>}
                                   {canBlock && <button type="button" className="cp-ib danger" title="Block this creative…" aria-label={`Block ${rowName}`} disabled={busy} onClick={() => askBlock(creative.shape ? "picture" : "creative", creative.id, `creative "${rowName}"`, { campaignId: campaign.id, name: rowName })}><BlockIcon /></button>}
                                   {creative.blocked && (
                                     <button type="button" className="cp-ib on-block" title={creative.shape && creative.blockedWhole ? "The whole creative is blocked. Click to unblock all its shapes" : "Blocked. Click to unblock"} aria-pressed="true" aria-label={`Unblock ${rowName}`} disabled={busy} onClick={() => run(creative.shape && !creative.blockedWhole ? { scope: "picture", action: "unblock", ids: [creative.id] } : { scope: "creative", action: "unblock", ids: [creativeIdOf(creative)] })}><BlockIcon /></button>
@@ -941,7 +953,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                 <span>Also block this creative in my game</span>
               </label>
             )}
-            <p className="cp-hint">DeusADS reviews reports. It can remove a creative that breaks platform rules; bookings are not changed. You get a notification with the outcome.</p>
+            <p className="cp-hint">A report asks DeusADS to check this creative against the <Link href={rulesLink("adv")} className="cp-link">platform rules</Link> for every game. It can ask the advertiser to change it, or block it. If you just do not want it in your game, use Block: that needs no review. You get a notification with the outcome; the row shows the status and the whole history is in Help &amp; feedback → My requests.</p>
             <div className="foot">
               <button type="button" className="cp-btn" onClick={() => setReport(null)}>Cancel</button>
               <button type="button" className="cp-btn cp-btn-primary" disabled={busy} onClick={sendReport}>Send report</button>
@@ -949,6 +961,38 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
           </div>
         </div>
       )}
+      {mine && (() => {
+        const row = campaigns.flatMap((campaign) => campaign.creatives).find((creative) => creative.id === mine.key);
+        const blocked = Boolean(row?.blocked);
+        const gone = mine.status === "removed" || mine.status === "changes";
+        return (
+          <div className="cp-veil" onClick={(event) => { if (event.target === event.currentTarget) setMine(null); }}>
+            <div className="cp-dlg" role="dialog" aria-modal="true" aria-labelledby="cp-mine-title">
+              <h2 id="cp-mine-title">Your report</h2>
+              <p style={{ fontWeight: 600, margin: "0 0 8px" }}>{mine.name} · {mine.campaign}</p>
+              <dl className="cp-repfacts">
+                <div><dt>Status</dt><dd><span className={`cp-pill p-${mine.tone}`}>{mine.label}</span></dd></div>
+                <div><dt>Reason</dt><dd>{mine.reason}</dd></div>
+                {mine.comment && <div><dt>Your comment</dt><dd>{mine.comment}</dd></div>}
+                <div><dt>Sent</dt><dd>{fdtTime(mine.sentAt)} UTC</dd></div>
+                {mine.decidedAt && <div><dt>Decided</dt><dd>{fdtTime(mine.decidedAt)} UTC</dd></div>}
+              </dl>
+              <p className="cp-repout">{mine.text}</p>
+              {mine.note && <div className="cp-repmsg"><b>Message from DeusADS</b><p>{mine.note}</p></div>}
+              {!gone && row && (
+                <div className="cp-repblock">
+                  <span>{blocked ? "It is blocked in your game." : mine.status === "open" ? "It keeps showing in your game while DeusADS reviews it." : "It shows in your game."}</span>
+                  {blocked
+                    ? <button type="button" className="cp-btn" disabled={busy} onClick={() => run(row.shape && !row.blockedWhole ? { scope: "picture", action: "unblock", ids: [row.id] } : { scope: "creative", action: "unblock", ids: [creativeIdOf(row)] })}>Unblock</button>
+                    : <button type="button" className="cp-btn" disabled={busy} onClick={() => run({ scope: row.shape ? "picture" : "creative", action: "block", ids: [row.shape ? row.id : creativeIdOf(row)], reason: mine.status === "open" ? "Blocked pending a DeusADS review" : "Blocked by the developer" })}>Block in my game</button>}
+                </div>
+              )}
+              <p className="cp-hint">{mine.status === "open" || gone ? "" : "The decision is final for this picture. You can report it again if the advertiser changes it. "}The whole history is in <Link href="/dashboard/support?tab=requests" className="cp-link">Help &amp; feedback → My requests</Link>.</p>
+              <div className="foot"><button type="button" className="cp-btn cp-btn-primary" onClick={() => setMine(null)}>Close</button></div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

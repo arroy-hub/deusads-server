@@ -1,4 +1,6 @@
 "use server";
+import { DECISIONS, NEUTRAL_BLOCK_REASON, OUTCOME_OF, PENDING_BLOCK_REASON, needsRule } from "../../../lib/report-rules";
+import { isAdvertiserRule } from "../../../lib/platform-rules";
 
 import { revalidatePath } from "next/cache";
 import { getAdmin } from "../../../lib/admin";
@@ -31,6 +33,18 @@ export async function reviewCreative({ creativeId, decision, note }) {
   if (isSchemaOutdated(error)) return { error: "Run migration 0008 in the Supabase SQL editor first." };
   if (error || !data) return { error: "Could not save the decision." };
 
+  // A creative DeusADS held for changes (migration 0064): an approved new version runs again and the hold is over;
+  // a rejected one keeps waiting, with the new note as the message. Missing columns (no 0064) are fine.
+  let wasHeld = false;
+  try {
+    const { data: held } = await admin.service.from("creatives").select("hold").eq("id", data.id).maybeSingle();
+    wasHeld = held?.hold === "changes";
+    if (wasHeld && status === "approved") await admin.service.from("creatives").update({ hold: null, hold_rule: null, hold_note: null, hold_at: null, hold_dispute: null, hold_sent_at: null, signal_notified_at: null }).eq("id", data.id);
+    if (wasHeld && status === "rejected") await admin.service.from("creatives").update({ hold_sent_at: null, hold_at: new Date().toISOString(), ...(reviewNote ? { hold_note: reviewNote } : {}) }).eq("id", data.id);
+  } catch {
+    // the review itself is saved
+  }
+
   // Bookings waiting for this review start (or close) now. Missing functions (no 0015) are fine.
   let started = 0;
   try {
@@ -48,9 +62,9 @@ export async function reviewCreative({ creativeId, decision, note }) {
     accountId: data.owner_id,
     text:
       status === "approved"
-        ? `Your creative "${data.name}" was approved.`
-        : `Your creative "${data.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
-    link: "/dashboard/creatives",
+        ? wasHeld ? `The new version of your creative "${data.name}" was approved. It runs again.` : `Your creative "${data.name}" was approved.`
+        : wasHeld ? `The new version of your creative "${data.name}" was not approved${reviewNote ? `: ${reviewNote}` : "."}` : `Your creative "${data.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
+    link: wasHeld ? `/dashboard/creatives/${data.id}` : "/dashboard/creatives",
     type: "adv_creative_reviewed",
   });
 
@@ -186,10 +200,10 @@ export async function createUser({ email, password, company, role }) {
  * (the booking the dispute is about stops serving, 0045) or "dismiss". `note` is the admin's note, kept on the dispute.
  * The side that opened it is told the outcome; on a removal or a pause the other side is told too.
  */
-export async function resolveDispute({ disputeId, decision, note }) {
+export async function resolveDispute({ disputeId, decision, note, rule, advNote, devNote }) {
   const admin = await getAdmin();
   if (!admin) return { error: "Not allowed." };
-  if (!["remove", "pause", "dismiss"].includes(decision)) return { error: "Unknown decision." };
+  if (!DECISIONS.includes(decision)) return { error: "Unknown decision." };
 
   let read = await admin.service.from("creative_disputes").select("id, developer_id, advertiser_id, initiator, booking_id, creative_id, reason, status, game_id").eq("id", String(disputeId ?? "")).maybeSingle();
   const extended = !(isSchemaOutdated(read.error) || read.error?.code === "42703");
@@ -199,17 +213,28 @@ export async function resolveDispute({ disputeId, decision, note }) {
   if (error || !dispute) return { error: "Report not found." };
   if (dispute.status !== "open") return { error: "This report was already settled." };
   if (decision === "pause" && !extended) return { error: "Run migration 0045 in the Supabase SQL editor to pause bookings." };
+  const advertiserSide = extended && dispute.initiator === "advertiser";
+  if (advertiserSide ? !["pause", "dismiss"].includes(decision) : decision === "pause") return { error: "This decision does not fit this report." };
+
+  // A request to change a creative and a block point at a rule and say what is wrong: the advertiser reads both.
+  const cleanRule = isAdvertiserRule(rule) ? rule : null;
+  const toAdvertiser = needsRule(decision) ? cleanNote(advNote) || null : null;
+  const toDeveloper = cleanNote(devNote) || null;
+  if (needsRule(decision) && !cleanRule) return { error: "Choose the rule this is about." };
+  if (needsRule(decision) && !toAdvertiser) return { error: "Write to the advertiser what is wrong: they see the rule and this message." };
 
   const { data: creative } = await admin.service.from("creatives").select("id, name, owner_id").eq("id", dispute.creative_id).maybeSingle();
-  const outcome = decision === "remove" ? "removed" : decision === "pause" ? "paused" : "dismissed";
+  const outcome = OUTCOME_OF[decision];
   const cleanedNote = cleanNote(note) || null;
+  const now = new Date().toISOString();
 
-  if (decision === "remove" && creative) {
-    const { error: removeError } = await admin.service
-      .from("creatives")
-      .update({ status: "rejected", review_note: `Removed after a report: ${dispute.reason}`.slice(0, 500), reviewed_at: new Date().toISOString() })
-      .eq("id", creative.id);
-    if (removeError) return { error: "Could not remove the creative." };
+  if (needsRule(decision) && creative) {
+    // Not shown anywhere from now on: a rejected creative never reaches a game. The hold says why, and whether a new version may come.
+    const hold = { hold: decision === "remove" ? "blocked" : "changes", hold_rule: cleanRule, hold_note: toAdvertiser, hold_at: now, hold_dispute: dispute.id, hold_sent_at: null };
+    const base = { status: "rejected", review_note: `${decision === "remove" ? "Blocked" : "Change requested"} after a report: ${cleanRule}`.slice(0, 500), reviewed_at: now };
+    const { error: holdError } = await admin.service.from("creatives").update({ ...base, ...hold }).eq("id", creative.id);
+    if (holdError && ["42703", "PGRST204"].includes(holdError.code)) return { error: "Run migration 0064 in the Supabase SQL editor first." };
+    if (holdError) return { error: "Could not save the decision on the creative." };
   }
 
   let paused = 0;
@@ -228,30 +253,41 @@ export async function resolveDispute({ disputeId, decision, note }) {
     }
   }
 
-  const patch = { status: "resolved", outcome, resolved_by: admin.user.id, resolved_at: new Date().toISOString() };
+  const patch = { status: "resolved", outcome, resolved_by: admin.user.id, resolved_at: now };
   if (extended) patch.admin_note = cleanedNote;
-  const { error: saveError } = await admin.service.from("creative_disputes").update(patch).eq("id", dispute.id).eq("status", "open");
+  let { error: saveError } = await admin.service.from("creative_disputes").update({ ...patch, rule: needsRule(decision) ? cleanRule : null, adv_note: toAdvertiser, dev_note: toDeveloper }).eq("id", dispute.id).eq("status", "open");
+  // before migration 0064 a dismissal can still be saved, without the messages
+  if (saveError && ["42703", "PGRST204"].includes(saveError.code) && !needsRule(decision)) ({ error: saveError } = await admin.service.from("creative_disputes").update(patch).eq("id", dispute.id).eq("status", "open"));
   if (saveError) return { error: "Could not save the decision." };
-  if (extended) await admin.service.from("dispute_events").insert({ dispute_id: dispute.id, author_id: admin.user.id, side: "admin", kind: "decision", text: `${outcome}${cleanedNote ? `: ${cleanedNote}` : ""}`.slice(0, 1000) });
+  if (extended) await admin.service.from("dispute_events").insert({ dispute_id: dispute.id, author_id: admin.user.id, side: "admin", kind: "decision", text: `${outcome}${cleanRule && needsRule(decision) ? `: ${cleanRule}` : cleanedNote ? `: ${cleanedNote}` : ""}`.slice(0, 1000) });
+
+  // The block a developer made together with the report is from now on simply their choice.
+  if (!advertiserSide) {
+    await admin.service.from("game_picture_blocks").update({ reason: NEUTRAL_BLOCK_REASON }).eq("game_id", dispute.game_id).eq("creative_id", dispute.creative_id).eq("reason", PENDING_BLOCK_REASON).then(() => null, () => null);
+    await admin.service.from("game_ad_controls").update({ reason: NEUTRAL_BLOCK_REASON }).eq("game_id", dispute.game_id).eq("scope", "creative").eq("target_id", dispute.creative_id).eq("reason", PENDING_BLOCK_REASON).then(() => null, () => null);
+  }
 
   const name = creative?.name ?? "the creative";
-  const advertiserSide = extended && dispute.initiator === "advertiser";
   const reporter = advertiserSide ? dispute.advertiser_id : dispute.developer_id;
   const other = advertiserSide ? dispute.developer_id : creative?.owner_id;
-  const what = decision === "remove" ? `the creative "${name}" was removed` : decision === "pause" ? `the booking of "${name}" was paused` : `your report on "${name}" was dismissed`;
-  if (reporter) await notify(admin.service, { accountId: reporter, text: `DeusADS reviewed your report: ${what}.`, link: advertiserSide ? "/dashboard/advertising" : "/dashboard/games", type: advertiserSide ? "adv_report_decided" : "dev_report_decided" });
+  const what = decision === "remove" ? `the creative "${name}" was removed` : decision === "change" ? `the advertiser was asked to change the creative "${name}"` : decision === "pause" ? `the booking of "${name}" was paused` : advertiserSide ? `your report on "${name}" was dismissed` : `no violation was found in the creative "${name}"`;
+  if (reporter) await notify(admin.service, { accountId: reporter, text: `DeusADS reviewed your report: ${what}.${toDeveloper ? ` ${toDeveloper}` : ""}`, link: advertiserSide ? "/dashboard/advertising" : `/dashboard/support?tab=requests&report=${dispute.id}`, type: advertiserSide ? "adv_report_decided" : "dev_report_decided" });
+  // No violation: the advertiser is not told, the report only counts on the creative.
   if (decision !== "dismiss" && other) {
     await notify(admin.service, {
       accountId: other,
-      text: decision === "remove" ? `Your creative "${name}" was removed after a report: ${dispute.reason}.` : `The booking of "${name}" was paused after a report: ${dispute.reason}.`,
-      link: advertiserSide ? "/dashboard/games" : "/dashboard/creatives",
-      type: decision === "remove" ? "adv_creative_removed" : advertiserSide ? "dev_booking_paused" : "adv_booking_paused",
+      text: decision === "remove" ? `Your creative "${name}" was blocked for a violation: ${cleanRule}. ${toAdvertiser}`
+        : decision === "change" ? `DeusADS asks you to change the creative "${name}": ${cleanRule}. ${toAdvertiser}`
+        : `The booking of "${name}" was paused after a report: ${dispute.reason}.`,
+      link: advertiserSide ? "/dashboard/games" : `/dashboard/creatives/${dispute.creative_id}`,
+      type: decision === "pause" ? (advertiserSide ? "dev_booking_paused" : "adv_booking_paused") : "adv_creative_removed",
     });
   }
 
   revalidatePath("/dashboard/admin/disputes");
   revalidatePath("/dashboard/admin/bookings");
   revalidatePath("/dashboard/creatives");
+  revalidatePath("/dashboard/advertising");
   revalidatePath("/dashboard/games");
   return { ok: true, outcome, name, paused };
 }

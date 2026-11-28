@@ -8,6 +8,7 @@ import { DEFAULT_CROP, MAX_ZOOM, clampCrop, hiddenPercent, imagePlacement, sameC
 import { sampleForShape } from "../../_cabinet/samples";
 import { IcCheck, IcImage, IcPlus, IcTrash, IcUpload, IcWarn } from "../../_cabinet/icons";
 import { deleteAsset, registerAsset, saveFormatCrops } from "../actions";
+import { HoldNotice } from "../hold-notice";
 import { deleteCreative, renameCreative } from "../../actions";
 import { Busy, refreshPage, useWaitMark } from "../../wait";
 
@@ -216,7 +217,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
     dialog.current?.close();
   }
 
-  const [statusLabel, statusTone] = STATUS[status] ?? STATUS.pending;
+  const [statusLabel, statusTone] = editor.hold ? editor.hold.pill : STATUS[status] ?? STATUS.pending;
   const stageStyle = { "--aspect": current.aspect };
 
   return (
@@ -228,7 +229,9 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           <span className="rd-ed-use">{campaigns === 0 ? "Not in use" : `In ${campaigns} ${campaigns === 1 ? "campaign" : "campaigns"}`}</span>
           <button type="button" className="modal-close" aria-label="Close" disabled={busy} onClick={() => dialog.current?.close()}>×</button>
         </div>
-        {status === "rejected" && note && <p className="notice rd-ed-note">Reason: {note}. Upload a corrected creative to book it.</p>}
+        {editor.hold
+          ? <div className="rd-ed-hold"><HoldNotice creativeId={creative.id} hold={editor.hold} onPage /></div>
+          : status === "rejected" && note && <p className="notice rd-ed-note">Reason: {note}. Upload a corrected creative to book it.</p>}
         <div className="rd-ed-scroll">
           {missing.length > 0 ? (
             <div className="rd-need" role="status">

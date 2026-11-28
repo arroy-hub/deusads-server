@@ -10,6 +10,7 @@ import { loadCreativeEditor } from "../../../lib/advertiser-data";
 import { after } from "next/server";
 import { fitStoredPicture } from "../../../lib/creative-image";
 import { makeVariants, removeVariants } from "../../../lib/astc-variants";
+import { notifyMany } from "../../../lib/notify";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
@@ -323,4 +324,88 @@ export async function openCreativeEditor({ creativeId }) {
   const editor = await loadCreativeEditor(me.service, me, creativeId);
   if (!editor) return { error: "That creative no longer exists." };
   return { ok: true, editor };
+}
+
+// ---------------------------------------------------------------- a creative DeusADS holds after a report (migration 0064)
+
+const NO_HOLD = "Run migration 0064 in the Supabase SQL editor first.";
+const heldCreative = async (me, creativeId) => {
+  const { data, error } = await me.service.from("creatives").select("*").eq("id", String(creativeId ?? "")).eq("owner_id", me.user.id).maybeSingle();
+  return error ? null : data;
+};
+
+/**
+ * A new main picture for a creative DeusADS asked to change. The old picture is gone, the crops and the safe zone made
+ * for it are reset, and nothing runs yet: the new version still has to be sent for review.
+ */
+export async function replaceMainPicture({ creativeId, path, type, size, width, height }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  if (typeof path !== "string" || !path.startsWith(`${me.user.id}/`) || path.includes("..")) return { error: "Upload failed. Try again." };
+  const cleanup = () => me.service.storage.from("creatives").remove([path]);
+  const fail = async (error) => { await cleanup(); return { error }; };
+  const creative = await heldCreative(me, creativeId);
+  if (!creative) return fail("That creative no longer exists.");
+  if (creative.hold !== "changes") return fail(creative.hold === "blocked" ? "This creative is blocked and cannot be changed. Add a different creative." : "A creative's main picture can only be replaced when DeusADS asks for a change.");
+  if (creative.status === "pending") return fail("The new version is in review already.");
+  if (!["image/png", "image/jpeg"].includes(type)) return fail("Images must be PNG or JPG.");
+  if (!(size > 0) || size > MAX_BYTES) return fail("Images must be under 8 MB.");
+  let w = Number(width);
+  let h = Number(height);
+  if (!(Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 && w < 20000 && h < 20000)) return fail("This file does not open as an image.");
+  const fitted = await fitStoredPicture(me.service, { path, type, width: w, height: h });
+  if (fitted.error) return fail(fitted.error);
+  if (fitted.resized) { path = fitted.path; w = fitted.width; h = fitted.height; }
+
+  const old = creative.storage_path;
+  const { error } = await me.service.from("creatives").update({ storage_path: path, width_px: w, height_px: h, format_crops: null, safe_x: 0.15, safe_y: 0.15, safe_w: 0.7, safe_h: 0.7, picture_at: new Date().toISOString() }).eq("id", creative.id);
+  if (error) return fail(["42703", "PGRST204"].includes(error.code) ? NO_HOLD : "Could not save. Try again.");
+  if (old && old !== path) {
+    await me.service.storage.from("creatives").remove([old]).catch(() => null);
+    await removeVariants(me.service, [old]).catch(() => null);
+  }
+  after(async () => {
+    try { await makeVariants(me.service, path); } catch (problem) { console.error("[DeusADS] compressed copies failed:", path, problem?.message); }
+  });
+  refresh(creative.id);
+  return { ok: true, notice: fitted.notice };
+}
+
+/** The advertiser sends the changed creative back to DeusADS: it waits for review, and runs again once approved. */
+export async function sendNewVersion({ creativeId }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  const creative = await heldCreative(me, creativeId);
+  if (!creative) return { error: "That creative no longer exists." };
+  if (creative.hold !== "changes") return { error: "DeusADS did not ask to change this creative." };
+  if (creative.status === "pending") return { ok: true };
+  const { data: fresh } = await me.service.from("creative_assets").select("id").eq("creative_id", creative.id).gt("created_at", creative.hold_at ?? "1970-01-01").limit(1);
+  const changed = Boolean(creative.picture_at && creative.picture_at > (creative.hold_at ?? "")) || (fresh ?? []).length > 0;
+  if (!changed) return { error: "Replace the picture first: nothing has changed since DeusADS asked." };
+  const { error } = await me.service.from("creatives").update({ status: "pending", hold_sent_at: new Date().toISOString() }).eq("id", creative.id).eq("hold", "changes");
+  if (error) return { error: "Could not send it. Try again." };
+  const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new version of "${creative.name}" waits for review: it was changed after a report.`, "/dashboard/admin", "admin_reports");
+  refresh(creative.id);
+  revalidatePath("/dashboard/advertising");
+  return { ok: true };
+}
+
+/** The advertiser's one answer to DeusADS about a creative on hold. The review team reads it in the dispute. */
+export async function replyToDeusADS({ creativeId, text }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  const clean = String(text ?? "").trim().slice(0, 1000);
+  if (!clean) return { error: "Write your reply first." };
+  const creative = await heldCreative(me, creativeId);
+  if (!creative?.hold || !creative.hold_dispute) return { error: "There is nothing to reply to." };
+  const { data: earlier } = await me.service.from("dispute_events").select("id").eq("dispute_id", creative.hold_dispute).eq("side", "advertiser").eq("kind", "reply").limit(1);
+  if ((earlier ?? []).length) return { error: "You already replied. DeusADS has your message." };
+  const { error } = await me.service.from("dispute_events").insert({ dispute_id: creative.hold_dispute, author_id: me.user.id, side: "advertiser", kind: "reply", text: clean });
+  if (error) return { error: "Could not send the reply. Try again." };
+  const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `The advertiser replied about "${creative.name}".`, `/dashboard/admin/disputes?card=dispute:${creative.hold_dispute}`, "admin_reports");
+  revalidatePath("/dashboard/admin/disputes");
+  refresh(creative.id);
+  return { ok: true };
 }

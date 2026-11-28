@@ -123,7 +123,7 @@ assert.equal(activityWhen("garbage", now), "");
 
 // content: every guide on Home exists and has steps; slugs round-trip
 for (const role of ["dev", "adv"]) {
-  assert.equal(GUIDE_CARDS[role].length, 3);
+  assert.equal(GUIDE_CARDS[role].length, 4); // three guides and the platform rules of that side
   for (const [title] of GUIDE_CARDS[role]) {
     assert.ok(ART[title], `${title} has an article`);
     assert.ok(GUIDE_LIST[role].includes(title));

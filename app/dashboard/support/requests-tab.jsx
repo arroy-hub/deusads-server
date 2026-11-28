@@ -8,6 +8,7 @@ import { CaretIcon, FolderIcon, FolderPlusIcon, StripFace, TrashIcon, toneStyle,
 import { STATUSES, STATUS_LABEL, TYPES, TYPE_LABEL } from "../../../lib/support-rules";
 import { newFolder, placeInFolder, removeFolder, renameFolder } from "./actions";
 import { refreshPage } from "../wait";
+import ReportStrips from "./report-strips";
 
 const plural = (n) => `${n} ${n === 1 ? "request" : "requests"}`;
 const byPosition = (a, b) => a.position - b.position; // stable: ties keep the server's order
@@ -16,7 +17,7 @@ const byPosition = (a, b) => a.position - b.position; // stable: ties keep the s
  * My requests: the person's requests as strips (the look of the Campaigns list), in their own folders. A request is moved
  * by dragging it (between two strips, into a folder, out of one) or with ⋯ → Move to. Clicking a strip opens it.
  */
-export default function RequestsTab({ requests, folders: initialFolders, outdated, onOpen, onNew }) {
+export default function RequestsTab({ requests, folders: initialFolders, outdated, onOpen, onNew, reports = [], openReport = null }) {
   const router = useRouter();
   const now = useNow();
   const [items, setItems] = useState(requests);
@@ -243,6 +244,7 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
           {shown.length === 0 && <div className="cx-empty">No requests match the filters.</div>}
         </div>
       )}
+      <ReportStrips reports={reports} initialOpen={openReport} />
     </div>
   );
 }

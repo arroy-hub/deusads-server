@@ -109,7 +109,8 @@ export default async function GamePage({ params, searchParams }) {
   const performance = tab === "performance" ? await loadPerformance({ db, service: serviceClient(), gameId, searchParams: query }) : null;
   const deckLayout = tab === "performance" ? await loadDeckLayout(db, "developer") : null;
   // The Campaigns tab (migration 0023); the other tabs only need the number of new things for its badge.
-  const campaigns = tab === "campaigns" ? await loadCampaigns({ db, service: serviceClient(), gameId }) : null;
+  const viewer = tab === "campaigns" ? (await db.auth.getUser()).data?.user?.id ?? null : null;
+  const campaigns = tab === "campaigns" ? await loadCampaigns({ db, service: serviceClient(), gameId, developerId: viewer }) : null;
   let newCount = 0;
   if (campaigns?.campaigns) newCount = campaigns.campaigns.filter((item) => item.isNew || item.creatives.some((creative) => creative.isNew)).length;
   else if (!campaigns) newCount = await countNew({ service: serviceClient(), gameId }).catch(() => 0);

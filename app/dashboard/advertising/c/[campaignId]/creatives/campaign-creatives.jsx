@@ -9,6 +9,8 @@ import { MenuItem, Pop } from "../../../../_cabinet/ui";
 import { IcChevron, IcLibrary, IcPlus, IcUpload } from "../../../../_cabinet/icons";
 import { addCreativesToCampaign, removeCreativeFromCampaign } from "../../../actions";
 import { Busy, refreshPage, useWaitMark } from "../../../../wait";
+import { HoldNotice } from "../../../../creatives/hold-notice";
+import { rulesLink } from "../../../../../../lib/platform-rules";
 
 const STATUS = { approved: ["Approved", "ov-live"], pending: ["In review", "ov-scheduled"], rejected: ["Rejected", "ov-bad"] };
 const SHORT = { r16x9: "16:9", r4x3: "4:3", r1x1: "1:1", r3x4: "3:4", r9x16: "9:16", r2x1: "2:1", r3x1: "3:1" };
@@ -64,6 +66,8 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
   const [problem, setProblem] = useState("");
   const btn = useRef(null);
   const [menu, setMenu] = useState(false);
+  // the block under a row (the signal, what to change, why it was blocked): open for a creative on hold, shut for a signal
+  const [more, setMore] = useState(() => Object.fromEntries(list.filter((item) => item.hold).map((item) => [item.id, true])));
 
   async function add(ids, names) {
     const result = await addCreativesToCampaign({ campaignId: id, creativeIds: ids }).catch(() => ({ error: "Connection lost. Try again." }));
@@ -106,23 +110,49 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
       ) : (
         <section className="cc-list" aria-label="Creatives in this campaign">
           {list.map((item) => {
-            const [label, tone] = STATUS[item.status] ?? STATUS.pending;
+            const hold = item.hold;
+            const signal = item.signal;
+            const [label, tone] = hold ? hold.pill : STATUS[item.status] ?? STATUS.pending;
             const ready = item.ready.filter(Boolean).length;
-            const blocked = item.blocked ?? [];
-            const note = blocked.length > 0 ? `Blocked in ${blocked.length} ${blocked.length === 1 ? "game" : "games"}: ${blocked.join(", ")}` : item.status === "pending" ? "Ads start once it is approved" : item.status === "rejected" ? item.note || "Rejected" : "";
+            const note = hold ? hold.line : signal?.line ? signal.line : item.status === "pending" ? "Ads start once it is approved" : item.status === "rejected" ? item.note || "Rejected" : "";
+            const toggle = hold ? hold.toggle : signal?.blocked > 0 ? "How developers react" : "";
+            const open = Boolean(toggle && more[item.id]);
             return (
-              <div key={item.id} className={`cc-row${fresh.includes(item.id) ? " is-fresh" : ""}`}>
-                {item.url ? <img className="cc-thumb" src={item.url} alt="" loading="lazy" /> : <span className="cc-thumb" />}
-                <span className="cc-main"><span className="cc-name"><Link href={`/dashboard/creatives/${item.id}`}>{item.name}</Link>{item.longer && <span className="ov-pill ov-live">Longer views</span>}</span>{note && <span className="ovx-muted">{note}</span>}</span>
-                <span className="cc-state"><span className={`ov-pill ${tone}`}>{label}</span><span className="lib-bar" role="img" aria-label={`${ready} of ${item.ready.length} formats ready`}>{item.ready.map((r, i) => <span key={i} className={r ? "" : "is-missing"} title={SHORT[item.formatIds[i]]} />)}</span></span>
-                <span className="lib-num"><strong>{item.impressions > 0 ? formatCount(item.impressions) : "—"}</strong><span>impressions</span></span>
-                <span className="lib-num"><strong>{item.avg != null ? `${item.avg.toFixed(1)} s` : "—"}</strong><span>avg view</span></span>
-                <span className="cc-actions">
-                  <Link href={`/dashboard/creatives/${item.id}`} className="button button-quiet button-small">Edit</Link>
-                  {item.removable && (asking === item.id ? (
-                    <span className="confirm-inline"><span className="confirm-text">Remove from this campaign?</span><button type="button" className="button button-danger button-small" disabled={busy} onClick={() => remove(item)}>{busy ? <Busy>Removing…</Busy> : "Remove"}</button><button type="button" className="button button-quiet button-small" disabled={busy} onClick={() => setAsking(null)}>Keep</button></span>
-                  ) : <button type="button" className="button button-quiet button-small" onClick={() => { setProblem(""); setAsking(item.id); }}>Remove</button>)}
-                </span>
+              <div key={item.id} className="cc-item">
+                <div className={`cc-row${fresh.includes(item.id) ? " is-fresh" : ""}${open ? " is-open" : ""}`}>
+                  {item.url ? <img className="cc-thumb" src={item.url} alt="" loading="lazy" /> : <span className="cc-thumb" />}
+                  <span className="cc-main">
+                    <span className="cc-name"><Link href={`/dashboard/creatives/${item.id}`}>{item.name}</Link>{item.longer && <span className="ov-pill ov-live">Longer views</span>}</span>
+                    {note && <span className="ovx-muted">{note}</span>}
+                    {toggle && <button type="button" className="link-button cc-more-btn" aria-expanded={open} onClick={() => setMore((m) => ({ ...m, [item.id]: !m[item.id] }))}>{toggle}<i /></button>}
+                  </span>
+                  <span className="cc-state"><span className={`ov-pill ${tone}`}>{label}</span><span className="lib-bar" role="img" aria-label={`${ready} of ${item.ready.length} formats ready`}>{item.ready.map((r, i) => <span key={i} className={r ? "" : "is-missing"} title={SHORT[item.formatIds[i]]} />)}</span></span>
+                  <span className="lib-num"><strong>{item.impressions > 0 ? formatCount(item.impressions) : "—"}</strong><span>impressions</span></span>
+                  <span className="lib-num"><strong>{item.avg != null ? `${item.avg.toFixed(1)} s` : "—"}</strong><span>avg view</span></span>
+                  <span className="cc-actions">
+                    {hold?.kind !== "blocked" && <Link href={`/dashboard/creatives/${item.id}`} className="button button-quiet button-small">Edit</Link>}
+                    {item.removable && (asking === item.id ? (
+                      <span className="confirm-inline"><span className="confirm-text">Remove from this campaign?</span><button type="button" className="button button-danger button-small" disabled={busy} onClick={() => remove(item)}>{busy ? <Busy>Removing…</Busy> : "Remove"}</button><button type="button" className="button button-quiet button-small" disabled={busy} onClick={() => setAsking(null)}>Keep</button></span>
+                    ) : <button type="button" className="button button-quiet button-small" onClick={() => { setProblem(""); setAsking(item.id); }}>Remove</button>)}
+                  </span>
+                </div>
+                {open && (
+                  <div className="cc-more">
+                    {hold ? <HoldNotice creativeId={item.id} hold={hold} /> : (
+                      <>
+                        <div className="cc-sig-h"><b>How developers react</b><span className="ovx-muted">A signal for you, not a request to change anything.</span></div>
+                        <div className="cc-sig-grid">
+                          <div className="cc-fig"><strong>{signal.blocked} <small>of {signal.games}</small></strong><span>{signal.games === 1 ? "game" : "games"} blocked it</span>{signal.other && <small>your other creatives: {signal.other.blocked} of {signal.other.games} on average</small>}</div>
+                          <div className="cc-fig"><strong>{signal.reports}</strong><span>{signal.reports === 1 ? "report" : "reports"} to DeusADS</span><small>{signal.reports === 0 ? "nobody reported it" : signal.clean === signal.reports ? "checked: no violation found" : signal.open > 0 ? `${signal.open} in review` : ""}</small></div>
+                          <div className="cc-reasons"><span className="cc-cap">Reasons developers gave</span>{signal.reasons.map(([reason, count]) => (
+                            <div key={reason} className="cc-bar"><span>{reason}</span><i><b style={{ width: `${Math.round((count / signal.blocked) * 100)}%` }} /></i><em>{count}</em></div>
+                          ))}</div>
+                        </div>
+                        <p className="ovx-hint">Each developer decides what shows in their own game. A game that blocks this creative is reach you do not get: another version may be worth a try. What an ad must be is in the <Link href={rulesLink("adv")}>platform rules</Link>.</p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

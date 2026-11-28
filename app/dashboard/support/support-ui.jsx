@@ -62,7 +62,7 @@ const NOTE = (request, now, admin) => (admin ? {
 })[request.status];
 
 /** The picture-less cover of a strip: the tone fading into white. */
-const COVER = "linear-gradient(105deg,color-mix(in srgb,var(--tone) 34%,#fff),color-mix(in srgb,var(--tone) 22%,#fff) 55%,color-mix(in srgb,var(--tone) 9%,#fff))";
+export const COVER = "linear-gradient(105deg,color-mix(in srgb,var(--tone) 34%,#fff),color-mix(in srgb,var(--tone) 22%,#fff) 55%,color-mix(in srgb,var(--tone) 9%,#fff))";
 
 /**
  * The cover, the white plate with the type icon, title, status and the progress bar. The same markup as a campaign

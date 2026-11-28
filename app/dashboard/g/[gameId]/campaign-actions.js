@@ -1,5 +1,7 @@
 "use server";
 
+import { adviseOnSignal, loadGameReports } from "../../../../lib/creative-reports";
+import { PENDING_BLOCK_REASON } from "../../../../lib/report-rules";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getMember } from "../../../../lib/admin";
@@ -163,6 +165,11 @@ export async function changeAds({ gameId, scope, action, ids, reason, comment })
     if (error) return { error: "Could not save the change." };
   }
 
+  // Many games blocking one creative is worth a word to its advertiser, once (a signal, not a demand).
+  if (action === "block" && (isPicture || scope === "creative")) {
+    await adviseOnSignal(me.service, plan.apply.map((id) => (isPicture ? pictureOf.get(id).creativeId : id))).catch(() => null);
+  }
+
   const bulk = plan.apply.length > 1 || targetIds.length > 1;
   const batch = bulk ? randomUUID() : null;
   const at = new Date().toISOString();
@@ -297,6 +304,9 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
   if (!booked?.length) return { error: "This creative is not booked in your game." };
 
   const picture = isShapeKey(shape) ? shape : null;
+  // One decision per picture: a decided report is not sent again until the advertiser changes the picture.
+  const earlier = (await loadGameReports(me.service, game.id, me.user.id).catch(() => new Map())).get(picture ? pictureId(creativeId, picture) : creativeId);
+  if (earlier && earlier.status !== "open" && !earlier.again) return { error: earlier.status === "removed" ? "DeusADS already blocked this creative." : "DeusADS already decided on your report about this picture. You can report it again if the advertiser changes it." };
   const report = {
     game_id: game.id,
     developer_id: me.user.id,
@@ -320,8 +330,8 @@ export async function reportCreative({ gameId, creativeId, reason, comment, also
   let block = null;
   if (alsoBlock) {
     block = picture
-      ? await changeAds({ gameId, scope: "picture", action: "block", ids: [pictureId(creativeId, picture)], reason: "Blocked pending a DeusADS review", comment: "" })
-      : await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: "Blocked pending a DeusADS review", comment: "" });
+      ? await changeAds({ gameId, scope: "picture", action: "block", ids: [pictureId(creativeId, picture)], reason: PENDING_BLOCK_REASON, comment: "" })
+      : await changeAds({ gameId, scope: "creative", action: "block", ids: [creativeId], reason: PENDING_BLOCK_REASON, comment: "" });
   }
   revalidatePath("/dashboard/admin/disputes");
   return {

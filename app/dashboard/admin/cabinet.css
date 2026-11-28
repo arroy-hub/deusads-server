@@ -426,3 +426,16 @@ dialog.cb-pop:focus{outline:0}
 @keyframes cb-spin{to{transform:rotate(360deg)}}
 .cb-bars.cb-sm{grid-template-columns:max-content minmax(0,1fr) 52px;column-gap:12px}
 .cb-bars.cb-sm .cb-bar{grid-template-columns:subgrid;grid-column:1/-1;gap:0 12px}
+
+/* The decision on a developer's report: a form under the history of the dispute card */
+.cb-dm .cb-dm-body{min-height:180px}
+.cb-dform{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:grid;gap:6px}
+.cb-dform-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cb-dform-h b{font:700 14px var(--cb-head)}
+.cb-dform .cb-dfl{display:block;font-size:13px;font-weight:600;margin-top:6px}
+.cb-dform .cb-dfl .cb-mute{font-weight:400}
+.cb-dform .cb-fld{width:100%}
+.cb-dform textarea.cb-fld{height:auto;padding:8px 12px;resize:vertical}
+.cb-dreq{font-weight:400;color:var(--bad);font-size:12px;margin-left:4px}
+.cb-dwhat{font-size:13px;line-height:1.45;background:var(--surface);border-radius:10px;padding:10px 14px;margin-top:6px}
+.cb-derr{color:var(--bad);font-size:13px;font-weight:600}

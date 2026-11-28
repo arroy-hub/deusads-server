@@ -233,7 +233,7 @@ function Guides({ role, nav, hide }) {
       <div className="gds ga">
         {GUIDE_CARDS[role].map(([title, text]) => (
           <Link key={title} href={`${HOME}/guides/${slugOf(title)}`} className="sheet" onClick={(e) => nav(e, `${HOME}/guides/${slugOf(title)}`)}>
-            <span className="sh-eye">Guide</span>
+            <span className="sh-eye">{ART[title]?.rules ? "Rules" : "Guide"}</span>
             <h3>{title}</h3>
             <p>{text}</p>
             <span className="sh-foot"><span>Read</span><Ic name="chevr" size={14} width={2.2} /></span>

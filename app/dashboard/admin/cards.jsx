@@ -9,6 +9,9 @@ import { BigPv, CardPopup, CatPill, Lnk, Pill, toast } from "./ui";
 import { UserCard } from "./user-card";
 import { STATES } from "../../../lib/admin-bookings";
 import { refreshPage, useWaitMark } from "../wait";
+import { outcomePill } from "../../../lib/admin-disputes";
+import { EFFECT, needsRule } from "../../../lib/report-rules";
+import { ADVERTISER_RULES, ruleForReason } from "../../../lib/platform-rules";
 
 const Ctx = createContext({ open: () => {}, closeAll: () => {} });
 /** Open any admin card from any admin screen: `const { open } = useCards(); open("booking", id)`. */
@@ -115,8 +118,9 @@ function Layer({ target, label, width, onClose, api }) {
 
 const eyebrow = { fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600 };
 const subNote = { display: "block", fontSize: 12.5 };
-const disputeTone = (x) => (x.status === "open" ? "warn" : x.outcome === "dismissed" ? "good" : "bad");
-const disputeLabel = (x) => (x.status === "open" ? "Open" : x.outcome === "removed" ? "Removed" : x.outcome === "paused" ? "Paused" : "Dismissed");
+const settled = (x) => outcomePill({ status: x.outcome ?? "dismissed", initiator: x.initiator });
+const disputeTone = (x) => (x.status === "open" ? "warn" : settled(x)[1]);
+const disputeLabel = (x) => (x.status === "open" ? "Open" : settled(x)[0]);
 const CloseX = ({ onClose }) => <button type="button" className="cb-btn cb-q cb-s" aria-label="Close" style={{ padding: "0 10px" }} onClick={onClose}>✕</button>;
 const HistoryHead = ({ first }) => <h3 className="cb-dm-h" style={first ? { marginTop: 4 } : undefined}>History <span className="cb-mute" style={{ fontWeight: 400, fontSize: 12.5 }}>· click a step for details</span></h3>;
 
@@ -136,7 +140,7 @@ function Related({ items, onOpen }) {
 const disputeItems = (list) => list.map((x) => ({ key: x.id, main: <><b>#{String(x.id).slice(0, 6)}</b> · {x.reason}</>, sub: `From ${x.initiator} · ${x.when}`, tone: disputeTone(x), label: disputeLabel(x), kind: "dispute", id: x.id }));
 
 /* --------------------------------------------------------------- dispute */
-function DisputeCard({ d, api, onClose }) {
+export function DisputeCard({ d, api, onClose }) {
   const r = d.row;
   const adv = r.initiator === "advertiser";
   const [busy, setBusy] = useState(false);
@@ -151,12 +155,24 @@ function DisputeCard({ d, api, onClose }) {
     return m ? <>{text.slice(0, m.index)}<Lnk onClick={() => api.open("booking", bk.id)}>{m[0]}</Lnk>{text.slice(m.index + m[0].length)}</> : text;
   };
 
+  // A developer's report is decided in a form: the rule, a message to the advertiser, a message to the developer.
+  const [choice, setChoice] = useState(null); // dismiss | change | remove
+  const [rule, setRule] = useState(() => ruleForReason(r.reason));
+  const [toAdv, setToAdv] = useState("");
+  const [toDev, setToDev] = useState("");
+  const [problem, setProblem] = useState("");
+  const formRef = useRef(null);
+  useEffect(() => { if (choice) formRef.current?.scrollIntoView({ block: "nearest" }); }, [choice]);
+  const pick = (next) => { setChoice(next); setProblem(""); };
+
   async function decide(decision) {
+    if (!adv && needsRule(decision) && !toAdv.trim()) return setProblem("Write to the advertiser what is wrong: they see the rule and this message.");
     setBusy(true);
-    const result = await resolveDispute({ disputeId: r.id, decision, note: "" }).catch(() => ({ error: "Connection lost. Try again." }));
+    const result = await resolveDispute({ disputeId: r.id, decision, note: "", rule: adv ? null : rule, advNote: adv ? "" : toAdv, devNote: adv ? "" : toDev }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
-    if (result?.error) return toast(result.error);
-    toast(decision === "remove" ? "Creative removed. Developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : `Report dismissed. ${adv ? "Both sides" : "Developer"} notified`);
+    if (result?.error) return adv ? toast(result.error) : setProblem(result.error);
+    toast(decision === "remove" ? "Creative blocked. Advertiser and developer notified" : decision === "change" ? "Change requested. Advertiser and developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : adv ? "Report dismissed. Both sides notified" : "No violation found. Developer notified");
+    setChoice(null);
     api.changed();
   }
   async function addNote() {
@@ -169,7 +185,9 @@ function DisputeCard({ d, api, onClose }) {
     toast("Note added");
     api.changed();
   }
-  const tone = r.open ? "warn" : r.status === "dismissed" ? "good" : "bad";
+  const [pillLabel, pillTone] = r.open ? ["Open", "warn"] : outcomePill(r);
+  const title = { dismiss: "No violation", change: "Ask the advertiser to change it", remove: "Block the creative for a violation" }[choice];
+  const lede = { dismiss: "The report is closed, the creative keeps running.", change: "For something easy to fix: the creative waits for a new version.", remove: "For a clear violation: the creative is removed for good." }[choice];
   return (
     <div className="cb-box cb-dm" role="dialog" aria-label="Dispute">
       <div className="cb-dm-top"><div className="cb-dm-card">
@@ -182,7 +200,7 @@ function DisputeCard({ d, api, onClose }) {
                 <h2><Lnk onClick={() => api.open("creative", r.creativeId)}>{r.picture ?? r.creative}</Lnk></h2>
                 <div className="cb-mute">{r.adv} · {d.campaign || "No campaign"} · {adv ? bookingWord(`booking in ${r.game}`) : <>{r.categoryLabel}{d.creative.size ? ` · ${d.creative.size}` : ""}</>}</div>
               </div>
-              <Pill tone={tone}>{r.open ? "Open" : r.status === "removed" ? "Removed" : r.status === "paused" ? "Booking paused" : "Dismissed"}</Pill>
+              <Pill tone={pillTone}>{r.status === "paused" ? "Booking paused" : pillLabel}</Pill>
               <CloseX onClose={onClose} />
             </div>
             <div className="cb-dm-prob">
@@ -196,12 +214,37 @@ function DisputeCard({ d, api, onClose }) {
         </div>
         <div className="cb-dm-now"><b>Now:</b> {d.now}{bk && <> <span className="cb-mute">·</span> <Lnk onClick={() => api.open("booking", bk.id)}>Open the booking</Lnk></>}</div>
       </div></div>
-      <div className="cb-dm-body"><HistoryHead first /><History events={d.events} /></div>
+      <div className="cb-dm-body">
+        <HistoryHead first /><History events={d.events} />
+        {r.open && !adv && choice && (
+          <div className="cb-dform" ref={formRef}>
+            <div className="cb-dform-h"><b>{title}</b><span className="cb-mute">{lede}</span></div>
+            {needsRule(choice) && <>
+              <label className="cb-dfl" htmlFor="dm-rule">Rule {choice === "remove" ? "broken" : "involved"} <span className="cb-mute">shown to the advertiser</span></label>
+              <select id="dm-rule" className="cb-fld" value={rule} onChange={(e) => setRule(e.target.value)}>{ADVERTISER_RULES.map((x) => <option key={x}>{x}</option>)}</select>
+              <label className="cb-dfl" htmlFor="dm-adv">Message to the advertiser <span className="cb-dreq">required</span></label>
+              <textarea id="dm-adv" rows={3} className="cb-fld" maxLength={500} placeholder={choice === "remove" ? "What exactly breaks the rule" : "What to change so it can run again"} value={toAdv} onChange={(e) => { setToAdv(e.target.value); setProblem(""); }} />
+            </>}
+            <label className="cb-dfl" htmlFor="dm-dev">Message to the developer <span className="cb-mute">optional</span></label>
+            <textarea id="dm-dev" rows={2} className="cb-fld" maxLength={500} placeholder="Shown in the developer’s report, under the outcome" value={toDev} onChange={(e) => setToDev(e.target.value)} />
+            <p className="cb-dwhat"><b>What happens:</b> {EFFECT[choice]}</p>
+            {problem && <p className="cb-derr" role="alert">{problem}</p>}
+          </div>
+        )}
+      </div>
       <div className="cb-dm-foot">
-        {r.open && <>
-          <button type="button" className="cb-btn cb-d" disabled={busy} onClick={() => decide(adv ? "pause" : "remove")}>{adv ? "Pause booking" : "Remove creative"}</button>
+        {r.open && adv && <>
+          <button type="button" className="cb-btn cb-d" disabled={busy} onClick={() => decide("pause")}>Pause booking</button>
           <button type="button" className="cb-btn cb-q" disabled={busy} onClick={() => decide("dismiss")}>Dismiss report</button>
         </>}
+        {r.open && !adv && (choice ? <>
+          <button type="button" className={`cb-btn${choice === "remove" ? " cb-d" : ""}`} disabled={busy} onClick={() => decide(choice)}>{{ dismiss: "Confirm: no violation", change: "Send to the advertiser", remove: "Block the creative" }[choice]}</button>
+          <button type="button" className="cb-btn cb-q" disabled={busy} onClick={() => pick(null)}>Back</button>
+        </> : <>
+          <button type="button" className="cb-btn cb-d" onClick={() => pick("remove")}>Block the creative</button>
+          <button type="button" className="cb-btn cb-q" onClick={() => pick("change")}>Ask to change it</button>
+          <button type="button" className="cb-btn cb-q" onClick={() => pick("dismiss")}>No violation</button>
+        </>)}
         <span style={{ flex: 1 }} />
         <span style={{ position: "relative" }}>
           <button type="button" className="cb-btn cb-q" aria-expanded={noteOpen} onClick={() => setNoteOpen(!noteOpen)}>Add note</button>

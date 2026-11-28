@@ -10341,3 +10341,88 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .cp-check{display:flex;flex-direction:row;align-items:center;gap:8px;margin:10px 0;font-size:14px;font-weight:400;cursor:pointer}
 .cp-check input[type="checkbox"]{flex:none;width:16px;height:16px;min-height:0;margin:0;padding:0;display:inline-block}
 .cp-check span{flex:1 1 auto;min-width:0}
+
+/* A developer's own report on a picture row of the game Campaigns tab, and its window */
+.cp-pill.p-wait { background: #fbf0d9; color: #7a4f00; }
+.cp-pill.p-bad { background: var(--signal-soft); color: var(--signal-ink); }
+.cp-ib.on-rep { background: #fbf0d9; border-color: #e3c98a; color: #7a4f00; }
+.cp-ib.on-rep:hover { background: #f5e4bd; }
+.cp-rep .cp-pill { font-size: 11px; padding: 1px 8px; }
+.cp-link { color: var(--signal-ink); text-decoration: underline; text-underline-offset: 2px; }
+.cp-repfacts { margin: 0 0 10px; display: grid; gap: 6px; }
+.cp-repfacts div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 10px; font-size: 13.5px; }
+.cp-repfacts dt { color: var(--ink-2); }
+.cp-repfacts dd { margin: 0; overflow-wrap: anywhere; }
+.cp-repout { font-size: 13.5px; line-height: 1.5; margin: 0 0 10px; max-width: none; }
+.cp-repmsg { border: 1px solid #e3e0da; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 13.5px; }
+.cp-repmsg b { font-size: 13px; }
+.cp-repmsg p { margin: 4px 0 0; line-height: 1.5; max-width: none; }
+.cp-repblock { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--surface); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+
+/* Help & feedback → My requests: the developer's reports on creatives */
+.sp-reports { margin-top: 22px; }
+.sp-reports-h { font-size: 14px; font-weight: 700; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.sp-reports-h span { font-size: 12px; font-weight: 600; color: var(--ink-2); background: #efe7de; border-radius: 99px; padding: 1px 8px; }
+.sp-rstrip { cursor: pointer; }
+.sp-rpic { background-size: cover; background-position: center; }
+.sp-report { display: grid; gap: 12px; font-size: 14px; }
+.sp-report-what { margin: 0; max-width: none; }
+.sp-report-what a, .sp-report-hint a { color: var(--signal-ink); text-decoration: underline; text-underline-offset: 2px; }
+.sp-report-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.sp-report-steps li { position: relative; padding-left: 22px; display: grid; gap: 2px; }
+.sp-report-steps li::before { content: ""; position: absolute; left: 0; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #c9bdb1; }
+.sp-report-steps li.is-now::before { background: var(--signal); }
+.sp-report-steps li:not(:last-child)::after { content: ""; position: absolute; left: 4px; top: 19px; bottom: -12px; width: 2px; background: #e6ddd3; }
+.sp-report-steps small { color: var(--ink-2); font-size: 12px; }
+.sp-report-steps p { margin: 2px 0 0; line-height: 1.5; max-width: none; }
+.sp-report-msg { margin-top: 8px; border: 1px solid #e3e0da; border-radius: 8px; padding: 10px 12px; }
+.sp-report-msg b { font-size: 13px; }
+.sp-report-block { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--surface); border-radius: 8px; padding: 10px 12px; }
+.sp-report-hint { margin: 0; font-size: 12.5px; color: var(--ink-2); max-width: none; }
+
+/* The campaign's Creatives tab: a block under a row (how developers react, what to change, why it was blocked) */
+.cc-item { border-bottom: 1px solid #efece7; }
+.cc-item:last-child { border-bottom: 0; }
+.cc-item > .cc-row { border-bottom: 0; }
+.cc-list .cc-actions { min-width: 140px; justify-content: flex-end; }
+.cc-more-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 0; font-size: 13px; font-weight: 600; color: var(--signal-ink); text-decoration: none; background: none; border: 0; cursor: pointer; }
+.cc-more-btn i { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+.cc-more-btn[aria-expanded="true"] i { transform: rotate(-135deg) translateY(-2px); }
+.cc-more { padding: 2px 18px 16px 138px; font-size: 13px; }
+.cc-sig-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding-top: 12px; border-top: 1px solid #efece7; }
+.cc-sig-grid { display: grid; grid-template-columns: minmax(140px, .8fr) minmax(140px, .8fr) minmax(260px, 1.6fr); gap: 24px; align-items: start; margin-bottom: 10px; }
+.cc-fig { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: var(--ink-2); }
+.cc-fig strong { font-size: 18px; line-height: 1.2; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cc-fig strong small { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.cc-fig span { font-size: 13px; color: var(--ink); }
+.cc-cap { font-size: 12px; color: var(--ink-2); }
+.cc-reasons { display: grid; gap: 6px; }
+.cc-bar { display: grid; grid-template-columns: minmax(120px, 1fr) 110px 18px; gap: 10px; align-items: center; font-size: 13px; }
+.cc-bar i { display: block; height: 5px; border-radius: 3px; background: #e3e0da; overflow: hidden; }
+.cc-bar i b { display: block; height: 100%; background: #b7791f; border-radius: 3px; }
+.cc-bar em { font-style: normal; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.cc-more .ovx-hint a { color: var(--signal-ink); text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 900px) { .cc-sig-grid { grid-template-columns: 1fr; } .cc-more { padding-left: 18px; } }
+/* What DeusADS decided on a creative after a report, as its advertiser reads it */
+.hold-note { border-radius: 8px; padding: 12px 14px; border: 1px solid; font-size: 13px; }
+.hold-note.is-change { background: #fbf0d9; border-color: #ecd9a4; }
+.hold-note.is-blocked { background: var(--signal-soft); border-color: #ecc3b2; }
+.hold-note > b { display: block; font-size: 13.5px; margin-bottom: 8px; }
+.hold-note dl { margin: 0; display: grid; gap: 7px; }
+.hold-note dl div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; line-height: 1.45; }
+.hold-note dt { color: var(--ink-2); }
+.hold-note dd { margin: 0; }
+.hold-msg { margin-top: 10px; background: #fff; border: 1px solid rgba(60, 35, 20, .14); border-radius: 8px; padding: 10px 12px; }
+.hold-msg-h { display: flex; align-items: baseline; gap: 10px; }
+.hold-msg-h small { color: var(--ink-2); font-size: 12px; }
+.hold-msg p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; max-width: none; overflow-wrap: anywhere; }
+.hold-reply { margin-top: 10px; display: grid; gap: 4px; }
+.hold-reply label { font-weight: 600; }
+.hold-reply label small { font-weight: 400; color: var(--ink-2); margin-left: 6px; }
+.hold-reply textarea { width: 100%; height: auto; padding: 8px 10px; }
+.hold-acts { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.hold-replied { font-size: 12.5px; color: var(--ink-2); }
+.hold-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); max-width: none; }
+.hold-note .error, .hold-note .upload-done { margin: 10px 0 0; }
+.rd-ed-hold { padding: 0 20px 8px; }
+@media (max-width: 600px) { .hold-note dl div { grid-template-columns: 1fr; gap: 0; } }

@@ -6,11 +6,11 @@ import { DeckShell, DeckToggle } from "../admin-deck";
 import { Band, Dropdown, IconBtn, Lnk, Seg, Th, toast } from "../ui";
 import { useCards } from "../cards";
 import { resolveDispute } from "../actions";
-import { outcomeText } from "../../../../lib/admin-disputes";
+import { outcomePill, outcomeText } from "../../../../lib/admin-disputes";
 import { refreshPage, useWaitMark } from "../../wait";
 
 const COLS = "56px minmax(0,1.2fr) minmax(250px,1.3fr) 58px 96px";
-const INFO = "Developer reports are about a creative: you can remove it from the platform. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
+const INFO = "Developer reports are about a creative: you can find no violation, ask the advertiser to change it, or block it for a violation. Advertiser reports are about where their ad is shown: you can pause that booking. Hover an icon to see its name.";
 const kindOf = (r) => (r.open ? "open" : r.status === "dismissed" ? "dismissed" : "acted");
 
 export default function DisputesView({ rows, widgets, groups, defaults, layout }) {
@@ -18,7 +18,6 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
   const { open: openCard } = useCards();
   const [tab, setTab] = useState("open");
   const [from, setFrom] = useState("all");
-  const [confirm, setConfirm] = useState(null);
   const [busy, setBusy] = useState(null);
   useWaitMark(Boolean(busy));
 
@@ -32,8 +31,7 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
     const result = await resolveDispute({ disputeId: r.id, decision, note: "" }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(null);
     if (result?.error) return toast(result.error);
-    setConfirm(null);
-    toast(decision === "remove" ? "Creative removed. Developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : `Report dismissed. ${adv ? "Both sides" : "Developer"} notified`);
+    toast(decision === "pause" ? "Booking paused. Both sides notified" : adv ? "Report dismissed. Both sides notified" : "No violation found. Developer notified");
     refreshPage(router);
   }
 
@@ -60,32 +58,24 @@ export default function DisputesView({ rows, widgets, groups, defaults, layout }
                   <>
                     {adv
                       ? <IconBtn icon="pause" tip="Pause booking" danger disabled={busy === r.id} onClick={() => decide(r, "pause")} />
-                      : <IconBtn icon="trash" tip="Remove creative" danger onClick={() => setConfirm(r.id)} />}
-                    <IconBtn icon="dismiss" tip="Dismiss report" disabled={busy === r.id} onClick={() => decide(r, "dismiss")} />
+                      : <IconBtn icon="flag" tip="Decide: change or block" danger onClick={() => openCard("dispute", r.id)} />}
+                    <IconBtn icon="dismiss" tip={adv ? "Dismiss report" : "No violation"} disabled={busy === r.id} onClick={() => decide(r, "dismiss")} />
                   </>
-                ) : <span className={`cb-pill cb-${r.status === "dismissed" ? "good" : "bad"} cb-nodot`} title={outcomeText(r)}>{r.status === "removed" ? "Removed" : r.status === "paused" ? "Paused" : "Dismissed"}</span>}
+                ) : <span className={`cb-pill cb-${outcomePill(r)[1]} cb-nodot`} title={outcomeText(r)}>{outcomePill(r)[0]}</span>}
               </div>
-              {confirm === r.id && (
-                <div className="cb-subrow" onClick={(e) => e.stopPropagation()}>
-                  <span style={{ fontSize: 14 }}>Remove &quot;{r.creative}&quot; from the platform? Bookings stay as they are and {r.dev} is notified.</span>
-                  <span className="cb-sp" style={{ flex: 1 }} />
-                  <button type="button" className="cb-btn cb-d cb-s" disabled={busy === r.id} onClick={() => decide(r, "remove")}>Yes, remove</button>
-                  <button type="button" className="cb-btn cb-q cb-s" onClick={() => setConfirm(null)}>Keep</button>
-                </div>
-              )}
             </div>
           );
         })}
       </div>
     </div>
-  ) : <div className="cb-list" style={{ padding: 34, textAlign: "center", color: "var(--ink-2)" }}>{tab === "dismissed" ? "No dismissed reports yet." : tab === "acted" ? "No actions taken yet." : "No open disputes."}</div>;
+  ) : <div className="cb-list" style={{ padding: 34, textAlign: "center", color: "var(--ink-2)" }}>{tab === "dismissed" ? "No reports without a violation yet." : tab === "acted" ? "No actions taken yet." : "No open disputes."}</div>;
 
   return (
     <>
       <Band icon="disputes" title="Disputes" info={INFO} sub="Reports in both directions: developers about creatives in their games, advertisers about where their ads are shown." />
       <DeckShell kind="admin_disputes" widgets={widgets} groups={groups} defaults={defaults} initial={layout} sub="Last 90 days. Drag the grip to move a widget.">
         <div className="cb-tbar">
-          <Seg label="Status" value={tab} onChange={(k) => { setTab(k); setConfirm(null); }} items={[["open", "Open", count("open")], ["acted", "Action taken", count("acted")], ["dismissed", "Dismissed", count("dismissed")]]} />
+          <Seg label="Status" value={tab} onChange={setTab} items={[["open", "Open", count("open")], ["acted", "Action taken", count("acted")], ["dismissed", "No violation", count("dismissed")]]} />
           <Dropdown id="dfrom" label="From" value={from} onChange={setFrom} options={[["all", "Everyone"], ["developer", "Developers"], ["advertiser", "Advertisers"]]} />
           <span className="cb-sp" />
           <DeckToggle />
