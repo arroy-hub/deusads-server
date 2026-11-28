@@ -10719,3 +10719,8 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .wl-cd-plate .cx-ic .rd-tile { border-radius: 13px; }
 .wl-cd-plate .cx-ic .rd-tile .cp-cti { width: 25px; height: 25px; }
 .wl-cd-facts { grid-template-columns: auto minmax(0, 1fr); gap: 12px 36px; }
+
+/* The campaign's window: the cover runs to the very edge of the window (no frame of the dialog around it). */
+.modal.wl-cd-modal { border: 0; border-radius: 20px; background: #fff; }
+.wl-cd-modal .modal-box { border-radius: 0; overflow: visible; }
+.wl-cd-cover { height: 132px; border-radius: 0; background-repeat: no-repeat !important; }

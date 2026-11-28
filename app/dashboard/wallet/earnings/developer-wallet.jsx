@@ -204,7 +204,7 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
         <TableBox title="By campaign" tools={<span className="ovx-hint">Last {period} days</span>} head={[["Campaign"], ["Paid impressions", true], ["Earned", true]]}>
           {campaigns.map((campaign) => (
             <tr key={campaign.id}>
-              <td><span className="wl-cname"><span className="rd-tile wl-ctile"><CategoryIcon category={campaign.category} label={campaign.category ? categoryLabel(campaign.category) : "No category"} /></span><span><button type="button" className="wl-clink" title="How this campaign did in your games" onClick={() => openCampaign(campaign)}>{campaign.name}</button><small>{campaign.advertiser} · <em style={{ color: STATUS_TONE[campaign.status.key] ?? "#8c7f73" }}>{campaign.status.label}</em></small></span></span></td>
+              <td><span className="wl-cname"><span className="rd-tile wl-ctile" style={{ "--tone": STATUS_TONE[campaign.status.key] ?? "#8c7f73" }}><CategoryIcon category={campaign.category} label={campaign.category ? categoryLabel(campaign.category) : "No category"} /></span><span><button type="button" className="wl-clink" title="How this campaign did in your games" onClick={() => openCampaign(campaign)}>{campaign.name}</button><small>{campaign.advertiser} · <em style={{ color: STATUS_TONE[campaign.status.key] ?? "#8c7f73" }}>{campaign.status.label}</em></small></span></span></td>
               <td className="num">{count(campaign.impressions)}</td>
               <td className="num"><b>{credits(earnedOf(campaign.impressions))}</b></td>
             </tr>
