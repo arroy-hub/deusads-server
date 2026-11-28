@@ -3,6 +3,7 @@
 // The platform's Wallet window (admins): what advertisers paid for impressions, how it splits between developers
 // and DeusADS, the credits in the system, and the same per campaign and per game.
 
+import { useSamePage } from "../../same-page";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import WindowTop, { PlateIcon } from "../../window-top";
@@ -34,6 +35,8 @@ export default function PlatformWallet({ wallet, marked, sub, initialTab = "over
     window.scrollTo(0, 0);
     if (focus) tabs.current[next]?.focus();
   }
+  // The menu entry of this window while one of its tabs is open: show the first tab, nothing to fetch.
+  useSamePage(() => choose("overview"));
   const onKeyDown = (event) => {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
     event.preventDefault();

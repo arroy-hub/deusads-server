@@ -44,13 +44,31 @@ export function Pop({ anchor, open, onClose, width = 230, align = "end", childre
 /** A hint on hover or keyboard focus, also drawn above everything. */
 export function Tip({ content, children, side = "bottom", align = "center", wide = false }) {
   const [rect, setRect] = useState(null);
+  const [spot, setSpot] = useState(null);
   const ref = useRef(null);
+  const tip = useRef(null);
   const show = () => ref.current && setRect(ref.current.getBoundingClientRect());
+  const hide = () => { setRect(null); setSpot(null); };
+  // Measured once drawn, then kept whole on the screen: the other side when there is no room, never past an edge.
+  useLayoutEffect(() => {
+    if (!rect || !tip.current) return;
+    const w = tip.current.offsetWidth;
+    const h = tip.current.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = align === "end" ? rect.right - w : rect.left + rect.width / 2 - w / 2;
+    left = Math.max(8, Math.min(left, vw - w - 8));
+    const below = rect.bottom + 8;
+    const above = rect.top - 8 - h;
+    let top = side === "bottom" ? (below + h <= vh - 8 || above < 8 ? below : above) : above >= 8 || below + h > vh - 8 ? above : below;
+    top = Math.max(8, Math.min(top, vh - h - 8));
+    setSpot({ left, top });
+  }, [rect, side, align, content]);
   return (
-    <span ref={ref} className="rd-tipwrap" onMouseEnter={show} onMouseLeave={() => setRect(null)} onFocus={show} onBlur={() => setRect(null)}>
+    <span ref={ref} className="rd-tipwrap" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
       {children}
       {rect && createPortal(
-        <div className={`rd-tip${wide ? " is-wide" : ""}`} role="tooltip" style={{ left: align === "end" ? rect.right : rect.left + rect.width / 2, top: side === "bottom" ? rect.bottom + 8 : rect.top - 8, transform: `translate(${align === "end" ? "-100%" : "-50%"}, ${side === "bottom" ? "0" : "-100%"})` }}>{content}</div>,
+        <div ref={tip} className={`rd-tip${wide ? " is-wide" : ""}`} role="tooltip" style={spot ? { left: spot.left, top: spot.top } : { left: 0, top: 0, visibility: "hidden" }}>{content}</div>,
         document.body
       )}
     </span>

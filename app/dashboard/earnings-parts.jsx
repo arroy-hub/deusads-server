@@ -4,9 +4,47 @@
 // impressions, the switch of the chart and the row of its tooltip. The figures come from the wallet's books
 // (lib/performance-earnings.js); the rules (rate, the developer's part, what could have been earned) are in lib/wallet.js.
 
+import { useSyncExternalStore } from "react";
 import { DEV_SHARE, RATE, count, credits, earnedOf, potentialOf } from "../../lib/wallet";
 import { Info } from "./metrics-deck";
-import { TestMark } from "./wallet/parts";
+
+// Earnings can be put away: a developer who only wants impressions hides everything about credits on the Performance
+// tabs (the Earned block, the chart's switch, the Earned column, the Earnings widgets). Kept in this browser, and the
+// same for My games and every game.
+const SHOWN_KEY = "deusads:earnings-shown";
+const SHOWN_EVENT = "deusads:earnings-shown";
+const readShown = () => {
+  try { return window.localStorage.getItem(SHOWN_KEY) !== "0"; } catch { return true; }
+};
+const watchShown = (notify) => {
+  window.addEventListener(SHOWN_EVENT, notify);
+  window.addEventListener("storage", notify);
+  return () => { window.removeEventListener(SHOWN_EVENT, notify); window.removeEventListener("storage", notify); };
+};
+
+/** [shown, toggle]: are the earnings shown on the Performance tabs, and the switch for it. */
+export function useEarningsShown() {
+  const shown = useSyncExternalStore(watchShown, readShown, () => true);
+  const toggle = () => {
+    try { window.localStorage.setItem(SHOWN_KEY, shown ? "0" : "1"); } catch {}
+    window.dispatchEvent(new Event(SHOWN_EVENT));
+  };
+  return [shown, toggle];
+}
+
+/** The button beside "Hide statistics" that hides or shows everything about credits. */
+export function EarnToggle({ shown, onToggle }) {
+  const tip = shown ? "Hide earnings" : "Show earnings";
+  return (
+    <button type="button" className="cr-ib" data-tip={tip} aria-label={tip} aria-pressed={shown} onClick={onToggle}>
+      {/* the wallet of the menu; struck through while the earnings are hidden */}
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 6.5h13a2 2 0 0 1 2 2V10M4 6.5v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2V12a2 2 0 0 0-2-2H6a2 2 0 0 1-2-2v-1.5zM4 6.5A2 2 0 0 1 6 4.5h9M16.5 14.8h.01" />
+        {!shown && <path d="M3 21L21 3" />}
+      </svg>
+    </button>
+  );
+}
 
 /** "12.40 C.": what this many paid impressions earned the developer. */
 export const earnedText = (paid) => `${credits(earnedOf(paid))} C.`;
@@ -77,7 +115,7 @@ export function EarnedBlock({ cell, days, missed = 0, tail, dayLabel }) {
   return (
     <section className="pm-earnbox" aria-label="Earnings">
       <div className="pm-eb-main">
-        <span className="cr-hero-label">Earned <Info title="Earned" text={EARNED_HINT} /><TestMark /></span>
+        <span className="cr-hero-label">Earned <Info title="Earned" text={EARNED_HINT} /></span>
         <div className="cr-hero-value">{credits(earned)}<small>C.</small></div>
         <div className="cr-hero-delta"><span>{tail}</span></div>
       </div>

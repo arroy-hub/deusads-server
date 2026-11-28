@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { placeByAnchor } from "../../bubble";
 
 // Every short message of the Placements tab ("ID copied", "Shown in Unity", an error, a move with its Undo) is a
 // small dark bubble next to the button that was pressed, and it leaves by itself. Nothing is drawn over the list.
@@ -64,17 +65,9 @@ export function SayBubble({ notice, onDone }) {
       const vh = window.innerHeight;
       const width = Math.min(WIDTH, vw - 16);
       if (!r) return setPos({ left: (vw - width) / 2, width, top: 72, arrow: null, above: false });
-      const mid = r.left + r.width / 2;
-      const left = Math.min(vw - width - 8, Math.max(8, mid - width / 2));
-      const height = box.current?.offsetHeight ?? 60;
-      const above = vh - r.bottom < height + GAP + 12 && r.top > height + GAP + 12;
-      setPos({
-        left,
-        width,
-        arrow: Math.min(width - 14, Math.max(14, mid - left)),
-        above,
-        ...(above ? { bottom: vh - r.top + GAP } : { top: r.bottom + GAP }),
-      });
+      // all of it on the screen: below the button, above when there is no room, moved over it when neither fits
+      const spot = placeByAnchor(r, width, box.current?.offsetHeight ?? 60, { gap: GAP, view: { width: vw, height: vh } });
+      setPos({ left: spot.left, width, arrow: spot.moved ? null : spot.arrow, above: spot.above, top: spot.top });
     }
     place();
     // the list settles a moment after the server's answer (a card that moved, a menu that closed)
@@ -98,7 +91,7 @@ export function SayBubble({ notice, onDone }) {
 
   if (!notice || typeof document === "undefined") return null;
   const style = pos
-    ? { left: pos.left, width: pos.width, ...(pos.above ? { bottom: pos.bottom } : { top: pos.top }) }
+    ? { left: pos.left, width: pos.width, top: pos.top }
     : { left: 0, top: 0, width: WIDTH, visibility: "hidden" };
   return createPortal(
     <div

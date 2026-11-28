@@ -5,6 +5,7 @@ import { formatCount, formatDay } from "../../../../lib/analytics";
 import { compactCount, figures, niceTop } from "../../../../lib/performance-view";
 import { credits, earnedOf, moneyTop, tickText } from "../../../../lib/wallet";
 import { EarnedTipRow, MetricSwitch, earnedText } from "../../earnings-parts";
+import Modal from "../../modal";
 
 /**
  * Impressions per day as stacked columns: advertisers' views and the developer's own creatives, one on the other.
@@ -19,6 +20,7 @@ import { EarnedTipRow, MetricSwitch, earnedText } from "../../earnings-parts";
  */
 export default function PerformanceChart({ days, source, title: givenTitle = "Impressions per day", subtitle, advanced = null, earnings = null }) {
   const [active, setActive] = useState(null);
+  const [asTable, setAsTable] = useState(false);
   const earn = Boolean(earnings) && earnings.metric === "earn";
   const title = earn ? "Earnings per day" : givenTitle;
   const showAdv = source !== "own";
@@ -152,8 +154,13 @@ export default function PerformanceChart({ days, source, title: givenTitle = "Im
           <span>{formatDay(days[days.length - 1].date)}</span>
         </div>
 
-        {advanced ? advanced : (<details className="pf-details">
-          <summary>Show as table</summary>
+        {/* The same days as a table, in a pop-up over the page: a click outside it (or Escape) closes it. */}
+        {advanced ? advanced : (<>
+          <button type="button" className="gp-toggle pf-astable" aria-haspopup="dialog" onClick={() => setAsTable(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M10 6v12" /></svg>
+            Show as table
+          </button>
+          <Modal open={asTable} onClose={() => setAsTable(false)} title={`${title} · ${subtitle ?? ""}`.replace(/ · $/, "")} className="pf-tablepop" lightClose>
           <div className={`pf-mini${earnings ? " pm-mini" : ""}`} role="table" aria-label={title}>
             <div className="pf-mini-row pf-mini-head" role="row">
               <span role="columnheader">Day (UTC)</span>
@@ -172,7 +179,8 @@ export default function PerformanceChart({ days, source, title: givenTitle = "Im
               </div>
             ))}
           </div>
-        </details>)}
+          </Modal>
+        </>)}
       </figure>
     </section>
   );

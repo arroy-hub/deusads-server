@@ -80,7 +80,6 @@
 .hm .tip-nav button:hover{background:var(--surface);color:var(--ink)}
 .hm .tip-nav small{min-width:30px;text-align:center;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
 .hm .tip-prog{display:block;height:1px;background:var(--ink-3);opacity:.35;transform-origin:left;animation:tipprog linear forwards}
-.hm .tipblk:hover .tip-prog{animation-play-state:paused}
 .hm .tipblk .blk-b{padding-bottom:14px}
 @keyframes tipprog{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .hm .blk-b.flush{padding:4px 0}
@@ -557,6 +556,8 @@ body.hero-light .hm .hero-next.hn-link:hover .hn-chev{color:var(--signal-ink)}
 .hm .hw-rows dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
 .hm .hw-delta{display:flex;align-items:center;gap:6px;margin:-6px 0 0;font-size:13.5px;color:#1b8a50}
 .hm .hw-delta b{font-weight:700}
+.hm .hw-delta.is-flat{color:var(--ink-3)}
+.hm .hw-delta.is-flat b{font-weight:600}
 .hm .hw-spark{display:flex;align-items:flex-end;gap:4px;height:44px;flex:none}
 .hm .hw-spark i{display:block;width:9px;border-radius:3px;background:#e6a78f}
 .hm .hw-spark i:last-child{background:#c94a24}

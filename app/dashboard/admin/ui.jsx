@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnchoredBubble } from "../bubble";
 import { ariaSort } from "../../../lib/sort";
 import WindowTop, { PlateIcon } from "../window-top";
 
@@ -129,27 +130,33 @@ export function Seg({ label, value, items, onChange }) {
  * closes it. `left` puts the bubble's arrow on the left, as in the mockup.
  */
 export function Info({ title, text, style }) {
-  const [open, setOpen] = useState(false);
+  // `open` is the icon's place on the screen while the bubble shows; the bubble is drawn over everything and kept
+  // whole on the screen (../bubble), so a short window or a clipped panel never cuts it.
+  const [open, setOpen] = useState(null);
   const ref = useRef(null);
   useEffect(() => {
     if (!open) return;
-    const down = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const key = (e) => { if (e.key === "Escape") setOpen(false); };
-    const other = (e) => { if (e.detail !== ref.current) setOpen(false); };
+    const close = () => setOpen(null);
+    const down = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.(".ig-bubble")) close(); };
+    const key = (e) => { if (e.key === "Escape") close(); };
+    const other = (e) => { if (e.detail !== ref.current) close(); };
     document.addEventListener("mousedown", down);
     document.addEventListener("keydown", key);
     window.addEventListener("cb-info", other);
-    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); window.removeEventListener("cb-info", other); };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); window.removeEventListener("cb-info", other); window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
   }, [open]);
   const toggle = (e) => {
     e.stopPropagation();
-    if (!open) window.dispatchEvent(new CustomEvent("cb-info", { detail: ref.current }));
-    setOpen(!open);
+    if (open) return setOpen(null);
+    window.dispatchEvent(new CustomEvent("cb-info", { detail: ref.current }));
+    setOpen(e.currentTarget.getBoundingClientRect());
   };
   return (
     <span className="cb-mk" ref={ref} style={style}>
-      <button type="button" className={`cb-ig-i${open ? " cb-is-on" : ""}`} aria-label={`About: ${title}`} aria-expanded={open} onClick={toggle}>i</button>
-      {open && <div className="cb-ig-bubble cb-l" role="tooltip"><span className="cb-ig-bubble-arrow" /><b>{title}</b>{text}</div>}
+      <button type="button" className={`cb-ig-i${open ? " cb-is-on" : ""}`} aria-label={`About: ${title}`} aria-expanded={Boolean(open)} onClick={toggle}>i</button>
+      {open && <AnchoredBubble rect={open}><b>{title}</b>{text}</AnchoredBubble>}
     </span>
   );
 }

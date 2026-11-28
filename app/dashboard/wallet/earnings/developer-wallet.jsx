@@ -3,11 +3,12 @@
 // The developer's Wallet window: the balance, what the games earned per day (the ticks in "By game" choose the lines of
 // the chart), the same by game and by campaign, and a history of one line per game per day.
 
+import { useSamePage } from "../../same-page";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import WindowTop, { PlateIcon } from "../../window-top";
 import { DEV_SHARE, RATE, count, credits, creditNote, dayText, earnedOf } from "../../../../lib/wallet";
-import { Amount, Bar, HeroAmount, Hint, MoneyChart, PeriodPick, SumBlock, TableBox, TestMark } from "../parts";
+import { Amount, Bar, HeroAmount, HistoryPeriod, Hint, MoneyChart, PeriodPick, SumBlock, TableBox, TestMark, historyRange } from "../parts";
 
 const TOTAL = "total";
 const TOTAL_LINE = { color: "#c94a24", tint: "#f0b293" };
@@ -18,7 +19,6 @@ const GAME_LINES = [
 ];
 const STATUS_TONE = { live: "#1b8a50", paused: "#c98a14", budget: "#c98a14", ended: "#8c7f73" };
 const PERIODS = [7, 30, 90];
-const HISTORY_DAYS = 30;
 const sum = (list) => list.reduce((total, value) => total + value, 0);
 
 function GameBadge({ game }) {
@@ -33,6 +33,7 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
   const [period, setPeriod] = useState(30);
+  const [span, setSpan] = useState({ days: 30 }); // the period of the History list
   const [ticked, setTicked] = useState([TOTAL]);
   const tabs = useRef({});
 
@@ -42,6 +43,8 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
     window.scrollTo(0, 0);
     if (focus) tabs.current[next]?.focus();
   }
+  // The menu entry of this window while one of its tabs is open: show the first tab, nothing to fetch.
+  useSamePage(() => choose("overview"));
   const onKeyDown = (event) => {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
     event.preventDefault();
@@ -137,14 +140,16 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
   // History: one line per game per day, newest first.
   const history = [];
   const all = wallet.days;
-  for (let index = all.length - 1; index >= Math.max(0, all.length - HISTORY_DAYS); index -= 1) {
+  const [from, to] = historyRange(span);
+  for (let index = all.length - 1; index >= 0; index -= 1) {
+    if (all[index] < from || all[index] > to) continue;
     for (const game of games) {
       const n = wallet.daily[game.id]?.[index] ?? 0;
       if (n > 0) history.push({ key: `${all[index]}:${game.id}`, day: all[index], game: game.name, impressions: n });
     }
   }
   const historyTab = (
-    <TableBox title="History" className="wl-histbox" head={[["Date"], ["Operation"], ["Amount", true]]} note={<p className="wl-foot">One line per game per day, for the last {HISTORY_DAYS} days. Monthly payouts will appear here once they start.</p>}>
+    <TableBox title="History" className="wl-histbox" tools={<HistoryPeriod value={span} onChange={setSpan} min={all[0] ?? null} />} head={[["Date"], ["Operation"], ["Amount", true]]} note={<p className="wl-foot">One line per game per day; days are kept for the last {all.length} days. Monthly payouts will appear here once they start.</p>}>
       {history.map((row) => (
         <tr key={row.key}>
           <td className="wl-date">{dayText(row.day)}</td>
@@ -152,7 +157,7 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
           <td className="num"><Amount value={earnedOf(row.impressions)} /></td>
         </tr>
       ))}
-      {history.length === 0 ? <tr><td colSpan={3} className="wl-none">Nothing earned in these {HISTORY_DAYS} days.</td></tr> : null}
+      {history.length === 0 ? <tr><td colSpan={3} className="wl-none">Nothing earned in this period.</td></tr> : null}
     </TableBox>
   );
 

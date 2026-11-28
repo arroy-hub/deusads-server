@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Modal from "../modal";
+import { AnchoredBubble } from "../bubble";
 import { TEST_NOTE, count, credits, dayText, moneyTop, parseAmount, tickText, weekdayText } from "../../../lib/wallet";
 import { addBudget, topUp } from "./actions";
 import { Busy, Figure, refreshPage, useRefreshing, useWaitMark } from "../wait";
@@ -34,11 +35,7 @@ export function Hint({ title = "", text, mark = false, label = null }) {
     return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
   }, [pos]);
   const open = () => {
-    const rect = button.current.getBoundingClientRect();
-    const width = Math.min(270, window.innerWidth - 16);
-    const left = clamp(rect.left + rect.width / 2 - width / 2, 8, window.innerWidth - width - 8);
-    const above = window.innerHeight - rect.bottom < 150 && rect.top > 150;
-    setPos({ left, width, arrow: rect.left + rect.width / 2 - left, above, y: above ? window.innerHeight - rect.top + 8 : rect.bottom + 8 });
+    setPos(button.current.getBoundingClientRect());
   };
   const toggle = (event) => {
     event.stopPropagation();
@@ -51,13 +48,11 @@ export function Hint({ title = "", text, mark = false, label = null }) {
   return (
     <>
       <button type="button" ref={button} className={`ig-i${mark ? " wl-mark" : ""}${pos ? " is-on" : ""}`} aria-label={label ?? `About: ${title}`} aria-expanded={Boolean(pos)} onClick={toggle} {...hover}>{mark ? "!" : "i"}</button>
-      {pos && createPortal(
-        <div className={`ig-bubble${pos.above ? " is-above" : ""}`} role="tooltip" style={{ left: pos.left, width: pos.width, ...(pos.above ? { bottom: pos.y } : { top: pos.y }) }}>
-          <span className="ig-bubble-arrow" style={{ left: pos.arrow }} />
+      {pos && (
+        <AnchoredBubble rect={pos}>
           {title ? <b>{title}</b> : null}
           {text}
-        </div>,
-        document.body,
+        </AnchoredBubble>
       )}
     </>
   );
@@ -139,6 +134,42 @@ export function PeriodPick({ value, options = [7, 30], onChange }) {
   return (
     <div className="cr-tabs" role="tablist" aria-label="Period">
       {options.map((days) => <button key={days} type="button" role="tab" aria-selected={value === days} onClick={() => onChange(days)}>{days} days</button>)}
+    </div>
+  );
+}
+
+const isoDay = (date) => date.toISOString().slice(0, 10);
+const shiftDay = (day, by) => isoDay(new Date(Date.parse(`${day}T00:00:00Z`) + by * 86400000));
+
+/** The first and last day of a History period: { days: 7 | 30 | 90 } counts back from today, { from, to } is a range. */
+export function historyRange(period, today = isoDay(new Date())) {
+  if (period.days) return [shiftDay(today, -(period.days - 1)), today];
+  const from = period.from || "0000-01-01";
+  const to = period.to || today;
+  return from <= to ? [from, to] : [to, from];
+}
+
+/**
+ * The period of a History list: the last 7, 30 or 90 days, or a range of dates of one's own (two date fields appear).
+ * `value` is { days } or { from, to }; `min` is the earliest day there are lines for (null: no limit).
+ */
+export function HistoryPeriod({ value, onChange, min = null }) {
+  const today = isoDay(new Date());
+  const custom = !value.days;
+  const [from, to] = historyRange(value, today);
+  return (
+    <div className="wl-period">
+      <div className="cr-tabs" role="tablist" aria-label="Period">
+        {[7, 30, 90].map((days) => <button key={days} type="button" role="tab" aria-selected={value.days === days} onClick={() => onChange({ days })}>{days} days</button>)}
+        <button type="button" role="tab" aria-selected={custom} onClick={() => !custom && onChange({ from: min && from < min ? min : from, to })}>Dates</button>
+      </div>
+      {custom && (
+        <span className="wl-range">
+          <input className="field" type="date" aria-label="From" value={value.from ?? ""} min={min ?? undefined} max={value.to || today} onChange={(event) => onChange({ ...value, from: event.target.value })} />
+          <span aria-hidden="true">–</span>
+          <input className="field" type="date" aria-label="To" value={value.to ?? ""} min={value.from || min || undefined} max={today} onChange={(event) => onChange({ ...value, to: event.target.value })} />
+        </span>
+      )}
     </div>
   );
 }

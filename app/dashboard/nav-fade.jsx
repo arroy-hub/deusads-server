@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { offerSamePage } from "./same-page";
 
 const SHOW_AFTER = 160; // ms: a page that opens at once never flashes the veil
 const GIVE_UP = 20000; // ms: if something went wrong, the veil never stays
@@ -44,6 +45,11 @@ export default function NavFade() {
       const url = new URL(link.href, window.location.href);
       if (url.origin !== window.location.origin) return;
       if (url.pathname === window.location.pathname && url.search === window.location.search) return; // same page or only a #anchor
+      // The same page with another query (its menu entry while one of its tabs is open): the page shows it itself.
+      if (url.pathname === window.location.pathname && offerSamePage(url)) {
+        event.preventDefault();
+        return;
+      }
       begin();
     };
     document.addEventListener("click", click, true);

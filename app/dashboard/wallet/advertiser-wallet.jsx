@@ -3,6 +3,7 @@
 // The advertiser's Wallet window: what can be spent, the latest operations beside it, the budget of every campaign
 // below, and the whole history on its own tab.
 
+import { useSamePage } from "../same-page";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,7 +11,7 @@ import WindowTop, { PlateIcon } from "../window-top";
 import { RATE, budgetTone, count, credits, creditNote, dayText } from "../../../lib/wallet";
 import { TONE } from "../_cabinet/dates";
 import { Figure, useRefreshing } from "../wait";
-import { Amount, Bar, BudgetDialog, HeroAmount, Hint, TableBox, TestMark, TopUpDialog } from "./parts";
+import { Amount, Bar, BudgetDialog, HeroAmount, HistoryPeriod, Hint, TableBox, TestMark, TopUpDialog, historyRange } from "./parts";
 
 const campaignHref = (id) => `/dashboard/advertising/c/${id}`;
 const FILTERS = [["all", "All"], ["topup", "Top-ups"], ["budget", "Budgets"], ["spend", "Spending"]];
@@ -31,6 +32,7 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
   const [tab, setTab] = useState(initialTab);
   const refreshing = useRefreshing(); // the figures are being fetched again after credits or budget were added
   const [filter, setFilter] = useState("all");
+  const [period, setPeriod] = useState({ days: 30 });
   const [adding, setAdding] = useState(openTopUp);
   const [budgetFor, setBudgetFor] = useState(null);
   const tabs = useRef({});
@@ -42,6 +44,8 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
     window.scrollTo(0, 0);
     if (focus) tabs.current[next]?.focus();
   }
+  // The menu entry of this window while one of its tabs is open: show the first tab, nothing to fetch.
+  useSamePage(() => choose("overview"));
   const onKeyDown = (event) => {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
     event.preventDefault();
@@ -124,15 +128,17 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
   if (filter === "topup") history = history.filter((op) => op.kind === "topup");
   if (filter === "budget") history = history.filter((op) => op.kind === "reserve" || op.kind === "return");
   if (filter === "spend") history = history.filter((op) => op.kind === "spend");
+  const [from, to] = historyRange(period);
+  history = history.filter((op) => op.day >= from && op.day <= to);
   history.sort((a, b) => (a.day === b.day ? (a.kind === "spend") - (b.kind === "spend") || String(b.at).localeCompare(String(a.at)) : b.day.localeCompare(a.day)));
 
   const historyTab = (
     <TableBox
       title="History"
       className="wl-histbox"
-      tools={<div className="cr-tabs" role="tablist" aria-label="Show">{FILTERS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div>}
+      tools={<><HistoryPeriod value={period} onChange={setPeriod} /><div className="cr-tabs" role="tablist" aria-label="Show">{FILTERS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div></>}
       head={[["Date"], ["Operation"], ["Amount", true]]}
-      note={<p className="wl-foot">Spending is taken from a campaign’s reserved budget, so it does not change the Available figure. Daily spending is shown for the last 10 days.</p>}
+      note={<p className="wl-foot">Spending is taken from a campaign’s reserved budget, so it does not change the Available figure. Daily spending is kept for the last 90 days.</p>}
     >
       {history.map((op) => {
         const [tag, cls, text] = describe(op, true);
@@ -144,7 +150,7 @@ export default function AdvertiserWallet({ wallet, campaigns, initialTab = "over
           </tr>
         );
       })}
-      {history.length === 0 ? <tr><td colSpan={3} className="wl-none">Nothing here yet.</td></tr> : null}
+      {history.length === 0 ? <tr><td colSpan={3} className="wl-none">Nothing in this period.</td></tr> : null}
     </TableBox>
   );
 

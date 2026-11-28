@@ -10,7 +10,7 @@ import DeckBoard from "../../deck-board";
 import KeyNumbers from "../../key-numbers";
 import { Info } from "../../metrics-deck";
 import ReportFrame, { StatToggle } from "../../advertising/c/[campaignId]/report-frame";
-import { EarnedBlock, earnedText } from "../../earnings-parts";
+import { EarnToggle, EarnedBlock, earnedText, useEarningsShown } from "../../earnings-parts";
 import { useWaitMark } from "../../wait";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
@@ -49,7 +49,12 @@ const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0);
  *
  * model: lib/performance-view.js assembleList() or assembleFocus().
  */
-export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = null }) {
+export default function PerformanceTab({ gameId, model: full, defaultBy, deckLayout = null }) {
+  // The developer can put everything about credits away (the button beside "Hide statistics"): the tab, its table
+  // and its widgets then get the model as it is without a wallet.
+  const hasWallet = Boolean(full.earn?.on);
+  const [earnShown, toggleEarn] = useEarningsShown();
+  const model = useMemo(() => (hasWallet && !earnShown ? { ...full, earn: { ...full.earn, on: false } } : full), [full, hasWallet, earnShown]);
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -158,7 +163,7 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
         )}
         {focus && <FocusHead gameId={gameId} placement={model.placement} />}
 
-        <Controls model={model} state={state} source={source} focus={focus} menu={menu} setMenu={setMenu} go={go} earnOn={earnOn} />
+        <Controls model={model} state={state} source={source} focus={focus} menu={menu} setMenu={setMenu} go={go} earnOn={earnOn} earnToggle={hasWallet ? <EarnToggle shown={earnShown} onToggle={toggleEarn} /> : null} />
 
         {earnOn && <EarnedBlock cell={kpi} days={dayRows} missed={model.earn.missed} tail={`last ${model.win.days} days · ${scopeText}`} dayLabel={formatDay} />}
 
@@ -183,7 +188,7 @@ export default function PerformanceTab({ gameId, model, defaultBy, deckLayout = 
 
 // ---------------------------------------------------------------- period, search, filters
 
-function Controls({ model, state, source, focus, menu, setMenu, go, earnOn = false }) {
+function Controls({ model, state, source, focus, menu, setMenu, go, earnOn = false, earnToggle = null }) {
   const facets = focus ? [] : model.facets.filter((facet) => facet.options.length > 1 || state.filters[facet.key].length > 0);
   const filtered = isFiltered(state);
   const valueOf = (option) => (source === "adv" ? option.adv : source === "own" ? option.own : option.adv + option.own);
@@ -282,6 +287,7 @@ function Controls({ model, state, source, focus, menu, setMenu, go, earnOn = fal
             </button>
           )}
         <span className="cr-bar-sp" />
+        {earnToggle}
         <StatToggle />
     </div>
   );

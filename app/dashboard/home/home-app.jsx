@@ -183,7 +183,10 @@ function Wallet({ wallet, hide }) {
             </span>
           )}
         </div>
-        {!adv && <p className="hw-delta"><Ic name="trend" size={15} width={2.4} /><b>+{credits(wallet.today)}</b> today</p>}
+        {/* nothing earned yet today: grey, with a sign for "the same", not a green arrow up */}
+        {!adv && (wallet.today > 0
+          ? <p className="hw-delta"><Ic name="trend" size={15} width={2.4} /><b>+{credits(wallet.today)}</b> today</p>
+          : <p className="hw-delta is-flat"><Ic name="same" size={15} width={2.4} /><b>{credits(0)}</b> today</p>)}
         <dl className="hw-rows">
           {wallet.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd><Figure>{value}</Figure></dd></div>)}
         </dl>
@@ -258,7 +261,6 @@ function Tip({ role, active, hide }) {
   const list = TIPS[role];
   const n = list.length;
   const [index, setIndex] = useState(0);
-  const [hover, setHover] = useState(false);
   const [lap, setLap] = useState(0);
   const text = useRef(null);
   const box = useRef(null);
@@ -284,11 +286,13 @@ function Tip({ role, active, hide }) {
     };
   }, [n]);
 
+  // The count to the next tip runs on whatever the pointer does: resting on the block neither stops it nor, on
+  // leaving, starts it again.
   useEffect(() => {
-    if (hover || !active) return undefined;
+    if (!active) return undefined;
     const timer = setTimeout(() => { if (!document.hidden) step(1); else setLap((value) => value + 1); }, TIP_MS);
     return () => clearTimeout(timer);
-  }, [index, hover, lap, active, step]);
+  }, [index, lap, active, step]);
 
   const [title, body] = list[index % n];
   const nav = (
@@ -299,7 +303,7 @@ function Tip({ role, active, hide }) {
     </span>
   );
   return (
-    <section className="panel blk hasx tipblk" data-k="tp" onMouseEnter={() => setHover(true)} onMouseLeave={() => { setHover(false); setLap((value) => value + 1); }}>
+    <section className="panel blk hasx tipblk" data-k="tp">
       {hide && (
         <button type="button" className="blk-x" onClick={hide} aria-label="Hide Tip" data-tip="Hide this block">
           <Ic name="x" size={14} width={2.2} />
@@ -695,6 +699,7 @@ export default function HomeApp({ role: roleProp, data: dataProp, choices = null
       const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
       let y = r.top - h - 8;
       if (y < 8) y = r.bottom + 8;
+      y = Math.max(8, Math.min(y, window.innerHeight - h - 8)); // never past the bottom of a short window either
       box.style.left = `${x}px`;
       box.style.top = `${y}px`;
     };

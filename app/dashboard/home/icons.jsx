@@ -10,6 +10,7 @@ const PATHS = {
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="M21 16l-5-5-8 8" /></>,
   ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
   trend: <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
+  same: <path d="M5 9h14M5 15h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
   up: <path d="M12 19V5M5 12l7-7 7 7" />,
   book: <><path d="M4 4h10a4 4 0 014 4v12H8a4 4 0 01-4-4V4z" /><path d="M8 4v12" /></>,

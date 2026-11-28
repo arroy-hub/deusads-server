@@ -1,5 +1,6 @@
 "use client";
 
+import Modal from "../modal";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
@@ -12,7 +13,7 @@ import KeyNumbers from "../key-numbers";
 import { Info } from "../metrics-deck";
 import ReportFrame, { StatToggle } from "../advertising/c/[campaignId]/report-frame";
 import { credits, earnedOf, moneyTop, tickText } from "../../../lib/wallet";
-import { EarnedBlock, EarnedTipRow, MetricSwitch, earnedText } from "../earnings-parts";
+import { EarnToggle, EarnedBlock, EarnedTipRow, MetricSwitch, earnedText, useEarningsShown } from "../earnings-parts";
 import { useWaitMark } from "../wait";
 
 const SOURCE_LABEL = { all: "All impressions", adv: "Advertisers", own: "My creatives" };
@@ -50,7 +51,10 @@ export default function GamesPerformance({ model, deckLayout = null }) {
   const [metric, setMetric] = useState("imps");
   const [hover, setHover] = useState(null);
   // With the wallet (migration 0061) the tab also says what the impressions earned.
-  const earnOn = Boolean(model.earn?.on);
+  // The developer can put all of it away (the button beside "Hide statistics") and keep impressions only.
+  const hasWallet = Boolean(model.earn?.on);
+  const [earnShown, toggleEarn] = useEarningsShown();
+  const earnOn = hasWallet && earnShown;
   const earn = earnOn && metric === "earn";
 
   useEffect(() => {
@@ -273,6 +277,7 @@ export default function GamesPerformance({ model, deckLayout = null }) {
           </svg>
         </button>
         <span className="cr-bar-div" aria-hidden="true" />
+        {hasWallet && <EarnToggle shown={earnShown} onToggle={toggleEarn} />}
         <StatToggle />
       </div>
 
@@ -362,26 +367,25 @@ export default function GamesPerformance({ model, deckLayout = null }) {
             <span key={date}>{dayText(date)}</span>
           ))}
         </div>
-        <button type="button" className="gp-toggle" aria-expanded={asTable} onClick={() => setAsTable(!asTable)}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ transform: asTable ? "rotate(90deg)" : "none" }}>
-            <path d="M8 5l10 7-10 7z" />
-          </svg>
+        {/* The same days as a table, in a pop-up over the page: a click outside it (or Escape) closes it. */}
+        <button type="button" className="gp-toggle pf-astable" aria-haspopup="dialog" onClick={() => setAsTable(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M10 6v12" /></svg>
           Show as table
         </button>
-        {asTable && (
+        <Modal open={asTable} onClose={() => setAsTable(false)} title={`${chartTitle} · last ${state.days} days`} className="pf-tablepop" lightClose>
           <div className="gp-scroll">
             <table className="gp-table gp-mini">
               <thead>
                 <tr><th scope="col">Day</th><th scope="col" className="num">Advertisers</th><th scope="col" className="num">My creatives</th>{earnOn && <th scope="col" className="num">Earned</th>}</tr>
               </thead>
               <tbody>
-                {days.map((day) => (
+                {[...days].reverse().map((day) => (
                   <tr key={day.date}><td>{dayText(day.date)}</td><td className="num">{formatCount(day.adv)}</td><td className="num">{formatCount(day.own)}</td>{earnOn && <td className="num">{earnedText(day.paid)}</td>}</tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
+        </Modal>
       </section>
 
       <section className="gp-panel gp-tablebox" data-fw="1" aria-label="Table">

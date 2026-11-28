@@ -2,6 +2,7 @@
 
 import { useState, useRef, useLayoutEffect, useEffect, useContext, cloneElement } from "react";
 import { PanelCtx } from "./panel-context";
+import { AnchoredBubble } from "./bubble";
 import { createPortal } from "react-dom";
 import { formatCount } from "../../lib/analytics.js";
 import { attentionFigures, pickAttention } from "../../lib/attention.js";
@@ -41,22 +42,16 @@ export function Info({ text, title }) {
   const toggle = (e) => {
     e.stopPropagation();
     if (pos) return setPos(null);
-    const r = btn.current.getBoundingClientRect();
-    const W = Math.min(270, window.innerWidth - 16);
-    const left = clampN(r.left + r.width / 2 - W / 2, 8, window.innerWidth - W - 8);
-    const above = window.innerHeight - r.bottom < 150 && r.top > 150;
-    setPos({ left, W, arrow: r.left + r.width / 2 - left, above, y: above ? window.innerHeight - r.top + 8 : r.bottom + 8 });
+    setPos(btn.current.getBoundingClientRect());
   };
   return (
     <>
       <button type="button" ref={btn} className={`ig-i${pos ? " is-on" : ""}`} aria-label={`About: ${title}`} aria-expanded={!!pos} onClick={toggle}>i</button>
-      {pos && createPortal(
-        <div className={`ig-bubble${pos.above ? " is-above" : ""}`} role="tooltip" style={{ left: pos.left, width: pos.W, ...(pos.above ? { bottom: pos.y } : { top: pos.y }) }}>
-          <span className="ig-bubble-arrow" style={{ left: pos.arrow }} />
+      {pos && (
+        <AnchoredBubble rect={pos}>
           <b>{title}</b>
           {text}
-        </div>,
-        document.body,
+        </AnchoredBubble>
       )}
     </>
   );

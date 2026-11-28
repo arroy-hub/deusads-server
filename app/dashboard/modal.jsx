@@ -6,9 +6,10 @@ import { useId, useLayoutEffect, useRef } from "react";
  * A pop-up over the page (the browser's own modal dialog: dims the page, keeps focus inside, closes
  * on Escape). `open` is owned by the caller; `onClose` is called however the pop-up closes. The
  * content is only built while it is open, so a closed pop-up costs nothing and forgets what was
- * typed in it.
+ * typed in it. With `lightClose` a click on the dimmed page around the pop-up closes it too (for pop-ups that only show
+ * something; one with a form keeps what was typed until Cancel or Escape).
  */
-export default function Modal({ open, onClose, title, children, footer, busy = false, wide = false, className = "" }) {
+export default function Modal({ open, onClose, title, children, footer, busy = false, wide = false, className = "", lightClose = false }) {
   const ref = useRef(null);
   const titleId = useId();
 
@@ -24,6 +25,7 @@ export default function Modal({ open, onClose, title, children, footer, busy = f
       ref={ref}
       className={`modal${wide ? " modal-wide" : ""}${className ? ` ${className}` : ""}`}
       aria-labelledby={titleId}
+      onMouseDown={lightClose ? (event) => { if (event.target === ref.current && !busy) onClose?.(event); } : undefined}
       onClose={(event) => {
         // A pop-up can sit inside another one (the countries inside Add game). React passes `close` up the tree of
         // components, so without this the outer pop-up would think it was closed and throw its draft away.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useSamePage } from "../same-page";
 import { useRef, useState } from "react";
 import CampaignsPanel from "./campaigns-panel";
 import Library from "../creatives/library";
@@ -26,6 +27,8 @@ export default function CampaignsWindow({ campaigns, error, rules, today, librar
     window.scrollTo(0, 0);
     if (focus) tabs.current[next]?.focus();
   }
+  // The menu entry of this window while one of its tabs is open: show the first tab, nothing to fetch.
+  useSamePage(() => choose("camp"));
   const onKeyDown = (e) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
