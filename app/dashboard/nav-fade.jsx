@@ -42,6 +42,8 @@ export default function NavFade() {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!link || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
+      // a link that opens something over the page instead of leaving it (it says so itself): no page is coming
+      if (link.hasAttribute("data-stays")) return;
       const url = new URL(link.href, window.location.href);
       if (url.origin !== window.location.origin) return;
       if (url.pathname === window.location.pathname && url.search === window.location.search) return; // same page or only a #anchor

@@ -91,7 +91,7 @@ function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, p
         <CardMenu item={item} folders={folders} onMove={(f) => move(item.id, f, null)} onDelete={() => remove(item.id)} />
       </div>
       {/* A plain click opens the editor over the library, with nothing to load back when it closes; the address is there for a new tab. */}
-      <Link href={`/dashboard/creatives/${item.id}`} className={`rd-thumb${opening ? " is-opening" : ""}`} aria-label={`Edit ${item.name}`} aria-busy={opening || undefined}
+      <Link href={`/dashboard/creatives/${item.id}`} className={`rd-thumb${opening ? " is-opening" : ""}`} aria-label={`Edit ${item.name}`} aria-busy={opening || undefined} data-stays={onOpen ? "" : undefined}
         onClick={(e) => { if (!onOpen || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); e.stopPropagation(); onOpen(item); }}>
         <img src={item.url} alt="" loading="lazy" draggable={false} />
         <span className={`ov-pill ${tone} rd-thumb-pill`}>{label}</span>
@@ -170,7 +170,8 @@ export default function LibraryV2({ list, folders: serverFolders = [], folderToo
     if (result?.error) { setEditing(null); return setOpenProblem(result.error); }
     setEditing({ id: item.id, data: result.editor });
   }
-  const closeEditor = () => { setEditing(null); refreshPage(router); };
+  // Nothing to fetch on closing: the editor refreshes the page itself when something was saved or uploaded.
+  const closeEditor = () => setEditing(null);
   useEffect(() => setFolders(serverFolders), [serverFolders]);
 
   const fail = (result, fallback = "Could not save. Try again.") => { setProblem(result?.error || fallback); refreshPage(router); };
