@@ -60,7 +60,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
 
   const [name, setName] = useState(creative.name);
   const [own, setOwn] = useState(() => Object.fromEntries(standard.map((a) => [a.formatId, { id: a.id, url: a.url, pending: a.status === "pending" }])));
-  const [sel, setSel] = useState(() => (FORMATS.some((f) => f.id === initialShape) ? initialShape : FORMATS.find((f) => !auto[f.id].fits && !standard.some((a) => a.formatId === f.id))?.id ?? "r16x9"));
+  const [sel, setSel] = useState(() => (FORMATS.some((f) => f.id === initialShape) ? initialShape : FORMATS.find((f) => (editor.holds ?? []).some((hold) => hold.shape === f.id))?.id ?? FORMATS.find((f) => !auto[f.id].fits && !standard.some((a) => a.formatId === f.id))?.id ?? "r16x9"));
   const [crops, setCrops] = useState(() => ({ ...(editor.formatCrops ?? {}) }));
   const [dirty, setDirty] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
@@ -115,6 +115,8 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
 
   const give = (fid, picture) => { setOwn((o) => ({ ...o, [fid]: { ...picture, pending: true } })); setDirty(true); setSel(fid); };
   const flash = (text, tone = "") => setMsg({ tone, text });
+  // A new picture sent from the DeusADS note (for a shape it asked to change): that shape shows it at once, marked "in review".
+  const showSent = (fid, picture) => { if (!FORMATS.some((f) => f.id === fid)) return; setOwn((o) => ({ ...o, [fid]: { ...picture, pending: true } })); setSel(fid); };
   async function stage(file, fid) {
     if (!isImage(file)) throw new Error(`${file.name}: images must be PNG or JPG.`);
     if (file.size > MAX_BYTES) throw new Error(`${file.name}: images must be under 8 MB.`);
@@ -331,7 +333,7 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
       {holds.length > 0 && (
         <aside className="rd-ed-side" aria-label="From DeusADS">
           <div className="rd-ed-side-h"><b>From DeusADS</b><span>{holds.length === 1 ? "about this creative" : `${holds.length} decisions about this creative`}</span></div>
-          <div className="rd-ed-side-b">{holds.map((hold) => <HoldNotice key={hold.shape ?? "whole"} creativeId={creative.id} hold={hold} onPage />)}</div>
+          <div className="rd-ed-side-b">{holds.map((hold) => <HoldNotice key={hold.shape ?? "whole"} creativeId={creative.id} hold={hold} onPage onPicture={showSent} />)}</div>
         </aside>
       )}
     </dialog>

@@ -199,7 +199,8 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     }
   });
   refresh(creative.id);
-  return { ok: true, status, notice: fitted.notice };
+  // the picture as it is stored now, so the page can show it at once
+  return { ok: true, status, notice: fitted.notice, id: data.id, url: me.service.storage.from("creatives").getPublicUrl(path).data.publicUrl, width: w, height: h };
 }
 
 /** Remove one extra picture of one of the caller's creatives. */

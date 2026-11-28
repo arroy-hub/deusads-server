@@ -24,7 +24,7 @@ const measure = (file) => new Promise((resolve, reject) => {
  * On the creative's page (`onPage`) a creative that waits for a change gets its tools: a new main picture, and sending
  * the new version for review. Elsewhere the button leads to that page.
  */
-export function HoldNotice({ creativeId, hold, onPage = false }) {
+export function HoldNotice({ creativeId, hold, onPage = false, onPicture }) {
   const router = useRouter();
   const file = useRef(null);
   const [busy, setBusy] = useState("");
@@ -41,6 +41,8 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
   const picture = Boolean(hold.shape);
   const what = picture ? `${hold.shapeLabel} picture` : "creative";
   const [sentNow, setSentNow] = useState(false);
+  // the new picture that waits for review: the one just uploaded, or the one sent earlier
+  const [sentPicture, setSentPicture] = useState(hold.sentPicture ?? null);
   const sent = hold.sent || sentNow;
   const act = async (name, work) => {
     setBusy(name);
@@ -76,7 +78,14 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
         : replaceMainPicture({ creativeId, path, type: picked.type, size: picked.size, width: size.width, height: size.height });
     });
     if (result?.ok) {
-      if (picture) setSentNow(true);
+      if (picture) {
+        setSentNow(true);
+        if (result.url) {
+          setSentPicture({ url: result.url, size: `${result.width} × ${result.height}`, at: new Date().toISOString() });
+          // the editor next to this note shows the new picture in that shape at once
+          onPicture?.(hold.shape, { id: result.id, url: result.url });
+        }
+      }
       setDone(picture ? `The new ${what} was sent for review. It runs again once it is approved.` : "The main picture is replaced. Check the shapes below, then send the new version for review.");
       refreshPage(router);
     }
@@ -109,6 +118,12 @@ export function HoldNotice({ creativeId, hold, onPage = false }) {
             : `${picture ? `The ${what} is` : "It is"} not shown in any game. ${picture ? "Placements of that shape show nothing of this creative until then" : "Campaigns keep running with their other creatives"}, and nothing is charged for what is not shown.`}</dd></div>
         {hold.at && <div><dt>{blocked ? "Decided" : "Why now"}</dt><dd>{blocked ? `${fdt(hold.at)}, after a report from a game where it ran.` : `A game where it runs reported it, and DeusADS checked it. ${fdt(hold.at)}.`}</dd></div>}
       </dl>
+      {sent && sentPicture && (
+        <div className="hold-sent">
+          <a href={sentPicture.url} target="_blank" rel="noreferrer" className="hold-sent-img" style={{ backgroundImage: `url(${sentPicture.url})` }} aria-label="Open your new picture in full size" />
+          <div><b>Your new {what}</b><span>{sentPicture.size} · sent {fdtTime(sentPicture.at)} UTC</span><span>In review. It replaces the reported picture once DeusADS approves it.</span></div>
+        </div>
+      )}
       {hold.note && <div className="hold-msg"><span className="hold-msg-h"><b>Message from DeusADS</b>{hold.at && <small>{fdt(hold.at)}</small>}</span><p>{hold.note}</p></div>}
       {thread.map((message, index) => (
         <div key={index} className={`hold-msg${message.side === "advertiser" ? " is-mine" : ""}`}><span className="hold-msg-h"><b>{message.side === "advertiser" ? "You" : "DeusADS"}</b><small suppressHydrationWarning>{fdtTime(message.at)} UTC</small></span><p>{message.text}</p></div>
