@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { browserClient } from "../../../lib/supabase-browser";
@@ -33,6 +33,14 @@ export function HoldNotice({ creativeId, hold, onPage = false, onPicture }) {
   const [done, setDone] = useState("");
   const [writing, setWriting] = useState(false);
   const [text, setText] = useState("");
+  // The box to write in opens at the end of the conversation, which may be below what is on screen: it is brought into
+  // view and takes the cursor, so "Write again" always leads to a place to type.
+  const box = useRef(null);
+  useEffect(() => {
+    if (!writing) return;
+    box.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    box.current?.focus({ preventScroll: true });
+  }, [writing]);
   // what was said since the decision; a message just sent shows at once
   const [thread, setThread] = useState(hold.thread ?? []);
   const last = thread.at(-1)?.side ?? null;
@@ -187,8 +195,8 @@ export function HoldNotice({ creativeId, hold, onPage = false, onPicture }) {
         {last && <p className={`hold-state${last === "admin" ? " is-new" : ""}`} role="status">{last === "advertiser" ? "Waiting for DeusADS: the review team has your message and will answer here." : "DeusADS replied. You can answer here."}</p>}
         {writing && (
           <div className="hold-reply">
-            <label htmlFor={`hold-reply-${creativeId}`}>Your message to DeusADS</label>
-            <textarea id={`hold-reply-${creativeId}`} className="field" rows={3} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} />
+            <label htmlFor={`hold-reply-${creativeId}-${hold.shape ?? "whole"}`}>Your message to DeusADS</label>
+            <textarea ref={box} id={`hold-reply-${creativeId}-${hold.shape ?? "whole"}`} className="field" rows={3} placeholder="Write your message here" maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} />
           </div>
         )}
         <div className="hold-acts">

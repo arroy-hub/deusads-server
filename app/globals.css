@@ -10531,3 +10531,6 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .rd-ed-side .hold-note .hold-acts { position: static; margin: 12px 16px 0; padding: 0; background: none !important; border-top: 0; border-radius: 0; }
 .rd-ed-side .hold-talk .hold-acts { position: sticky; bottom: -16px; margin: 10px -16px -14px; padding: 10px 16px 12px; background: #fcfaf7 !important; border-top: 1px solid #efe7de; z-index: 1; }
 .hold-talk .hold-acts { margin-left: 0; margin-right: 0; }
+
+/* The reply box keeps clear of the buttons that stay at the bottom of the side window. */
+.hold-reply textarea { min-height: 84px; scroll-margin-bottom: 72px; }
