@@ -174,3 +174,41 @@ console.log("wallet: all checks passed");
   assert.equal(payoutPlan(-3, mid).pct, 0);
   console.log("payout plan: ok");
 }
+
+// the monthly payout: when it is due, how much, and that nobody is paid twice
+{
+  const { payoutDue, payoutAmount } = await import("../lib/wallet.js");
+  const { runPayouts, payoutText } = await import("../lib/wallet-notices.js");
+  const { default: assert } = await import("node:assert/strict");
+  assert.equal(payoutDue(Date.parse("2026-12-01T00:10:00Z")), "2026-12-01");
+  assert.equal(payoutDue(Date.parse("2026-12-03T23:00:00Z")), "2026-12-01", "caught up for two more days");
+  assert.equal(payoutDue(Date.parse("2026-12-04T00:00:00Z")), null);
+  assert.equal(payoutDue(Date.parse("2026-11-28T12:00:00Z")), null);
+  assert.equal(payoutAmount(49.994), 0);
+  assert.equal(payoutAmount(50), 50);
+  assert.equal(payoutAmount(822.044), 822.04);
+  assert.match(payoutText(822.04), /^Demo payout: 822\.04 C\. Pilot: no money was sent/);
+
+  // a tiny stand-in for the database
+  const tables = { wallet_earnings: [
+    { developer_id: "d1", day: "2026-11-20", amount: 100 }, // 80 for the developer
+    { developer_id: "d1", day: "2026-12-01", amount: 500 }, // the payout day itself is not in it
+    { developer_id: "d2", day: "2026-11-20", amount: 40 },  // 32: under the minimum
+    { developer_id: "d3", day: "2026-10-05", amount: 200 }, // 160, of which 100 was paid before
+  ], wallet_payouts: [{ developer_id: "d3", day: "2026-11-01", amount: 100 }], notifications: [], notification_prefs: [] };
+  const db = { from(name) {
+    const rows = tables[name]; let list = [...rows]; const api = {
+      select() { return api; }, limit() { return api; }, eq(k, v) { list = list.filter((r) => r[k] === v); return api; }, lt(k, v) { list = list.filter((r) => r[k] < v); return api; },
+      maybeSingle() { return Promise.resolve({ data: list[0] ?? null, error: null }); },
+      insert(row) { if (name === "wallet_payouts" && rows.some((r) => r.developer_id === row.developer_id && r.day === row.day)) return Promise.resolve({ error: { code: "23505" } }); rows.push(row); return Promise.resolve({ error: null }); },
+      then(done) { return Promise.resolve({ data: list, error: null }).then(done); },
+    }; return api; } };
+  const now = Date.parse("2026-12-01T03:00:00Z");
+  assert.equal(await runPayouts(db, now), 2);
+  const made = tables.wallet_payouts.filter((r) => r.day === "2026-12-01");
+  assert.deepEqual(made.map((r) => [r.developer_id, r.amount, r.demo]).sort(), [["d1", 80, true], ["d3", 60, true]]);
+  assert.equal(tables.notifications.length, 2);
+  assert.equal(await runPayouts(db, now), 0, "a second run pays nobody twice");
+  assert.equal(await runPayouts(db, Date.parse("2026-12-10T03:00:00Z")), 0);
+  console.log("payouts: ok");
+}

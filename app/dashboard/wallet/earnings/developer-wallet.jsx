@@ -35,6 +35,7 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
   const [tab, setTab] = useState(initialTab);
   const [period, setPeriod] = useState(30);
   const [span, setSpan] = useState({ days: 30 }); // the period of the History list
+  const [kind, setKind] = useState("all"); // what History lists: everything, earnings or payouts
   const [ticked, setTicked] = useState([TOTAL]);
   const tabs = useRef({});
 
@@ -77,7 +78,10 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
   const gameRows = games.map((game) => ({ game, paid: sum(seriesOf(game.id)), campaigns: campaigns.filter((campaign) => campaign.games.includes(game.id)).length }));
   const most = Math.max(1, ...gameRows.map((row) => row.paid));
 
-  const balance = wallet.total.amount * DEV_SHARE;
+  // what the games earned minus what was already paid out (migration 0068)
+  const payouts = wallet.payouts ?? [];
+  const balance = Math.max(0, wallet.total.amount * DEV_SHARE - (wallet.paidOut ?? 0));
+  const lastPayout = payouts[0] ?? null;
   const plan = payoutPlan(balance);
   const overview = (
     <>
@@ -85,9 +89,9 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
         <section className="wl-hero wl-hero-solo">
           <div className="wl-hero-main">
             <HeroAmount
-              label={<>Balance <Hint title="How you get paid" text={`Payouts are automatic: on the 1st of each month, once your balance has reached ${credits(plan.minimum)} C., it is paid out to you. There is nothing to request. Payouts start at full launch; during the pilot, credits only show what your games would earn.`} /></>}
+              label={<>Balance <Hint title="How you get paid" text={`What your games earned and was not paid out yet. On the 1st of each month, once it has reached ${credits(plan.minimum)} C., the whole balance is paid out and it starts again from zero. There is nothing to request. During the pilot payouts are a demo: no money is sent.`} /></>}
               value={credits(balance)}
-              sub={<>credits earned so far <Hint title="What is a credit?" text={creditNote("see")} /></>}
+              sub={<>credits not paid out yet <Hint title="What is a credit?" text={creditNote("see")} /></>}
             />
           </div>
           <dl className="wl-hero-strip">
@@ -105,11 +109,14 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
             <div className="wl-pay-track" role="img" aria-label={`${plan.pct}% of the payout minimum`}><i style={{ width: `${plan.pct}%` }} /></div>
           </div>
           <ul>
-            <li><div><b>Next payout</b><small>{plan.reached ? "your whole balance" : `if the balance reaches ${credits(plan.minimum)} C. by then`}</small></div><span className="wl-pay-v">{dayText(plan.next)}</span></li>
-            <li><div><b>Paid on that day</b><small>{plan.reached ? "as it stands now; it grows until then" : "the balance stays for the next month"}</small></div><span className="wl-pay-v">{plan.reached ? <><Figure>{credits(balance)}</Figure> C.</> : "—"}</span></li>
-            <li><div><b>Last payout</b><small>payouts start at full launch</small></div><span className="wl-pay-v is-none">None yet</span></li>
+            <li><div><b>Next payout</b><small>{plan.reached ? <><Figure>{credits(balance)}</Figure> C. as it stands now</> : `if the balance reaches ${credits(plan.minimum)} C. by then`}</small></div><span className="wl-pay-v">{dayText(plan.next)}</span></li>
+            <li>
+              <div><b>Last payout</b><small>{lastPayout ? <>{dayText(lastPayout.day)}{lastPayout.demo ? " · demo" : ""} · <button type="button" className="link-button" onClick={() => { setKind("payouts"); choose("history"); }}>all payouts</button></> : "none yet"}</small></div>
+              <span className={`wl-pay-v${lastPayout ? "" : " is-none"}`}>{lastPayout ? <><Figure>{credits(lastPayout.amount)}</Figure> C.</> : "—"}</span>
+            </li>
+            <li><div><b>Paid out · all time</b><small>{payouts.length} {payouts.length === 1 ? "payout" : "payouts"}</small></div><span className={`wl-pay-v${payouts.length ? "" : " is-none"}`}><Figure>{credits(wallet.paidOut ?? 0)}</Figure> C.</span></li>
           </ul>
-          <p className="wl-pay-note">Pilot: credits are demo units, so nothing is paid out yet. This shows where you would stand.</p>
+          <p className="wl-pay-note">Pilot: payouts are a demo, no money is sent. At full launch every balance starts from zero.</p>
         </section>
       </div>
       <MoneyChart
@@ -168,16 +175,27 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
       if (n > 0) history.push({ key: `${all[index]}:${game.id}`, day: all[index], game: game.name, impressions: n });
     }
   }
+  // Payouts sit among the earnings by their day; on one day the payout comes first (it closes the days before it).
+  const historyLines = [
+    ...(kind === "payouts" ? [] : history),
+    ...(kind === "earnings" ? [] : payouts.filter((row) => row.day >= from && row.day <= to).map((row) => ({ key: `payout:${row.day}`, day: row.day, payout: true, amount: row.amount, demo: row.demo }))),
+  ].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : (b.payout ? 1 : 0) - (a.payout ? 1 : 0)));
   const historyTab = (
-    <TableBox title="History" className="wl-histbox" tools={<HistoryPeriod value={span} onChange={setSpan} min={all[0] ?? null} />} head={[["Date"], ["Operation"], ["Amount", true]]} note={<p className="wl-foot">One line per game per day; days are kept for the last {all.length} days. Monthly payouts will appear here once they start.</p>}>
-      {history.map((row) => (
+    <TableBox title="History" className="wl-histbox" tools={<><div className="cr-tabs" role="tablist" aria-label="Show">{[["all", "All"], ["earnings", "Earnings"], ["payouts", "Payouts"]].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={kind === key} onClick={() => setKind(key)}>{label}</button>)}</div><HistoryPeriod value={span} onChange={setSpan} min={all[0] ?? null} /></>} head={[["Date"], ["Operation"], ["Amount", true]]} note={<p className="wl-foot">Earnings: one line per game per day, kept for the last {all.length} days. Payouts: on the 1st of a month, the whole balance once it has reached {credits(plan.minimum)} C.</p>}>
+      {historyLines.map((row) => row.payout ? (
+        <tr key={row.key}>
+          <td className="wl-date">{dayText(row.day)}</td>
+          <td><span className="wl-kind wl-k-sp">{row.demo ? "Payout · demo" : "Payout"}</span> {row.demo ? "Balance paid out (pilot: no money was sent)" : "Balance paid out"}</td>
+          <td className="num"><Amount value={-row.amount} /></td>
+        </tr>
+      ) : (
         <tr key={row.key}>
           <td className="wl-date">{dayText(row.day)}</td>
           <td><span className="wl-kind wl-k-top">Earnings</span> {row.game} · {count(row.impressions)} impressions</td>
           <td className="num"><Amount value={earnedOf(row.impressions)} /></td>
         </tr>
       ))}
-      {history.length === 0 ? <tr><td colSpan={3} className="wl-none">Nothing earned in this period.</td></tr> : null}
+      {historyLines.length === 0 ? <tr><td colSpan={3} className="wl-none">{kind === "payouts" ? "No payouts in this period." : "Nothing in this period."}</td></tr> : null}
     </TableBox>
   );
 

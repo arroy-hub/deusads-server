@@ -60,7 +60,7 @@ export default function PlatformWallet({ wallet, marked, sub, initialTab = "over
         hero={<HeroAmount label="Platform balance" value={credits(kept)} sub={`credits kept · ${percent(PLATFORM_SHARE)} of advertiser spend`} />}
         cells={[
           ["Advertisers paid", credits(spend), `${count(wallet.total.impressions)} paid impressions`],
-          ["Paid to developers", credits(toDevelopers), `${percent(DEV_SHARE)} of advertiser spend`],
+          ["Developers’ share", credits(toDevelopers), `${percent(DEV_SHARE)} of advertiser spend · ${credits(wallet.paidOut ?? 0)} paid out${(wallet.paidOut ?? 0) > 0 ? " (demo)" : ""}`],
           [`Platform share · ${period} days`, credits(costOf(inPeriod) * PLATFORM_SHARE), `today ${credits(wallet.today.amount * PLATFORM_SHARE)}`],
         ]}
       />
