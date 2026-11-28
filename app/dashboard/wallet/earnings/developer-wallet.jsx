@@ -142,9 +142,9 @@ export default function DeveloperWallet({ wallet, sub, initialTab = "overview" }
         <section className="wl-hero wl-hero-solo">
           <div className="wl-hero-main">
             <HeroAmount
-              label={<>Balance <Hint title="How you get paid" text={`What your games earned and was not paid out yet. On the 1st of each month, once it has reached ${credits(plan.minimum)} C., the whole balance is paid out and it starts again from zero. There is nothing to request. During the pilot payouts are a demo: no money is sent.`} /></>}
+              label={<>Balance <Hint title="What is a credit?" text={creditNote("see")} /></>}
               value={credits(balance)}
-              sub={<>credits not paid out yet <Hint title="What is a credit?" text={creditNote("see")} /></>}
+              sub={<>{lastPayout ? "earned since the last payout" : "earned so far"} <Hint title="What happens to it" text={`On the 1st of each month, once the balance has reached ${credits(plan.minimum)} C., all of it goes into a payout and the count starts again from zero. There is nothing to request. During the pilot the payout is virtual: it is written down in History, but no real money is sent.`} /></>}
             />
           </div>
           <dl className="wl-hero-strip">

@@ -10683,3 +10683,23 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .ig-funnel-label { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: baseline; }
 .ig-funnel-label em { grid-column: 1 / -1; grid-row: 2; }
 .ig-funnel-share { grid-column: 2; grid-row: 1; margin-left: 0; }
+
+/* Wallet blocks: a dark band in the head, as on the Needs attention block of Home. */
+.wl-bh-band { background: linear-gradient(90deg, #211f1d 0%, #5b3528 38%, #b35a42 100%); border-bottom-color: #ece5de; }
+.wl-bh-r, .wl-bh-r .link-button { color: #fff; }
+.wl-bh-r .link-button { text-decoration-color: rgba(255,255,255,.55); }
+.wl-bh-r .link-button:hover { text-decoration-color: #fff; }
+.wl-bh-r .cr-tabs { background: rgba(255,255,255,.16); }
+.wl-bh-r .cr-tabs button { color: rgba(255,255,255,.85); }
+.wl-bh-r .cr-tabs button:hover { color: #fff; }
+.wl-bh-r .cr-tabs button[aria-selected="true"] { background: #fff; color: var(--ink, #241d19); }
+.wl-bh-r .wl-range { color: #fff; }
+
+/* The balance block: the figures under the amount take the room that was empty, and read from a distance. */
+.wl-hero.wl-hero-solo { grid-template-rows: auto 1fr; }
+.wl-hero-solo .wl-hero-strip { align-items: stretch; }
+.wl-hero-solo .wl-hero-strip div { justify-content: center; gap: 3px; padding: 16px 22px 18px; }
+.wl-hero-solo .wl-hero-strip dt { font-size: 12.5px; }
+.wl-hero-solo .wl-hero-strip dd { font-size: clamp(1.5rem, 2.2vw, 2rem); line-height: 1.15; letter-spacing: -.01em; }
+.wl-hero-solo .wl-hero-strip small { font-size: 12.5px; }
+@media (max-width: 640px) { .wl-hero-solo .wl-hero-strip div { padding: 10px 16px; } .wl-hero-solo .wl-hero-strip dd { font-size: 1.25rem; } }
