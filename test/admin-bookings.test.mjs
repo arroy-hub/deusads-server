@@ -19,7 +19,7 @@ assert.equal(periodProgress({ startsOn: "2026-11-01", endsOn: "2026-11-30" }, T)
 const mk = (id, over = {}) => ({ id, status: "approved", startsOn: "2026-10-01", endsOn: "2026-10-31", created: "2026-09-28", createdAt: "2026-09-28T10:00:00Z", campaign: "Autumn", creativeName: "Summer", category: "retail", creativeUrl: "", creativeSize: "1920 × 1080", game: "Starfall", gameId: "g1", placement: "Lobby", placementId: "p" + id, creativeId: "c1", advertiser: "Nimbus", advertiserId: "a1", developerName: "Kiln", developerId: "d1", dates: "1 Oct to 31 Oct", ...over });
 const now = Date.parse("2026-10-19T12:00:00Z");
 const imps = new Map([[impKey("p1", "c1"), 100], [impKey("p2", "c1"), 50]]);
-const rows = bookingRows({ bookings: [mk("1"), mk("2", { controlNote: "Paused by developer." }), mk("3", { advertiserId: "a2", advertiser: "Pulse", status: "pending" }), mk("4", { developerId: "d2", developerName: "Brick", endsOn: null, dates: "" })], impressions: imps, now });
+const rows = bookingRows({ bookings: [mk("1"), mk("2", { controlNote: "The developer paused this campaign in this game. It shows again when they resume it." }), mk("3", { advertiserId: "a2", advertiser: "Pulse", status: "pending" }), mk("4", { developerId: "d2", developerName: "Brick", endsOn: null, dates: "" })], impressions: imps, now });
 assert.deepEqual(rows.map((r) => r.state), ["running", "paused", "waiting", "running"]);
 assert.equal(rows[0].impressions, 100);
 assert.equal(rows[2].impressions, 0);
@@ -52,3 +52,22 @@ assert.equal(w.find((x) => x.k === "bimp").data.rows[0].label, "Starfall");
 assert.equal(bookingWidgets(bookingRows({ bookings: [mk("1")], impressions: null, now })).find((x) => x.k === "bimp").data.type, "note");
 for (const x of w) assert.ok(/^[a-z0-9_-]{1,12}$/.test(x.k), x.k);
 console.log("admin-bookings ok");
+
+// A booking that shows nothing is "paused" only when somebody paused it
+{
+  const { stopReason, bookingRows, stateLabel, bookingNow } = await import("../lib/admin-bookings.js");
+  const { default: assert } = await import("node:assert/strict");
+  const base = { id: "b", status: "approved", startsOn: null, endsOn: null, created: "2026-11-01", createdAt: "2026-11-01T00:00:00Z" };
+  assert.equal(stopReason({ ...base }), "");
+  assert.equal(stopReason({ ...base, noPicture: true, controlNote: "Not shown here: this creative has no picture for the shape of this placement." }), "picture");
+  assert.equal(stopReason({ ...base, held: true, controlNote: "On hold: DeusADS asked to change this picture" }), "deusads");
+  assert.equal(stopReason({ ...base, controlNote: "The developer paused this campaign in this game. It shows again when they resume it." }), "developer");
+  assert.equal(stopReason({ ...base, controlNote: "This game does not show ads of this category." }), "category");
+  assert.equal(stopReason({ ...base, controlNote: "Not shown: the game is not in the chosen genres." }), "audience");
+  const rows = bookingRows({ bookings: [{ ...base, noPicture: true, controlNote: "Not shown here" }, { ...base, id: "c", controlNote: "The developer blocked this creative in this game." }, { ...base, id: "d" }], now: Date.parse("2026-11-28T00:00:00Z") });
+  assert.deepEqual(rows.map((r) => r.state), ["notshown", "paused", "running"]);
+  assert.equal(stateLabel(rows[0]), "No picture for this shape");
+  assert.equal(stateLabel(rows[1]), "Paused by developer");
+  assert.match(bookingNow(rows[0]), /^Not showing: no picture for this shape\./);
+  console.log("booking stop reasons: ok");
+}

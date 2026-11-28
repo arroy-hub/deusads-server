@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { nextSort } from "../../../../lib/sort";
-import { STATES, GROUP_BY, groupBookings, bookingSortValue } from "../../../../lib/admin-bookings";
+import { STATES, GROUP_BY, groupBookings, bookingSortValue, stateLabel } from "../../../../lib/admin-bookings";
 import { DeckShell, DeckToggle } from "../admin-deck";
 import { Band, Dropdown, Icon, IconBtn, Lnk, Pill, SortTh, Th } from "../ui";
 import { useCards } from "../cards";
@@ -13,7 +13,7 @@ const fmt = (n) => (n == null ? "—" : n.toLocaleString("en-US").replace(/,/g, 
 const dateTxt = (from, to) => `${String(from).slice(5)} → ${to ? String(to).slice(5) : "no end"}`;
 const matches = (r, q) => !q || `${r.game}${r.advertiser}${r.developer}${r.creative}${r.campaign}`.toLowerCase().includes(q.toLowerCase());
 const stateOk = (r, f) => f === "all" || r.state === f || (f === "rejected" && r.state === "cancelled");
-const SHOW = [["all", "All statuses"], ["running", "Running"], ["paused", "Paused by developer"], ["scheduled", "Scheduled"], ["ended", "Ended"]];
+const SHOW = [["all", "All statuses"], ["running", "Running"], ["paused", "Paused"], ["notshown", "Not showing"], ["scheduled", "Scheduled"], ["ended", "Ended"]];
 const SHOW_EXTRA = [["waiting", "Waiting"], ["rejected", "Rejected or cancelled"]];
 
 export default function BookingsView({ rows, widgets, groups, defaults, layout }) {
@@ -52,8 +52,8 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
           <strong>{r.creativeId ? <Lnk onClick={() => openCard("creative", r.creativeId)}>{r.creative}</Lnk> : r.creative}</strong>
           <span className="cb-mute">{where.join(" · ")}</span>
         </div></div>
-        <div><Pill tone={STATES[r.state].tone} title={STATES[r.state].label}>{STATES[r.state].short}</Pill></div>
-        <div className={`cb-dr${r.state === "paused" ? " cb-paused" : r.state === "ended" ? " cb-over" : ""}`}>
+        <div><Pill tone={STATES[r.state].tone} title={stateLabel(r)}>{STATES[r.state].short}</Pill></div>
+        <div className={`cb-dr${r.state === "paused" || r.state === "notshown" ? " cb-paused" : r.state === "ended" ? " cb-over" : ""}`}>
           <b>{dateTxt(r.from, r.to)}</b>
           <div className="cb-tr"><i style={{ width: `${r.state === "scheduled" || r.state === "waiting" ? 0 : r.progress ?? 0}%` }} /></div>
         </div>
@@ -86,7 +86,7 @@ export default function BookingsView({ rows, widgets, groups, defaults, layout }
                       <span className="cb-mute">{g.rows.length} booking{g.rows.length > 1 ? "s" : ""}{by === "game" ? "" : ` · ${g.games} game${g.games > 1 ? "s" : ""}`}</span>
                     </div></div>
                     <div className="cb-bkpills">
-                      {["running", "paused", "scheduled", "waiting", "ended", "rejected", "cancelled"].filter((k) => g.counts[k]).map((k) => <Pill key={k} tone={STATES[k].tone}>{g.counts[k]} {STATES[k].short.toLowerCase()}</Pill>)}
+                      {["running", "paused", "notshown", "scheduled", "waiting", "ended", "rejected", "cancelled"].filter((k) => g.counts[k]).map((k) => <Pill key={k} tone={STATES[k].tone}>{g.counts[k]} {STATES[k].short.toLowerCase()}</Pill>)}
                     </div>
                     <div className="cb-mute" style={{ fontSize: 12.5 }}>{dateTxt(g.from, g.to)}</div>
                     <div className="cb-num"><b style={{ fontWeight: 600 }}>{fmt(g.impressions)}</b></div>
