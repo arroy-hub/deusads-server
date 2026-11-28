@@ -67,7 +67,7 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
   const btn = useRef(null);
   const [menu, setMenu] = useState(false);
   // the block under a row (the signal, what to change, why it was blocked): open for a creative on hold, shut for a signal
-  const [more, setMore] = useState(() => Object.fromEntries(list.filter((item) => item.hold).map((item) => [item.id, true])));
+  const [more, setMore] = useState(() => Object.fromEntries(list.filter((item) => item.holds?.length).map((item) => [item.id, true])));
 
   async function add(ids, names) {
     const result = await addCreativesToCampaign({ campaignId: id, creativeIds: ids }).catch(() => ({ error: "Connection lost. Try again." }));
@@ -110,9 +110,10 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
       ) : (
         <section className="cc-list" aria-label="Creatives in this campaign">
           {list.map((item) => {
-            const hold = item.hold;
+            const hold = item.holds?.[0] ?? null;
             const signal = item.signal;
-            const [label, tone] = hold ? hold.pill : STATUS[item.status] ?? STATUS.pending;
+            // a hold of the whole creative replaces its status; a held picture is said next to it (the creative still runs)
+            const [label, tone] = hold && !hold.shape ? hold.pill : STATUS[item.status] ?? STATUS.pending;
             const ready = item.ready.filter(Boolean).length;
             const note = hold ? hold.line : signal?.line ? signal.line : item.status === "pending" ? "Ads start once it is approved" : item.status === "rejected" ? item.note || "Rejected" : "";
             const toggle = hold ? hold.toggle : signal?.blocked > 0 ? "How developers react" : "";
@@ -126,11 +127,11 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
                     {note && <span className="ovx-muted">{note}</span>}
                     {toggle && <button type="button" className="link-button cc-more-btn" aria-expanded={open} onClick={() => setMore((m) => ({ ...m, [item.id]: !m[item.id] }))}>{toggle}<i /></button>}
                   </span>
-                  <span className="cc-state"><span className={`ov-pill ${tone}`}>{label}</span><span className="lib-bar" role="img" aria-label={`${ready} of ${item.ready.length} formats ready`}>{item.ready.map((r, i) => <span key={i} className={r ? "" : "is-missing"} title={SHORT[item.formatIds[i]]} />)}</span></span>
+                  <span className="cc-state"><span className={`ov-pill ${tone}`}>{label}</span>{(item.holds ?? []).filter((x) => x.shape).map((x) => <span key={x.shape} className={`ov-pill ${x.pill[1]}`}>{x.pill[0]}</span>)}<span className="lib-bar" role="img" aria-label={`${ready} of ${item.ready.length} formats ready`}>{item.ready.map((r, i) => <span key={i} className={r ? "" : "is-missing"} title={SHORT[item.formatIds[i]]} />)}</span></span>
                   <span className="lib-num"><strong>{item.impressions > 0 ? formatCount(item.impressions) : "—"}</strong><span>impressions</span></span>
                   <span className="lib-num"><strong>{item.avg != null ? `${item.avg.toFixed(1)} s` : "—"}</strong><span>avg view</span></span>
                   <span className="cc-actions">
-                    {hold?.kind !== "blocked" && <Link href={`/dashboard/creatives/${item.id}`} className="button button-quiet button-small">Edit</Link>}
+                    {!(hold && !hold.shape && hold.kind === "blocked") && <Link href={`/dashboard/creatives/${item.id}`} className="button button-quiet button-small">Edit</Link>}
                     {item.removable && (asking === item.id ? (
                       <span className="confirm-inline"><span className="confirm-text">Remove from this campaign?</span><button type="button" className="button button-danger button-small" disabled={busy} onClick={() => remove(item)}>{busy ? <Busy>Removing…</Busy> : "Remove"}</button><button type="button" className="button button-quiet button-small" disabled={busy} onClick={() => setAsking(null)}>Keep</button></span>
                     ) : <button type="button" className="button button-quiet button-small" onClick={() => { setProblem(""); setAsking(item.id); }}>Remove</button>)}
@@ -138,7 +139,7 @@ export default function CampaignCreatives({ id, list, library, draft = false }) 
                 </div>
                 {open && (
                   <div className="cc-more">
-                    {hold ? <HoldNotice creativeId={item.id} hold={hold} /> : (
+                    {hold ? <div className="cc-holds">{item.holds.map((x) => <HoldNotice key={x.shape ?? "whole"} creativeId={item.id} hold={x} />)}</div> : (
                       <>
                         <div className="cc-sig-h"><b>How developers react</b><span className="ovx-muted">A signal for you, not a request to change anything.</span></div>
                         <div className="cc-sig-grid">

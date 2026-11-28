@@ -1,6 +1,7 @@
 "use server";
 import { DECISIONS, NEUTRAL_BLOCK_REASON, OUTCOME_OF, PENDING_BLOCK_REASON, needsRule } from "../../../lib/report-rules";
 import { isAdvertiserRule } from "../../../lib/platform-rules";
+import { shapeKey, shapeLabel } from "../../../lib/game-pictures";
 
 import { revalidatePath } from "next/cache";
 import { getAdmin } from "../../../lib/admin";
@@ -86,10 +87,22 @@ export async function reviewAsset({ assetId, decision, note }) {
     .from("creative_assets")
     .update({ status, review_note: reviewNote, reviewed_at: new Date().toISOString() })
     .eq("id", String(assetId ?? ""))
-    .select("id, creative_id, format_id")
+    .select("id, creative_id, format_id, aspect")
     .maybeSingle();
   if (isSchemaOutdated(error) || error?.code === "42P01") return { error: "Run migration 0017 in the Supabase SQL editor first." };
   if (error || !data) return { error: "Could not save the decision." };
+
+  // A new picture for a shape DeusADS asked to change (migration 0065): approved, the shape runs again; rejected, it keeps waiting.
+  const shape = data.format_id ?? shapeKey(Number(data.aspect));
+  let wasHeld = false;
+  try {
+    const { data: hold } = await admin.service.from("creative_picture_holds").select("kind").eq("creative_id", data.creative_id).eq("shape", shape).maybeSingle();
+    wasHeld = hold?.kind === "changes";
+    if (wasHeld && status === "approved") await admin.service.from("creative_picture_holds").delete().eq("creative_id", data.creative_id).eq("shape", shape);
+    if (wasHeld && status === "rejected") await admin.service.from("creative_picture_holds").update({ sent_at: null, held_at: new Date().toISOString(), ...(reviewNote ? { note: reviewNote } : {}) }).eq("creative_id", data.creative_id).eq("shape", shape);
+  } catch {
+    // the review itself is saved
+  }
 
   const { data: creative } = await admin.service
     .from("creatives")
@@ -101,8 +114,8 @@ export async function reviewAsset({ assetId, decision, note }) {
       accountId: creative.owner_id,
       text:
         status === "approved"
-          ? `An image for "${creative.name}" was approved.`
-          : `An image for "${creative.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
+          ? wasHeld ? `The new ${shapeLabel(shape)} picture of "${creative.name}" was approved. It runs again.` : `An image for "${creative.name}" was approved.`
+          : wasHeld ? `The new ${shapeLabel(shape)} picture of "${creative.name}" was not approved${reviewNote ? `: ${reviewNote}` : "."}` : `An image for "${creative.name}" was rejected${reviewNote ? `: ${reviewNote}` : "."}`,
       link: `/dashboard/creatives/${data.creative_id}`,
       type: "adv_creative_reviewed",
     });
@@ -205,7 +218,7 @@ export async function resolveDispute({ disputeId, decision, note, rule, advNote,
   if (!admin) return { error: "Not allowed." };
   if (!DECISIONS.includes(decision)) return { error: "Unknown decision." };
 
-  let read = await admin.service.from("creative_disputes").select("id, developer_id, advertiser_id, initiator, booking_id, creative_id, reason, status, game_id").eq("id", String(disputeId ?? "")).maybeSingle();
+  let read = await admin.service.from("creative_disputes").select("*").eq("id", String(disputeId ?? "")).maybeSingle();
   const extended = !(isSchemaOutdated(read.error) || read.error?.code === "42703");
   if (!extended) read = await admin.service.from("creative_disputes").select("id, developer_id, creative_id, reason, status, game_id").eq("id", String(disputeId ?? "")).maybeSingle();
   const { data: dispute, error } = read;
@@ -228,8 +241,14 @@ export async function resolveDispute({ disputeId, decision, note, rule, advNote,
   const cleanedNote = cleanNote(note) || null;
   const now = new Date().toISOString();
 
-  if (needsRule(decision) && creative) {
-    // Not shown anywhere from now on: a rejected creative never reaches a game. The hold says why, and whether a new version may come.
+  if (needsRule(decision) && creative && dispute.shape) {
+    // The report is about one picture (a creative in one shape): that picture is shown nowhere from now on, the
+    // creative's other shapes keep running (migration 0065).
+    const { error: holdError } = await admin.service.from("creative_picture_holds").upsert({ creative_id: creative.id, shape: dispute.shape, kind: decision === "remove" ? "blocked" : "changes", rule: cleanRule, note: toAdvertiser, dispute_id: dispute.id, held_at: now, sent_at: null }, { onConflict: "creative_id,shape" });
+    if (holdError && (isSchemaOutdated(holdError) || holdError.code === "42P01")) return { error: "Run migration 0065 in the Supabase SQL editor first." };
+    if (holdError) return { error: "Could not save the decision on the picture." };
+  } else if (needsRule(decision) && creative) {
+    // A report about the whole creative: not shown anywhere, a rejected creative never reaches a game.
     const hold = { hold: decision === "remove" ? "blocked" : "changes", hold_rule: cleanRule, hold_note: toAdvertiser, hold_at: now, hold_dispute: dispute.id, hold_sent_at: null };
     const base = { status: "rejected", review_note: `${decision === "remove" ? "Blocked" : "Change requested"} after a report: ${cleanRule}`.slice(0, 500), reviewed_at: now };
     const { error: holdError } = await admin.service.from("creatives").update({ ...base, ...hold }).eq("id", creative.id);
@@ -270,14 +289,14 @@ export async function resolveDispute({ disputeId, decision, note, rule, advNote,
   const name = creative?.name ?? "the creative";
   const reporter = advertiserSide ? dispute.advertiser_id : dispute.developer_id;
   const other = advertiserSide ? dispute.developer_id : creative?.owner_id;
-  const what = decision === "remove" ? `the creative "${name}" was removed` : decision === "change" ? `the advertiser was asked to change the creative "${name}"` : decision === "pause" ? `the booking of "${name}" was paused` : advertiserSide ? `your report on "${name}" was dismissed` : `no violation was found in the creative "${name}"`;
+  const what = decision === "remove" ? `the reported picture of "${name}" was removed` : decision === "change" ? `the advertiser was asked to change the reported picture of "${name}"` : decision === "pause" ? `the booking of "${name}" was paused` : advertiserSide ? `your report on "${name}" was dismissed` : `no violation was found in the creative "${name}"`;
   if (reporter) await notify(admin.service, { accountId: reporter, text: `DeusADS reviewed your report: ${what}.${toDeveloper ? ` ${toDeveloper}` : ""}`, link: advertiserSide ? "/dashboard/advertising" : `/dashboard/support?tab=requests&report=${dispute.id}`, type: advertiserSide ? "adv_report_decided" : "dev_report_decided" });
   // No violation: the advertiser is not told, the report only counts on the creative.
   if (decision !== "dismiss" && other) {
     await notify(admin.service, {
       accountId: other,
-      text: decision === "remove" ? `Your creative "${name}" was blocked for a violation: ${cleanRule}. ${toAdvertiser}`
-        : decision === "change" ? `DeusADS asks you to change the creative "${name}": ${cleanRule}. ${toAdvertiser}`
+      text: decision === "remove" ? `${dispute.shape ? `The ${shapeLabel(dispute.shape)} picture of your creative` : "Your creative"} "${name}" was blocked for a violation: ${cleanRule}. ${toAdvertiser}`
+        : decision === "change" ? `DeusADS asks you to change ${dispute.shape ? `the ${shapeLabel(dispute.shape)} picture of` : "the creative"} "${name}": ${cleanRule}. ${toAdvertiser}`
         : `The booking of "${name}" was paused after a report: ${dispute.reason}.`,
       link: advertiserSide ? "/dashboard/games" : `/dashboard/creatives/${dispute.creative_id}`,
       type: decision === "pause" ? (advertiserSide ? "dev_booking_paused" : "adv_booking_paused") : "adv_creative_removed",
@@ -292,6 +311,18 @@ export async function resolveDispute({ disputeId, decision, note, rule, advNote,
   return { ok: true, outcome, name, paused };
 }
 
+/** What a decision on a report holds now: { creative, picture } (picture: the held shape's row, or null when the whole creative is held), or null. */
+async function heldBy(service, disputeId) {
+  const id = String(disputeId ?? "");
+  const { data: picture } = await service.from("creative_picture_holds").select("creative_id, shape, kind").eq("dispute_id", id).maybeSingle();
+  if (picture) {
+    const { data: creative } = await service.from("creatives").select("id, name, owner_id").eq("id", picture.creative_id).maybeSingle();
+    return creative ? { creative, picture } : null;
+  }
+  const { data: creative } = await service.from("creatives").select("id, name, owner_id, hold").eq("hold_dispute", id).maybeSingle();
+  return creative?.hold ? { creative, picture: null } : null;
+}
+
 /**
  * DeusADS answers the advertiser about a creative it holds after a report (asked to change, or blocked): the advertiser
  * reads it under the decision, on the creative's page and in the campaign's Creatives tab, and can write back.
@@ -301,9 +332,9 @@ export async function replyToAdvertiser({ disputeId, text }) {
   if (!admin) return { error: "Not allowed." };
   const clean = String(text ?? "").trim().slice(0, 1000);
   if (!clean) return { error: "Write the reply first." };
-  const { data: creative, error } = await admin.service.from("creatives").select("id, name, owner_id, hold").eq("hold_dispute", String(disputeId ?? "")).maybeSingle();
-  if (error && ["42703", "PGRST204"].includes(error.code)) return { error: "Run migration 0064 in the Supabase SQL editor first." };
-  if (!creative?.hold) return { error: "The creative is no longer on hold, so there is nothing to answer." };
+  const held = await heldBy(admin.service, disputeId);
+  if (!held) return { error: "Nothing is on hold by this decision any more, so there is nothing to answer." };
+  const creative = held.creative;
   const { error: saveError } = await admin.service.from("dispute_events").insert({ dispute_id: String(disputeId), author_id: admin.user.id, side: "admin", kind: "reply", text: clean });
   if (saveError) return { error: "Could not send the reply." };
   await notify(admin.service, { accountId: creative.owner_id, text: `DeusADS replied about your creative "${creative.name}": ${clean}`, link: `/dashboard/creatives/${creative.id}`, type: "adv_creative_removed" });
@@ -322,12 +353,15 @@ export async function withdrawDecision({ disputeId, note }) {
   if (!admin) return { error: "Not allowed." };
   const { data: dispute } = await admin.service.from("creative_disputes").select("id, developer_id, creative_id, status, outcome, rule").eq("id", String(disputeId ?? "")).maybeSingle();
   if (!dispute || dispute.status !== "resolved" || !["changes", "removed"].includes(dispute.outcome)) return { error: "There is no decision to take back here." };
-  const { data: creative } = await admin.service.from("creatives").select("id, name, owner_id, hold, hold_dispute").eq("id", dispute.creative_id).maybeSingle();
-  if (!creative?.hold || creative.hold_dispute !== dispute.id) return { error: "The creative is no longer held by this decision." };
+  const held = await heldBy(admin.service, dispute.id);
+  if (!held) return { error: "Nothing is held by this decision any more." };
+  const creative = held.creative;
   const now = new Date().toISOString();
   const said = cleanNote(note) || null;
-  const { error } = await admin.service.from("creatives").update({ status: "approved", review_note: null, reviewed_at: now, hold: null, hold_rule: null, hold_note: null, hold_at: null, hold_dispute: null, hold_sent_at: null }).eq("id", creative.id);
-  if (error) return { error: "Could not put the creative back." };
+  const { error } = held.picture
+    ? await admin.service.from("creative_picture_holds").delete().eq("creative_id", creative.id).eq("shape", held.picture.shape)
+    : await admin.service.from("creatives").update({ status: "approved", review_note: null, reviewed_at: now, hold: null, hold_rule: null, hold_note: null, hold_at: null, hold_dispute: null, hold_sent_at: null }).eq("id", creative.id);
+  if (error) return { error: "Could not put it back." };
   // the trace of what was decided first stays in the history of the dispute
   await admin.service.from("dispute_events").insert({ dispute_id: dispute.id, author_id: admin.user.id, side: "admin", kind: "decision", text: `withdrawn: ${dispute.outcome === "removed" ? "Blocked" : "Change requested"}${dispute.rule ? ` · ${dispute.rule}` : ""}${said ? ` · ${said}` : ""}`.slice(0, 1000) });
   await admin.service.from("creative_disputes").update({ outcome: "dismissed", resolved_at: now, resolved_by: admin.user.id }).eq("id", dispute.id);

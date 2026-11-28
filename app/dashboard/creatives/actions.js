@@ -11,6 +11,7 @@ import { after } from "next/server";
 import { fitStoredPicture } from "../../../lib/creative-image";
 import { makeVariants, removeVariants } from "../../../lib/astc-variants";
 import { notifyMany } from "../../../lib/notify";
+import { shapeKey } from "../../../lib/game-pictures";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MISSING = "Run migration 0017 in the Supabase SQL editor first.";
@@ -134,8 +135,16 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     }
   }
 
-  // Pictures made for a format are not moderated: they count from the moment they are uploaded.
-  const status = "approved";
+  // Pictures made for a format are not moderated: they count from the moment they are uploaded. The exception is a
+  // shape DeusADS holds after a report (migration 0065): a blocked shape takes no new picture, and a new picture for
+  // a shape it asked to change waits for review, which is what ends the hold.
+  const heldShape = format ? format.id : shapeKey(aspect);
+  const { data: hold } = await me.service.from("creative_picture_holds").select("kind").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
+  if (hold?.kind === "blocked") {
+    await cleanup();
+    return { error: "DeusADS blocked this creative in this shape. Write to DeusADS under the decision if you think it is a mistake." };
+  }
+  const status = hold?.kind === "changes" ? "pending" : "approved";
   const { data, error } = await me.service
     .from("creative_assets")
     .insert({
@@ -155,6 +164,12 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     return { error: isSchemaOutdated(error) || error?.code === "42P01" ? MISSING : "Could not save. Try again." };
   }
 
+  if (status === "pending") {
+    await me.service.from("creative_picture_holds").update({ sent_at: new Date().toISOString() }).eq("creative_id", creative.id).eq("shape", heldShape);
+    const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
+    await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture waits for review: it replaces one that was reported.`, "/dashboard/admin", "admin_reports");
+    revalidatePath("/dashboard/advertising");
+  }
   after(async () => {
     try {
       await makeVariants(me.service, path);
@@ -392,19 +407,24 @@ export async function sendNewVersion({ creativeId }) {
 }
 
 /** The advertiser writes to DeusADS about a creative on hold: a question, or why the decision is wrong. The review team answers in the dispute. */
-export async function replyToDeusADS({ creativeId, text }) {
+export async function replyToDeusADS({ creativeId, disputeId, text }) {
   const me = await getMember();
   if (!me) return { error: "Your session expired. Sign in again." };
   const clean = String(text ?? "").trim().slice(0, 1000);
   if (!clean) return { error: "Write your reply first." };
   const creative = await heldCreative(me, creativeId);
-  if (!creative?.hold || !creative.hold_dispute) return { error: "There is nothing to reply to." };
-  const { count } = await me.service.from("dispute_events").select("id", { count: "exact", head: true }).eq("dispute_id", creative.hold_dispute).eq("side", "advertiser").eq("kind", "reply");
+  if (!creative) return { error: "There is nothing to reply to." };
+  // the decision this is about: the one that holds the creative, or one of its pictures
+  const { data: pictures } = await me.service.from("creative_picture_holds").select("dispute_id").eq("creative_id", creative.id);
+  const open = [creative.hold ? creative.hold_dispute : null, ...(pictures ?? []).map((row) => row.dispute_id)].filter(Boolean);
+  const target = open.includes(disputeId) ? disputeId : open.length === 1 ? open[0] : null;
+  if (!target) return { error: "There is nothing to reply to." };
+  const { count } = await me.service.from("dispute_events").select("id", { count: "exact", head: true }).eq("dispute_id", target).eq("side", "advertiser").eq("kind", "reply");
   if ((count ?? 0) >= 30) return { error: "This conversation is too long. Write to us in Help & feedback." };
-  const { error } = await me.service.from("dispute_events").insert({ dispute_id: creative.hold_dispute, author_id: me.user.id, side: "advertiser", kind: "reply", text: clean });
+  const { error } = await me.service.from("dispute_events").insert({ dispute_id: target, author_id: me.user.id, side: "advertiser", kind: "reply", text: clean });
   if (error) return { error: "Could not send the reply. Try again." };
   const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `The advertiser wrote about "${creative.name}": ${clean}`, `/dashboard/admin/disputes?card=dispute:${creative.hold_dispute}`, "admin_reports");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `The advertiser wrote about "${creative.name}": ${clean}`, `/dashboard/admin/disputes?card=dispute:${target}`, "admin_reports");
   revalidatePath("/dashboard/admin/disputes");
   refresh(creative.id);
   revalidatePath("/dashboard/advertising");

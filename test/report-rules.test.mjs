@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { creativeSignal, developerOutcome, holdOf, mayReport, signalIsLoud, signalLine, OUTCOME_OF, needsRule, NEUTRAL_BLOCK_REASON, PENDING_BLOCK_REASON } from "../lib/report-rules.js";
+import { pictureHoldOf, creativeSignal, developerOutcome, holdOf, mayReport, signalIsLoud, signalLine, OUTCOME_OF, needsRule, NEUTRAL_BLOCK_REASON, PENDING_BLOCK_REASON } from "../lib/report-rules.js";
 import { ADVERTISER_RULES, RULEBOOK, isAdvertiserRule, ruleForReason, rulesLink } from "../lib/platform-rules.js";
 import { ART, GUIDE_LIST, guideBySlug, slugOf } from "../lib/home-content.js";
 import { disputeRows, disputeEvents, disputeNow, outcomePill } from "../lib/admin-disputes.js";
@@ -11,7 +11,7 @@ assert.ok(needsRule("change") && needsRule("remove") && !needsRule("dismiss") &&
 // what the developer reads
 assert.equal(developerOutcome("dismissed").label, "No violation found");
 assert.equal(developerOutcome("changes").label, "Change requested");
-assert.equal(developerOutcome("removed").label, "Creative removed");
+assert.equal(developerOutcome("removed").label, "Picture removed");
 assert.equal(developerOutcome("open").label, "In review");
 assert.match(developerOutcome("dismissed").text, /up to you/);
 
@@ -88,5 +88,24 @@ const answer = talk.find((e) => e.text.startsWith("Replied to the advertiser"));
 assert.equal(Object.fromEntries(answer.facts).To, "Northwind · media@northwind.example");
 assert.match(Object.fromEntries(talk.find((e) => e.text.startsWith("Took the decision back")).facts)["Decision taken back"], /^Change requested/);
 assert.match(disputeNow(disputeRows([{ ...base, outcome: "removed", waiting: true, held: "blocked", heldHere: true }])[0]), /waits for an answer/);
+
+// a report stops the reported picture, not the creative (migration 0065)
+const pictureHold = pictureHoldOf({ creative_id: "c", shape: "r16x9", kind: "changes", rule: ADVERTISER_RULES[1], note: "Fix it", dispute_id: "d1", held_at: "2026-11-28T11:40:00Z", sent_at: null }, "16:9");
+assert.deepEqual(pictureHold.pill, ["16:9 needs changes", "ov-warn"]);
+assert.match(pictureHold.line, /Other shapes keep running/);
+assert.equal(pictureHold.disputeId, "d1");
+assert.equal(pictureHoldOf({ shape: "r16x9", kind: "changes", sent_at: "2026-11-29T00:00:00Z" }, "16:9").pill[0], "16:9 in review");
+assert.equal(pictureHoldOf({ shape: "r1x1", kind: "blocked" }, "1:1").pill[0], "1:1 blocked");
+assert.equal(pictureHoldOf(null, "1:1"), null);
+const { heldTest } = await import("../lib/creative-reports.js").catch(() => ({ heldTest: null }));
+if (heldTest) {
+  const held = heldTest([{ creative_id: "c", shape: "r16x9", kind: "changes" }]);
+  assert.equal(held("c", "r16x9").kind, "changes");
+  assert.equal(held("c", "r1x1"), null, "another shape of the same creative is free");
+  assert.equal(held("c", null), null);
+}
+const [shaped] = disputeRows([{ ...base, shape: "r16x9", shapeLabel: "16:9", outcome: "changes", rule: ADVERTISER_RULES[1], adv_note: "x", held: "changes", heldHere: true }]);
+assert.match(disputeNow(shaped), /other shapes keep running/);
+assert.ok(disputeEvents(shaped, [], {}).some((e) => e.text === "Asked the advertiser to change the picture"));
 
 console.log("report rules: ok");

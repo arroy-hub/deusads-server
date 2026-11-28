@@ -3,7 +3,7 @@ import { getMember } from "../../../../../../lib/admin";
 import { canAdvertise } from "../../../../../../lib/admin-rules";
 import { loadCampaignReport, loadCreativeLibrary } from "../../../../../../lib/advertiser-data";
 import { planCreativeIds } from "../../../../../../lib/campaign-plan";
-import { loadCreativeSignals, loadHoldThreads } from "../../../../../../lib/creative-reports";
+import { loadCreativeSignals } from "../../../../../../lib/creative-reports";
 import { signalLine } from "../../../../../../lib/report-rules";
 import CampaignCreatives from "./campaign-creatives";
 
@@ -37,7 +37,6 @@ export default async function CampaignCreativesPage({ params }) {
   // conversation with DeusADS about a creative on hold.
   const mine = library.creatives.filter((item) => item.status !== "pending" || item.hold);
   const signals = await loadCreativeSignals(me.service, mine.map((item) => item.id), new Map(mine.map((item) => [item.id, item.gameIds ?? []]))).catch(() => new Map());
-  const threads = await loadHoldThreads(me.service, ids).catch(() => new Map());
   const otherAverage = (id) => {
     const others = mine.filter((item) => item.id !== id && (signals.get(item.id)?.games ?? 0) > 0).map((item) => signals.get(item.id));
     return others.length ? { blocked: Math.round((others.reduce((sum, x) => sum + x.blocked, 0) / others.length) * 10) / 10, games: Math.round(others.reduce((sum, x) => sum + x.games, 0) / others.length) } : null;
@@ -59,7 +58,7 @@ export default async function CampaignCreativesPage({ params }) {
         formatIds: item.formats.map((format) => format.id),
         impressions: figure?.impressions ?? 0,
         avg: figure && figure.weight > 0 ? figure.weighted / figure.weight : null,
-        hold: item.hold ? { ...item.hold, thread: threads.get(id) ?? [] } : null,
+        holds: item.holds ?? [],
         signal: signals.get(id) ? { ...signals.get(id), line: signalLine(signals.get(id)), other: otherAverage(id) } : null,
         longer: Boolean(report.creativeRows.find((row) => row.id === id)?.longer),
         removable: openOf(id) > 0 || planned.includes(id),

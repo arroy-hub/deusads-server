@@ -221,11 +221,13 @@ async function recordFill(db, game, { levels, chosen, disabled }) {
 async function loadControlTables(db, game, rows) {
   if (!rows.some(isBooked)) return null;
 
-  const [controls, categories, pictures] = await Promise.all([
+  const [controls, categories, pictures, holds] = await Promise.all([
     db.from("game_ad_controls").select("scope, target_id, state, reason, comment").eq("game_id", game.id),
     db.from("game_category_blocks").select("category, blocked").eq("game_id", game.id),
     // creatives blocked in one shape (migration 0062); before it there are none
     db.from("game_picture_blocks").select("creative_id, shape, reason, comment").eq("game_id", game.id),
+    // pictures DeusADS holds after a report (migration 0065): shown in no game; before it there are none
+    db.from("creative_picture_holds").select("creative_id, shape").limit(5000),
   ]);
   if (controls.error) {
     if (isSchemaOutdated(controls.error)) warnSchemaOutdated("GET /v1/manifest", "0023_game_ad_controls.sql");
@@ -237,7 +239,7 @@ async function loadControlTables(db, game, rows) {
     return null;
   }
   if (pictures.error && !isSchemaOutdated(pictures.error)) logDbError("manifest picture blocks", pictures.error);
-  return { controlRows: [...(controls.data ?? []), ...pictureControls(pictures.error ? [] : pictures.data)], categoryRows: categories.data };
+  return { controlRows: [...(controls.data ?? []), ...pictureControls(pictures.error ? [] : pictures.data), ...pictureControls(holds.error ? [] : holds.data)], categoryRows: categories.data };
 }
 
 /** The pauses and blocks ready for mayServe(): { controls, blocked, campaignOf }. Null when any part could not be read. */

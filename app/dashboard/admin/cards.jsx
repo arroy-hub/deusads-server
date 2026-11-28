@@ -171,7 +171,7 @@ export function DisputeCard({ d, api, onClose }) {
     const result = await resolveDispute({ disputeId: r.id, decision, note: "", rule: adv ? null : rule, advNote: adv ? "" : toAdv, devNote: adv ? "" : toDev }).catch(() => ({ error: "Connection lost. Try again." }));
     setBusy(false);
     if (result?.error) return adv ? toast(result.error) : setProblem(result.error);
-    toast(decision === "remove" ? "Creative blocked. Advertiser and developer notified" : decision === "change" ? "Change requested. Advertiser and developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : adv ? "Report dismissed. Both sides notified" : "No violation found. Developer notified");
+    toast(decision === "remove" ? `${r.shape ? "Picture" : "Creative"} blocked. Advertiser and developer notified` : decision === "change" ? "Change requested. Advertiser and developer notified" : decision === "pause" ? "Booking paused. Both sides notified" : adv ? "Report dismissed. Both sides notified" : "No violation found. Developer notified");
     setChoice(null);
     api.changed();
   }
@@ -199,7 +199,7 @@ export function DisputeCard({ d, api, onClose }) {
     setBusy(false);
     setBacking(false);
     if (result?.error) return toast(result.error);
-    toast("Decision taken back. The creative runs again; both sides notified");
+    toast(`Decision taken back. The ${r.shape ? "picture" : "creative"} runs again; both sides notified`);
     api.changed();
   }
   async function addNote() {
@@ -213,8 +213,8 @@ export function DisputeCard({ d, api, onClose }) {
     api.changed();
   }
   const [pillLabel, pillTone] = r.open ? ["Open", "warn"] : outcomePill(r);
-  const title = { dismiss: "No violation", change: "Ask the advertiser to change it", remove: "Block the creative for a violation" }[choice];
-  const lede = { dismiss: "The report is closed, the creative keeps running.", change: "For something easy to fix: the creative waits for a new version.", remove: "For a clear violation: the creative is removed for good." }[choice];
+  const title = { dismiss: "No violation", change: "Ask the advertiser to change it", remove: r.shape ? "Block this picture for a violation" : "Block the creative for a violation" }[choice];
+  const lede = { dismiss: "The report is closed, the creative keeps running.", change: r.shape ? "For something easy to fix: this picture waits for a new one; other shapes keep running." : "For something easy to fix: the creative waits for a new version.", remove: r.shape ? "For a clear violation: this picture is removed for good; other shapes keep running." : "For a clear violation: the creative is removed for good." }[choice];
   return (
     <div className="cb-box cb-dm" role="dialog" aria-label="Dispute">
       <div className="cb-dm-top"><div className="cb-dm-card">
@@ -265,15 +265,15 @@ export function DisputeCard({ d, api, onClose }) {
           <button type="button" className="cb-btn cb-q" disabled={busy} onClick={() => decide("dismiss")}>Dismiss report</button>
         </>}
         {r.open && !adv && (choice ? <>
-          <button type="button" className={`cb-btn${choice === "remove" ? " cb-d" : ""}`} disabled={busy} onClick={() => decide(choice)}>{{ dismiss: "Confirm: no violation", change: "Send to the advertiser", remove: "Block the creative" }[choice]}</button>
+          <button type="button" className={`cb-btn${choice === "remove" ? " cb-d" : ""}`} disabled={busy} onClick={() => decide(choice)}>{{ dismiss: "Confirm: no violation", change: "Send to the advertiser", remove: r.shape ? "Block the picture" : "Block the creative" }[choice]}</button>
           <button type="button" className="cb-btn cb-q" disabled={busy} onClick={() => pick(null)}>Back</button>
         </> : <>
-          <button type="button" className="cb-btn cb-d" onClick={() => pick("remove")}>Block the creative</button>
+          <button type="button" className="cb-btn cb-d" onClick={() => pick("remove")}>{r.shape ? "Block the picture" : "Block the creative"}</button>
           <button type="button" className="cb-btn cb-q" onClick={() => pick("change")}>Ask to change it</button>
           <button type="button" className="cb-btn cb-q" onClick={() => pick("dismiss")}>No violation</button>
         </>)}
         {!r.open && !adv && r.heldHere && (backing ? <>
-          <span style={{ fontSize: 13.5 }}>Take the decision back? The creative is approved again and runs where it ran.</span>
+          <span style={{ fontSize: 13.5 }}>Take the decision back? The {r.shape ? "picture" : "creative"} runs again where it ran.</span>
           <button type="button" className="cb-btn cb-s" disabled={busy} onClick={takeBack}>Yes, take it back</button>
           <button type="button" className="cb-btn cb-q cb-s" disabled={busy} onClick={() => setBacking(false)}>Keep</button>
         </> : <>

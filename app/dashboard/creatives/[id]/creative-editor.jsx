@@ -217,7 +217,9 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
     dialog.current?.close();
   }
 
-  const [statusLabel, statusTone] = editor.hold ? editor.hold.pill : STATUS[status] ?? STATUS.pending;
+  const holds = editor.holds ?? [];
+  const whole = holds.find((hold) => !hold.shape);
+  const [statusLabel, statusTone] = whole ? whole.pill : STATUS[status] ?? STATUS.pending;
   const stageStyle = { "--aspect": current.aspect };
 
   return (
@@ -229,8 +231,8 @@ export default function CreativeEditor({ editor, backTo = "", onClose, onSaved, 
           <span className="rd-ed-use">{campaigns === 0 ? "Not in use" : `In ${campaigns} ${campaigns === 1 ? "campaign" : "campaigns"}`}</span>
           <button type="button" className="modal-close" aria-label="Close" disabled={busy} onClick={() => dialog.current?.close()}>×</button>
         </div>
-        {editor.hold
-          ? <div className="rd-ed-hold"><HoldNotice creativeId={creative.id} hold={editor.hold} onPage /></div>
+        {holds.length > 0
+          ? <div className="rd-ed-hold">{holds.map((hold) => <HoldNotice key={hold.shape ?? "whole"} creativeId={creative.id} hold={hold} onPage />)}</div>
           : status === "rejected" && note && <p className="notice rd-ed-note">Reason: {note}. Upload a corrected creative to book it.</p>}
         <div className="rd-ed-scroll">
           {missing.length > 0 ? (

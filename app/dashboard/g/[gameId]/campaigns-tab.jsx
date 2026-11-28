@@ -754,6 +754,7 @@ export default function CampaignsTab({ gameId, model, focusCampaign = null }) {
                                   {creative.blocked && creative.reason && <div className="cp-meta cp-sub">Your reason: {creative.reason}</div>}
                                   {mineOf && <div className="cp-meta cp-sub cp-rep"><span className={`cp-pill p-${mineOf.tone}`}>Your report · {mineOf.label}</span></div>}
                                   {creative.audience && !creative.blocked && <div className="cp-meta cp-sub">Not shown: {audienceWords(creative.audience)}.</div>}
+                                  {creative.held && <div className="cp-meta cp-sub">Not shown in any game: {creative.held === "blocked" ? "DeusADS blocked this picture for a violation" : "DeusADS asked the advertiser to change this picture"}.</div>}
                                 </div>
                                 <div><span className={`cp-pill ${pill}`}>{label}</span></div>
                                 <div className="cp-num">{number(creative.totals.views)}</div>

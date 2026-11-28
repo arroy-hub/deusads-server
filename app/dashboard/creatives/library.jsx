@@ -77,7 +77,7 @@ function DeleteDialog({ item, onClose, onConfirm }) {
 function Card({ item, folders, drag, setDrag, overCard, setOverCard, onDropOn, patch, remove, move }) {
   const el = useRef(null);
   const [rename, setRename] = useState(0);
-  const [label, tone] = item.hold ? item.hold.pill : STATUS[item.status] ?? STATUS.pending;
+  const [label, tone] = item.hold ? item.hold.pill : STATUS[item.status] ?? STATUS.pending; // a held picture shows as the status too: it needs the advertiser
   const ready = item.formats.filter((f) => f.ready).length;
   return (
     <article ref={el} className={`rd-card${item.status === "rejected" ? " is-rejected" : ""}${drag === item.id ? " is-dragging" : ""}${overCard === item.id && drag && drag !== item.id ? " is-over" : ""}`}
