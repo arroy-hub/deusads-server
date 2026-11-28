@@ -182,7 +182,7 @@ export default function RequestsTab({ requests, folders: initialFolders, outdate
     return (
       <section key={f.id} className={`sp-fd${f.open ? "" : " shut"}${over === `in:${f.id}` ? " drop-in" : ""}`} data-fid={f.id}>
         <div className="sp-fd-h" onClick={(e) => { if (!e.target.closest("input,button.sp-fd-del,.sp-fd-name")) setFolders((l) => l.map((x) => (x.id === f.id ? { ...x, open: !x.open } : x))); }}>
-          <button type="button" className="sp-fd-car" aria-label={f.open ? "Fold folder" : "Open folder"} aria-expanded={f.open} onClick={() => setFolders((l) => l.map((x) => (x.id === f.id ? { ...x, open: !x.open } : x)))}><CaretIcon /></button>
+          <button type="button" className="sp-fd-car" aria-label={f.open ? "Fold folder" : "Open folder"} aria-expanded={f.open}><CaretIcon /></button>
           <FolderIcon />
           {editing ? (
             <input

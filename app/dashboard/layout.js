@@ -36,9 +36,10 @@ async function Bell({ db, user, role }) {
   const [unread, latest, attention] = await Promise.all([
     unreadCount(db, user?.id),
     // The notifications table comes with migration 0013; without it: none.
-    user ? db.from("notifications").select("id, text, link, created_at, read_at").is("read_at", null).order("created_at", { ascending: false }).limit(15) : { data: null },
+    // An admin's bell follows the role chosen under the logo, so it takes more and shows the part of that role.
+    user ? db.from("notifications").select("id, text, link, created_at, read_at").is("read_at", null).order("created_at", { ascending: false }).limit(role === "admin" ? 80 : 15) : { data: null },
     // An advertiser's bell also lists what needs action (rejected creatives, format gaps, limited campaigns, reports).
-    role === "advertiser"
+    role === "advertiser" || role === "admin"
       ? getMember()
           .then(async (me) => {
             if (!me) return [];
@@ -49,7 +50,7 @@ async function Bell({ db, user, role }) {
           .catch(() => [])
       : [],
   ]);
-  return <NotificationsBell items={latest?.data ?? []} unread={unread} attention={attention} />;
+  return <NotificationsBell items={latest?.data ?? []} unread={unread} attention={attention} byView={role === "admin"} />;
 }
 
 /** The signed-in person's row for the frame; the picture column (0030) is left out when the database lacks it. */
@@ -81,7 +82,7 @@ export default async function DashboardLayout({ children }) {
     );
   }
   const admin = role === "admin";
-  const [, waitingAdmin, disputes, applied, supportUnread, assistant] = await Promise.all([
+  const [, waitingAdmin, disputes, applied, supportUnread, ownUnread, assistant] = await Promise.all([
     // Opening any page keeps the visit alive (My games works out "since your last visit" from it).
     registerVisit(serviceClient(), user?.id).catch(() => null),
     admin ? adminCounts(serviceClient()) : null,
@@ -89,6 +90,8 @@ export default async function DashboardLayout({ children }) {
     admin ? loadAppliedVersions(serviceClient()) : null,
     // An admin: requests waiting for an answer. Anyone else: replies from the developer not read yet (migration 0052).
     admin ? supportWaiting(serviceClient()) : unreadSupport(db, user?.id),
+    // An admin's own requests (written as a developer or an advertiser) with a reply or a change not seen yet.
+    admin ? unreadSupport(serviceClient(), user?.id) : 0,
     // Whether the assistant answers yet (switched on by an admin, key present): the corner chat greets accordingly.
     botStatus(serviceClient()),
   ]);
@@ -98,7 +101,7 @@ export default async function DashboardLayout({ children }) {
 
   const groups = menuFor(
     role,
-    { requests, disputes, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0, support: supportUnread },
+    { requests, disputes, inbox: waitingAdmin?.total ?? 0, system: schemaBehind ? "!" : 0, support: supportUnread, help: ownUnread },
     (games ?? []).map((game) => ({
       href: `/dashboard/g/${game.id}`,
       label: game.name,
@@ -156,7 +159,7 @@ export default async function DashboardLayout({ children }) {
         <main className="main">{children}</main>
         {/* An admin gets the same corner button, with the assistant only: there is nobody else to write to, and the
             waiting requests are on the Support page (supportUnread is their count there, not unread replies). */}
-        <SupportCorner role={role} unread={admin ? 0 : supportUnread} assistantOn={assistant?.on ?? false} greeting={assistant?.greeting} />
+        <SupportCorner role={role} unread={admin ? ownUnread : supportUnread} assistantOn={assistant?.on ?? false} greeting={assistant?.greeting} />
         <NavFade />
         <WaitChip />
         <EnterReveal />

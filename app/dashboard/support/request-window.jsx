@@ -45,7 +45,7 @@ export default function RequestWindow({ id, summary, onClose, onFollowUp, onSeen
       }
       if (!seen.current) {
         seen.current = true;
-        if (body.request.unread) { openRequest({ requestId: id }).then(() => onSeen?.(id)); }
+        if (body.request.unread) { openRequest({ requestId: id, asOwner: true }).then(() => onSeen?.(id)); }
       }
     } catch {
       if (!quiet) setFailed("Connection lost. Close this window and try again.");

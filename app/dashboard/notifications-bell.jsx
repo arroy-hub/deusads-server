@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markAllRead, markAttentionSeen, markRead } from "./notifications/actions";
 import { Busy, refreshPage, useWaitMark } from "./wait";
+import { useRailView } from "./role-view";
+import { forView } from "../../lib/bell-view";
 
 const TABS = [
   { key: "all", label: "All" },
@@ -36,8 +38,13 @@ function ago(date) {
  * its row) shows the person the problem and the item leaves the bell with the counter going down; it returns only when
  * it changes (lib/attention-seen.js). The Needs attention list on Home is not affected.
  */
-export default function NotificationsBell({ items, unread, attention: attentionAll = [] }) {
+export default function NotificationsBell({ items: itemsAll, unread: unreadAll, attention: attentionEvery = [], byView = false }) {
   const router = useRouter();
+  // An admin looks at one side of the platform at a time (the role under the logo): the bell shows that side.
+  const view = useRailView();
+  const items = byView ? forView(itemsAll, view) : itemsAll;
+  const unread = byView ? items.length : unreadAll;
+  const attentionAll = byView && view !== "advertiser" ? [] : attentionEvery;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   useWaitMark(Boolean(busy));
@@ -71,7 +78,7 @@ export default function NotificationsBell({ items, unread, attention: attentionA
   // A fresh list from the server replaces what was hidden by hand.
   useEffect(() => {
     setGone(new Set());
-  }, [items, unread]);
+  }, [itemsAll, unreadAll]);
 
   useEffect(() => {
     if (!open) return;
@@ -93,7 +100,7 @@ export default function NotificationsBell({ items, unread, attention: attentionA
   async function readAll() {
     setBusy(true);
     setGone(new Set(items.map((item) => item.id)));
-    await markAllRead().catch(() => null);
+    await markAllRead(byView ? items.map((item) => item.id) : null).catch(() => null);
     setBusy(false);
     refreshPage(router);
   }
@@ -164,7 +171,7 @@ export default function NotificationsBell({ items, unread, attention: attentionA
           )}
 
           <div className="bell-body">
-          {empty && <p className="bell-empty">Nothing new. Decisions on your creatives and bookings show up here.</p>}
+          {empty && <p className="bell-empty">{byView ? `Nothing new for the ${view} role.` : "Nothing new. Decisions on your creatives and bookings show up here."}</p>}
 
           {showAction && attention.length > 0 && (
             <>

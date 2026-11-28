@@ -10490,3 +10490,43 @@ ul.wl-glegend b{font-variant-numeric:tabular-nums}
 .hold-sent div { display: grid; gap: 2px; min-width: 0; }
 .hold-sent b { font-size: 13px; }
 .hold-sent span { font-size: 12.5px; color: var(--ink-2); }
+
+/* The note from DeusADS, made to be read at a glance: what happened, why, the new picture, the conversation. */
+.hold-note { padding: 0; border: 1px solid #e6ddd3; background: #fff; border-radius: 12px; overflow: hidden; font-size: 13.5px; }
+.hold-note.is-change, .hold-note.is-blocked, .hold-note.is-sent { background: #fff; border-color: #e6ddd3; }
+.hold-note > * { margin-left: 16px; margin-right: 16px; }
+.hold-top { margin: 0 !important; padding: 14px 16px; background: #fbeae4; border-bottom: 1px solid #f0d3c8; }
+.hold-note.is-sent .hold-top { background: #e9f0f8; border-bottom-color: #d3e0ee; }
+.hold-top h3 { margin: 8px 0 4px; font-size: 16px; font-weight: 800; letter-spacing: -.01em; line-height: 1.25; color: var(--ink); }
+.hold-top p { margin: 0; max-width: none; line-height: 1.5; color: #4a3e36; }
+.hold-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.hold-tag.is-act, .hold-tag.is-bad { background: #b4472e; color: #fff; }
+.hold-tag.is-wait { background: #1f4768; color: #fff; }
+.hold-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #8a2c17; }
+.hold-note.is-sent .hold-label { color: #1f4768; }
+.hold-why { margin-top: 14px; display: grid; gap: 12px; }
+.hold-row { display: grid; gap: 3px; }
+.hold-row b { font-size: 14.5px; font-weight: 700; }
+.hold-row p { margin: 0; max-width: none; line-height: 1.55; font-size: 14px; padding: 9px 12px; border-left: 3px solid #b4472e; background: #faf7f3; border-radius: 0 8px 8px 0; overflow-wrap: anywhere; }
+.hold-why small { color: var(--ink-2); font-size: 12px; }
+.hold-sent { margin-top: 14px; margin-bottom: 0; background: #faf7f3; }
+.hold-sent.is-draft { border-color: #b4472e; box-shadow: 0 0 0 1px #b4472e; background: #fff; }
+.hold-sent .hold-label { margin-bottom: 2px; }
+.hold-note .hold-acts { margin-top: 12px; }
+.hold-talk { margin: 16px 0 0 !important; padding: 12px 16px 14px; border-top: 1px solid #efe7de; background: #fcfaf7; }
+.hold-talk-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hold-talk .hold-label { color: var(--ink-2); }
+.hold-talk .hold-state { margin-top: 6px; }
+
+/* A request's strip: the dates part never grows past its plate; in the request window the plate sizes itself to them. */
+.cx-dates .cx-dr { grid-template-columns: minmax(0, 1fr); }
+.cx-dl { min-width: 0; }
+.cx-dl b { flex: none; }
+.cx-dl span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sp-head .cx-splate { flex: 0 1 auto; max-width: min(760px, calc(100% - 56px)); }
+.sp-head .cx-dates { width: auto; min-width: 228px; max-width: 340px; }
+.sp-head .cx-txt { flex: 0 1 auto; }
+/* In the side window of the editor: the buttons of the note sit in its flow, only the reply buttons stay in reach at the bottom. */
+.rd-ed-side .hold-note .hold-acts { position: static; margin: 12px 16px 0; padding: 0; background: none !important; border-top: 0; border-radius: 0; }
+.rd-ed-side .hold-talk .hold-acts { position: sticky; bottom: -16px; margin: 10px -16px -14px; padding: 10px 16px 12px; background: #fcfaf7 !important; border-top: 1px solid #efe7de; z-index: 1; }
+.hold-talk .hold-acts { margin-left: 0; margin-right: 0; }

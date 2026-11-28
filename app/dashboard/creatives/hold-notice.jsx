@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { browserClient } from "../../../lib/supabase-browser";
 import { rulesLink } from "../../../lib/platform-rules";
 import { fdt, fdtTime } from "../../../lib/admin-format";
-import { registerAsset, replaceMainPicture, replyToDeusADS, sendNewVersion } from "./actions";
+import { registerAsset, replaceMainPicture, replyToDeusADS, sendHeldPicture, sendNewVersion } from "./actions";
 import { Busy, refreshPage, useWaitMark } from "../wait";
 
 const TYPES = { "image/png": "png", "image/jpeg": "jpg" };
@@ -78,15 +78,21 @@ export function HoldNotice({ creativeId, hold, onPage = false, onPicture }) {
         : replaceMainPicture({ creativeId, path, type: picked.type, size: picked.size, width: size.width, height: size.height });
     });
     if (result?.ok) {
-      if (picture) {
-        setSentNow(true);
-        if (result.url) {
-          setSentPicture({ url: result.url, size: `${result.width} × ${result.height}`, at: new Date().toISOString() });
-          // the editor next to this note shows the new picture in that shape at once
-          onPicture?.(hold.shape, { id: result.id, url: result.url });
-        }
+      if (picture && result.url) {
+        // uploaded, not sent yet: the advertiser looks at it first
+        setSentPicture({ url: result.url, size: `${result.width} × ${result.height}`, at: new Date().toISOString() });
+        // the editor next to this note shows the new picture in that shape at once
+        onPicture?.(hold.shape, { id: result.id, url: result.url });
       }
-      setDone(picture ? `The new ${what} was sent for review. It runs again once it is approved.` : "The main picture is replaced. Check the shapes below, then send the new version for review.");
+      setDone(picture ? "" : "The main picture is replaced. Check the shapes below, then send the new version for review.");
+      refreshPage(router);
+    }
+  }
+  async function sendPicture() {
+    const result = await act("send", () => sendHeldPicture({ creativeId, shape: hold.shape }));
+    if (result?.ok) {
+      setSentNow(true);
+      setDone(`Sent. DeusADS is checking the new ${what}; it runs again once it is approved.`);
       refreshPage(router);
     }
   }
@@ -106,57 +112,91 @@ export function HoldNotice({ creativeId, hold, onPage = false, onPicture }) {
     }
   }
 
+  // a new picture is uploaded and waits for the advertiser to send it
+  const draft = picture && !blocked && !sent && Boolean(sentPicture);
+  const title = blocked ? `DeusADS blocked ${picture ? `the ${what}` : "this creative"}`
+    : sent ? `Your new ${picture ? what : "version"} is in review`
+      : draft ? `Send the new ${what} for review`
+        : `DeusADS asks you to change ${picture ? `the ${what}` : "this creative"}`;
+  const lead = blocked ? `It breaks a platform rule and is not shown anywhere. ${picture ? "The creative’s other shapes keep running." : "Campaigns keep running with their other creatives."} Nothing is charged for what is not shown.`
+    : sent ? `DeusADS is checking it. Once it is approved, ${picture ? "this shape" : "the creative"} runs again in the same games.`
+      : draft ? "The picture is uploaded but not sent yet. Look at it, then send it. Until it is approved this shape is shown in no game."
+        : `Until a new one is approved, ${picture ? "this shape is" : "it is"} not shown in any game. ${picture ? "The creative’s other shapes keep running." : "Campaigns keep running with their other creatives."}`;
+  const picker = <input ref={file} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => { const picked = e.target.files?.[0]; e.target.value = ""; replace(picked); }} />;
+
   return (
-    <div className={`hold-note ${blocked ? "is-blocked" : "is-change"}`}>
-      <b>{blocked ? `DeusADS blocked ${picture ? `the ${what}` : "this creative"}: it breaks a platform rule` : sent ? `The new ${picture ? what : "version"} is in review` : `DeusADS asks you to change ${picture ? `the ${what}` : "this creative"}`}</b>
-      <dl>
-        {picture && <div><dt>Picture</dt><dd>This creative in the {hold.shapeLabel} shape. Its other shapes keep running.</dd></div>}
-        {hold.rule && <div><dt>{blocked ? "Rule broken" : "Rule"}</dt><dd>{hold.rule}</dd></div>}
-        <div><dt>{blocked ? "What it means" : sent ? "Now" : "Until then"}</dt><dd>{blocked
-          ? `${picture ? `The ${what} is` : "It is"} not shown anywhere. ${picture ? "Placements of that shape show nothing of this creative" : "Campaigns keep running with their other creatives"}, and nothing is charged for what is not shown. If you think the decision is a mistake, write to DeusADS here.`
-          : sent ? `DeusADS is checking the new ${picture ? "picture" : "version"}. Once it is approved it runs again in the same games.`
-            : `${picture ? `The ${what} is` : "It is"} not shown in any game. ${picture ? "Placements of that shape show nothing of this creative until then" : "Campaigns keep running with their other creatives"}, and nothing is charged for what is not shown.`}</dd></div>
-        {hold.at && <div><dt>{blocked ? "Decided" : "Why now"}</dt><dd>{blocked ? `${fdt(hold.at)}, after a report from a game where it ran.` : `A game where it runs reported it, and DeusADS checked it. ${fdt(hold.at)}.`}</dd></div>}
-      </dl>
-      {sent && sentPicture && (
-        <div className="hold-sent">
+    <div className={`hold-note ${blocked ? "is-blocked" : sent ? "is-sent" : "is-change"}`}>
+      <div className="hold-top">
+        <span className={`hold-tag ${blocked ? "is-bad" : sent ? "is-wait" : "is-act"}`}>{blocked ? "Blocked" : sent ? "In review" : draft ? "Not sent yet" : "Needs changes"}</span>
+        <h3>{title}</h3>
+        <p>{lead}</p>
+      </div>
+
+      {(hold.rule || hold.note) && (
+        <div className="hold-why">
+          {hold.rule && <div className="hold-row"><span className="hold-label">{blocked ? "Rule broken" : "Rule"}</span><b>{hold.rule}</b></div>}
+          {hold.note && <div className="hold-row"><span className="hold-label">What DeusADS wrote</span><p>{hold.note}</p></div>}
+          {hold.at && <small>{fdt(hold.at)} · after a report from a game where it {blocked ? "ran" : "runs"}</small>}
+        </div>
+      )}
+
+      {!blocked && picture && sentPicture && (
+        <div className={`hold-sent${draft ? " is-draft" : ""}`}>
           <a href={sentPicture.url} target="_blank" rel="noreferrer" className="hold-sent-img" style={{ backgroundImage: `url(${sentPicture.url})` }} aria-label="Open your new picture in full size" />
-          <div><b>Your new {what}</b><span>{sentPicture.size} · sent {fdtTime(sentPicture.at)} UTC</span><span>In review. It replaces the reported picture once DeusADS approves it.</span></div>
+          <div>
+            <span className="hold-label">Your new {what}</span>
+            <span>{sentPicture.size}</span>
+            <span>{draft ? "Not sent yet." : "In review. It replaces the reported picture once DeusADS approves it."}</span>
+          </div>
         </div>
       )}
-      {hold.note && <div className="hold-msg"><span className="hold-msg-h"><b>Message from DeusADS</b>{hold.at && <small>{fdt(hold.at)}</small>}</span><p>{hold.note}</p></div>}
-      {thread.map((message, index) => (
-        <div key={index} className={`hold-msg${message.side === "advertiser" ? " is-mine" : ""}`}><span className="hold-msg-h"><b>{message.side === "advertiser" ? "You" : "DeusADS"}</b><small suppressHydrationWarning>{fdtTime(message.at)} UTC</small></span><p>{message.text}</p></div>
-      ))}
-      {last && <p className={`hold-state${last === "admin" ? " is-new" : ""}`} role="status">{last === "advertiser" ? "Waiting for DeusADS: the review team has your message and will answer here." : "DeusADS replied. You can answer here."}</p>}
-      {writing && (
-        <div className="hold-reply">
-          <label htmlFor={`hold-reply-${creativeId}`}>Your message to DeusADS <small>a question, or why you think the decision is wrong</small></label>
-          <textarea id={`hold-reply-${creativeId}`} className="field" rows={3} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} />
-        </div>
-      )}
+
       {problem && <p className="error" role="alert">{problem}</p>}
       {done && <p className="upload-done" role="status">{done}</p>}
-      <div className="hold-acts">
-        {!blocked && !sent && (picture ? (
-          <>
-            <input ref={file} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => { const picked = e.target.files?.[0]; e.target.value = ""; replace(picked); }} />
-            <button type="button" className="button button-small" disabled={Boolean(busy)} onClick={() => file.current?.click()}>{busy === "picture" ? <Busy>Uploading…</Busy> : `Upload a new ${what}`}</button>
-          </>
-        ) : onPage ? (
-          <>
-            <input ref={file} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => { const picked = e.target.files?.[0]; e.target.value = ""; replace(picked); }} />
-            <button type="button" className="button button-small" disabled={Boolean(busy)} onClick={() => file.current?.click()}>{busy === "picture" ? <Busy>Uploading…</Busy> : "Replace the main picture"}</button>
-            <button type="button" className="button button-quiet button-small" disabled={Boolean(busy) || !hold.changed} title={hold.changed ? undefined : "Replace the main picture or a shape’s picture first"} onClick={send}>{busy === "send" ? <Busy>Sending…</Busy> : "Send for review"}</button>
-          </>
-        ) : <Link href={`/dashboard/creatives/${creativeId}`} className="button button-small">Upload a new version</Link>)}
-        {writing
-          ? <><button type="button" className="button button-small" disabled={Boolean(busy) || !text.trim()} onClick={reply}>{busy === "reply" ? <Busy>Sending…</Busy> : "Send reply"}</button><button type="button" className="button button-quiet button-small" disabled={Boolean(busy)} onClick={() => setWriting(false)}>Cancel</button></>
-          : <button type="button" className="button button-quiet button-small" onClick={() => setWriting(true)}>{thread.length ? "Write again" : "Reply to DeusADS"}</button>}
-        <Link href={rulesLink("adv")} className="link-button">Platform rules</Link>
-      </div>
-      {picture && !blocked && !sent && <p className="hold-hint">Upload a PNG or JPG made for the {hold.shapeLabel} shape. It goes to review at once, and replaces the reported picture when it is approved.</p>}
+      {!blocked && !sent && (
+        <div className="hold-acts">
+          {picture ? (draft ? (
+            <>
+              {picker}
+              <button type="button" className="button button-small" disabled={Boolean(busy)} onClick={sendPicture}>{busy === "send" ? <Busy>Sending…</Busy> : "Send this picture for review"}</button>
+              <button type="button" className="button button-quiet button-small" disabled={Boolean(busy)} onClick={() => file.current?.click()}>{busy === "picture" ? <Busy>Uploading…</Busy> : "Choose another picture"}</button>
+            </>
+          ) : (
+            <>
+              {picker}
+              <button type="button" className="button button-small" disabled={Boolean(busy)} onClick={() => file.current?.click()}>{busy === "picture" ? <Busy>Uploading…</Busy> : `Upload a new ${what}`}</button>
+            </>
+          )) : onPage ? (
+            <>
+              {picker}
+              <button type="button" className="button button-small" disabled={Boolean(busy)} onClick={() => file.current?.click()}>{busy === "picture" ? <Busy>Uploading…</Busy> : "Replace the main picture"}</button>
+              <button type="button" className="button button-quiet button-small" disabled={Boolean(busy) || !hold.changed} title={hold.changed ? undefined : "Replace the main picture or a shape’s picture first"} onClick={send}>{busy === "send" ? <Busy>Sending…</Busy> : "Send for review"}</button>
+            </>
+          ) : <Link href={`/dashboard/creatives/${creativeId}`} className="button button-small">Upload a new version</Link>}
+        </div>
+      )}
+      {picture && !blocked && !sent && !draft && <p className="hold-hint">A PNG or JPG made for the {hold.shapeLabel} shape. Nothing is sent until you press Send.</p>}
       {!picture && onPage && !blocked && !sent && <p className="hold-hint">Replace the main picture here, or a single shape’s picture below. Then send the new version for review.</p>}
+
+      <div className="hold-talk">
+        <div className="hold-talk-h"><span className="hold-label">Conversation with DeusADS</span><Link href={rulesLink("adv")} className="link-button">Platform rules</Link></div>
+        {thread.length === 0 && !writing && <p className="hold-state">{blocked ? "If you think the decision is a mistake, write to DeusADS here." : "A question, or you think the decision is wrong? Write to DeusADS here."}</p>}
+        {thread.map((message, index) => (
+          <div key={index} className={`hold-msg${message.side === "advertiser" ? " is-mine" : ""}`}><span className="hold-msg-h"><b>{message.side === "advertiser" ? "You" : "DeusADS"}</b><small suppressHydrationWarning>{fdtTime(message.at)} UTC</small></span><p>{message.text}</p></div>
+        ))}
+        {last && <p className={`hold-state${last === "admin" ? " is-new" : ""}`} role="status">{last === "advertiser" ? "Waiting for DeusADS: the review team has your message and will answer here." : "DeusADS replied. You can answer here."}</p>}
+        {writing && (
+          <div className="hold-reply">
+            <label htmlFor={`hold-reply-${creativeId}`}>Your message to DeusADS</label>
+            <textarea id={`hold-reply-${creativeId}`} className="field" rows={3} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} />
+          </div>
+        )}
+        <div className="hold-acts">
+          {writing
+            ? <><button type="button" className="button button-small" disabled={Boolean(busy) || !text.trim()} onClick={reply}>{busy === "reply" ? <Busy>Sending…</Busy> : "Send message"}</button><button type="button" className="button button-quiet button-small" disabled={Boolean(busy)} onClick={() => setWriting(false)}>Cancel</button></>
+            : <button type="button" className="button button-quiet button-small" onClick={() => setWriting(true)}>{thread.length ? "Write again" : "Write to DeusADS"}</button>}
+        </div>
+      </div>
     </div>
   );
 }

@@ -7,10 +7,9 @@ import Library from "../creatives/library";
 import WindowTop, { PlateIcon } from "../window-top";
 import { needsCount } from "../../../lib/needs-action";
 
-/** A tab's numbers: how many there are (quiet), and in terracotta how many of them need the person's action, when any does. */
-const TabCount = ({ total, needs }) => (
+/** A tab carries a number only when something under it needs the person's action: the terracotta mark, nothing else. */
+const TabCount = ({ needs }) => (
   <>
-    <span className="tab-total">{total}</span>
     {needs > 0 && <span className="cp-count tab-needs" title={`${needs} ${needs === 1 ? "needs" : "need"} your action`} aria-label={`${needs} ${needs === 1 ? "needs" : "need"} your action`}>{needs}</span>}
   </>
 );

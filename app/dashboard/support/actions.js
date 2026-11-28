@@ -22,7 +22,7 @@ async function run(work) {
 export const changeStatus = async ({ requestId, status }) => run((db, actor) => support.setStatus(db, { actor, requestId, status }));
 export const changeStatusMany = async ({ ids, status }) => run((db, actor) => support.setStatusMany(db, { actor, ids, status }));
 export const changeType = async ({ requestId, type }) => run((db, actor) => support.setType(db, { actor, requestId, type }));
-export const openRequest = async ({ requestId }) => run((db, actor) => support.markRead(db, { actor, requestId }));
+export const openRequest = async ({ requestId, asOwner = false }) => run((db, actor) => support.markRead(db, { actor, requestId, asOwner: Boolean(asOwner) }));
 export const newFolder = async ({ name }) => run((db, actor) => support.createFolder(db, { actor, name }));
 export const renameFolder = async ({ folderId, name }) => run((db, actor) => support.renameFolder(db, { actor, folderId, name }));
 export const removeFolder = async ({ folderId }) => run((db, actor) => support.deleteFolder(db, { actor, folderId }));

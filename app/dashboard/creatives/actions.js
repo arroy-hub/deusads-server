@@ -130,10 +130,14 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     return { error: `This image is ${aspect.toFixed(2)}:1; the ${shapeLabel(wanted)} shape needs about ${shapeAspect(wanted).toFixed(2)}:1 (within 15%).` };
   }
   const heldShape = format ? format.id : wanted ?? shapeKey(aspect);
-  const { data: hold } = await me.service.from("creative_picture_holds").select("kind, dispute_id").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
+  const { data: hold } = await me.service.from("creative_picture_holds").select("kind, dispute_id, sent_at").eq("creative_id", creative.id).eq("shape", heldShape).maybeSingle();
   if (hold?.kind === "blocked") {
     await cleanup();
     return { error: "DeusADS blocked this creative in this shape. Write to DeusADS under the decision if you think it is a mistake." };
+  }
+  if (hold?.kind === "changes" && hold.sent_at) {
+    await cleanup();
+    return { error: "The new picture for this shape is in review. Wait for the decision of DeusADS, then you can replace it." };
   }
   // The dispute keeps the picture that was reported (migration 0067): it is copied before the new one takes its place.
   if (hold?.kind === "changes" && hold.dispute_id) {
@@ -179,18 +183,9 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
     return { error: isSchemaOutdated(error) || error?.code === "42P01" ? MISSING : "Could not save. Try again." };
   }
 
-  if (status === "pending") {
-    await me.service.from("creative_picture_holds").update({ sent_at: new Date().toISOString() }).eq("creative_id", creative.id).eq("shape", heldShape);
-    const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
-    // the dispute keeps what happened, and is where the picture is reviewed
-    if (hold.dispute_id) await me.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: me.user.id, side: "advertiser", kind: "decision", text: `picture: uploaded ${w} × ${h}` }).then(() => null, () => null);
-    // the developer who reported it follows the report too
-    const reporter = await reporterOf(me.service, hold.dispute_id).catch(() => null);
-    if (reporter) await notify(me.service, { accountId: reporter, text: `The advertiser uploaded a new picture for "${creative.name}" after your report. DeusADS is reviewing it.`, link: `/dashboard/support?tab=requests&report=${hold.dispute_id}`, type: "dev_report_decided" });
-    await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture for "${creative.name}" waits for review: it replaces one that was reported.`, hold.dispute_id ? `/dashboard/admin/disputes?card=dispute:${hold.dispute_id}` : "/dashboard/admin/disputes", "admin_reports");
-    revalidatePath("/dashboard/admin/disputes");
-    revalidatePath("/dashboard/advertising");
-  }
+  // A new picture for a shape DeusADS asked to change is not sent by itself: the advertiser looks at it and sends it
+  // (sendHeldPicture). Until then nobody is told and the shape keeps waiting.
+  if (status === "pending") revalidatePath("/dashboard/advertising");
   after(async () => {
     try {
       await makeVariants(me.service, path);
@@ -200,7 +195,7 @@ export async function registerAsset({ creativeId, formatId, path, type, size, wi
   });
   refresh(creative.id);
   // the picture as it is stored now, so the page can show it at once
-  return { ok: true, status, notice: fitted.notice, id: data.id, url: me.service.storage.from("creatives").getPublicUrl(path).data.publicUrl, width: w, height: h };
+  return { ok: true, status, draft: status === "pending", notice: fitted.notice, id: data.id, url: me.service.storage.from("creatives").getPublicUrl(path).data.publicUrl, width: w, height: h };
 }
 
 /** Remove one extra picture of one of the caller's creatives. */
@@ -451,4 +446,37 @@ export async function replyToDeusADS({ creativeId, disputeId, text }) {
   refresh(creative.id);
   revalidatePath("/dashboard/advertising");
   return { ok: true, message: { side: "advertiser", text: clean, at: new Date().toISOString() } };
+}
+
+
+/**
+ * The advertiser sends the new picture of a shape DeusADS asked to change for review. Only now the dispute moves on:
+ * DeusADS gets it to check, and the developer who reported the picture is told.
+ */
+export async function sendHeldPicture({ creativeId, shape }) {
+  const me = await getMember();
+  if (!me) return { error: "Your session expired. Sign in again." };
+  const creative = await ownCreative(me, creativeId, "id, name");
+  if (!creative) return { error: "That creative no longer exists." };
+  const { data: hold } = await me.service.from("creative_picture_holds").select("kind, dispute_id, sent_at").eq("creative_id", creative.id).eq("shape", String(shape ?? "")).maybeSingle();
+  if (!hold || hold.kind !== "changes") return { error: "DeusADS is not waiting for a new picture of this shape." };
+  if (hold.sent_at) return { ok: true, already: true };
+  const { data: asset } = await me.service.from("creative_assets").select("id, width_px, height_px").eq("creative_id", creative.id).eq("format_id", shape).eq("status", "pending").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!asset) return { error: "Upload the new picture first." };
+
+  const now = new Date().toISOString();
+  const { error } = await me.service.from("creative_picture_holds").update({ sent_at: now }).eq("creative_id", creative.id).eq("shape", shape);
+  if (error) return { error: "Could not send it. Try again." };
+  // the dispute keeps what happened, and is where the picture is reviewed
+  if (hold.dispute_id) await me.service.from("dispute_events").insert({ dispute_id: hold.dispute_id, author_id: me.user.id, side: "advertiser", kind: "decision", text: `picture: uploaded ${asset.width_px} × ${asset.height_px}` }).then(() => null, () => null);
+  // the developer who reported it follows the report too
+  const reporter = await reporterOf(me.service, hold.dispute_id).catch(() => null);
+  if (reporter) await notify(me.service, { accountId: reporter, text: `The advertiser uploaded a new picture for "${creative.name}" after your report. DeusADS is reviewing it.`, link: `/dashboard/support?tab=requests&report=${hold.dispute_id}`, type: "dev_report_decided" });
+  const { data: admins } = await me.service.from("accounts").select("id").eq("role", "admin");
+  await notifyMany(me.service, (admins ?? []).map((row) => row.id), `A new picture for "${creative.name}" waits for review: it replaces one that was reported.`, hold.dispute_id ? `/dashboard/admin/disputes?card=dispute:${hold.dispute_id}` : "/dashboard/admin/disputes", "admin_reports");
+  revalidatePath("/dashboard/admin/disputes");
+  revalidatePath("/dashboard/advertising");
+  revalidatePath("/dashboard/support");
+  refresh(creative.id);
+  return { ok: true, at: now };
 }
