@@ -9364,6 +9364,8 @@ body.ig-dragging *{cursor:grabbing!important}
 .rail-group.is-foot { margin-top: auto; }
 /* ...for an admin too: the admin menu resets the space between its groups, which also pulled the foot up to the list */
 .shell .rail .rail-group.is-foot { margin-top: auto; }
+/* the line above Help & feedback, in every role (the admin menu drops the lines between its groups, this one stays) */
+.shell .rail .rail-group.is-foot { border-top: 1px solid var(--rail-line, rgba(255,255,255,.12)); padding-top: 12px; }
 
 /* the assistant tab: one white card with the chat */
 .sp-assistant { align-items: flex-start; }
